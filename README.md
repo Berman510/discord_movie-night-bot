@@ -2,7 +2,7 @@
 
 Discord bot to create in-channel movie recommendations with persistent voting, status tracking, queue management, and IMDb integration. Features MySQL database storage, movie night statistics, and smart suggestion management.
 
-**Version:** 1.5.1
+**Version:** 1.5.2
 
 ---
 
@@ -110,6 +110,7 @@ pm2 startup  # follow the printed instructions
 ### Managing Movies
 - **Vote:** Use 👍/👎 buttons to vote on recommendations
 - **Status:** Use ✅ Watched, 📌 Plan Later, or ⏭️ Skip buttons to manage movies
+- **Finality:** Marking a movie as "Watched" removes all buttons and closes the discussion thread
 - **Queue:** Run `/movie-queue` to see pending and planned movies
 - **Stats:** Run `/movie-stats` to view top-rated movies and viewing history
 

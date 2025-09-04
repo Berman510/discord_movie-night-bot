@@ -150,12 +150,17 @@ async function postPersistentGuide(channel) {
 }
 
 function makeVoteButtons(messageId, upCount = 0, downCount = 0, status = 'pending') {
+  // For watched movies, return no buttons (voting is closed)
+  if (status === 'watched') {
+    return [];
+  }
+
   const voteRow = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId(`mn:up:${messageId}`).setLabel(`👍 ${upCount}`).setStyle(ButtonStyle.Success),
     new ButtonBuilder().setCustomId(`mn:down:${messageId}`).setLabel(`👎 ${downCount}`).setStyle(ButtonStyle.Danger)
   );
 
-  // Add status management buttons for pending movies
+  // Add status management buttons for pending movies only
   if (status === 'pending') {
     const statusRow = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(`mn:watched:${messageId}`).setLabel('✅ Watched').setStyle(ButtonStyle.Secondary),
@@ -165,16 +170,11 @@ function makeVoteButtons(messageId, upCount = 0, downCount = 0, status = 'pendin
     return [voteRow, statusRow];
   }
 
+  // For planned/skipped movies, only show vote buttons (no status buttons)
   return [voteRow];
 }
 
-function makeStatusButtons(messageId) {
-  return new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`mn:watched:${messageId}`).setLabel('✅ Watched').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId(`mn:planned:${messageId}`).setLabel('📌 Plan Later').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId(`mn:skipped:${messageId}`).setLabel('⏭️ Skip').setStyle(ButtonStyle.Secondary)
-  );
-}
+
 
 function makeModal() {
   const modal = new ModalBuilder().setCustomId('mn:modal').setTitle('New Movie Recommendation');
@@ -775,13 +775,51 @@ client.on('interactionCreate', async (interaction) => {
           newEmbed.setColor(action === 'watched' ? 0x00ff00 : action === 'planned' ? 0xffaa00 : 0x888888);
           newEmbed.setFooter({ text: `${statusEmojis[action]} ${statusLabels[action]}` });
 
-          // Remove status buttons for non-pending movies
-          const components = makeVoteButtons(messageId, upCount, downCount, action);
-          await message.edit({ embeds: [newEmbed], components });
+          // For watched movies: remove all buttons and close discussion
+          if (action === 'watched') {
+            await message.edit({ embeds: [newEmbed], components: [] });
+
+            // Close the discussion thread if it exists
+            try {
+              if (message.hasThread) {
+                const thread = message.thread;
+                if (thread && !thread.archived) {
+                  await thread.setArchived(true, 'Movie marked as watched - discussion closed');
+                  console.log(`🔒 Archived thread for watched movie: ${messageId}`);
+                }
+              } else {
+                // For normal text channels, look for threads started from this message
+                const channel = message.channel;
+                if (channel.threads) {
+                  const threads = await channel.threads.fetchActive();
+                  const movieThread = threads.threads.find(t =>
+                    t.ownerId === message.author.id &&
+                    t.name.includes('Discussion') &&
+                    Math.abs(t.createdTimestamp - message.createdTimestamp) < 60000 // Within 1 minute
+                  );
+
+                  if (movieThread && !movieThread.archived) {
+                    await movieThread.setArchived(true, 'Movie marked as watched - discussion closed');
+                    console.log(`🔒 Archived discussion thread for watched movie: ${messageId}`);
+                  }
+                }
+              }
+            } catch (e) {
+              console.warn('Failed to archive thread:', e?.message || e);
+            }
+          } else {
+            // For planned/skipped: keep vote buttons but remove status buttons
+            const components = makeVoteButtons(messageId, upCount, downCount, action);
+            await message.edit({ embeds: [newEmbed], components });
+          }
         }
 
         // Send confirmation
-        const statusLabels = { watched: 'marked as watched', planned: 'planned for later', skipped: 'skipped' };
+        const statusLabels = {
+          watched: 'marked as watched and discussion closed',
+          planned: 'planned for later',
+          skipped: 'skipped'
+        };
         await interaction.followUp({
           content: `Movie ${statusLabels[action]}! 🎬`,
           flags: MessageFlags.Ephemeral

@@ -2,6 +2,18 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.5.2] - 2025-09-04
+### Added
+- **Automatic Thread Closure:** When a movie is marked as "Watched", its discussion thread is automatically archived
+- **Complete Voting Closure:** Watched movies have all buttons removed - no more voting or status changes possible
+
+### Changed
+- Enhanced "Watched" status behavior to properly close discussions and voting
+- Improved status management with clear finality for watched movies
+- Better user feedback indicating when discussions are closed
+
+---
+
 ## [1.5.1] - 2025-09-04
 ### Added
 - **Persistent Recommendation Button:** Only the most recent movie post includes a quick guide and recommendation button
