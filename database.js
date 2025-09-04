@@ -40,7 +40,6 @@ class Database {
         connectionLimit: 10,
         queueLimit: 0,
         connectTimeout: 60000,
-        acquireTimeout: 60000,
       });
 
       // Test connection
