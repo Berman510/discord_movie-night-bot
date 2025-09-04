@@ -270,7 +270,7 @@ async function omdbById(imdbID) {
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
-client.once('ready', () => {
+client.once('clientReady', () => {
   console.log('==============================');
   console.log(`🎬 Movie Night Bot v${BOT_VERSION}`);
   console.log(`✅ Logged in as ${client.user.tag}`);

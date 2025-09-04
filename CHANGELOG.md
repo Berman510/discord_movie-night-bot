@@ -2,6 +2,12 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.3.4] - 2025-09-04
+### Fixed
+- Updated `ready` event to `clientReady` to resolve discord.js deprecation warning and ensure compatibility with future versions.
+
+---
+
 ## [1.3.3] - 2025-09-04
 ### Added
 - **Forum/Media channel support:** Bot now creates a **post** with embed + vote buttons and seeds details automatically if used in a Forum/Media channel.
