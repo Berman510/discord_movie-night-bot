@@ -2,6 +2,20 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.6.0] - 2025-09-04
+### Added
+- **Channel Cleanup System:** `/movie-cleanup` command to update old bot messages to current format
+- **Automatic Message Modernization:** Updates old movie posts with new button layouts and database integration
+- **Guide Message Cleanup:** Removes duplicate guide messages, keeping only the most recent
+- **Admin-Only Access:** Cleanup command requires Administrator permissions for safety
+
+### Changed
+- Enhanced channel maintenance with retroactive format updates
+- Improved consistency across all bot messages regardless of when they were posted
+- Better handling of legacy messages from previous bot versions
+
+---
+
 ## [1.5.2] - 2025-09-04
 ### Added
 - **Automatic Thread Closure:** When a movie is marked as "Watched", its discussion thread is automatically archived

@@ -91,6 +91,10 @@ const COMMANDS = [
       }
     ]
   },
+  {
+    name: 'movie-cleanup',
+    description: 'Update old bot messages to current format (Admin only)',
+  },
 ];
 
 async function registerCommands() {
@@ -642,6 +646,161 @@ async function pickSessionWinner(interaction) {
   await database.updateMovieStatus(winner.message_id, 'watched', new Date());
 }
 
+async function handleMovieCleanup(interaction) {
+  // Check if user has admin permissions
+  if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
+    await interaction.reply({
+      content: '❌ This command requires Administrator permissions.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  await interaction.reply({
+    content: '🧹 Starting channel cleanup... This may take a moment.',
+    flags: MessageFlags.Ephemeral
+  });
+
+  try {
+    const channel = interaction.channel;
+    const botId = interaction.client.user.id;
+    let updatedCount = 0;
+    let processedCount = 0;
+
+    // Fetch recent messages (last 100)
+    const messages = await channel.messages.fetch({ limit: 100 });
+    const botMessages = messages.filter(msg => msg.author.id === botId);
+
+    for (const [messageId, message] of botMessages) {
+      processedCount++;
+
+      // Skip if message already has the current format
+      if (isCurrentFormat(message)) {
+        continue;
+      }
+
+      // Try to update the message
+      const updated = await updateMessageToCurrentFormat(message);
+      if (updated) {
+        updatedCount++;
+        // Add a small delay to avoid rate limits
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+
+    // Clean up old guide messages (keep only the most recent)
+    await cleanupOldGuideMessages(channel, botId);
+
+    await interaction.followUp({
+      content: `✅ Cleanup complete! Processed ${processedCount} messages, updated ${updatedCount} to current format.`,
+      flags: MessageFlags.Ephemeral
+    });
+
+  } catch (error) {
+    console.error('Cleanup error:', error);
+    await interaction.followUp({
+      content: '❌ Cleanup failed. Check console for details.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+function isCurrentFormat(message) {
+  // Check if message has the current button format
+  if (message.embeds.length === 0) return false;
+
+  const embed = message.embeds[0];
+
+  // Check if it's a movie recommendation embed
+  if (!embed.title || !embed.title.includes('🍿')) return false;
+
+  // Check if it has current button format
+  if (message.components.length === 0) return false;
+
+  const hasVoteButtons = message.components.some(row =>
+    row.components.some(component =>
+      component.customId && component.customId.includes('mn:up:')
+    )
+  );
+
+  return hasVoteButtons;
+}
+
+async function updateMessageToCurrentFormat(message) {
+  try {
+    const embed = message.embeds[0];
+    if (!embed || !embed.title || !embed.title.includes('🍿')) {
+      return false; // Not a movie recommendation
+    }
+
+    // Extract movie info from embed
+    const title = embed.title.replace('🍿 ', '');
+    const messageId = message.id;
+
+    // Get current vote counts from database or initialize
+    let upCount = 0, downCount = 0;
+    if (database.isConnected) {
+      const voteCounts = await database.getVoteCounts(messageId);
+      upCount = voteCounts.up;
+      downCount = voteCounts.down;
+    }
+
+    // Determine status from embed footer or default to pending
+    let status = 'pending';
+    if (embed.footer) {
+      if (embed.footer.text.includes('✅ Watched')) status = 'watched';
+      else if (embed.footer.text.includes('📌 Planned')) status = 'planned';
+      else if (embed.footer.text.includes('⏭️ Skipped')) status = 'skipped';
+    }
+
+    // Create updated components
+    const components = makeVoteButtons(messageId, upCount, downCount, status);
+
+    // Update the message
+    await message.edit({ components });
+
+    console.log(`✅ Updated message ${messageId} to current format`);
+    return true;
+  } catch (error) {
+    console.warn(`Failed to update message ${message.id}:`, error.message);
+    return false;
+  }
+}
+
+async function cleanupOldGuideMessages(channel, botId) {
+  try {
+    const messages = await channel.messages.fetch({ limit: 50 });
+    const guideMessages = messages.filter(msg =>
+      msg.author.id === botId &&
+      msg.embeds.length > 0 &&
+      msg.embeds[0].title &&
+      msg.embeds[0].title.includes('Movie Night Bot - Quick Guide')
+    );
+
+    // Keep only the most recent guide message
+    const sortedGuides = Array.from(guideMessages.values()).sort((a, b) => b.createdTimestamp - a.createdTimestamp);
+
+    if (sortedGuides.length > 1) {
+      // Delete all but the most recent
+      for (let i = 1; i < sortedGuides.length; i++) {
+        try {
+          await sortedGuides[i].delete();
+          console.log(`🗑️ Deleted old guide message ${sortedGuides[i].id}`);
+        } catch (e) {
+          console.warn(`Failed to delete guide message ${sortedGuides[i].id}:`, e.message);
+        }
+      }
+
+      // Update the tracking for the remaining guide
+      if (sortedGuides.length > 0) {
+        lastGuideMessages.set(channel.id, sortedGuides[0].id);
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to cleanup guide messages:', error.message);
+  }
+}
+
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 client.once('clientReady', () => {
@@ -676,6 +835,11 @@ client.on('interactionCreate', async (interaction) => {
 
       if (interaction.commandName === 'movie-session') {
         await handleMovieSession(interaction);
+        return;
+      }
+
+      if (interaction.commandName === 'movie-cleanup') {
+        await handleMovieCleanup(interaction);
         return;
       }
     }
