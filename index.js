@@ -126,6 +126,10 @@ const COMMANDS = [
       }
     ]
   },
+  {
+    name: 'movie-help',
+    description: 'Show comprehensive help and current status',
+  },
 ];
 
 async function registerCommands() {
@@ -851,6 +855,143 @@ async function resetGuildConfig(interaction, guildId) {
   }
 }
 
+async function handleMovieHelp(interaction) {
+  const guildId = interaction.guild.id;
+  const isAdmin = await checkMovieAdminPermission(interaction);
+
+  // Create base embed
+  const embed = new EmbedBuilder()
+    .setTitle('🎬 Movie Night Bot - Help & Status')
+    .setColor(0x5865f2)
+    .setTimestamp()
+    .setFooter({ text: `Movie Night Bot v${BOT_VERSION}` });
+
+  // Basic commands for everyone
+  embed.addFields(
+    {
+      name: '🎭 Basic Commands',
+      value: '`/movie-night` - Post recommendation button\n`/movie-queue` - View movie queue\n`/movie-stats` - View statistics\n`/movie-help` - Show this help',
+      inline: false
+    },
+    {
+      name: '🎬 How to Use',
+      value: '• Click "🎬 Create recommendation" button\n• Vote with 👍/👎 buttons\n• Use status buttons: ✅ Watched, 📌 Plan Later, ⏭️ Skip',
+      inline: false
+    }
+  );
+
+  // Movie session commands
+  embed.addFields({
+    name: '🎪 Movie Sessions',
+    value: '`/movie-session create` - Organize movie night events\n`/movie-session list` - View active sessions\n`/movie-session winner` - Pick top-voted movie',
+    inline: false
+  });
+
+  // Add current status information
+  if (database.isConnected) {
+    try {
+      // Get current queue status
+      const pendingMovies = await database.getMoviesByStatus(guildId, 'pending', 5);
+      const plannedMovies = await database.getMoviesByStatus(guildId, 'planned', 3);
+      const watchedMovies = await database.getMoviesByStatus(guildId, 'watched', 3);
+      const activeSessions = await database.getMovieSessions(guildId, 'planning', 3);
+
+      // Queue status
+      let queueStatus = '';
+      if (pendingMovies.length > 0) {
+        queueStatus += `**Pending (${pendingMovies.length}):** `;
+        queueStatus += pendingMovies.slice(0, 3).map(m => `${m.title} (👍${m.up_votes})`).join(', ');
+        if (pendingMovies.length > 3) queueStatus += ` +${pendingMovies.length - 3} more`;
+      } else {
+        queueStatus += 'No pending movies';
+      }
+
+      embed.addFields({
+        name: '📊 Current Queue Status',
+        value: queueStatus,
+        inline: false
+      });
+
+      // Recent activity
+      let activityStatus = '';
+      if (plannedMovies.length > 0) {
+        activityStatus += `**Planned:** ${plannedMovies.length} movies\n`;
+      }
+      if (watchedMovies.length > 0) {
+        activityStatus += `**Recently Watched:** ${watchedMovies.slice(0, 2).map(m => m.title).join(', ')}`;
+        if (watchedMovies.length > 2) activityStatus += ` +${watchedMovies.length - 2} more`;
+      }
+      if (!activityStatus) activityStatus = 'No recent activity';
+
+      embed.addFields({
+        name: '🎯 Recent Activity',
+        value: activityStatus,
+        inline: false
+      });
+
+      // Active sessions
+      if (activeSessions.length > 0) {
+        const sessionList = activeSessions.map(s => {
+          const date = s.scheduled_date ? new Date(s.scheduled_date).toLocaleDateString() : 'TBD';
+          return `**${s.name}** - ${date}`;
+        }).join('\n');
+
+        embed.addFields({
+          name: '🎪 Active Sessions',
+          value: sessionList,
+          inline: false
+        });
+      }
+
+    } catch (error) {
+      console.warn('Error getting status for help command:', error.message);
+    }
+  }
+
+  // Admin-only commands and configuration
+  if (isAdmin) {
+    embed.addFields({
+      name: '👑 Admin Commands',
+      value: '`/movie-cleanup` - Update old messages to current format\n`/movie-configure` - Configure bot settings\n`/movie-session close` - Close voting (coming soon)',
+      inline: false
+    });
+
+    // Show current configuration
+    if (database.isConnected) {
+      try {
+        const config = await database.getGuildConfig(guildId);
+        if (config) {
+          let configInfo = '';
+          configInfo += `**Channel:** ${config.movie_channel_id ? `<#${config.movie_channel_id}>` : 'Any channel'}\n`;
+          configInfo += `**Admin Roles:** ${config.admin_roles.length > 0 ? config.admin_roles.map(id => `<@&${id}>`).join(', ') : 'Discord Admins only'}`;
+
+          embed.addFields({
+            name: '⚙️ Current Configuration',
+            value: configInfo,
+            inline: false
+          });
+        }
+      } catch (error) {
+        console.warn('Error getting config for help command:', error.message);
+      }
+    }
+  }
+
+  // System status
+  let systemStatus = '';
+  systemStatus += `**Database:** ${database.isConnected ? '✅ Connected' : '❌ Disconnected'}\n`;
+  systemStatus += `**OMDb API:** ${OMDB_API_KEY ? '✅ Enabled' : '❌ Disabled'}\n`;
+  systemStatus += `**Mode:** ${GUILD_ID ? 'Guild Commands' : 'Global Commands'}`;
+
+  embed.addFields({
+    name: '🔧 System Status',
+    value: systemStatus,
+    inline: false
+  });
+
+  await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+}
+
 async function handleMovieCleanup(interaction) {
   if (!database.isConnected) {
     await interaction.reply({
@@ -1069,6 +1210,11 @@ client.on('interactionCreate', async (interaction) => {
 
       if (interaction.commandName === 'movie-configure') {
         await handleMovieConfigure(interaction);
+        return;
+      }
+
+      if (interaction.commandName === 'movie-help') {
+        await handleMovieHelp(interaction);
         return;
       }
     }

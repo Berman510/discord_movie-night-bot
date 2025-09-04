@@ -2,6 +2,19 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.7.1] - 2025-09-04
+### Added
+- **Comprehensive Help Command:** `/movie-help` shows all commands, current status, and admin information
+- **Real-Time Status Display:** Shows current queue, recent activity, and active sessions
+- **Permission-Aware Help:** Different information shown based on user's admin status
+- **System Status Monitoring:** Displays database, API, and configuration status
+
+### Changed
+- Enhanced user experience with centralized help and status information
+- Improved discoverability of all bot features and current server state
+
+---
+
 ## [1.7.0] - 2025-09-04
 ### Added
 - **Guild Configuration System:** `/movie-configure` command for server-specific settings
