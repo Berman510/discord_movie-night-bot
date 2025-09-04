@@ -1,8 +1,8 @@
 # Movie Night Bot
 
-Discord bot to create in-channel movie recommendations via a modal (Title + Where to stream), post an embed with live 👍/👎 vote buttons, open a discussion thread, and enrich with IMDb/OMDb details.
+Discord bot to create in-channel movie recommendations with persistent voting, status tracking, queue management, and IMDb integration. Features MySQL database storage, movie night statistics, and smart suggestion management.
 
-**Version:** 1.3.1
+**Version:** 1.4.0
 
 ---
 
@@ -41,7 +41,22 @@ CLIENT_ID=YOUR_APPLICATION_ID
 GUILD_ID=YOUR_SERVER_ID
 # Optional: OMDb API key
 OMDB_API_KEY=YOUR_OMDB_API_KEY
+
+# MySQL Database (get these from PebbleHost panel)
+DB_HOST=YOUR_DB_HOST
+DB_USER=YOUR_DB_USER
+DB_PASSWORD=YOUR_DB_PASSWORD
+DB_NAME=YOUR_DB_NAME
 ```
+
+## Database Setup (PebbleHost)
+1. Log into your PebbleHost panel
+2. Go to "MySQL Database" section
+3. Create a new database (you get 1 free with bot hosting)
+4. Copy the connection details to your `.env` file
+5. The bot will automatically create the required tables on first run
+
+**Note:** The bot works without a database (memory-only mode) but you'll lose data on restarts and won't have access to queue management or statistics features.
 
 ---
 
@@ -84,13 +99,25 @@ pm2 startup  # follow the printed instructions
 ---
 
 ## Usage
-1. In a server text channel, run `/movie-night`.
-2. Click **🎬 Create recommendation**.
-3. Fill the modal (Title + Where to stream) → Submit.
-4. If multiple IMDb matches are found, the bot sends you a private selector to confirm the title.
-5. The bot posts an embed with poster, Rated/IMDb/Metascore, and live vote buttons; a discussion thread opens automatically.
 
-No spammy confirmations — voting buttons update silently.
+### Creating Recommendations
+1. In a server text channel, run `/movie-night`
+2. Click **🎬 Create recommendation**
+3. Fill the modal (Title + Where to stream) → Submit
+4. If multiple IMDb matches are found, select the correct one from the dropdown
+5. The bot posts an embed with poster, ratings, and interactive buttons
+
+### Managing Movies
+- **Vote:** Use 👍/👎 buttons to vote on recommendations
+- **Status:** Use ✅ Watched, 📌 Plan Later, or ⏭️ Skip buttons to manage movies
+- **Queue:** Run `/movie-queue` to see pending and planned movies
+- **Stats:** Run `/movie-stats` to view top-rated movies and viewing history
+
+### Features
+- **Persistent Data:** All votes and movie data survive bot restarts (with database)
+- **Smart Organization:** Movies are automatically categorized by status
+- **Discussion Threads:** Each recommendation gets its own discussion thread
+- **IMDb Integration:** Automatic movie details, posters, and ratings
 
 ---
 

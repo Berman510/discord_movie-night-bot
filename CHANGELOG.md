@@ -2,6 +2,25 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.4.0] - 2025-09-04
+### Added
+- **MySQL Database Integration:** Full persistent storage for movies, votes, and statistics
+- **Movie Status Management:** Mark movies as "Watched ✅", "Planned 📌", or "Skipped ⏭️"
+- **Enhanced Queue System:** `/movie-queue` command to view pending and planned movies
+- **Statistics Dashboard:** `/movie-stats` command showing top-rated movies and viewing history
+- **Persistent Voting:** Votes are now saved to database and survive bot restarts
+- **Smart Status Tracking:** Movies show visual status indicators and updated colors
+
+### Changed
+- Vote buttons now include status management options for better organization
+- Database operations with graceful fallback to memory-only mode if database unavailable
+- Enhanced embed styling with status-based colors and footers
+
+### Fixed
+- Updated `ready` event to `clientReady` to resolve discord.js deprecation warning
+
+---
+
 ## [1.3.4] - 2025-09-04
 ### Fixed
 - Updated `ready` event to `clientReady` to resolve discord.js deprecation warning and ensure compatibility with future versions.

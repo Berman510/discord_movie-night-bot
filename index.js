@@ -23,6 +23,7 @@ const {
   MessageFlags,
 } = require('discord.js');
 
+const database = require('./database');
 const { DISCORD_TOKEN, CLIENT_ID, GUILD_ID, OMDB_API_KEY } = process.env;
 const BOT_VERSION = require('./package.json').version;
 
@@ -49,6 +50,14 @@ const COMMANDS = [
     name: 'movie-night',
     description: 'Post a “Create Recommendation” button in this channel',
   },
+  {
+    name: 'movie-queue',
+    description: 'View the current movie queue and manage suggestions',
+  },
+  {
+    name: 'movie-stats',
+    description: 'View movie night statistics and leaderboards',
+  },
 ];
 
 async function registerCommands() {
@@ -68,10 +77,30 @@ function makeCreateButtonRow() {
   );
 }
 
-function makeVoteButtons(messageId, upCount = 0, downCount = 0) {
-  return new ActionRowBuilder().addComponents(
+function makeVoteButtons(messageId, upCount = 0, downCount = 0, status = 'pending') {
+  const voteRow = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId(`mn:up:${messageId}`).setLabel(`👍 ${upCount}`).setStyle(ButtonStyle.Success),
     new ButtonBuilder().setCustomId(`mn:down:${messageId}`).setLabel(`👎 ${downCount}`).setStyle(ButtonStyle.Danger)
+  );
+
+  // Add status management buttons for pending movies
+  if (status === 'pending') {
+    const statusRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`mn:watched:${messageId}`).setLabel('✅ Watched').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(`mn:planned:${messageId}`).setLabel('📌 Plan Later').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(`mn:skipped:${messageId}`).setLabel('⏭️ Skip').setStyle(ButtonStyle.Secondary)
+    );
+    return [voteRow, statusRow];
+  }
+
+  return [voteRow];
+}
+
+function makeStatusButtons(messageId) {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId(`mn:watched:${messageId}`).setLabel('✅ Watched').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId(`mn:planned:${messageId}`).setLabel('📌 Plan Later').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId(`mn:skipped:${messageId}`).setLabel('⏭️ Skip').setStyle(ButtonStyle.Secondary)
   );
 }
 
@@ -159,18 +188,35 @@ function checkChannelPerms(interaction) {
 async function postRecommendation(interaction, { title, where, imdb }) {
   const embed = makeRecommendationEmbed({ title, where, user: interaction.user, imdb });
   const channel = interaction.channel;
+  const components = makeVoteButtons('pending', 0, 0, 'pending');
 
   // Forum/media channels: create a post with starter message
   if (channel.type === ChannelType.GuildForum || channel.type === ChannelType.GuildMedia) {
     const post = await channel.threads.create({
       name: `${title} — Discussion`,
       autoArchiveDuration: 1440,
-      message: { embeds: [embed], components: [makeVoteButtons('pending', 0, 0)] },
+      message: { embeds: [embed], components },
     });
     const root = await post.fetchStarterMessage().catch(() => null);
-    const baseMsg = root ?? await post.send({ embeds: [embed], components: [makeVoteButtons('pending', 0, 0)] });
+    const baseMsg = root ?? await post.send({ embeds: [embed], components });
+
+    // Store in memory for immediate use
     votes.set(baseMsg.id, { up: new Set(), down: new Set() });
-    await baseMsg.edit({ components: [makeVoteButtons(baseMsg.id, 0, 0)] });
+
+    // Save to database
+    await database.saveMovie({
+      messageId: baseMsg.id,
+      guildId: interaction.guild.id,
+      channelId: channel.id,
+      title,
+      whereToWatch: where,
+      recommendedBy: interaction.user.id,
+      imdbId: imdb?.imdbID || null,
+      imdbData: imdb || null
+    });
+
+    const finalComponents = makeVoteButtons(baseMsg.id, 0, 0, 'pending');
+    await baseMsg.edit({ components: finalComponents });
 
     // Seed details
     const base = `Discussion for **${title}** (recommended by <@${interaction.user.id}>)`;
@@ -192,9 +238,25 @@ async function postRecommendation(interaction, { title, where, imdb }) {
   }
 
   // Normal text channels: send a message, then thread
-  const placeholder = await channel.send({ embeds: [embed], components: [makeVoteButtons('pending', 0, 0)] });
+  const placeholder = await channel.send({ embeds: [embed], components });
+
+  // Store in memory for immediate use
   votes.set(placeholder.id, { up: new Set(), down: new Set() });
-  await placeholder.edit({ components: [makeVoteButtons(placeholder.id, 0, 0)] });
+
+  // Save to database
+  await database.saveMovie({
+    messageId: placeholder.id,
+    guildId: interaction.guild.id,
+    channelId: channel.id,
+    title,
+    whereToWatch: where,
+    recommendedBy: interaction.user.id,
+    imdbId: imdb?.imdbID || null,
+    imdbData: imdb || null
+  });
+
+  const finalComponents = makeVoteButtons(placeholder.id, 0, 0, 'pending');
+  await placeholder.edit({ components: finalComponents });
 
   // Create a thread for discussion and seed details from IMDb
   try {
@@ -268,6 +330,91 @@ async function omdbById(imdbID) {
   }
 }
 
+// Command handlers
+async function handleMovieQueue(interaction) {
+  const guildId = interaction.guild.id;
+
+  if (!database.isConnected) {
+    await interaction.reply({
+      content: '⚠️ Database not available - queue features require database connection.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  const pendingMovies = await database.getMoviesByStatus(guildId, 'pending', 10);
+  const plannedMovies = await database.getMoviesByStatus(guildId, 'planned', 5);
+
+  if (pendingMovies.length === 0 && plannedMovies.length === 0) {
+    await interaction.reply({
+      content: '🎬 No movies in the queue! Use `/movie-night` to add some recommendations.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  const embed = new EmbedBuilder()
+    .setTitle('🍿 Movie Queue')
+    .setColor(0x5865f2)
+    .setTimestamp();
+
+  if (pendingMovies.length > 0) {
+    const pendingList = pendingMovies.map((movie, i) =>
+      `${i + 1}. **${movie.title}** (${movie.where_to_watch}) - 👍${movie.up_votes} 👎${movie.down_votes}`
+    ).join('\n');
+    embed.addFields({ name: '🗳️ Pending Votes', value: pendingList, inline: false });
+  }
+
+  if (plannedMovies.length > 0) {
+    const plannedList = plannedMovies.map((movie, i) =>
+      `${i + 1}. **${movie.title}** (${movie.where_to_watch})`
+    ).join('\n');
+    embed.addFields({ name: '📌 Planned for Later', value: plannedList, inline: false });
+  }
+
+  await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+}
+
+async function handleMovieStats(interaction) {
+  const guildId = interaction.guild.id;
+
+  if (!database.isConnected) {
+    await interaction.reply({
+      content: '⚠️ Database not available - stats require database connection.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  const topMovies = await database.getTopMovies(guildId, 5);
+  const watchedMovies = await database.getMoviesByStatus(guildId, 'watched', 5);
+
+  const embed = new EmbedBuilder()
+    .setTitle('📊 Movie Night Statistics')
+    .setColor(0x5865f2)
+    .setTimestamp();
+
+  if (topMovies.length > 0) {
+    const topList = topMovies.map((movie, i) =>
+      `${i + 1}. **${movie.title}** - Score: ${movie.score} (👍${movie.up_votes} 👎${movie.down_votes})`
+    ).join('\n');
+    embed.addFields({ name: '🏆 Top Rated (Pending)', value: topList, inline: false });
+  }
+
+  if (watchedMovies.length > 0) {
+    const watchedList = watchedMovies.map((movie, i) =>
+      `${i + 1}. **${movie.title}** - ${new Date(movie.watched_at).toLocaleDateString()}`
+    ).join('\n');
+    embed.addFields({ name: '✅ Recently Watched', value: watchedList, inline: false });
+  }
+
+  if (topMovies.length === 0 && watchedMovies.length === 0) {
+    embed.setDescription('No movie data available yet. Start recommending movies with `/movie-night`!');
+  }
+
+  await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+}
+
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 client.once('clientReady', () => {
@@ -277,17 +424,28 @@ client.once('clientReady', () => {
   console.log(`📦 Client ID: ${CLIENT_ID}`);
   console.log(GUILD_ID ? `🔧 Mode: Guild commands (server ${GUILD_ID})` : '🌍 Mode: Global commands (public)');
   console.log(OMDB_API_KEY ? '🔎 OMDb integration: ENABLED' : '🔎 OMDb integration: DISABLED');
+  console.log(database.isConnected ? '🗄️ Database: CONNECTED' : '🗄️ Database: DISCONNECTED (memory-only mode)');
   console.log('==============================');
 });
 
 client.on('interactionCreate', async (interaction) => {
   try {
-    // Slash command: /movie-night
+    // Slash commands
     if (interaction.isChatInputCommand()) {
       if (interaction.commandName === 'movie-night') {
         await interaction.reply({ content: 'Start a recommendation:', components: [makeCreateButtonRow()] });
+        return;
       }
-      return;
+
+      if (interaction.commandName === 'movie-queue') {
+        await handleMovieQueue(interaction);
+        return;
+      }
+
+      if (interaction.commandName === 'movie-stats') {
+        await handleMovieStats(interaction);
+        return;
+      }
     }
 
     // Create button → open modal
@@ -301,32 +459,101 @@ client.on('interactionCreate', async (interaction) => {
 
       // Voting handlers
       if (ns === 'mn' && (action === 'up' || action === 'down')) {
-        const messageId = msgId; // the recommendation message id
-        // Ack ASAP to avoid 10062 Unknown interaction on slower edits or mobile
+        const messageId = msgId;
         await interaction.deferUpdate().catch(() => {});
 
         const message = await interaction.channel.messages.fetch(messageId).catch(() => null);
         if (!message) return;
 
-        if (!votes.has(messageId)) votes.set(messageId, { up: new Set(), down: new Set() });
-        const state = votes.get(messageId);
         const userId = interaction.user.id;
-
         const isUp = action === 'up';
-        const addSet = isUp ? state.up : state.down;
-        const removeSet = isUp ? state.down : state.up;
 
-        if (removeSet.has(userId)) removeSet.delete(userId);
-        if (!addSet.has(userId)) addSet.add(userId); else addSet.delete(userId);
+        // Handle database voting
+        if (database.isConnected) {
+          const currentVotes = await database.getVoteCounts(messageId);
+          const userVotedUp = currentVotes.voters.up.includes(userId);
+          const userVotedDown = currentVotes.voters.down.includes(userId);
 
-        const upCount = state.up.size;
-        const downCount = state.down.size;
+          if (isUp) {
+            if (userVotedUp) {
+              await database.removeVote(messageId, userId);
+            } else {
+              await database.saveVote(messageId, userId, 'up');
+            }
+          } else {
+            if (userVotedDown) {
+              await database.removeVote(messageId, userId);
+            } else {
+              await database.saveVote(messageId, userId, 'down');
+            }
+          }
 
-        try {
-          await message.edit({ components: [makeVoteButtons(messageId, upCount, downCount)] });
-        } catch (e) {
-          console.warn('Vote update failed:', e?.message || e);
+          // Get updated counts
+          const updatedVotes = await database.getVoteCounts(messageId);
+          const components = makeVoteButtons(messageId, updatedVotes.up, updatedVotes.down, 'pending');
+          await message.edit({ components });
+        } else {
+          // Fallback to in-memory voting
+          if (!votes.has(messageId)) votes.set(messageId, { up: new Set(), down: new Set() });
+          const state = votes.get(messageId);
+
+          const addSet = isUp ? state.up : state.down;
+          const removeSet = isUp ? state.down : state.up;
+
+          if (removeSet.has(userId)) removeSet.delete(userId);
+          if (!addSet.has(userId)) addSet.add(userId); else addSet.delete(userId);
+
+          const components = makeVoteButtons(messageId, state.up.size, state.down.size, 'pending');
+          await message.edit({ components });
         }
+        return;
+      }
+
+      // Status change handlers
+      if (ns === 'mn' && (action === 'watched' || action === 'planned' || action === 'skipped')) {
+        const messageId = msgId;
+        await interaction.deferUpdate().catch(() => {});
+
+        const message = await interaction.channel.messages.fetch(messageId).catch(() => null);
+        if (!message) return;
+
+        // Update status in database
+        const watchedAt = action === 'watched' ? new Date() : null;
+        await database.updateMovieStatus(messageId, action, watchedAt);
+
+        // Get current vote counts for display
+        let upCount = 0, downCount = 0;
+        if (database.isConnected) {
+          const voteCounts = await database.getVoteCounts(messageId);
+          upCount = voteCounts.up;
+          downCount = voteCounts.down;
+        } else if (votes.has(messageId)) {
+          const state = votes.get(messageId);
+          upCount = state.up.size;
+          downCount = state.down.size;
+        }
+
+        // Update embed to show new status
+        const embed = message.embeds[0];
+        if (embed) {
+          const newEmbed = EmbedBuilder.from(embed);
+          const statusEmojis = { watched: '✅', planned: '📌', skipped: '⏭️' };
+          const statusLabels = { watched: 'Watched', planned: 'Planned for Later', skipped: 'Skipped' };
+
+          newEmbed.setColor(action === 'watched' ? 0x00ff00 : action === 'planned' ? 0xffaa00 : 0x888888);
+          newEmbed.setFooter({ text: `${statusEmojis[action]} ${statusLabels[action]}` });
+
+          // Remove status buttons for non-pending movies
+          const components = makeVoteButtons(messageId, upCount, downCount, action);
+          await message.edit({ embeds: [newEmbed], components });
+        }
+
+        // Send confirmation
+        const statusLabels = { watched: 'marked as watched', planned: 'planned for later', skipped: 'skipped' };
+        await interaction.followUp({
+          content: `Movie ${statusLabels[action]}! 🎬`,
+          flags: MessageFlags.Ephemeral
+        });
         return;
       }
     }
@@ -438,6 +665,10 @@ client.on('interactionCreate', async (interaction) => {
 (async () => {
   console.log('🚀 Starting Movie Night Bot...');
   console.log(`🔖 Version ${BOT_VERSION}`);
+
+  // Connect to database
+  await database.connect();
+
   await registerCommands();
   await client.login(DISCORD_TOKEN);
 })();
