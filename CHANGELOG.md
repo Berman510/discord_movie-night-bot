@@ -2,6 +2,20 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.5.0] - 2025-09-04
+### Added
+- **Movie Session Management:** `/movie-session` command for organizing movie night events
+- **Event Creation:** Create named movie sessions with optional dates/times
+- **Session Tracking:** List active movie sessions and their details
+- **Winner Selection:** Automatically pick the highest-voted movie as the session winner
+- **Event Integration:** Sessions integrate with existing voting and queue systems
+
+### Changed
+- Enhanced command structure with sub-options for better organization
+- Improved database schema to support movie session tracking
+
+---
+
 ## [1.4.0] - 2025-09-04
 ### Added
 - **MySQL Database Integration:** Full persistent storage for movies, votes, and statistics

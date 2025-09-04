@@ -274,6 +274,63 @@ class Database {
     }
   }
 
+  // Movie session operations
+  async createMovieSession(sessionData) {
+    if (!this.isConnected) return null;
+
+    try {
+      const [result] = await this.pool.execute(
+        `INSERT INTO movie_sessions (guild_id, channel_id, name, description, scheduled_date, created_by)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [
+          sessionData.guildId,
+          sessionData.channelId,
+          sessionData.name,
+          sessionData.description || null,
+          sessionData.scheduledDate || null,
+          sessionData.createdBy
+        ]
+      );
+      return result.insertId;
+    } catch (error) {
+      console.error('Error creating movie session:', error.message);
+      return null;
+    }
+  }
+
+  async getMovieSessions(guildId, status = 'planning', limit = 10) {
+    if (!this.isConnected) return [];
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT * FROM movie_sessions
+         WHERE guild_id = ? AND status = ?
+         ORDER BY created_at DESC
+         LIMIT ?`,
+        [guildId, status, limit]
+      );
+      return rows;
+    } catch (error) {
+      console.error('Error getting movie sessions:', error.message);
+      return [];
+    }
+  }
+
+  async updateSessionStatus(sessionId, status, winnerMessageId = null) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `UPDATE movie_sessions SET status = ?, winner_message_id = ? WHERE id = ?`,
+        [status, winnerMessageId, sessionId]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error updating session status:', error.message);
+      return false;
+    }
+  }
+
   async close() {
     if (this.pool) {
       await this.pool.end();

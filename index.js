@@ -58,6 +58,36 @@ const COMMANDS = [
     name: 'movie-stats',
     description: 'View movie night statistics and leaderboards',
   },
+  {
+    name: 'movie-session',
+    description: 'Create and manage movie night events',
+    options: [
+      {
+        name: 'action',
+        description: 'What to do with movie sessions',
+        type: 3, // STRING
+        required: true,
+        choices: [
+          { name: 'create', value: 'create' },
+          { name: 'list', value: 'list' },
+          { name: 'close-voting', value: 'close' },
+          { name: 'pick-winner', value: 'winner' }
+        ]
+      },
+      {
+        name: 'name',
+        description: 'Name for the movie night session (for create action)',
+        type: 3, // STRING
+        required: false
+      },
+      {
+        name: 'date',
+        description: 'Date/time for the movie night (e.g., "Friday 8pm" or "2025-09-05 20:00")',
+        type: 3, // STRING
+        required: false
+      }
+    ]
+  },
 ];
 
 async function registerCommands() {
@@ -415,6 +445,155 @@ async function handleMovieStats(interaction) {
   await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
 }
 
+async function handleMovieSession(interaction) {
+  const action = interaction.options.getString('action');
+  const guildId = interaction.guild.id;
+
+  if (!database.isConnected) {
+    await interaction.reply({
+      content: '⚠️ Database not available - session features require database connection.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  switch (action) {
+    case 'create':
+      await createMovieSession(interaction);
+      break;
+    case 'list':
+      await listMovieSessions(interaction);
+      break;
+    case 'close':
+      await closeSessionVoting(interaction);
+      break;
+    case 'winner':
+      await pickSessionWinner(interaction);
+      break;
+    default:
+      await interaction.reply({
+        content: '❌ Unknown action. Use create, list, close, or winner.',
+        flags: MessageFlags.Ephemeral
+      });
+  }
+}
+
+async function createMovieSession(interaction) {
+  const name = interaction.options.getString('name') || `Movie Night - ${new Date().toLocaleDateString()}`;
+  const dateStr = interaction.options.getString('date');
+  const guildId = interaction.guild.id;
+  const channelId = interaction.channel.id;
+  const createdBy = interaction.user.id;
+
+  let scheduledDate = null;
+  if (dateStr) {
+    // Try to parse the date string
+    const parsed = new Date(dateStr);
+    if (!isNaN(parsed.getTime())) {
+      scheduledDate = parsed;
+    }
+  }
+
+  const sessionId = await database.createMovieSession({
+    guildId,
+    channelId,
+    name,
+    scheduledDate,
+    createdBy
+  });
+
+  if (!sessionId) {
+    await interaction.reply({
+      content: '❌ Failed to create movie session.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  const embed = new EmbedBuilder()
+    .setTitle('🎬 Movie Night Session Created!')
+    .setDescription(`**${name}**`)
+    .setColor(0x5865f2)
+    .addFields(
+      { name: '📅 Scheduled', value: scheduledDate ? scheduledDate.toLocaleString() : 'Not set', inline: true },
+      { name: '👤 Organizer', value: `<@${createdBy}>`, inline: true },
+      { name: '📍 Channel', value: `<#${channelId}>`, inline: true }
+    )
+    .setFooter({ text: `Session ID: ${sessionId}` })
+    .setTimestamp();
+
+  await interaction.reply({
+    content: '🎉 Movie night session created! Start adding recommendations with `/movie-night`',
+    embeds: [embed]
+  });
+}
+
+async function listMovieSessions(interaction) {
+  const guildId = interaction.guild.id;
+  const sessions = await database.getMovieSessions(guildId, 'planning', 5);
+
+  if (sessions.length === 0) {
+    await interaction.reply({
+      content: '📅 No active movie sessions. Create one with `/movie-session create`!',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  const embed = new EmbedBuilder()
+    .setTitle('🎬 Active Movie Sessions')
+    .setColor(0x5865f2)
+    .setTimestamp();
+
+  const sessionList = sessions.map(session => {
+    const date = session.scheduled_date ? new Date(session.scheduled_date).toLocaleDateString() : 'TBD';
+    return `**${session.name}** - ${date} (ID: ${session.id})`;
+  }).join('\n');
+
+  embed.setDescription(sessionList);
+  await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+}
+
+async function closeSessionVoting(interaction) {
+  await interaction.reply({
+    content: '🗳️ Voting closure feature coming soon! For now, use `/movie-session winner` to pick a winner.',
+    flags: MessageFlags.Ephemeral
+  });
+}
+
+async function pickSessionWinner(interaction) {
+  const guildId = interaction.guild.id;
+  const topMovies = await database.getTopMovies(guildId, 1);
+
+  if (topMovies.length === 0) {
+    await interaction.reply({
+      content: '🎬 No movies to pick from! Add some recommendations first.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  const winner = topMovies[0];
+  const embed = new EmbedBuilder()
+    .setTitle('🏆 Movie Night Winner!')
+    .setDescription(`**${winner.title}**`)
+    .setColor(0xffd700)
+    .addFields(
+      { name: '📺 Where to Watch', value: winner.where_to_watch, inline: true },
+      { name: '🗳️ Final Score', value: `👍${winner.up_votes} 👎${winner.down_votes} (Score: ${winner.score})`, inline: true },
+      { name: '👤 Recommended by', value: `<@${winner.recommended_by}>`, inline: true }
+    )
+    .setTimestamp();
+
+  await interaction.reply({
+    content: '🎉 The votes are in! Here\'s tonight\'s movie:',
+    embeds: [embed]
+  });
+
+  // Mark the winning movie as watched
+  await database.updateMovieStatus(winner.message_id, 'watched', new Date());
+}
+
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 client.once('clientReady', () => {
@@ -444,6 +623,11 @@ client.on('interactionCreate', async (interaction) => {
 
       if (interaction.commandName === 'movie-stats') {
         await handleMovieStats(interaction);
+        return;
+      }
+
+      if (interaction.commandName === 'movie-session') {
+        await handleMovieSession(interaction);
         return;
       }
     }
