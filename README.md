@@ -1,13 +1,13 @@
 # Movie Night Bot
 
-Discord bot to create in-channel movie recommendations with a modal (Title, MPAA rating, Where to stream), post an embed with 👍/👎 vote buttons, open a discussion thread, and (optionally) enrich with IMDb/OMDb details.
+Discord bot to create in-channel movie recommendations via a modal (Title + Where to stream), post an embed with live 👍/👎 vote buttons, open a discussion thread, and enrich with IMDb/OMDb details.
 
-**Version:** 1.1.0
+**Version:** 1.3.1
 
 ---
 
 ## Prerequisites
-- Node.js 18+ (includes `fetch`).
+- Node.js 18+ (fetch built-in).
 - Discord application + bot token.
 - (Optional) OMDb API key: <http://www.omdbapi.com/apikey.aspx>
 
@@ -47,26 +47,12 @@ OMDB_API_KEY=YOUR_OMDB_API_KEY
 
 ## Windows Setup (PowerShell)
 ```powershell
-# 1) Create folder & move into it
 mkdir "$env:USERPROFILE\movie-night-bot"
 cd "$env:USERPROFILE\movie-night-bot"
 
-# 2) Initialize project & install deps
-npm init -y
-npm install discord.js dotenv
+# Files: paste package.json, index.js, .env
 
-# 3) Create .env from template (edit values)
-@"
-DISCORD_TOKEN=YOUR_BOT_TOKEN
-CLIENT_ID=YOUR_APPLICATION_ID
-GUILD_ID=YOUR_SERVER_ID
-OMDB_API_KEY=YOUR_OMDB_API_KEY
-"@ | Out-File -FilePath ".env" -Encoding utf8
-
-# 4) Add the files from this repo (package.json/index.js/README.md)
-#    Paste the contents into matching files in this folder.
-
-# 5) Run
+npm install
 node index.js
 ```
 > If PowerShell blocks scripts, run: `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser`
@@ -75,27 +61,14 @@ node index.js
 
 ## Linux Setup (Debian/Ubuntu/DietPi)
 ```bash
-# 1) System update
 sudo apt update && sudo apt -y upgrade
-
-# 2) Node.js & npm (NodeSource LTS)
 curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
-sudo apt install -y nodejs
+sudo apt install -y nodejs git
 
-# 3) Project
 mkdir -p ~/movie-night-bot && cd ~/movie-night-bot
-npm init -y
-npm i discord.js dotenv
+# Files: paste package.json, index.js, .env
 
-# 4) .env
-cat > .env << 'EOF'
-DISCORD_TOKEN=YOUR_BOT_TOKEN
-CLIENT_ID=YOUR_APPLICATION_ID
-GUILD_ID=YOUR_SERVER_ID
-OMDB_API_KEY=YOUR_OMDB_API_KEY
-EOF
-
-# 5) Add files (package.json/index.js/README.md) and run
+npm install
 node index.js
 ```
 
@@ -113,32 +86,27 @@ pm2 startup  # follow the printed instructions
 ## Usage
 1. In a server text channel, run `/movie-night`.
 2. Click **🎬 Create recommendation**.
-3. Fill the modal (Title, MPAA rating, Where to stream) → Submit.
-4. The bot posts an embed with vote buttons.
-5. A thread is created for discussion, seeded with IMDb/OMDb details (if API key set).
+3. Fill the modal (Title + Where to stream) → Submit.
+4. If multiple IMDb matches are found, the bot sends you a private selector to confirm the title.
+5. The bot posts an embed with poster, Rated/IMDb/Metascore, and live vote buttons; a discussion thread opens automatically.
 
-If multiple IMDb matches are found, the bot sends you a private selector to confirm the exact title before posting.
+No spammy confirmations — voting buttons update silently.
 
 ---
 
 ## Troubleshooting
 - **Slash command not appearing**: set `GUILD_ID` in `.env` for instant registration; restart the bot.
-- **“The application did not respond”**: ensure `index.js` has the `interactionCreate` handler (this repo includes it), and that your process restarted after edits.
-- **No IMDb selector**: verify your OMDb key:
-  ```bash
-  curl "https://www.omdbapi.com/?apikey=YOUR_OMDB_API_KEY&type=movie&s=Dogma"
-  ```
-  Should return `Response: True`.
-- **Threads not created**: ensure bot has *Create Public Threads* and *Send Messages in Threads* permissions in that channel/category.
-- **Different Prod/Beta bots**: create two apps & tokens; run each with its own `.env`.
+- **“Invalid Form Body … SELECT_COMPONENT_OPTION_VALUE_DUPLICATED”**: fixed by deduping `imdbID` in v1.3.0.
+- **Threads not created**: ensure bot has *Create Public Threads* and *Send Messages in Threads*.
+- **Global vs Guild**: remove `GUILD_ID` for public/global; keep it set for instant updates in a test server.
 
 ---
 
 ## Versioning
-- `package.json` holds the canonical version (`1.1.0`).
+- `package.json` holds the canonical version (`1.3.0`).
 - `index.js` reads it via `require('./package.json').version` and logs on startup.
 
 ---
 
 ## License
-MIT
+ISC (adapt as needed).

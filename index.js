@@ -1,6 +1,6 @@
 /**
- * Movie Night Bot — public-ready with IMDb (OMDb) lookup + threads + logging
- * Version: 1.2.0
+ * Movie Night Bot — public-ready with IMDb (OMDb) lookup + threads + clean UI
+ * Version: 1.3.1
  */
 
 require('dotenv').config();
@@ -31,6 +31,16 @@ if (!DISCORD_TOKEN || !CLIENT_ID) {
 
 // In-memory vote store: { [messageId]: { up:Set<userId>, down:Set<userId> } }
 const votes = new Map();
+
+// Temporary store for modal → select payloads (title/where), keyed by a short token
+const pendingPayloads = new Map(); // key -> { title, where, createdAt }
+// TTL cleanup (15 minutes)
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, v] of pendingPayloads) {
+    if (now - (v.createdAt || 0) > 15 * 60 * 1000) pendingPayloads.delete(k);
+  }
+}, 60 * 1000);
 
 const COMMANDS = [
   {
@@ -90,7 +100,9 @@ function makeModal() {
 function makeRecommendationEmbed({ title, where, user, imdb }) {
   const embed = new EmbedBuilder()
     .setTitle(`🍿 ${title}`)
-    .setDescription(`**Where to watch:** ${where}\n\nRecommended by <@${user.id}>`)
+    .setDescription(`**Where to watch:** ${where}
+
+Recommended by <@${user.id}>`)
     .setColor(0x5865f2)
     .setTimestamp(new Date());
   if (imdb?.Poster && imdb.Poster !== 'N/A') embed.setThumbnail(imdb.Poster);
@@ -193,7 +205,8 @@ client.on('interactionCreate', async (interaction) => {
         const messageId = msgId; // the recommendation message id
         const message = await interaction.channel.messages.fetch(messageId).catch(() => null);
         if (!message) {
-          await interaction.reply({ content: 'Original recommendation not found.', flags: MessageFlags.Ephemeral });
+          // Silently acknowledge, nothing to update
+          await interaction.deferUpdate().catch(() => {});
           return;
         }
 
@@ -216,16 +229,21 @@ client.on('interactionCreate', async (interaction) => {
         const downCount = state.down.size;
 
         await message.edit({ components: [makeVoteButtons(messageId, upCount, downCount)] });
-
-        await interaction.reply({ content: `Your vote is in. Current score → 👍 ${upCount} / 👎 ${downCount}`, flags: MessageFlags.Ephemeral });
+        // No extra messages; silently acknowledge so the button stops spinning
+        await interaction.deferUpdate();
         return;
       }
     }
 
     // IMDb selection menu handler
     if (interaction.isStringSelectMenu() && interaction.customId.startsWith('mn:imdbpick:')) {
+      const key = interaction.customId.split(':')[2];
       const imdbID = interaction.values?.[0];
-      const origPayload = JSON.parse(Buffer.from(interaction.customId.split(':')[2], 'base64').toString('utf8'));
+      const origPayload = pendingPayloads.get(key);
+      if (!origPayload) {
+        await interaction.update({ content: 'Selection expired. Please submit again.', components: [] });
+        return;
+      }
       const { title, where } = origPayload;
 
       let imdb = null;
@@ -251,12 +269,15 @@ client.on('interactionCreate', async (interaction) => {
             imdb.Actors && imdb.Actors !== 'N/A' && `**Top cast:** ${imdb.Actors}`,
           ].filter(Boolean).join(String.fromCharCode(10));
 
-          await thread.send({ content: `**Synopsis:** ${synopsis}\n\n${details}` });
+          await thread.send({ content: `**Synopsis:** ${synopsis}
+
+${details}` });
         }
       } catch (e) {
         console.warn('Thread creation failed:', e?.message || e);
       }
 
+      pendingPayloads.delete(key);
       await interaction.update({ content: '✅ Added! Posted to channel and opened a discussion thread.', components: [] });
       return;
     }
@@ -273,15 +294,31 @@ client.on('interactionCreate', async (interaction) => {
       }
 
       if (results && results.length > 0) {
-        const options = results.slice(0, 10).map((r) => ({
-          label: `${r.Title} (${r.Year || 'n/a'})`,
+        // Deduplicate by imdbID and cap at 25 (Discord select max)
+        const seen = new Set();
+        const unique = [];
+        for (const r of results) {
+          if (!r || !r.imdbID || seen.has(r.imdbID)) continue;
+          seen.add(r.imdbID);
+          unique.push(r);
+          if (unique.length >= 25) break;
+        }
+
+        const options = unique.map((r) => ({
+          label: `${(r.Title || 'Untitled').slice(0, 90)} (${(r.Year || 'n/a').toString().slice(0, 9)})`,
           value: r.imdbID,
-          description: r.Type ? r.Type.toUpperCase() : 'MOVIE',
+          description: (r.Type ? r.Type.toUpperCase() : 'MOVIE').slice(0, 100),
         }));
 
-        const payload = Buffer.from(JSON.stringify({ title: rawTitle, where }), 'utf8').toString('base64');
+        // Store payload in memory with a short key to avoid long custom_id
+        const key = `${Date.now().toString(36)}${Math.random().toString(36).slice(2,8)}`;
+        pendingPayloads.set(key, { title: rawTitle, where, createdAt: Date.now() });
+
         const row = new ActionRowBuilder().addComponents(
-          new StringSelectMenuBuilder().setCustomId(`mn:imdbpick:${payload}`).setPlaceholder('Select the correct movie').addOptions(options)
+          new StringSelectMenuBuilder()
+            .setCustomId(`mn:imdbpick:${key}`)
+            .setPlaceholder('Select the correct movie')
+            .addOptions(options)
         );
 
         await interaction.reply({ content: 'Which title did you mean?', components: [row], flags: MessageFlags.Ephemeral });
