@@ -2,6 +2,27 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.3.3] - 2025-09-04
+### Added
+- **Forum/Media channel support:** Bot now creates a **post** with embed + vote buttons and seeds details automatically if used in a Forum/Media channel.
+- **Preflight permission checks:** Bot checks channel permissions before posting and responds with an ephemeral message listing any missing ones.
+
+### Changed
+- Improved logging for posting failures with clearer messages.
+- Always seeds a starter message in discussion threads, even when IMDb lookup fails.
+
+### Fixed
+- `Missing Permissions (50013)` errors now produce a clear, user-facing explanation instead of a generic failure.
+
+---
+
+## [1.3.2] - 2025-09-03
+### Fixed
+- **Unknown interaction (10062)** on slow/mobile vote clicks by acknowledging first (`deferUpdate`) before editing the message.
+- **Empty discussion threads**: a starter message is now always posted even if IMDb lookup is unavailable.
+
+---
+
 ## [1.3.1] - 2025-09-03
 ### Fixed
 - **Selection expired** bug: selector payload key no longer includes colons, so parsing is stable.
