@@ -2,6 +2,26 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.7.0] - 2025-09-04
+### Added
+- **Guild Configuration System:** `/movie-configure` command for server-specific settings
+- **Channel Restrictions:** Configure specific channels where movie commands can be used
+- **Custom Admin Roles:** Add/remove roles that can use admin commands beyond Discord Administrators
+- **Enhanced Security:** Cleanup commands now require proper configuration and permissions
+- **Configuration Management:** View, modify, and reset server-specific bot settings
+
+### Changed
+- **Improved Safety:** Cleanup commands now restricted to configured channels and authorized users
+- **Better Permission System:** Supports both Discord Administrator permissions and custom admin roles
+- **Enhanced Database Schema:** Added guild configuration storage for persistent settings
+
+### Security
+- **Channel Isolation:** Prevents accidental cleanup in wrong channels
+- **Role-Based Access:** Granular control over who can use administrative features
+- **Configuration Protection:** Only Discord Administrators can modify bot configuration
+
+---
+
 ## [1.6.0] - 2025-09-04
 ### Added
 - **Channel Cleanup System:** `/movie-cleanup` command to update old bot messages to current format

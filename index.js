@@ -93,7 +93,38 @@ const COMMANDS = [
   },
   {
     name: 'movie-cleanup',
-    description: 'Update old bot messages to current format (Admin only)',
+    description: 'Update old bot messages to current format (Configured admins only)',
+  },
+  {
+    name: 'movie-configure',
+    description: 'Configure bot settings for this server (Administrator only)',
+    options: [
+      {
+        name: 'action',
+        description: 'Configuration action',
+        type: 3, // STRING
+        required: true,
+        choices: [
+          { name: 'set-channel', value: 'set-channel' },
+          { name: 'add-admin-role', value: 'add-admin-role' },
+          { name: 'remove-admin-role', value: 'remove-admin-role' },
+          { name: 'view-settings', value: 'view-settings' },
+          { name: 'reset', value: 'reset' }
+        ]
+      },
+      {
+        name: 'channel',
+        description: 'Channel for movie recommendations',
+        type: 7, // CHANNEL
+        required: false
+      },
+      {
+        name: 'role',
+        description: 'Role to add/remove as admin',
+        type: 8, // ROLE
+        required: false
+      }
+    ]
   },
 ];
 
@@ -117,7 +148,7 @@ function makeCreateButtonRow() {
 function makeQuickGuideEmbed() {
   return new EmbedBuilder()
     .setTitle('🎬 Movie Night Bot - Quick Guide')
-    .setDescription('Use the button above to add a movie recommendation!')
+    .setDescription('Use the button below to add a movie recommendation!')
     .addFields(
       { name: '🗳️ Commands', value: '`/movie-queue` - View pending movies\n`/movie-stats` - See statistics\n`/movie-session create` - Organize events', inline: true },
       { name: '🎯 Voting', value: 'Use 👍/👎 to vote on movies\nUse status buttons to manage movies', inline: true },
@@ -646,11 +677,204 @@ async function pickSessionWinner(interaction) {
   await database.updateMovieStatus(winner.message_id, 'watched', new Date());
 }
 
-async function handleMovieCleanup(interaction) {
-  // Check if user has admin permissions
+async function checkMovieAdminPermission(interaction) {
+  // Always allow Discord administrators
+  if (interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
+    return true;
+  }
+
+  // Check configured admin roles
+  if (database.isConnected) {
+    const config = await database.getGuildConfig(interaction.guild.id);
+    if (config && config.admin_roles.length > 0) {
+      const userRoles = interaction.member.roles.cache.map(role => role.id);
+      return config.admin_roles.some(roleId => userRoles.includes(roleId));
+    }
+  }
+
+  return false;
+}
+
+async function handleMovieConfigure(interaction) {
+  // Only Discord administrators can configure
   if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
     await interaction.reply({
       content: '❌ This command requires Administrator permissions.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  if (!database.isConnected) {
+    await interaction.reply({
+      content: '⚠️ Database not available - configuration features require database connection.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  const action = interaction.options.getString('action');
+  const guildId = interaction.guild.id;
+
+  switch (action) {
+    case 'set-channel':
+      await configureMovieChannel(interaction, guildId);
+      break;
+    case 'add-admin-role':
+      await addAdminRole(interaction, guildId);
+      break;
+    case 'remove-admin-role':
+      await removeAdminRole(interaction, guildId);
+      break;
+    case 'view-settings':
+      await viewGuildSettings(interaction, guildId);
+      break;
+    case 'reset':
+      await resetGuildConfig(interaction, guildId);
+      break;
+    default:
+      await interaction.reply({
+        content: '❌ Unknown configuration action.',
+        flags: MessageFlags.Ephemeral
+      });
+  }
+}
+
+async function configureMovieChannel(interaction, guildId) {
+  const channel = interaction.options.getChannel('channel') || interaction.channel;
+
+  const success = await database.setMovieChannel(guildId, channel.id);
+  if (success) {
+    await interaction.reply({
+      content: `✅ Movie channel set to ${channel}. Cleanup commands will only work in this channel.`,
+      flags: MessageFlags.Ephemeral
+    });
+  } else {
+    await interaction.reply({
+      content: '❌ Failed to set movie channel.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+async function addAdminRole(interaction, guildId) {
+  const role = interaction.options.getRole('role');
+  if (!role) {
+    await interaction.reply({
+      content: '❌ Please specify a role to add as admin.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  const success = await database.addAdminRole(guildId, role.id);
+  if (success) {
+    await interaction.reply({
+      content: `✅ Added ${role} as a movie bot admin role.`,
+      flags: MessageFlags.Ephemeral
+    });
+  } else {
+    await interaction.reply({
+      content: '❌ Failed to add admin role.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+async function removeAdminRole(interaction, guildId) {
+  const role = interaction.options.getRole('role');
+  if (!role) {
+    await interaction.reply({
+      content: '❌ Please specify a role to remove from admin.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  const success = await database.removeAdminRole(guildId, role.id);
+  if (success) {
+    await interaction.reply({
+      content: `✅ Removed ${role} from movie bot admin roles.`,
+      flags: MessageFlags.Ephemeral
+    });
+  } else {
+    await interaction.reply({
+      content: '❌ Failed to remove admin role.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+async function viewGuildSettings(interaction, guildId) {
+  const config = await database.getGuildConfig(guildId);
+  if (!config) {
+    await interaction.reply({
+      content: '❌ Failed to retrieve guild configuration.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  const embed = new EmbedBuilder()
+    .setTitle('🎬 Movie Bot Configuration')
+    .setColor(0x5865f2)
+    .addFields(
+      {
+        name: '📺 Movie Channel',
+        value: config.movie_channel_id ? `<#${config.movie_channel_id}>` : 'Not set (any channel)',
+        inline: true
+      },
+      {
+        name: '👑 Admin Roles',
+        value: config.admin_roles.length > 0 ? config.admin_roles.map(id => `<@&${id}>`).join('\n') : 'None (Discord Admins only)',
+        inline: true
+      }
+    )
+    .setFooter({ text: 'Use /movie-configure to modify these settings' })
+    .setTimestamp();
+
+  await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+}
+
+async function resetGuildConfig(interaction, guildId) {
+  const success = await database.resetGuildConfig(guildId);
+  if (success) {
+    await interaction.reply({
+      content: '✅ Guild configuration reset. All settings cleared.',
+      flags: MessageFlags.Ephemeral
+    });
+  } else {
+    await interaction.reply({
+      content: '❌ Failed to reset guild configuration.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+async function handleMovieCleanup(interaction) {
+  if (!database.isConnected) {
+    await interaction.reply({
+      content: '⚠️ Database not available - configuration features require database connection.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  // Check if user has proper permissions
+  const hasPermission = await checkMovieAdminPermission(interaction);
+  if (!hasPermission) {
+    await interaction.reply({
+      content: '❌ You need Administrator permissions or a configured admin role to use this command.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  // Check if this is the configured movie channel
+  const config = await database.getGuildConfig(interaction.guild.id);
+  if (config && config.movie_channel_id && config.movie_channel_id !== interaction.channel.id) {
+    await interaction.reply({
+      content: `❌ This command can only be used in the configured movie channel: <#${config.movie_channel_id}>`,
       flags: MessageFlags.Ephemeral
     });
     return;
@@ -840,6 +1064,11 @@ client.on('interactionCreate', async (interaction) => {
 
       if (interaction.commandName === 'movie-cleanup') {
         await handleMovieCleanup(interaction);
+        return;
+      }
+
+      if (interaction.commandName === 'movie-configure') {
+        await handleMovieConfigure(interaction);
         return;
       }
     }

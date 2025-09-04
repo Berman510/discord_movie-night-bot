@@ -117,6 +117,16 @@ class Database {
         favorite_genres JSON NULL,
         last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE KEY unique_user_guild (user_id, guild_id)
+      )`,
+
+      // Guild configuration
+      `CREATE TABLE IF NOT EXISTS guild_config (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        guild_id VARCHAR(20) UNIQUE NOT NULL,
+        movie_channel_id VARCHAR(20) NULL,
+        admin_roles JSON NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )`
     ];
 
@@ -327,6 +337,105 @@ class Database {
       return true;
     } catch (error) {
       console.error('Error updating session status:', error.message);
+      return false;
+    }
+  }
+
+  // Guild configuration operations
+  async getGuildConfig(guildId) {
+    if (!this.isConnected) return null;
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT * FROM guild_config WHERE guild_id = ?`,
+        [guildId]
+      );
+
+      if (rows.length === 0) {
+        // Create default config
+        await this.pool.execute(
+          `INSERT INTO guild_config (guild_id, admin_roles) VALUES (?, ?)`,
+          [guildId, JSON.stringify([])]
+        );
+        return { guild_id: guildId, movie_channel_id: null, admin_roles: [] };
+      }
+
+      const config = rows[0];
+      config.admin_roles = config.admin_roles ? JSON.parse(config.admin_roles) : [];
+      return config;
+    } catch (error) {
+      console.error('Error getting guild config:', error.message);
+      return null;
+    }
+  }
+
+  async setMovieChannel(guildId, channelId) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `INSERT INTO guild_config (guild_id, movie_channel_id, admin_roles) VALUES (?, ?, ?)
+         ON DUPLICATE KEY UPDATE movie_channel_id = VALUES(movie_channel_id)`,
+        [guildId, channelId, JSON.stringify([])]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error setting movie channel:', error.message);
+      return false;
+    }
+  }
+
+  async addAdminRole(guildId, roleId) {
+    if (!this.isConnected) return false;
+
+    try {
+      const config = await this.getGuildConfig(guildId);
+      if (!config) return false;
+
+      if (!config.admin_roles.includes(roleId)) {
+        config.admin_roles.push(roleId);
+        await this.pool.execute(
+          `UPDATE guild_config SET admin_roles = ? WHERE guild_id = ?`,
+          [JSON.stringify(config.admin_roles), guildId]
+        );
+      }
+      return true;
+    } catch (error) {
+      console.error('Error adding admin role:', error.message);
+      return false;
+    }
+  }
+
+  async removeAdminRole(guildId, roleId) {
+    if (!this.isConnected) return false;
+
+    try {
+      const config = await this.getGuildConfig(guildId);
+      if (!config) return false;
+
+      config.admin_roles = config.admin_roles.filter(id => id !== roleId);
+      await this.pool.execute(
+        `UPDATE guild_config SET admin_roles = ? WHERE guild_id = ?`,
+        [JSON.stringify(config.admin_roles), guildId]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error removing admin role:', error.message);
+      return false;
+    }
+  }
+
+  async resetGuildConfig(guildId) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `DELETE FROM guild_config WHERE guild_id = ?`,
+        [guildId]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error resetting guild config:', error.message);
       return false;
     }
   }
