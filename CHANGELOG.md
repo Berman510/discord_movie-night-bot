@@ -2,6 +2,20 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.5.1] - 2025-09-04
+### Added
+- **Persistent Recommendation Button:** Only the most recent movie post includes a quick guide and recommendation button
+- **Smart Guide Management:** Previous guide messages are automatically deleted when new movies are posted
+- **Always-Available Interface:** Users can always create new recommendations from the latest bot message
+- **Quick Command Reference:** Embedded guide shows available commands and features
+
+### Changed
+- Enhanced user experience with persistent access to bot features without spam
+- Improved discoverability of commands and functionality
+- Intelligent cleanup prevents multiple guide messages in the same channel
+
+---
+
 ## [1.5.0] - 2025-09-04
 ### Added
 - **Movie Session Management:** `/movie-session` command for organizing movie night events

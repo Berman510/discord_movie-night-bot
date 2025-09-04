@@ -35,6 +35,9 @@ if (!DISCORD_TOKEN || !CLIENT_ID) {
 // In-memory vote store: { [messageId]: { up:Set<userId>, down:Set<userId> } }
 const votes = new Map();
 
+// Track the last guide message per channel to keep only the most recent one
+const lastGuideMessages = new Map(); // { [channelId]: messageId }
+
 // Temporary store for modal → select payloads (title/where), keyed by a short token
 const pendingPayloads = new Map(); // key -> { title, where, createdAt }
 // TTL cleanup (15 minutes)
@@ -105,6 +108,45 @@ function makeCreateButtonRow() {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('mn:create').setLabel('🎬 Create recommendation').setStyle(ButtonStyle.Primary)
   );
+}
+
+function makeQuickGuideEmbed() {
+  return new EmbedBuilder()
+    .setTitle('🎬 Movie Night Bot - Quick Guide')
+    .setDescription('Use the button above to add a movie recommendation!')
+    .addFields(
+      { name: '🗳️ Commands', value: '`/movie-queue` - View pending movies\n`/movie-stats` - See statistics\n`/movie-session create` - Organize events', inline: true },
+      { name: '🎯 Voting', value: 'Use 👍/👎 to vote on movies\nUse status buttons to manage movies', inline: true },
+      { name: '📊 Status Options', value: '✅ Watched - Mark as completed\n📌 Plan Later - Save for future\n⏭️ Skip - Remove from queue', inline: false }
+    )
+    .setColor(0x2b2d31)
+    .setFooter({ text: 'Movie recommendations are saved permanently with database!' });
+}
+
+async function postPersistentGuide(channel) {
+  try {
+    // Delete the previous guide message if it exists
+    const lastGuideId = lastGuideMessages.get(channel.id);
+    if (lastGuideId) {
+      try {
+        const lastGuide = await channel.messages.fetch(lastGuideId);
+        await lastGuide.delete();
+      } catch (e) {
+        // Message might already be deleted or not found, that's okay
+      }
+    }
+
+    // Post the new guide message
+    const guideMessage = await channel.send({
+      embeds: [makeQuickGuideEmbed()],
+      components: [makeCreateButtonRow()]
+    });
+
+    // Track this as the latest guide message for this channel
+    lastGuideMessages.set(channel.id, guideMessage.id);
+  } catch (e) {
+    console.warn('Failed to post persistent guide:', e?.message || e);
+  }
 }
 
 function makeVoteButtons(messageId, upCount = 0, downCount = 0, status = 'pending') {
@@ -264,6 +306,9 @@ async function postRecommendation(interaction, { title, where, imdb }) {
     } else {
       await post.send({ content: `${base}\n\nIMDb details weren’t available at creation time.` });
     }
+
+    // Add persistent recommendation button and guide (only for the latest movie)
+    await postPersistentGuide(post);
     return;
   }
 
@@ -309,6 +354,9 @@ async function postRecommendation(interaction, { title, where, imdb }) {
   } catch (e) {
     console.warn('Thread creation failed:', e?.message || e);
   }
+
+  // Add persistent recommendation button and guide (only for the latest movie)
+  await postPersistentGuide(channel);
 }
 
 async function omdbSearch(title) {
