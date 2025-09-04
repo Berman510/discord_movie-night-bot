@@ -1,23 +1,39 @@
 /**
  * Database module for Movie Night Bot
  * Handles MySQL connection and all database operations
+ * Falls back to JSON file storage if MySQL is not available
  */
 
 const mysql = require('mysql2/promise');
+const fs = require('fs').promises;
+const path = require('path');
 
 class Database {
   constructor() {
     this.pool = null;
     this.isConnected = false;
+    this.useJsonFallback = false;
+    this.jsonFile = path.join(process.cwd(), 'movie-bot-data.json');
+    this.data = {
+      movies: [],
+      votes: [],
+      sessions: [],
+      guilds: []
+    };
   }
 
   async connect() {
     try {
-      const { DB_HOST, DB_USER, DB_PASSWORD, DB_NAME } = process.env;
-      
+      const { DB_HOST, DB_USER, DB_PASSWORD, DB_NAME, USE_JSON_STORAGE } = process.env;
+
+      // Try JSON storage first if explicitly requested
+      if (USE_JSON_STORAGE === 'true') {
+        return await this.initJsonStorage();
+      }
+
       if (!DB_HOST || !DB_USER || !DB_PASSWORD || !DB_NAME) {
-        console.log('⚠️  Database credentials not provided - running in memory-only mode');
-        return false;
+        console.log('⚠️  Database credentials not provided - checking for JSON storage fallback');
+        return await this.initJsonStorage();
       }
 
       // Parse host and port if provided
@@ -53,8 +69,46 @@ class Database {
       return true;
     } catch (error) {
       console.error('❌ Database connection failed:', error.message);
+      console.log('🔄 Falling back to JSON storage...');
+      return await this.initJsonStorage();
+    }
+  }
+
+  async initJsonStorage() {
+    try {
+      this.useJsonFallback = true;
+
+      // Try to load existing data
+      try {
+        const fileContent = await fs.readFile(this.jsonFile, 'utf8');
+        this.data = JSON.parse(fileContent);
+        console.log('📁 Loaded existing JSON data file');
+      } catch (error) {
+        // File doesn't exist or is invalid, use default data
+        console.log('📁 Creating new JSON data file');
+        await this.saveJsonData();
+      }
+
+      this.isConnected = true;
+      console.log('✅ Connected to JSON file storage');
+      console.log('💡 Tip: Set database credentials in .env for full MySQL features');
+      return true;
+    } catch (error) {
+      console.error('❌ JSON storage initialization failed:', error.message);
+      console.log('⚠️  Running in memory-only mode');
       this.isConnected = false;
+      this.useJsonFallback = false;
       return false;
+    }
+  }
+
+  async saveJsonData() {
+    if (!this.useJsonFallback) return;
+
+    try {
+      await fs.writeFile(this.jsonFile, JSON.stringify(this.data, null, 2));
+    } catch (error) {
+      console.error('Failed to save JSON data:', error.message);
     }
   }
 
@@ -143,7 +197,33 @@ class Database {
   // Movie operations
   async saveMovie(movieData) {
     if (!this.isConnected) return null;
-    
+
+    if (this.useJsonFallback) {
+      try {
+        const movie = {
+          id: Date.now(), // Simple ID generation
+          message_id: movieData.messageId,
+          guild_id: movieData.guildId,
+          channel_id: movieData.channelId,
+          title: movieData.title,
+          where_to_watch: movieData.whereToWatch,
+          recommended_by: movieData.recommendedBy,
+          imdb_id: movieData.imdbId || null,
+          imdb_data: movieData.imdbData || null,
+          status: 'pending',
+          created_at: new Date().toISOString(),
+          watched_at: null
+        };
+
+        this.data.movies.push(movie);
+        await this.saveJsonData();
+        return movie.id;
+      } catch (error) {
+        console.error('Error saving movie to JSON:', error.message);
+        return null;
+      }
+    }
+
     try {
       const [result] = await this.pool.execute(
         `INSERT INTO movies (message_id, guild_id, channel_id, title, where_to_watch, recommended_by, imdb_id, imdb_data)

@@ -2,6 +2,20 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.8.1] - 2025-09-04
+### Added
+- **JSON File Storage Option:** Alternative to MySQL for simple persistent storage
+- **Automatic Fallback:** Bot automatically uses JSON storage if no database configured
+- **Flexible Storage:** Three modes - MySQL, JSON file, or memory-only
+- **Generalized Documentation:** Updated README for various hosting providers and database options
+
+### Changed
+- **Enhanced Storage Flexibility:** Multiple persistence options for different use cases
+- **Improved Setup Documentation:** Clear comparison of storage options and their trade-offs
+- **Better Fallback Handling:** Graceful degradation from MySQL → JSON → Memory-only
+
+---
+
 ## [1.7.1] - 2025-09-04
 ### Added
 - **Comprehensive Help Command:** `/movie-help` shows all commands, current status, and admin information

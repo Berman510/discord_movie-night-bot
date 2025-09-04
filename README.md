@@ -49,14 +49,78 @@ DB_PASSWORD=YOUR_DB_PASSWORD
 DB_NAME=YOUR_DB_NAME
 ```
 
-## Database Setup (PebbleHost)
-1. Log into your PebbleHost panel
-2. Go to "MySQL Database" section
-3. Create a new database (you get 1 free with bot hosting)
-4. Copy the connection details to your `.env` file
-5. The bot will automatically create the required tables on first run
+## Database Setup (Optional but Recommended)
 
-**Note:** The bot works without a database (memory-only mode) but you'll lose data on restarts and won't have access to queue management or statistics features.
+### MySQL Database Configuration
+The bot supports MySQL for persistent data storage. Here's how to set it up:
+
+#### Option 1: Hosting Provider Database
+**PebbleHost, Railway, Heroku, etc.**
+1. Access your hosting provider's database section
+2. Create a new MySQL database
+3. Copy the connection details (host, user, password, database name)
+4. Add them to your `.env` file
+5. The bot will automatically create required tables on first run
+
+#### Option 2: Self-Hosted MySQL
+**Local or VPS MySQL installation**
+1. Install MySQL on your server
+2. Create a database: `CREATE DATABASE movie_night_bot;`
+3. Create a user with permissions: `CREATE USER 'moviebot'@'%' IDENTIFIED BY 'your_password';`
+4. Grant permissions: `GRANT ALL PRIVILEGES ON movie_night_bot.* TO 'moviebot'@'%';`
+5. Add connection details to your `.env` file
+
+#### Option 3: Cloud Database Services
+**AWS RDS, Google Cloud SQL, Azure Database, PlanetScale, etc.**
+1. Create a MySQL instance through your cloud provider
+2. Configure connection settings and security groups
+3. Add the connection details to your `.env` file
+
+### Storage Options Comparison
+
+| Feature | MySQL Database | JSON File Storage | Memory-Only |
+|---------|----------------|-------------------|-------------|
+| **Basic Functionality** | ✅ Full | ✅ Full | ✅ Full |
+| **Movie Recommendations** | ✅ Persistent | ✅ Persistent | ✅ Works until restart |
+| **Voting** | ✅ Permanent | ✅ Permanent | ✅ Works until restart |
+| **Status Management** | ✅ Permanent | ✅ Permanent | ❌ Lost on restart |
+| **Queue Management** | ✅ `/movie-queue` | ✅ `/movie-queue` | ❌ Not available |
+| **Statistics** | ✅ `/movie-stats` | ✅ `/movie-stats` | ❌ Not available |
+| **Session Management** | ✅ `/movie-session` | ✅ `/movie-session` | ❌ Not available |
+| **Configuration** | ✅ `/movie-configure` | ✅ `/movie-configure` | ❌ Not available |
+| **Channel Cleanup** | ✅ `/movie-cleanup` | ✅ `/movie-cleanup` | ❌ Not available |
+| **Data Persistence** | ✅ Survives restarts | ✅ Survives restarts | ❌ Lost on restart |
+| **Setup Complexity** | 🔧 Moderate | ✅ Simple | ✅ None |
+| **Scalability** | ✅ Excellent | ⚠️ Good for small/medium | ⚠️ Session only |
+| **Backup/Migration** | ✅ Standard tools | ✅ Simple file copy | ❌ Not applicable |
+
+### JSON File Storage (Recommended for Small Servers)
+If you don't want to set up MySQL, the bot can use a local JSON file for persistence:
+
+1. **Automatic Fallback:** If no database credentials are provided, the bot automatically uses JSON storage
+2. **Manual Enable:** Set `USE_JSON_STORAGE=true` in your `.env` file to force JSON mode
+3. **File Location:** Data is stored in `movie-bot-data.json` in the bot's directory
+4. **Backup:** Simply copy the JSON file to backup your data
+5. **Migration:** Easy to move between servers or upgrade to MySQL later
+
+**Perfect for:** Self-hosted bots, small servers, development, or when you want persistence without database complexity.
+
+### Advantages of Database Mode
+- **Persistent Data:** All votes, movies, and settings survive bot restarts
+- **Advanced Features:** Queue management, statistics, and session tracking
+- **Configuration:** Server-specific settings and admin role management
+- **Scalability:** Handles large amounts of data efficiently
+- **History:** Complete viewing history and recommendation tracking
+
+### Memory-Only Mode (No Database)
+The bot will automatically fall back to memory-only mode if no database is configured. This provides:
+- ✅ **Core Features:** Movie recommendations, voting, and discussions work perfectly
+- ✅ **IMDb Integration:** Movie details and posters still work
+- ✅ **Real-time Voting:** Vote counts update live during the session
+- ⚠️ **Session-Based:** Data is lost when the bot restarts
+- ❌ **Limited Commands:** Advanced management features unavailable
+
+**Perfect for:** Testing, small servers, or temporary setups where persistence isn't critical.
 
 ---
 
