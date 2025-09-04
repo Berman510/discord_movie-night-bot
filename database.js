@@ -20,19 +20,31 @@ class Database {
         return false;
       }
 
+      // Parse host and port if provided
+      let host = DB_HOST;
+      let port = 3306;
+
+      if (DB_HOST.includes(':')) {
+        const parts = DB_HOST.split(':');
+        host = parts[0];
+        port = parseInt(parts[1]) || 3306;
+      }
+
       this.pool = mysql.createPool({
-        host: DB_HOST,
+        host: host,
+        port: port,
         user: DB_USER,
         password: DB_PASSWORD,
         database: DB_NAME,
         waitForConnections: true,
         connectionLimit: 10,
         queueLimit: 0,
+        connectTimeout: 60000,
         acquireTimeout: 60000,
-        timeout: 60000,
       });
 
       // Test connection
+      console.log(`🔌 Attempting to connect to MySQL at ${host}:${port}...`);
       await this.pool.execute('SELECT 1');
       this.isConnected = true;
       console.log('✅ Connected to MySQL database');
