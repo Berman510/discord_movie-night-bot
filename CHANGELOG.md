@@ -2,6 +2,22 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.9.9] - 2025-09-05
+### Fixed
+- **Session Creation Reliability:** Resolved all database errors preventing session creation
+- **Database Charset Issues:** Removed emojis from templates to prevent charset encoding errors
+- **IMDb Integration:** Fixed import errors and added graceful error handling for missing data
+- **Database Schema:** Added missing columns (discord_event_id) with proper migrations
+- **Template Compatibility:** Smart templating now works reliably without database conflicts
+
+### Enhanced
+- **Error Handling:** Improved error handling for IMDb data fetching and database operations
+- **Database Migrations:** Automatic schema updates with proper charset handling
+- **Template Reliability:** Rich session descriptions without problematic characters
+- **User Experience:** Session creation now works consistently with smart templating
+
+---
+
 ## [1.9.8] - 2025-09-05
 ### Added
 - **Smart Session Templating:** Auto-generated session names and descriptions based on selections
