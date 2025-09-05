@@ -481,7 +481,6 @@ async function handleSessionCreationButton(interaction) {
       // Import the function from selects handler
       const selectsHandler = require('../handlers/selects');
       await selectsHandler.showMovieSelection(interaction, state);
-    }
     } else {
       await interaction.reply({
         content: '❌ Unknown session creation action.',
