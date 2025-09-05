@@ -95,9 +95,11 @@ async function handleSessionMovieSelection(interaction) {
       const movie = await database.getMovieById(movieMessageId);
       if (movie) {
         state.selectedMovie = movieMessageId;
+        state.movieTitle = movie.title; // Store title for templating
         state.movieDisplay = `**${movie.title}**\n📺 ${movie.where_to_watch}`;
       } else {
         state.selectedMovie = null;
+        state.movieTitle = null;
         state.movieDisplay = 'Movie not found';
       }
     } catch (error) {

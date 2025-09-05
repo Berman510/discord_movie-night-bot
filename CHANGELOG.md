@@ -2,6 +2,27 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.9.8] - 2025-09-05
+### Added
+- **Smart Session Templating:** Auto-generated session names and descriptions based on selections
+- **Rich Movie Descriptions:** Pre-filled descriptions with IMDb synopsis, genre, runtime, and rating
+- **Database Migrations:** Automatic schema updates to ensure all columns exist
+- **Editable Templates:** Users can modify auto-generated content before saving
+
+### Fixed
+- **Database Schema Issues:** Fixed "upvotes/downvotes" column errors with proper JOIN queries
+- **Timezone Column Error:** Added migration to ensure timezone column exists in movie_sessions table
+- **Vote Calculations:** Updated all vote-related queries to use proper votes table relationships
+- **Session Creation:** Resolved "Failed to create movie session" errors
+
+### Enhanced
+- **Session Names:** Auto-generated format: "Watch Party - Movie Title - Saturday, 11PM Eastern"
+- **Session Descriptions:** Rich content with movie synopsis, genre, runtime, IMDb rating, and session details
+- **User Experience:** Pre-filled but editable templates save time while allowing customization
+- **Database Reliability:** Automatic migrations ensure schema compatibility
+
+---
+
 ## [1.9.7] - 2025-09-05
 ### Added
 - **Movie Selection Step:** Added movie selection as Step 4 in session creation workflow

@@ -197,7 +197,31 @@ class Database {
         console.error('Error creating table:', error.message);
       }
     }
+
+    // Run migrations to ensure schema is up to date
+    await this.runMigrations();
+
     console.log('✅ Database tables initialized');
+  }
+
+  async runMigrations() {
+    try {
+      // Migration 1: Ensure timezone column exists in movie_sessions
+      await this.pool.execute(`
+        ALTER TABLE movie_sessions
+        ADD COLUMN IF NOT EXISTS timezone VARCHAR(50) DEFAULT 'UTC'
+      `);
+
+      // Migration 2: Ensure associated_movie_id column exists
+      await this.pool.execute(`
+        ALTER TABLE movie_sessions
+        ADD COLUMN IF NOT EXISTS associated_movie_id VARCHAR(255) DEFAULT NULL
+      `);
+
+      console.log('✅ Database migrations completed');
+    } catch (error) {
+      console.warn('Migration warning (may be expected):', error.message);
+    }
   }
 
   // Movie operations
@@ -678,7 +702,17 @@ class Database {
 
     try {
       const [rows] = await this.pool.execute(
-        `SELECT * FROM movies WHERE guild_id = ? AND status = 'pending' ORDER BY (upvotes - downvotes) DESC, upvotes DESC LIMIT 1`,
+        `SELECT m.*,
+          COALESCE(SUM(CASE WHEN v.vote_type = 'up' THEN 1 ELSE 0 END), 0) as upvotes,
+          COALESCE(SUM(CASE WHEN v.vote_type = 'down' THEN 1 ELSE 0 END), 0) as downvotes,
+          COALESCE(SUM(CASE WHEN v.vote_type = 'up' THEN 1 ELSE 0 END), 0) -
+          COALESCE(SUM(CASE WHEN v.vote_type = 'down' THEN 1 ELSE 0 END), 0) as score
+         FROM movies m
+         LEFT JOIN votes v ON m.message_id = v.message_id
+         WHERE m.guild_id = ? AND m.status = 'pending'
+         GROUP BY m.message_id
+         ORDER BY score DESC, upvotes DESC
+         LIMIT 1`,
         [guildId]
       );
       return rows.length > 0 ? rows[0] : null;
@@ -779,8 +813,18 @@ class Database {
 
     try {
       const [rows] = await this.pool.execute(
-        `SELECT * FROM movies WHERE guild_id = ? AND (upvotes > 0 OR downvotes > 0)
-         ORDER BY (upvotes - downvotes) DESC, upvotes DESC LIMIT ?`,
+        `SELECT m.*,
+          COALESCE(SUM(CASE WHEN v.vote_type = 'up' THEN 1 ELSE 0 END), 0) as upvotes,
+          COALESCE(SUM(CASE WHEN v.vote_type = 'down' THEN 1 ELSE 0 END), 0) as downvotes,
+          COALESCE(SUM(CASE WHEN v.vote_type = 'up' THEN 1 ELSE 0 END), 0) -
+          COALESCE(SUM(CASE WHEN v.vote_type = 'down' THEN 1 ELSE 0 END), 0) as score
+         FROM movies m
+         LEFT JOIN votes v ON m.message_id = v.message_id
+         WHERE m.guild_id = ?
+         GROUP BY m.message_id
+         HAVING upvotes > 0 OR downvotes > 0
+         ORDER BY score DESC, upvotes DESC
+         LIMIT ?`,
         [guildId, limit]
       );
       return rows;
@@ -799,12 +843,14 @@ class Database {
     try {
       const [rows] = await this.pool.execute(
         `SELECT
-          COUNT(*) as recommended,
-          SUM(upvotes) as upvotes_received,
-          SUM(downvotes) as downvotes_received,
-          SUM(CASE WHEN status = 'watched' THEN 1 ELSE 0 END) as watched,
-          SUM(CASE WHEN status = 'planned' THEN 1 ELSE 0 END) as planned
-         FROM movies WHERE guild_id = ? AND recommended_by = ?`,
+          COUNT(DISTINCT m.message_id) as recommended,
+          COALESCE(SUM(CASE WHEN v.vote_type = 'up' THEN 1 ELSE 0 END), 0) as upvotes_received,
+          COALESCE(SUM(CASE WHEN v.vote_type = 'down' THEN 1 ELSE 0 END), 0) as downvotes_received,
+          SUM(CASE WHEN m.status = 'watched' THEN 1 ELSE 0 END) as watched,
+          SUM(CASE WHEN m.status = 'planned' THEN 1 ELSE 0 END) as planned
+         FROM movies m
+         LEFT JOIN votes v ON m.message_id = v.message_id
+         WHERE m.guild_id = ? AND m.recommended_by = ?`,
         [guildId, userId]
       );
 

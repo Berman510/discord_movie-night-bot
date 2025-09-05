@@ -718,25 +718,29 @@ async function showCustomTimeModal(interaction) {
 }
 
 async function showSessionDetailsModal(interaction, state) {
+  // Generate smart templated name and description
+  const templatedName = generateSessionName(state);
+  const templatedDescription = await generateSessionDescription(state);
+
   const modal = new ModalBuilder()
     .setCustomId('session_details_modal')
     .setTitle('Movie Night Session Details');
 
   const nameInput = new TextInputBuilder()
     .setCustomId('session_name')
-    .setLabel('Session Name')
+    .setLabel('Session Name (Edit as needed)')
     .setStyle(TextInputStyle.Short)
-    .setPlaceholder('Saturday Night Horror Movies')
+    .setValue(templatedName) // Pre-filled with smart template
     .setRequired(true)
     .setMaxLength(100);
 
   const descriptionInput = new TextInputBuilder()
     .setCustomId('session_description')
-    .setLabel('Description (Optional)')
+    .setLabel('Description (Edit as needed)')
     .setStyle(TextInputStyle.Paragraph)
-    .setPlaceholder('Join us for a spooky movie night! Bring popcorn!')
+    .setValue(templatedDescription) // Pre-filled with movie info
     .setRequired(false)
-    .setMaxLength(500);
+    .setMaxLength(1000);
 
   const nameRow = new ActionRowBuilder().addComponents(nameInput);
   const descRow = new ActionRowBuilder().addComponents(descriptionInput);
@@ -744,6 +748,78 @@ async function showSessionDetailsModal(interaction, state) {
   modal.addComponents(nameRow, descRow);
 
   await interaction.showModal(modal);
+}
+
+function generateSessionName(state) {
+  let name = 'Watch Party';
+
+  // Add movie title if selected
+  if (state.selectedMovie && state.movieTitle) {
+    name += ` - ${state.movieTitle}`;
+  }
+
+  // Add date and time
+  if (state.dateDisplay && state.timeDisplay) {
+    name += ` - ${state.dateDisplay}, ${state.timeDisplay}`;
+  } else if (state.dateDisplay) {
+    name += ` - ${state.dateDisplay}`;
+  }
+
+  // Add timezone
+  if (state.timezoneName && state.timeDisplay) {
+    name += ` ${state.timezoneName.split(' ')[0]}`; // Just the timezone abbreviation
+  }
+
+  return name;
+}
+
+async function generateSessionDescription(state) {
+  let description = '';
+
+  // Add movie information if selected
+  if (state.selectedMovie && state.selectedMovie !== 'no_movie') {
+    try {
+      const movie = await database.getMovieById(state.selectedMovie);
+      if (movie) {
+        description += `🎬 **Featured Movie:** ${movie.title}\n`;
+        description += `📺 **Where to Watch:** ${movie.where_to_watch}\n`;
+        description += `👤 **Recommended by:** <@${movie.recommended_by}>\n\n`;
+
+        // Add IMDb info if available
+        if (movie.imdb_id) {
+          const { imdb } = require('./imdb');
+          const imdbData = await imdb.getMovieDetails(movie.imdb_id);
+          if (imdbData && imdbData.Plot && imdbData.Plot !== 'N/A') {
+            description += `📖 **Synopsis:** ${imdbData.Plot}\n\n`;
+          }
+          if (imdbData && imdbData.Genre && imdbData.Genre !== 'N/A') {
+            description += `🎭 **Genre:** ${imdbData.Genre}\n`;
+          }
+          if (imdbData && imdbData.Runtime && imdbData.Runtime !== 'N/A') {
+            description += `⏱️ **Runtime:** ${imdbData.Runtime}\n`;
+          }
+          if (imdbData && imdbData.imdbRating && imdbData.imdbRating !== 'N/A') {
+            description += `⭐ **IMDb Rating:** ${imdbData.imdbRating}/10\n\n`;
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error generating movie description:', error);
+    }
+  }
+
+  // Add session details
+  if (state.dateDisplay && state.timeDisplay) {
+    description += `📅 **When:** ${state.dateDisplay} at ${state.timeDisplay}`;
+    if (state.timezoneName) {
+      description += ` (${state.timezoneName})`;
+    }
+    description += '\n';
+  }
+
+  description += '\n🍿 Join us for an awesome movie night! Feel free to bring snacks and get ready for a great time!';
+
+  return description;
 }
 
 async function handleCustomDateTimeModal(interaction) {
