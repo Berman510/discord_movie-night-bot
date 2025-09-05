@@ -488,6 +488,31 @@ async function syncMessageWithDatabase(message, movie) {
     // Create appropriate components based on status
     if (movie.status === 'watched') {
       updatedComponents = []; // No buttons for watched movies
+    } else if (movie.status === 'scheduled') {
+      // For scheduled movies, create session management buttons
+      const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+
+      // We need to get the session ID from the database to create proper buttons
+      const session = await database.getSessionByMovieId(movie.message_id);
+
+      if (session) {
+        updatedComponents = [
+          new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+              .setCustomId(`session_reschedule:${session.id}:${movie.message_id}`)
+              .setLabel('📅 Reschedule')
+              .setStyle(ButtonStyle.Secondary)
+              .setEmoji('🔄'),
+            new ButtonBuilder()
+              .setCustomId(`session_cancel:${session.id}:${movie.message_id}`)
+              .setLabel('❌ Cancel Event')
+              .setStyle(ButtonStyle.Danger)
+          )
+        ];
+      } else {
+        // Fallback if no session found - use regular status buttons
+        updatedComponents = components.createStatusButtons(movie.message_id, movie.status);
+      }
     } else {
       // For all other statuses, use the standard status buttons
       updatedComponents = components.createStatusButtons(movie.message_id, movie.status);

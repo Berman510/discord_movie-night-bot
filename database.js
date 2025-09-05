@@ -1052,6 +1052,21 @@ class Database {
     }
   }
 
+  async getSessionByMovieId(movieMessageId) {
+    if (!this.isConnected) return null;
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT * FROM movie_sessions WHERE associated_movie_id = ? ORDER BY created_at DESC LIMIT 1`,
+        [movieMessageId]
+      );
+      return rows.length > 0 ? rows[0] : null;
+    } catch (error) {
+      console.error('Error getting session by movie ID:', error.message);
+      return null;
+    }
+  }
+
   async close() {
     if (this.pool) {
       await this.pool.end();
