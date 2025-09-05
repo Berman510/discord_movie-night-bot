@@ -236,17 +236,31 @@ class Database {
         CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
       `);
 
-      // Migration 5: Add 'scheduled' status to movies enum
-      await this.pool.execute(`
-        ALTER TABLE movies
-        MODIFY COLUMN status ENUM('pending', 'watched', 'planned', 'skipped', 'scheduled') DEFAULT 'pending'
-      `);
+      // Migration 5: Add 'scheduled' status to movies enum (MySQL compatible)
+      try {
+        await this.pool.execute(`
+          ALTER TABLE movies
+          MODIFY COLUMN status ENUM('pending', 'watched', 'planned', 'skipped', 'scheduled') DEFAULT 'pending'
+        `);
+        console.log('✅ Added scheduled status to movies enum');
+      } catch (error) {
+        console.warn('Migration 5 warning:', error.message);
+      }
 
-      // Migration 6: Add notification_role_id to guild_config
-      await this.pool.execute(`
-        ALTER TABLE guild_config
-        ADD COLUMN IF NOT EXISTS notification_role_id VARCHAR(20) DEFAULT NULL
-      `);
+      // Migration 6: Add notification_role_id to guild_config (MySQL compatible)
+      try {
+        await this.pool.execute(`
+          ALTER TABLE guild_config
+          ADD COLUMN notification_role_id VARCHAR(20) DEFAULT NULL
+        `);
+        console.log('✅ Added notification_role_id column');
+      } catch (error) {
+        if (error.message.includes('Duplicate column name')) {
+          console.log('✅ notification_role_id column already exists');
+        } else {
+          console.warn('Migration 6 warning:', error.message);
+        }
+      }
 
       console.log('✅ Database migrations completed');
     } catch (error) {
