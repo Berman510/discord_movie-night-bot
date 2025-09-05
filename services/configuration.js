@@ -1,0 +1,178 @@
+/**
+ * Configuration Service Module
+ * Handles server configuration and settings management
+ */
+
+const { MessageFlags, EmbedBuilder } = require('discord.js');
+const database = require('../database');
+
+async function configureMovieChannel(interaction, guildId) {
+  const channel = interaction.options.getChannel('channel') || interaction.channel;
+
+  const success = await database.setMovieChannel(guildId, channel.id);
+  if (success) {
+    await interaction.reply({
+      content: `✅ Movie channel set to ${channel}. Cleanup commands will only work in this channel.`,
+      flags: MessageFlags.Ephemeral
+    });
+  } else {
+    await interaction.reply({
+      content: '❌ Failed to set movie channel.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+async function addAdminRole(interaction, guildId) {
+  const role = interaction.options.getRole('role');
+  
+  if (!role) {
+    await interaction.reply({
+      content: '❌ Please specify a role to add as admin.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  const success = await database.addAdminRole(guildId, role.id);
+  if (success) {
+    await interaction.reply({
+      content: `✅ Added ${role} as an admin role. Members with this role can now use admin commands.`,
+      flags: MessageFlags.Ephemeral
+    });
+  } else {
+    await interaction.reply({
+      content: '❌ Failed to add admin role.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+async function removeAdminRole(interaction, guildId) {
+  const role = interaction.options.getRole('role');
+  
+  if (!role) {
+    await interaction.reply({
+      content: '❌ Please specify a role to remove from admin.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  const success = await database.removeAdminRole(guildId, role.id);
+  if (success) {
+    await interaction.reply({
+      content: `✅ Removed ${role} from admin roles.`,
+      flags: MessageFlags.Ephemeral
+    });
+  } else {
+    await interaction.reply({
+      content: '❌ Failed to remove admin role.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+async function setNotificationRole(interaction, guildId) {
+  const role = interaction.options.getRole('role');
+  
+  const success = await database.setNotificationRole(guildId, role ? role.id : null);
+  if (success) {
+    if (role) {
+      await interaction.reply({
+        content: `✅ Set ${role} as the notification role. This role will be pinged when Discord events are created.`,
+        flags: MessageFlags.Ephemeral
+      });
+    } else {
+      await interaction.reply({
+        content: '✅ Cleared notification role. No role will be pinged for Discord events.',
+        flags: MessageFlags.Ephemeral
+      });
+    }
+  } else {
+    await interaction.reply({
+      content: '❌ Failed to set notification role.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+async function viewSettings(interaction, guildId) {
+  try {
+    const config = await database.getGuildConfig(guildId);
+    
+    if (!config) {
+      await interaction.reply({
+        content: '❌ Failed to retrieve guild configuration.',
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    const embed = new EmbedBuilder()
+      .setTitle('📊 Server Configuration')
+      .setDescription('Current bot settings for this server')
+      .setColor(0x5865f2)
+      .addFields(
+        {
+          name: '📺 Movie Channel',
+          value: config.movie_channel_id ? 
+            `<#${config.movie_channel_id}>\n*Movies and cleanup restricted to this channel*` : 
+            'Not set\n*Bot works in any channel*',
+          inline: false
+        },
+        {
+          name: '👑 Admin Roles',
+          value: config.admin_roles && config.admin_roles.length > 0 ?
+            `${config.admin_roles.map(id => `<@&${id}>`).join('\n')}\n*These roles can use admin commands*` :
+            'None configured\n*Only Discord Administrators can use admin commands*',
+          inline: false
+        },
+        {
+          name: '🔔 Notification Role',
+          value: config.notification_role_id ?
+            `<@&${config.notification_role_id}>\n*This role gets pinged for Discord events*` :
+            'Not set\n*No role notifications for events*',
+          inline: false
+        }
+      )
+      .setFooter({ text: `Configuration for ${interaction.guild.name}` })
+      .setTimestamp();
+
+    await interaction.reply({
+      embeds: [embed],
+      flags: MessageFlags.Ephemeral
+    });
+
+  } catch (error) {
+    console.error('Error viewing settings:', error);
+    await interaction.reply({
+      content: '❌ Error retrieving configuration settings.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+async function resetConfiguration(interaction, guildId) {
+  const success = await database.resetGuildConfig(guildId);
+  if (success) {
+    await interaction.reply({
+      content: '✅ Server configuration reset. All settings cleared.',
+      flags: MessageFlags.Ephemeral
+    });
+  } else {
+    await interaction.reply({
+      content: '❌ Failed to reset server configuration.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+module.exports = {
+  configureMovieChannel,
+  addAdminRole,
+  removeAdminRole,
+  setNotificationRole,
+  viewSettings,
+  resetConfiguration
+};

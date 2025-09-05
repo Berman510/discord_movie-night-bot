@@ -2,6 +2,29 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.10.6] - 2025-09-05
+### Fixed
+- **Configuration Service Error:** Fixed `Cannot read properties of undefined (reading 'checkMovieAdminPermission')`
+- **Missing Configuration Module:** Created missing configuration service with all admin functions
+- **Import Errors:** Fixed service import paths in cleanup and command handlers
+- **Movie Configuration Commands:** Restored full functionality for `/movie-configure` command
+
+### Added
+- **Configuration Service:** Complete configuration service module with all admin functions
+- **Channel Configuration:** `configureMovieChannel` function for setting movie channels
+- **Role Management:** `addAdminRole` and `removeAdminRole` functions for admin role management
+- **Notification Setup:** `setNotificationRole` function for event notification configuration
+- **Settings Display:** `viewSettings` function for viewing current server configuration
+- **Configuration Reset:** `resetConfiguration` function for clearing all settings
+
+### Technical
+- **Service Module:** Created `services/configuration.js` with all configuration functions
+- **Service Index:** Added configuration service to services index exports
+- **Import Fixes:** Fixed cleanup service permission import path
+- **Error Handling:** Enhanced error handling in configuration operations
+
+---
+
 ## [1.10.5] - 2025-09-05
 ### Fixed
 - **Deprecation Warning:** Fixed Discord.js v14 deprecation warning for 'ready' event

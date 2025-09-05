@@ -16,7 +16,7 @@ async function handleMovieCleanup(interaction) {
   }
 
   // Check if user has proper permissions
-  const { permissions } = require('./permissions');
+  const permissions = require('./permissions');
   const hasPermission = await permissions.checkMovieAdminPermission(interaction);
   if (!hasPermission) {
     await interaction.reply({

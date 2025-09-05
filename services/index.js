@@ -10,6 +10,7 @@ const timezoneService = require('./timezone');
 const permissionService = require('./permissions');
 const cleanupService = require('./cleanup');
 const statsService = require('./stats');
+const configurationService = require('./configuration');
 
 module.exports = {
   imdb: imdbService,
@@ -18,5 +19,6 @@ module.exports = {
   timezone: timezoneService,
   permissions: permissionService,
   cleanup: cleanupService,
-  stats: statsService
+  stats: statsService,
+  configuration: configurationService
 };
