@@ -787,19 +787,24 @@ async function generateSessionDescription(state) {
 
         // Add IMDb info if available
         if (movie.imdb_id) {
-          const { imdb } = require('./imdb');
-          const imdbData = await imdb.getMovieDetails(movie.imdb_id);
-          if (imdbData && imdbData.Plot && imdbData.Plot !== 'N/A') {
-            description += `📖 **Synopsis:** ${imdbData.Plot}\n\n`;
-          }
-          if (imdbData && imdbData.Genre && imdbData.Genre !== 'N/A') {
-            description += `🎭 **Genre:** ${imdbData.Genre}\n`;
-          }
-          if (imdbData && imdbData.Runtime && imdbData.Runtime !== 'N/A') {
-            description += `⏱️ **Runtime:** ${imdbData.Runtime}\n`;
-          }
-          if (imdbData && imdbData.imdbRating && imdbData.imdbRating !== 'N/A') {
-            description += `⭐ **IMDb Rating:** ${imdbData.imdbRating}/10\n\n`;
+          try {
+            const imdb = require('./imdb');
+            const imdbData = await imdb.getMovieDetails(movie.imdb_id);
+            if (imdbData && imdbData.Plot && imdbData.Plot !== 'N/A') {
+              description += `📖 **Synopsis:** ${imdbData.Plot}\n\n`;
+            }
+            if (imdbData && imdbData.Genre && imdbData.Genre !== 'N/A') {
+              description += `🎭 **Genre:** ${imdbData.Genre}\n`;
+            }
+            if (imdbData && imdbData.Runtime && imdbData.Runtime !== 'N/A') {
+              description += `⏱️ **Runtime:** ${imdbData.Runtime}\n`;
+            }
+            if (imdbData && imdbData.imdbRating && imdbData.imdbRating !== 'N/A') {
+              description += `⭐ **IMDb Rating:** ${imdbData.imdbRating}/10\n\n`;
+            }
+          } catch (imdbError) {
+            console.warn('Could not fetch IMDb data:', imdbError.message);
+            // Continue without IMDb data
           }
         }
       }

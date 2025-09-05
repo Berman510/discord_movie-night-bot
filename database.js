@@ -218,6 +218,12 @@ class Database {
         ADD COLUMN IF NOT EXISTS associated_movie_id VARCHAR(255) DEFAULT NULL
       `);
 
+      // Migration 3: Ensure discord_event_id column exists
+      await this.pool.execute(`
+        ALTER TABLE movie_sessions
+        ADD COLUMN IF NOT EXISTS discord_event_id VARCHAR(255) DEFAULT NULL
+      `);
+
       console.log('✅ Database migrations completed');
     } catch (error) {
       console.warn('Migration warning (may be expected):', error.message);
