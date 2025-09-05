@@ -366,7 +366,12 @@ async function handleMovieCleanup(interaction) {
       // Continue with what we have
     }
 
-    const botMessages = allMessages.filter(msg => msg.author.id === botId);
+    const botMessages = new Map();
+    for (const [id, msg] of allMessages) {
+      if (msg.author.id === botId) {
+        botMessages.set(id, msg);
+      }
+    }
 
     // Step 3: Process each bot message
     for (const [messageId, message] of botMessages) {
@@ -416,7 +421,7 @@ async function handleMovieCleanup(interaction) {
     }
 
     // Step 4: Check for database movies without Discord messages
-    const messageIds = new Set(Array.from(botMessages.keys()));
+    const messageIds = new Set(botMessages.keys());
     const missingMessages = dbMovies.filter(movie => !messageIds.has(movie.message_id));
 
     if (missingMessages.length > 0) {
