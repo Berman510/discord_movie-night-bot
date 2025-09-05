@@ -206,37 +206,78 @@ class Database {
   }
 
   async runMigrations() {
+    console.log('🔄 Running database migrations...');
+
     try {
-      // Migration 1: Ensure timezone column exists in movie_sessions
-      await this.pool.execute(`
-        ALTER TABLE movie_sessions
-        ADD COLUMN IF NOT EXISTS timezone VARCHAR(50) DEFAULT 'UTC'
+      // Check current schema first
+      const [columns] = await this.pool.execute(`
+        SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'guild_config'
       `);
+      const columnNames = columns.map(row => row.COLUMN_NAME);
+      console.log('Current guild_config columns:', columnNames);
+
+      // Migration 1: Ensure timezone column exists in movie_sessions
+      try {
+        await this.pool.execute(`
+          ALTER TABLE movie_sessions
+          ADD COLUMN timezone VARCHAR(50) DEFAULT 'UTC'
+        `);
+        console.log('✅ Added timezone column to movie_sessions');
+      } catch (error) {
+        if (error.message.includes('Duplicate column name')) {
+          console.log('✅ timezone column already exists');
+        } else {
+          console.warn('Migration 1 warning:', error.message);
+        }
+      }
 
       // Migration 2: Ensure associated_movie_id column exists
-      await this.pool.execute(`
-        ALTER TABLE movie_sessions
-        ADD COLUMN IF NOT EXISTS associated_movie_id VARCHAR(255) DEFAULT NULL
-      `);
+      try {
+        await this.pool.execute(`
+          ALTER TABLE movie_sessions
+          ADD COLUMN associated_movie_id VARCHAR(255) DEFAULT NULL
+        `);
+        console.log('✅ Added associated_movie_id column to movie_sessions');
+      } catch (error) {
+        if (error.message.includes('Duplicate column name')) {
+          console.log('✅ associated_movie_id column already exists');
+        } else {
+          console.warn('Migration 2 warning:', error.message);
+        }
+      }
 
       // Migration 3: Ensure discord_event_id column exists
-      await this.pool.execute(`
-        ALTER TABLE movie_sessions
-        ADD COLUMN IF NOT EXISTS discord_event_id VARCHAR(255) DEFAULT NULL
-      `);
+      try {
+        await this.pool.execute(`
+          ALTER TABLE movie_sessions
+          ADD COLUMN discord_event_id VARCHAR(255) DEFAULT NULL
+        `);
+        console.log('✅ Added discord_event_id column to movie_sessions');
+      } catch (error) {
+        if (error.message.includes('Duplicate column name')) {
+          console.log('✅ discord_event_id column already exists');
+        } else {
+          console.warn('Migration 3 warning:', error.message);
+        }
+      }
 
       // Migration 4: Update charset to support emojis
-      await this.pool.execute(`
-        ALTER TABLE movie_sessions
-        CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
-      `);
+      try {
+        await this.pool.execute(`
+          ALTER TABLE movie_sessions
+          CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+        `);
+        await this.pool.execute(`
+          ALTER TABLE movies
+          CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+        `);
+        console.log('✅ Updated charset to utf8mb4');
+      } catch (error) {
+        console.warn('Migration 4 warning:', error.message);
+      }
 
-      await this.pool.execute(`
-        ALTER TABLE movies
-        CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
-      `);
-
-      // Migration 5: Add 'scheduled' status to movies enum (MySQL compatible)
+      // Migration 5: Add 'scheduled' status to movies enum
       try {
         await this.pool.execute(`
           ALTER TABLE movies
@@ -247,24 +288,24 @@ class Database {
         console.warn('Migration 5 warning:', error.message);
       }
 
-      // Migration 6: Add notification_role_id to guild_config (MySQL compatible)
-      try {
-        await this.pool.execute(`
-          ALTER TABLE guild_config
-          ADD COLUMN notification_role_id VARCHAR(20) DEFAULT NULL
-        `);
-        console.log('✅ Added notification_role_id column');
-      } catch (error) {
-        if (error.message.includes('Duplicate column name')) {
-          console.log('✅ notification_role_id column already exists');
-        } else {
-          console.warn('Migration 6 warning:', error.message);
+      // Migration 6: Add notification_role_id to guild_config
+      if (!columnNames.includes('notification_role_id')) {
+        try {
+          await this.pool.execute(`
+            ALTER TABLE guild_config
+            ADD COLUMN notification_role_id VARCHAR(20) DEFAULT NULL
+          `);
+          console.log('✅ Added notification_role_id column to guild_config');
+        } catch (error) {
+          console.error('❌ Failed to add notification_role_id column:', error.message);
         }
+      } else {
+        console.log('✅ notification_role_id column already exists');
       }
 
       console.log('✅ Database migrations completed');
     } catch (error) {
-      console.warn('Migration warning (may be expected):', error.message);
+      console.error('❌ Migration error:', error.message);
     }
   }
 
