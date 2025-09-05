@@ -42,12 +42,14 @@ async function handleButton(interaction) {
     }
 
     // Session creation button handlers
-    if (customId.startsWith('session_date:') || 
-        customId.startsWith('session_time:') || 
+    if (customId.startsWith('session_date:') ||
+        customId.startsWith('session_time:') ||
         customId.startsWith('session_create:') ||
         customId.startsWith('session_movie_date:') ||
         customId.startsWith('session_movie_time:') ||
-        customId.startsWith('session_movie_create:')) {
+        customId.startsWith('session_movie_create:') ||
+        customId === 'session_create_final' ||
+        customId === 'session_back_to_timezone') {
       await sessions.handleSessionCreationButton(interaction);
       return;
     }

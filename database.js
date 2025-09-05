@@ -845,6 +845,21 @@ class Database {
     }
   }
 
+  async updateSessionDiscordEvent(sessionId, discordEventId) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `UPDATE movie_sessions SET discord_event_id = ? WHERE id = ?`,
+        [discordEventId, sessionId]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error updating session Discord event:', error.message);
+      return false;
+    }
+  }
+
   async close() {
     if (this.pool) {
       await this.pool.end();

@@ -2,6 +2,27 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.9.6] - 2025-09-05
+### Enhanced
+- **Session Creation UX:** Completely redesigned workflow with intuitive Date → Time → Timezone → Details flow
+- **Better Date Selection:** Added all weekdays (Monday-Sunday), custom date input (MM/DD/YYYY), and clearer options
+- **Improved Time Selection:** Extended time options (6 PM - 11 PM prime time, afternoon options), 12-hour format with AM/PM
+- **Visual Progress:** Clear step-by-step workflow with current selections displayed throughout process
+- **Custom Input Support:** Modal inputs for custom dates and times with proper validation
+
+### Fixed
+- **Session Creation Flow:** Replaced confusing quick-select approach with logical step-by-step process
+- **Time Format:** Changed from 24-hour to user-friendly 12-hour format with AM/PM
+- **Date Range:** Expanded from limited quick options to full week coverage plus custom dates
+- **User Feedback:** Added proper validation and error messages for custom inputs
+
+### Technical
+- **Modal Handling:** Added comprehensive modal processing for custom date/time inputs
+- **State Management:** Improved session creation state tracking across multiple steps
+- **Database Integration:** Added Discord event integration and proper session creation workflow
+
+---
+
 ## [1.9.5] - 2025-09-05
 ### Added
 - **Complete Functionality:** Implemented all remaining placeholder commands

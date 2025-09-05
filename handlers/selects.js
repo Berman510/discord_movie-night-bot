@@ -48,7 +48,7 @@ async function handleSelect(interaction) {
 }
 
 async function handleSessionTimezoneSelection(interaction) {
-  const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
+  const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
   const selectedTimezone = interaction.values[0];
   const timezoneName = TIMEZONE_OPTIONS.find(tz => tz.value === selectedTimezone)?.label || selectedTimezone;
 
@@ -63,84 +63,37 @@ async function handleSessionTimezoneSelection(interaction) {
   state.timezoneName = timezoneName;
   global.sessionCreationState.set(userId, state);
 
-  // Create updated embed showing timezone selection
+  // Show final step - session details
+  await showSessionDetailsModal(interaction, state);
+}
+
+async function showSessionDetailsModal(interaction, state) {
   const embed = new EmbedBuilder()
     .setTitle('🎬 Create Movie Night Session')
-    .setDescription('**Step 2:** Now choose your date and time.\n\n*All times will be displayed in your selected timezone.*')
+    .setDescription('**Step 4:** Enter session details\n\n*Almost done! Just add a name and description for your session.*')
     .setColor(0x57f287) // Green to show progress
-    .addFields({
-      name: '🌍 Selected Timezone',
-      value: `**${timezoneName}**`,
-      inline: false
-    });
-
-  // Enable date/time buttons now that timezone is selected
-  const quickDateButtons = new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId('session_date:tonight')
-        .setLabel('Tonight')
-        .setStyle(ButtonStyle.Primary)
-        .setEmoji('🌙'),
-      new ButtonBuilder()
-        .setCustomId('session_date:tomorrow')
-        .setLabel('Tomorrow')
-        .setStyle(ButtonStyle.Primary)
-        .setEmoji('📅'),
-      new ButtonBuilder()
-        .setCustomId('session_date:this_friday')
-        .setLabel('This Friday')
-        .setStyle(ButtonStyle.Primary)
-        .setEmoji('🎉'),
-      new ButtonBuilder()
-        .setCustomId('session_date:this_weekend')
-        .setLabel('This Weekend')
-        .setStyle(ButtonStyle.Primary)
-        .setEmoji('🏖️')
+    .addFields(
+      { name: '📅 Selected Date', value: state.dateDisplay, inline: true },
+      { name: '🕐 Selected Time', value: state.timeDisplay || 'No specific time', inline: true },
+      { name: '🌍 Selected Timezone', value: state.timezoneName, inline: true }
     );
 
-  const timeButtons = new ActionRowBuilder()
+  const createButton = new ActionRowBuilder()
     .addComponents(
       new ButtonBuilder()
-        .setCustomId('session_time:7pm')
-        .setLabel('7:00 PM')
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId('session_time:8pm')
-        .setLabel('8:00 PM')
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId('session_time:9pm')
-        .setLabel('9:00 PM')
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId('session_time:custom')
-        .setLabel('Custom Time')
-        .setStyle(ButtonStyle.Secondary)
-    );
-
-  const actionButtons = new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId('session_create:no_date')
-        .setLabel('No Specific Date')
+        .setCustomId('session_create_final')
+        .setLabel('📝 Enter Session Details')
         .setStyle(ButtonStyle.Success)
         .setEmoji('📝'),
       new ButtonBuilder()
-        .setCustomId('session_create:custom_date')
-        .setLabel('Custom Date/Time')
-        .setStyle(ButtonStyle.Success)
-        .setEmoji('⏰'),
-      new ButtonBuilder()
-        .setCustomId('session_timezone_select')
-        .setLabel('Change Timezone')
+        .setCustomId('session_back_to_timezone')
+        .setLabel('🔄 Change Settings')
         .setStyle(ButtonStyle.Secondary)
-        .setEmoji('🔄')
     );
 
   await interaction.update({
     embeds: [embed],
-    components: [quickDateButtons, timeButtons, actionButtons]
+    components: [createButton]
   });
 }
 

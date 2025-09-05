@@ -60,82 +60,85 @@ async function handleMovieSession(interaction) {
 }
 
 async function showSessionCreationModal(interaction) {
-  // Enhanced session creation with prominent timezone selection
+  // New improved workflow: Date → Time → Timezone → Details
   const embed = new EmbedBuilder()
     .setTitle('🎬 Create Movie Night Session')
-    .setDescription('**Step 1:** Choose your timezone first, then select date and time.\n\n*Timezone selection ensures everyone sees the correct time!*')
+    .setDescription('**Step 1:** Choose your date first\n\n*Pick when you want to have your movie night*')
     .setColor(0x5865f2)
     .addFields({
-      name: '🌍 Current Selection',
-      value: 'No timezone selected yet',
+      name: '📅 Current Selection',
+      value: 'No date selected yet',
       inline: false
     });
 
-  // Prominent timezone selection first
-  const timezoneButton = new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId('session_timezone_select')
-        .setLabel('🌍 Choose Your Timezone First')
-        .setStyle(ButtonStyle.Primary)
-        .setEmoji('🌍')
-    );
-
+  // Quick date options
   const quickDateButtons = new ActionRowBuilder()
     .addComponents(
       new ButtonBuilder()
-        .setCustomId('session_date:tonight')
-        .setLabel('Tonight')
-        .setStyle(ButtonStyle.Secondary)
-        .setEmoji('🌙')
-        .setDisabled(true), // Disabled until timezone selected
+        .setCustomId('session_date:today')
+        .setLabel('Today')
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji('📅'),
       new ButtonBuilder()
         .setCustomId('session_date:tomorrow')
         .setLabel('Tomorrow')
-        .setStyle(ButtonStyle.Secondary)
-        .setEmoji('📅')
-        .setDisabled(true),
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji('📅'),
       new ButtonBuilder()
-        .setCustomId('session_date:this_friday')
-        .setLabel('This Friday')
+        .setCustomId('session_date:custom')
+        .setLabel('Pick Specific Date')
         .setStyle(ButtonStyle.Secondary)
-        .setEmoji('🎉')
-        .setDisabled(true),
-      new ButtonBuilder()
-        .setCustomId('session_date:this_weekend')
-        .setLabel('This Weekend')
-        .setStyle(ButtonStyle.Secondary)
-        .setEmoji('🏖️')
-        .setDisabled(true)
+        .setEmoji('🗓️')
     );
 
-  const timeButtons = new ActionRowBuilder()
+  // This week options
+  const thisWeekButtons = new ActionRowBuilder()
     .addComponents(
       new ButtonBuilder()
-        .setCustomId('session_time:7pm')
-        .setLabel('7:00 PM')
-        .setStyle(ButtonStyle.Secondary)
-        .setDisabled(true),
+        .setCustomId('session_date:monday')
+        .setLabel('Monday')
+        .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
-        .setCustomId('session_time:8pm')
-        .setLabel('8:00 PM')
-        .setStyle(ButtonStyle.Secondary)
-        .setDisabled(true),
+        .setCustomId('session_date:tuesday')
+        .setLabel('Tuesday')
+        .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
-        .setCustomId('session_time:9pm')
-        .setLabel('9:00 PM')
-        .setStyle(ButtonStyle.Secondary)
-        .setDisabled(true),
+        .setCustomId('session_date:wednesday')
+        .setLabel('Wednesday')
+        .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
-        .setCustomId('session_time:custom')
-        .setLabel('Custom Time')
+        .setCustomId('session_date:thursday')
+        .setLabel('Thursday')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId('session_date:friday')
+        .setLabel('Friday')
         .setStyle(ButtonStyle.Secondary)
-        .setDisabled(true)
+    );
+
+  // Weekend options
+  const weekendButtons = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('session_date:saturday')
+        .setLabel('Saturday')
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('🎉'),
+      new ButtonBuilder()
+        .setCustomId('session_date:sunday')
+        .setLabel('Sunday')
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('🏖️'),
+      new ButtonBuilder()
+        .setCustomId('session_date:no_date')
+        .setLabel('No Specific Date')
+        .setStyle(ButtonStyle.Success)
+        .setEmoji('📝')
     );
 
   await interaction.reply({
     embeds: [embed],
-    components: [timezoneButton, quickDateButtons, timeButtons],
+    components: [quickDateButtons, thisWeekButtons, weekendButtons],
     flags: MessageFlags.Ephemeral
   });
 }
@@ -451,13 +454,458 @@ async function handleCreateSessionFromMovie(interaction, messageId) {
 }
 
 async function handleSessionCreationButton(interaction) {
-  console.log(`Session creation button: ${interaction.customId}`);
-  await interaction.reply({ content: 'Session creation button coming soon!', flags: MessageFlags.Ephemeral });
+  const customId = interaction.customId;
+
+  // Initialize session state if needed
+  if (!global.sessionCreationState) {
+    global.sessionCreationState = new Map();
+  }
+
+  const userId = interaction.user.id;
+  let state = global.sessionCreationState.get(userId) || {};
+
+  try {
+    if (customId.startsWith('session_date:')) {
+      await handleDateSelection(interaction, customId, state);
+    } else if (customId.startsWith('session_time:')) {
+      await handleTimeSelection(interaction, customId, state);
+    } else if (customId.startsWith('session_timezone:')) {
+      await handleTimezoneSelection(interaction, customId, state);
+    } else if (customId.startsWith('session_create:')) {
+      await handleFinalCreation(interaction, customId, state);
+    } else if (customId === 'session_create_final') {
+      await showSessionDetailsModal(interaction, state);
+    } else if (customId === 'session_back_to_timezone') {
+      await showTimezoneSelection(interaction, state);
+    } else {
+      await interaction.reply({
+        content: '❌ Unknown session creation action.',
+        flags: MessageFlags.Ephemeral
+      });
+    }
+  } catch (error) {
+    console.error('Error handling session creation button:', error);
+    await interaction.reply({
+      content: '❌ Error processing session creation.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+async function handleDateSelection(interaction, customId, state) {
+  const dateType = customId.split(':')[1];
+
+  // Calculate the actual date based on selection
+  let selectedDate = new Date();
+  let dateDisplay = '';
+
+  switch (dateType) {
+    case 'today':
+      dateDisplay = 'Today';
+      break;
+    case 'tomorrow':
+      selectedDate.setDate(selectedDate.getDate() + 1);
+      dateDisplay = 'Tomorrow';
+      break;
+    case 'monday':
+    case 'tuesday':
+    case 'wednesday':
+    case 'thursday':
+    case 'friday':
+    case 'saturday':
+    case 'sunday':
+      selectedDate = getNextWeekday(dateType);
+      dateDisplay = `${dateType.charAt(0).toUpperCase() + dateType.slice(1)}`;
+      break;
+    case 'custom':
+      await showCustomDateModal(interaction);
+      return;
+    case 'no_date':
+      state.selectedDate = null;
+      state.dateDisplay = 'No specific date';
+      global.sessionCreationState.set(interaction.user.id, state);
+      await showTimezoneSelection(interaction, state);
+      return;
+  }
+
+  state.selectedDate = selectedDate;
+  state.dateDisplay = dateDisplay;
+  global.sessionCreationState.set(interaction.user.id, state);
+
+  await showTimeSelection(interaction, state);
+}
+
+async function showTimeSelection(interaction, state) {
+  const embed = new EmbedBuilder()
+    .setTitle('🎬 Create Movie Night Session')
+    .setDescription('**Step 2:** Choose your time\n\n*What time works best for your movie night?*')
+    .setColor(0x5865f2)
+    .addFields(
+      { name: '📅 Selected Date', value: state.dateDisplay, inline: true },
+      { name: '🕐 Current Selection', value: 'No time selected yet', inline: true }
+    );
+
+  // Common time options
+  const timeButtons1 = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('session_time:6pm')
+        .setLabel('6:00 PM')
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId('session_time:7pm')
+        .setLabel('7:00 PM')
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId('session_time:8pm')
+        .setLabel('8:00 PM')
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId('session_time:9pm')
+        .setLabel('9:00 PM')
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId('session_time:10pm')
+        .setLabel('10:00 PM')
+        .setStyle(ButtonStyle.Primary)
+    );
+
+  const timeButtons2 = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('session_time:11pm')
+        .setLabel('11:00 PM')
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId('session_time:12pm')
+        .setLabel('12:00 PM')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId('session_time:1pm')
+        .setLabel('1:00 PM')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId('session_time:2pm')
+        .setLabel('2:00 PM')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId('session_time:custom')
+        .setLabel('Custom Time')
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('⏰')
+    );
+
+  await interaction.update({
+    embeds: [embed],
+    components: [timeButtons1, timeButtons2]
+  });
+}
+
+async function handleTimeSelection(interaction, customId, state) {
+  const timeType = customId.split(':')[1];
+
+  if (timeType === 'custom') {
+    await showCustomTimeModal(interaction);
+    return;
+  }
+
+  // Parse time (e.g., "11pm" -> 23:00)
+  let timeDisplay = '';
+  let hour = 0;
+
+  if (timeType.includes('pm')) {
+    const hourNum = parseInt(timeType.replace('pm', ''));
+    hour = hourNum === 12 ? 12 : hourNum + 12;
+    timeDisplay = `${hourNum}:00 PM`;
+  } else if (timeType.includes('am')) {
+    hour = parseInt(timeType.replace('am', ''));
+    if (hour === 12) hour = 0;
+    timeDisplay = `${hour === 0 ? 12 : hour}:00 AM`;
+  }
+
+  state.selectedTime = { hour, minute: 0 };
+  state.timeDisplay = timeDisplay;
+  global.sessionCreationState.set(interaction.user.id, state);
+
+  await showTimezoneSelection(interaction, state);
+}
+
+async function showTimezoneSelection(interaction, state) {
+  const embed = new EmbedBuilder()
+    .setTitle('🎬 Create Movie Night Session')
+    .setDescription('**Step 3:** Choose your timezone\n\n*This ensures everyone sees the correct time for your session*')
+    .setColor(0x5865f2)
+    .addFields(
+      { name: '📅 Selected Date', value: state.dateDisplay, inline: true },
+      { name: '🕐 Selected Time', value: state.timeDisplay || 'No specific time', inline: true },
+      { name: '🌍 Current Selection', value: 'No timezone selected yet', inline: true }
+    );
+
+  const timezoneSelect = new StringSelectMenuBuilder()
+    .setCustomId('session_timezone_selected')
+    .setPlaceholder('Choose your timezone...')
+    .addOptions(
+      TIMEZONE_OPTIONS.map(tz => ({
+        label: tz.label,
+        value: tz.value,
+        emoji: tz.emoji
+      }))
+    );
+
+  const row = new ActionRowBuilder().addComponents(timezoneSelect);
+
+  await interaction.update({
+    embeds: [embed],
+    components: [row]
+  });
+}
+
+// Helper function to get next occurrence of a weekday
+function getNextWeekday(dayName) {
+  const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  const targetDay = days.indexOf(dayName.toLowerCase());
+  const today = new Date();
+  const currentDay = today.getDay();
+
+  let daysToAdd = targetDay - currentDay;
+  if (daysToAdd <= 0) {
+    daysToAdd += 7; // Next week
+  }
+
+  const result = new Date(today);
+  result.setDate(today.getDate() + daysToAdd);
+  return result;
+}
+
+async function showCustomDateModal(interaction) {
+  const modal = new ModalBuilder()
+    .setCustomId('session_custom_date_modal')
+    .setTitle('Custom Date Selection');
+
+  const dateInput = new TextInputBuilder()
+    .setCustomId('custom_date')
+    .setLabel('Enter Date (MM/DD/YYYY)')
+    .setStyle(TextInputStyle.Short)
+    .setPlaceholder('12/25/2024')
+    .setRequired(true);
+
+  const firstActionRow = new ActionRowBuilder().addComponents(dateInput);
+  modal.addComponents(firstActionRow);
+
+  await interaction.showModal(modal);
+}
+
+async function showCustomTimeModal(interaction) {
+  const modal = new ModalBuilder()
+    .setCustomId('session_custom_time_modal')
+    .setTitle('Custom Time Selection');
+
+  const timeInput = new TextInputBuilder()
+    .setCustomId('custom_time')
+    .setLabel('Enter Time (e.g., 11:30 PM)')
+    .setStyle(TextInputStyle.Short)
+    .setPlaceholder('11:30 PM')
+    .setRequired(true);
+
+  const firstActionRow = new ActionRowBuilder().addComponents(timeInput);
+  modal.addComponents(firstActionRow);
+
+  await interaction.showModal(modal);
+}
+
+async function showSessionDetailsModal(interaction, state) {
+  const modal = new ModalBuilder()
+    .setCustomId('session_details_modal')
+    .setTitle('Movie Night Session Details');
+
+  const nameInput = new TextInputBuilder()
+    .setCustomId('session_name')
+    .setLabel('Session Name')
+    .setStyle(TextInputStyle.Short)
+    .setPlaceholder('Saturday Night Horror Movies')
+    .setRequired(true)
+    .setMaxLength(100);
+
+  const descriptionInput = new TextInputBuilder()
+    .setCustomId('session_description')
+    .setLabel('Description (Optional)')
+    .setStyle(TextInputStyle.Paragraph)
+    .setPlaceholder('Join us for a spooky movie night! Bring popcorn!')
+    .setRequired(false)
+    .setMaxLength(500);
+
+  const nameRow = new ActionRowBuilder().addComponents(nameInput);
+  const descRow = new ActionRowBuilder().addComponents(descriptionInput);
+
+  modal.addComponents(nameRow, descRow);
+
+  await interaction.showModal(modal);
+}
+
+async function handleCustomDateTimeModal(interaction) {
+  try {
+    const customId = interaction.customId;
+    const userId = interaction.user.id;
+    let state = global.sessionCreationState.get(userId) || {};
+
+    if (customId === 'session_custom_date_modal') {
+      const dateStr = interaction.fields.getTextInputValue('custom_date');
+      const parsedDate = new Date(dateStr);
+
+      if (isNaN(parsedDate.getTime())) {
+        await interaction.reply({
+          content: '❌ Invalid date format. Please use MM/DD/YYYY format (e.g., 12/25/2024).',
+          flags: MessageFlags.Ephemeral
+        });
+        return;
+      }
+
+      state.selectedDate = parsedDate;
+      state.dateDisplay = parsedDate.toLocaleDateString();
+      global.sessionCreationState.set(userId, state);
+
+      await showTimeSelection(interaction, state);
+
+    } else if (customId === 'session_custom_time_modal') {
+      const timeStr = interaction.fields.getTextInputValue('custom_time');
+      const timeMatch = timeStr.match(/^(\d{1,2}):?(\d{0,2})\s*(am|pm)?$/i);
+
+      if (!timeMatch) {
+        await interaction.reply({
+          content: '❌ Invalid time format. Please use format like "11:30 PM" or "7 AM".',
+          flags: MessageFlags.Ephemeral
+        });
+        return;
+      }
+
+      let hour = parseInt(timeMatch[1]);
+      const minute = parseInt(timeMatch[2] || '0');
+      const isPM = timeMatch[3]?.toLowerCase() === 'pm';
+
+      if (isPM && hour !== 12) hour += 12;
+      if (!isPM && hour === 12) hour = 0;
+
+      state.selectedTime = { hour, minute };
+      state.timeDisplay = formatTime(hour, minute);
+      global.sessionCreationState.set(userId, state);
+
+      await showTimezoneSelection(interaction, state);
+    }
+  } catch (error) {
+    console.error('Error handling custom date/time modal:', error);
+    await interaction.reply({
+      content: '❌ Error processing custom date/time.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+function formatTime(hour, minute) {
+  const isPM = hour >= 12;
+  const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+  const minuteStr = minute.toString().padStart(2, '0');
+  return `${displayHour}:${minuteStr} ${isPM ? 'PM' : 'AM'}`;
 }
 
 async function createMovieSessionFromModal(interaction) {
-  console.log('Create session from modal');
-  await interaction.reply({ content: 'Session creation from modal coming soon!', flags: MessageFlags.Ephemeral });
+  try {
+    // Get session state
+    if (!global.sessionCreationState) {
+      await interaction.reply({
+        content: '❌ Session creation state not found. Please start over with `/movie-session action:create`.',
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    const userId = interaction.user.id;
+    const state = global.sessionCreationState.get(userId);
+
+    if (!state) {
+      await interaction.reply({
+        content: '❌ Session creation state not found. Please start over with `/movie-session action:create`.',
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    // Get modal inputs
+    const sessionName = interaction.fields.getTextInputValue('session_name');
+    const sessionDescription = interaction.fields.getTextInputValue('session_description') || null;
+
+    // Calculate final date/time
+    let scheduledDate = null;
+    if (state.selectedDate && state.selectedTime) {
+      scheduledDate = new Date(state.selectedDate);
+      scheduledDate.setHours(state.selectedTime.hour, state.selectedTime.minute, 0, 0);
+    }
+
+    // Create session in database
+    const sessionData = {
+      guildId: interaction.guild.id,
+      channelId: interaction.channel.id,
+      name: sessionName,
+      description: sessionDescription,
+      createdBy: interaction.user.id,
+      scheduledDate: scheduledDate,
+      timezone: state.selectedTimezone || 'UTC',
+      status: 'planning'
+    };
+
+    const sessionId = await database.createMovieSession(sessionData);
+
+    if (!sessionId) {
+      await interaction.reply({
+        content: '❌ Failed to create movie session.',
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    // Create Discord scheduled event if date is set
+    let discordEventId = null;
+    if (scheduledDate) {
+      discordEventId = await discordEvents.createDiscordEvent(interaction.guild, sessionData, scheduledDate);
+      if (discordEventId) {
+        await database.updateSessionDiscordEvent(sessionId, discordEventId);
+      }
+    }
+
+    // Create success embed
+    const embed = new EmbedBuilder()
+      .setTitle('🎉 Movie Session Created!')
+      .setDescription(`**${sessionName}** has been created successfully!`)
+      .setColor(0x57f287)
+      .addFields(
+        { name: '📅 Date', value: state.dateDisplay, inline: true },
+        { name: '🕐 Time', value: state.timeDisplay || 'No specific time', inline: true },
+        { name: '🌍 Timezone', value: state.timezoneName, inline: true },
+        { name: '📍 Channel', value: `<#${interaction.channel.id}>`, inline: true },
+        { name: '🆔 Session ID', value: sessionId.toString(), inline: true },
+        { name: '🎪 Discord Event', value: discordEventId ? '✅ Created' : '❌ Not created', inline: true }
+      )
+      .setFooter({ text: `Use /movie-session action:list to see all sessions` })
+      .setTimestamp();
+
+    if (sessionDescription) {
+      embed.addFields({ name: '📝 Description', value: sessionDescription, inline: false });
+    }
+
+    await interaction.reply({
+      embeds: [embed],
+      flags: MessageFlags.Ephemeral
+    });
+
+    // Clean up session state
+    global.sessionCreationState.delete(userId);
+
+  } catch (error) {
+    console.error('Error creating session from modal:', error);
+    await interaction.reply({
+      content: '❌ Failed to create movie session.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
 }
 
 async function showTimezoneSelector(interaction) {

@@ -23,6 +23,18 @@ async function handleModal(interaction) {
       return;
     }
 
+    // Session details modal (new flow)
+    if (customId === 'session_details_modal') {
+      await sessions.createMovieSessionFromModal(interaction);
+      return;
+    }
+
+    // Custom date/time modals
+    if (customId === 'session_custom_date_modal' || customId === 'session_custom_time_modal') {
+      await sessions.handleCustomDateTimeModal(interaction);
+      return;
+    }
+
     // Unknown modal
     console.warn(`Unknown modal interaction: ${customId}`);
     await interaction.reply({
