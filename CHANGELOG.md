@@ -2,6 +2,27 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.9.11] - 2025-09-05
+### Added
+- **Auto Movie Post Updates:** Automatically updates movie recommendation posts when scheduled for sessions
+- **Movie Status Tracking:** New 'scheduled' status for movies that are assigned to sessions
+- **Thread Integration:** Posts session details in movie recommendation threads
+- **Visual Status Updates:** Movie posts change color and remove voting buttons when scheduled
+
+### Enhanced
+- **Complete Workflow Integration:** Session creation now updates the original movie recommendation
+- **Status Synchronization:** Movie database status automatically updated to 'scheduled'
+- **User Experience:** Clear visual indication when movies are scheduled vs. still pending
+- **Thread Communication:** Session information automatically posted in movie discussion threads
+
+### Fixed
+- **Post Management:** Removes voting buttons from scheduled movies to prevent confusion
+- **Status Consistency:** Database and UI status now stay synchronized
+- **Information Flow:** Users can easily see which movies are scheduled and when
+- **Timezone Handling:** Discord events now created in correct timezone (11 PM ET = 8 PM PT, not 4 PM PT)
+
+---
+
 ## [1.9.10] - 2025-09-05
 ### Added
 - **Smart Event Duration:** Discord events now use movie runtime + 30 minutes buffer for accurate end times

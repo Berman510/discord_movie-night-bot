@@ -827,6 +827,119 @@ async function generateSessionDescription(state) {
   return description;
 }
 
+async function updateMoviePostForSession(interaction, movieMessageId, sessionId, sessionName, scheduledDate) {
+  try {
+    console.log(`🎬 Updating movie post ${movieMessageId} for session ${sessionId}`);
+
+    // Get movie details from database
+    const movie = await database.getMovieById(movieMessageId);
+    if (!movie) {
+      console.warn('Movie not found for post update');
+      return;
+    }
+
+    // Update movie status in database to 'scheduled'
+    await database.updateMovieStatus(movieMessageId, 'scheduled');
+
+    // Find the original movie post
+    const channel = interaction.guild.channels.cache.get(movie.channel_id);
+    if (!channel) {
+      console.warn('Movie channel not found');
+      return;
+    }
+
+    const message = await channel.messages.fetch(movieMessageId).catch(() => null);
+    if (!message) {
+      console.warn('Movie message not found');
+      return;
+    }
+
+    // Get current embed and update it
+    const currentEmbed = message.embeds[0];
+    if (!currentEmbed) {
+      console.warn('Movie embed not found');
+      return;
+    }
+
+    // Create updated embed
+    const updatedEmbed = new EmbedBuilder()
+      .setTitle(currentEmbed.title)
+      .setDescription(currentEmbed.description)
+      .setColor(0x57f287) // Green for scheduled
+      .setThumbnail(currentEmbed.thumbnail?.url || null);
+
+    // Copy existing fields and update status
+    currentEmbed.fields.forEach(field => {
+      if (field.name === '📊 Status') {
+        updatedEmbed.addFields({
+          name: '📊 Status',
+          value: `🗓️ **Scheduled for Session**\n📝 Session: ${sessionName}\n🆔 Session ID: ${sessionId}`,
+          inline: true
+        });
+      } else if (field.name === '🗓️ Session Info') {
+        // Skip - we'll add updated session info
+      } else {
+        updatedEmbed.addFields({
+          name: field.name,
+          value: field.value,
+          inline: field.inline || false
+        });
+      }
+    });
+
+    // Add session information
+    if (scheduledDate) {
+      const dateStr = scheduledDate.toLocaleDateString();
+      const timeStr = scheduledDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      updatedEmbed.addFields({
+        name: '🗓️ Session Info',
+        value: `📅 **Date:** ${dateStr}\n🕐 **Time:** ${timeStr}\n🎪 **Session:** ${sessionName}`,
+        inline: false
+      });
+    }
+
+    updatedEmbed.setFooter({ text: `Scheduled for movie session • Session ID: ${sessionId}` });
+
+    // Update the message (remove voting buttons)
+    await message.edit({
+      embeds: [updatedEmbed],
+      components: [] // Remove all buttons
+    });
+
+    // Update the thread if it exists
+    if (message.hasThread) {
+      const thread = message.thread;
+      if (thread) {
+        const sessionEmbed = new EmbedBuilder()
+          .setTitle('🎉 Movie Scheduled for Session!')
+          .setDescription(`This movie has been scheduled for a movie night session!`)
+          .setColor(0x57f287)
+          .addFields(
+            { name: '📝 Session Name', value: sessionName, inline: false },
+            { name: '🆔 Session ID', value: sessionId.toString(), inline: true }
+          );
+
+        if (scheduledDate) {
+          const dateStr = scheduledDate.toLocaleDateString();
+          const timeStr = scheduledDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          sessionEmbed.addFields(
+            { name: '📅 Date', value: dateStr, inline: true },
+            { name: '🕐 Time', value: timeStr, inline: true }
+          );
+        }
+
+        await thread.send({ embeds: [sessionEmbed] });
+      }
+    }
+
+    console.log(`✅ Updated movie post ${movieMessageId} for session ${sessionId}`);
+
+  } catch (error) {
+    console.error('Error updating movie post for session:', error);
+    // Don't fail the session creation if post update fails
+  }
+}
+
 async function handleCustomDateTimeModal(interaction) {
   try {
     const customId = interaction.customId;
@@ -892,6 +1005,58 @@ function formatTime(hour, minute) {
   return `${displayHour}:${minuteStr} ${isPM ? 'PM' : 'AM'}`;
 }
 
+function createDateInTimezone(baseDate, hour, minute, timezone) {
+  // Create a date string in the format that works with timezone
+  const year = baseDate.getFullYear();
+  const month = (baseDate.getMonth() + 1).toString().padStart(2, '0');
+  const day = baseDate.getDate().toString().padStart(2, '0');
+  const hourStr = hour.toString().padStart(2, '0');
+  const minuteStr = minute.toString().padStart(2, '0');
+
+  // Map our timezone values to proper timezone identifiers
+  const timezoneMap = {
+    'America/New_York': 'America/New_York',
+    'America/Chicago': 'America/Chicago',
+    'America/Denver': 'America/Denver',
+    'America/Los_Angeles': 'America/Los_Angeles',
+    'America/Phoenix': 'America/Phoenix',
+    'America/Anchorage': 'America/Anchorage',
+    'Pacific/Honolulu': 'Pacific/Honolulu',
+    'Europe/London': 'Europe/London',
+    'Europe/Paris': 'Europe/Paris',
+    'Asia/Tokyo': 'Asia/Tokyo',
+    'UTC': 'UTC'
+  };
+
+  const tzIdentifier = timezoneMap[timezone] || 'UTC';
+
+  try {
+    // Create the date in the specified timezone
+    const dateStr = `${year}-${month}-${day}T${hourStr}:${minuteStr}:00`;
+
+    // Use Intl.DateTimeFormat to handle timezone conversion properly
+    const tempDate = new Date(dateStr);
+
+    // Get the timezone offset for the target timezone
+    const targetDate = new Date(tempDate.toLocaleString('en-US', { timeZone: tzIdentifier }));
+    const localDate = new Date(tempDate.toLocaleString('en-US'));
+    const offset = localDate.getTime() - targetDate.getTime();
+
+    // Apply the offset to get the correct UTC time
+    const utcDate = new Date(tempDate.getTime() + offset);
+
+    console.log(`🌍 Created date: ${dateStr} in ${tzIdentifier} -> UTC: ${utcDate.toISOString()}`);
+    return utcDate;
+
+  } catch (error) {
+    console.error('Error creating date in timezone:', error);
+    // Fallback to simple date creation
+    const fallbackDate = new Date(baseDate);
+    fallbackDate.setHours(hour, minute, 0, 0);
+    return fallbackDate;
+  }
+}
+
 async function createMovieSessionFromModal(interaction) {
   try {
     // Get session state
@@ -918,11 +1083,15 @@ async function createMovieSessionFromModal(interaction) {
     const sessionName = interaction.fields.getTextInputValue('session_name');
     const sessionDescription = interaction.fields.getTextInputValue('session_description') || null;
 
-    // Calculate final date/time
+    // Calculate final date/time in the selected timezone
     let scheduledDate = null;
     if (state.selectedDate && state.selectedTime) {
-      scheduledDate = new Date(state.selectedDate);
-      scheduledDate.setHours(state.selectedTime.hour, state.selectedTime.minute, 0, 0);
+      scheduledDate = createDateInTimezone(
+        state.selectedDate,
+        state.selectedTime.hour,
+        state.selectedTime.minute,
+        state.selectedTimezone || 'UTC'
+      );
     }
 
     // Create session in database
@@ -981,6 +1150,11 @@ async function createMovieSessionFromModal(interaction) {
       embeds: [embed],
       flags: MessageFlags.Ephemeral
     });
+
+    // Update the movie post if a movie was selected
+    if (state.selectedMovie && state.selectedMovie !== 'no_movie') {
+      await updateMoviePostForSession(interaction, state.selectedMovie, sessionId, sessionName, scheduledDate);
+    }
 
     // Clean up session state
     global.sessionCreationState.delete(userId);

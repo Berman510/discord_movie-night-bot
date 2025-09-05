@@ -125,7 +125,7 @@ class Database {
         recommended_by VARCHAR(20) NOT NULL,
         imdb_id VARCHAR(20) NULL,
         imdb_data JSON NULL,
-        status ENUM('pending', 'watched', 'planned', 'skipped') DEFAULT 'pending',
+        status ENUM('pending', 'watched', 'planned', 'skipped', 'scheduled') DEFAULT 'pending',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         watched_at TIMESTAMP NULL,
         INDEX idx_guild_status (guild_id, status),
@@ -233,6 +233,12 @@ class Database {
       await this.pool.execute(`
         ALTER TABLE movies
         CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+      `);
+
+      // Migration 5: Add 'scheduled' status to movies enum
+      await this.pool.execute(`
+        ALTER TABLE movies
+        MODIFY COLUMN status ENUM('pending', 'watched', 'planned', 'skipped', 'scheduled') DEFAULT 'pending'
       `);
 
       console.log('✅ Database migrations completed');
@@ -919,6 +925,21 @@ class Database {
       return true;
     } catch (error) {
       console.error('Error updating session Discord event:', error.message);
+      return false;
+    }
+  }
+
+  async updateMovieStatus(messageId, status) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `UPDATE movies SET status = ? WHERE message_id = ?`,
+        [status, messageId]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error updating movie status:', error.message);
       return false;
     }
   }
