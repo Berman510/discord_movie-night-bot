@@ -224,6 +224,17 @@ class Database {
         ADD COLUMN IF NOT EXISTS discord_event_id VARCHAR(255) DEFAULT NULL
       `);
 
+      // Migration 4: Update charset to support emojis
+      await this.pool.execute(`
+        ALTER TABLE movie_sessions
+        CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+      `);
+
+      await this.pool.execute(`
+        ALTER TABLE movies
+        CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+      `);
+
       console.log('✅ Database migrations completed');
     } catch (error) {
       console.warn('Migration warning (may be expected):', error.message);
