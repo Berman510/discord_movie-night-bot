@@ -2,6 +2,27 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.10.0] - 2025-09-05
+### Added
+- **Session Management Buttons:** Reschedule and Cancel buttons on scheduled movie posts
+- **Reschedule Functionality:** Complete reschedule flow using same Date→Time→Timezone workflow
+- **Cancel Session Feature:** Cancel sessions with confirmation dialog and automatic cleanup
+- **Movie Post Restoration:** Cancelled movies automatically return to "Planned for later" status
+- **Permission Controls:** Only session creators and admins can reschedule/cancel sessions
+
+### Enhanced
+- **Session Control:** Full lifecycle management from creation to cancellation
+- **Movie Status Sync:** Automatic status updates when sessions are cancelled or rescheduled
+- **Discord Event Management:** Automatic Discord event deletion when sessions are cancelled
+- **User Experience:** Clear confirmation dialogs and status updates throughout process
+
+### Fixed
+- **Date/Time Display:** Fixed session info showing event END time instead of START time
+- **Timezone Display:** Now uses Discord timestamps for accurate timezone display across all users
+- **Session Information:** Consistent date/time formatting using `<t:timestamp:F>` format
+
+---
+
 ## [1.9.12] - 2025-09-05
 ### Added
 - **Role Notifications:** Configure notification role to be pinged when Discord events are created

@@ -54,6 +54,18 @@ async function handleButton(interaction) {
       return;
     }
 
+    // Session management button handlers
+    if (customId.startsWith('session_reschedule:') || customId.startsWith('session_cancel:')) {
+      await sessions.handleSessionManagement(interaction);
+      return;
+    }
+
+    // Session cancellation confirmation
+    if (customId.startsWith('confirm_cancel:') || customId === 'cancel_cancel') {
+      await sessions.handleCancelConfirmation(interaction);
+      return;
+    }
+
     // Session list management buttons
     if (customId === 'session_refresh_list') {
       await sessions.listMovieSessions(interaction);

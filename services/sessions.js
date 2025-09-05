@@ -827,6 +827,269 @@ async function generateSessionDescription(state) {
   return description;
 }
 
+async function handleSessionManagement(interaction) {
+  const customId = interaction.customId;
+  const [action, sessionId, movieMessageId] = customId.split(':');
+
+  try {
+    if (action === 'session_reschedule') {
+      await handleSessionReschedule(interaction, sessionId, movieMessageId);
+    } else if (action === 'session_cancel') {
+      await handleSessionCancel(interaction, sessionId, movieMessageId);
+    } else {
+      await interaction.reply({
+        content: '❌ Unknown session management action.',
+        flags: MessageFlags.Ephemeral
+      });
+    }
+  } catch (error) {
+    console.error('Error handling session management:', error);
+    await interaction.reply({
+      content: '❌ Error processing session management.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+async function handleSessionReschedule(interaction, sessionId, movieMessageId) {
+  // Check permissions - only session creator or admins can reschedule
+  const session = await database.getSessionById(sessionId);
+  if (!session) {
+    await interaction.reply({
+      content: '❌ Session not found.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  const { permissions } = require('./permissions');
+  const isCreator = session.created_by === interaction.user.id;
+  const isAdmin = await permissions.checkMovieAdminPermission(interaction);
+
+  if (!isCreator && !isAdmin) {
+    await interaction.reply({
+      content: '❌ Only the session creator or admins can reschedule sessions.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  // Store reschedule state
+  if (!global.sessionRescheduleState) {
+    global.sessionRescheduleState = new Map();
+  }
+
+  global.sessionRescheduleState.set(interaction.user.id, {
+    sessionId,
+    movieMessageId,
+    originalSession: session
+  });
+
+  // Start the reschedule flow (same as session creation)
+  await showDateSelection(interaction, true); // true indicates reschedule mode
+}
+
+async function handleSessionCancel(interaction, sessionId, movieMessageId) {
+  // Check permissions - only session creator or admins can cancel
+  const session = await database.getSessionById(sessionId);
+  if (!session) {
+    await interaction.reply({
+      content: '❌ Session not found.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  const { permissions } = require('./permissions');
+  const isCreator = session.created_by === interaction.user.id;
+  const isAdmin = await permissions.checkMovieAdminPermission(interaction);
+
+  if (!isCreator && !isAdmin) {
+    await interaction.reply({
+      content: '❌ Only the session creator or admins can cancel sessions.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  // Show confirmation dialog
+  const confirmEmbed = new EmbedBuilder()
+    .setTitle('⚠️ Cancel Movie Session')
+    .setDescription(`Are you sure you want to cancel **${session.name}**?`)
+    .setColor(0xed4245)
+    .addFields(
+      { name: '📝 Session', value: session.name, inline: true },
+      { name: '🆔 Session ID', value: sessionId.toString(), inline: true }
+    );
+
+  if (session.scheduled_date) {
+    confirmEmbed.addFields({
+      name: '📅 Scheduled',
+      value: `<t:${Math.floor(new Date(session.scheduled_date).getTime() / 1000)}:F>`,
+      inline: false
+    });
+  }
+
+  const confirmButtons = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId(`confirm_cancel:${sessionId}:${movieMessageId}`)
+        .setLabel('✅ Yes, Cancel Session')
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId('cancel_cancel')
+        .setLabel('❌ No, Keep Session')
+        .setStyle(ButtonStyle.Secondary)
+    );
+
+  await interaction.reply({
+    embeds: [confirmEmbed],
+    components: [confirmButtons],
+    flags: MessageFlags.Ephemeral
+  });
+}
+
+async function handleCancelConfirmation(interaction) {
+  const customId = interaction.customId;
+
+  if (customId === 'cancel_cancel') {
+    await interaction.update({
+      content: '✅ Session cancellation cancelled.',
+      embeds: [],
+      components: []
+    });
+    return;
+  }
+
+  // Extract session and movie IDs from confirm_cancel button
+  const [, sessionId, movieMessageId] = customId.split(':');
+
+  try {
+    // Get session details
+    const session = await database.getSessionById(sessionId);
+    if (!session) {
+      await interaction.update({
+        content: '❌ Session not found.',
+        embeds: [],
+        components: []
+      });
+      return;
+    }
+
+    // Delete Discord event if it exists
+    if (session.discord_event_id) {
+      try {
+        const discordEvents = require('./discord-events');
+        await discordEvents.deleteDiscordEvent(interaction.guild, session.discord_event_id);
+        console.log(`✅ Deleted Discord event ${session.discord_event_id}`);
+      } catch (error) {
+        console.warn('Failed to delete Discord event:', error.message);
+      }
+    }
+
+    // Delete session from database
+    await database.deleteMovieSession(sessionId);
+
+    // Reset movie status back to 'planned'
+    if (movieMessageId) {
+      await database.updateMovieStatus(movieMessageId, 'planned');
+
+      // Update the movie post to remove session buttons and restore voting
+      await restoreMoviePost(interaction, movieMessageId);
+    }
+
+    await interaction.update({
+      content: `✅ **Session Cancelled**\n\nSession "${session.name}" has been cancelled and the movie has been returned to "Planned for later" status.`,
+      embeds: [],
+      components: []
+    });
+
+    console.log(`✅ Cancelled session ${sessionId} and restored movie ${movieMessageId}`);
+
+  } catch (error) {
+    console.error('Error cancelling session:', error);
+    await interaction.update({
+      content: '❌ Error cancelling session.',
+      embeds: [],
+      components: []
+    });
+  }
+}
+
+async function updateMoviePostForSession(interaction, movieMessageId, sessionId, sessionName, scheduledDate, discordEventId) {
+  try {
+    // Get movie details
+    const movie = await database.getMovieById(movieMessageId);
+    if (!movie) {
+      console.warn('Movie not found for post restoration');
+      return;
+    }
+
+    // Find the original movie post
+    const channel = interaction.guild.channels.cache.get(movie.channel_id);
+    if (!channel) {
+      console.warn('Movie channel not found');
+      return;
+    }
+
+    const message = await channel.messages.fetch(movieMessageId).catch(() => null);
+    if (!message) {
+      console.warn('Movie message not found');
+      return;
+    }
+
+    // Get current embed and restore it
+    const currentEmbed = message.embeds[0];
+    if (!currentEmbed) {
+      console.warn('Movie embed not found');
+      return;
+    }
+
+    // Create restored embed
+    const restoredEmbed = new EmbedBuilder()
+      .setTitle(currentEmbed.title)
+      .setDescription(currentEmbed.description)
+      .setColor(0xffa500) // Orange for planned
+      .setThumbnail(currentEmbed.thumbnail?.url || null);
+
+    // Copy existing fields and restore status
+    currentEmbed.fields.forEach(field => {
+      if (field.name === '📊 Status') {
+        restoredEmbed.addFields({
+          name: '📊 Status',
+          value: '📋 **Planned for later**',
+          inline: true
+        });
+      } else if (field.name === '🗓️ Session Info') {
+        // Skip - remove session info
+      } else {
+        restoredEmbed.addFields({
+          name: field.name,
+          value: field.value,
+          inline: field.inline || false
+        });
+      }
+    });
+
+    restoredEmbed.setFooter({ text: 'Vote with 👍 👎 • React with 📋 to plan for later' });
+
+    // Restore voting buttons
+    const { components } = require('../utils');
+    const votingButtons = components.createVotingButtons(movieMessageId);
+
+    // Update the message
+    await message.edit({
+      embeds: [restoredEmbed],
+      components: votingButtons
+    });
+
+    console.log(`✅ Restored movie post ${movieMessageId} to planned status`);
+
+  } catch (error) {
+    console.error('Error restoring movie post:', error);
+  }
+}
+
 async function updateMoviePostForSession(interaction, movieMessageId, sessionId, sessionName, scheduledDate, discordEventId) {
   try {
     console.log(`🎬 Updating movie post ${movieMessageId} for session ${sessionId}`);
@@ -896,21 +1159,35 @@ async function updateMoviePostForSession(interaction, movieMessageId, sessionId,
 
     // Add session information
     if (scheduledDate) {
-      const dateStr = scheduledDate.toLocaleDateString();
-      const timeStr = scheduledDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      // Use Discord timestamp for accurate timezone display
+      const timestamp = Math.floor(scheduledDate.getTime() / 1000);
       updatedEmbed.addFields({
         name: '🗓️ Session Info',
-        value: `📅 **Date:** ${dateStr}\n🕐 **Time:** ${timeStr}\n🎪 **Session:** ${sessionName}`,
+        value: `📅 **When:** <t:${timestamp}:F>\n🎪 **Session:** ${sessionName}`,
         inline: false
       });
     }
 
     updatedEmbed.setFooter({ text: `Scheduled for movie session • Session ID: ${sessionId}` });
 
-    // Update the message (remove voting buttons)
+    // Add session management buttons
+    const sessionButtons = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId(`session_reschedule:${sessionId}:${movieMessageId}`)
+          .setLabel('📅 Reschedule')
+          .setStyle(ButtonStyle.Secondary)
+          .setEmoji('🔄'),
+        new ButtonBuilder()
+          .setCustomId(`session_cancel:${sessionId}:${movieMessageId}`)
+          .setLabel('❌ Cancel Event')
+          .setStyle(ButtonStyle.Danger)
+      );
+
+    // Update the message with session management buttons
     await message.edit({
       embeds: [updatedEmbed],
-      components: [] // Remove all buttons
+      components: [sessionButtons]
     });
 
     // Update the thread if it exists
@@ -927,12 +1204,12 @@ async function updateMoviePostForSession(interaction, movieMessageId, sessionId,
           );
 
         if (scheduledDate) {
-          const dateStr = scheduledDate.toLocaleDateString();
-          const timeStr = scheduledDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-          sessionEmbed.addFields(
-            { name: '📅 Date', value: dateStr, inline: true },
-            { name: '🕐 Time', value: timeStr, inline: true }
-          );
+          const timestamp = Math.floor(scheduledDate.getTime() / 1000);
+          sessionEmbed.addFields({
+            name: '📅 When',
+            value: `<t:${timestamp}:F>`,
+            inline: false
+          });
         }
 
         await thread.send({ embeds: [sessionEmbed] });
@@ -1210,6 +1487,9 @@ module.exports = {
   joinSession,
   handleCreateSessionFromMovie,
   handleSessionCreationButton,
+  handleCustomDateTimeModal,
+  handleSessionManagement,
+  handleCancelConfirmation,
   createMovieSessionFromModal,
   showTimezoneSelector
 };

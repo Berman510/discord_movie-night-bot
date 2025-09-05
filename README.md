@@ -2,7 +2,7 @@
 
 Discord bot to create in-channel movie recommendations with persistent voting, status tracking, queue management, and IMDb integration. Features MySQL database storage, movie night statistics, and smart suggestion management.
 
-**Version:** 1.9.12
+**Version:** 1.10.0
 
 > **🏗️ Modular Architecture**: The bot has been refactored into a clean modular structure for better maintainability. See [ARCHITECTURE.md](ARCHITECTURE.md) for details.
 
@@ -18,18 +18,36 @@ Discord bot to create in-channel movie recommendations with persistent voting, s
 - `applications.commands`
 
 ### Required Bot Permissions
-- Send Messages
-- Embed Links
-- Read Message History
-- Use Slash Commands
-- Create Public Threads
-- Send Messages in Threads
+- **Send Messages** (post movie recommendations and responses)
+- **Embed Links** (rich movie information displays)
+- **Read Message History** (access existing movie posts)
+- **Use Slash Commands** (all bot commands)
+- **Add Reactions** (voting system)
+- **Manage Messages** (update movie posts when scheduled)
+- **Create Public Threads** (movie discussion threads)
+- **Send Messages in Threads** (participate in discussions)
+- **Manage Events** (create Discord events for movie nights)
+- **Mention Everyone** (ping notification roles for events)
 
-**Permissions integer:** `2147503104`
+**Updated Permissions Integer:** `2147765248`
 
-Invite link template:
+### Required Gateway Intents
+In Discord Developer Portal → Bot section, enable:
+- ✅ **Message Content Intent** (required for reading movie recommendations)
+
+### Discord Developer Portal Setup
+1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
+2. Create **New Application** → give it a name (e.g., "Movie Night Bot")
+3. Go to **Bot** section → **Add Bot** → copy the **Bot Token**
+4. Enable **Message Content Intent** in Bot section
+5. Go to **OAuth2 → URL Generator**:
+   - **Scopes**: `bot` + `applications.commands`
+   - **Permissions**: Use the permissions listed above
+6. Use generated URL to invite bot to your server
+
+**Invite link template:**
 ```
-https://discord.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&scope=bot%20applications.commands&permissions=2147503104
+https://discord.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&scope=bot%20applications.commands&permissions=2147765248
 ```
 
 ---
