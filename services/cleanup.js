@@ -248,8 +248,96 @@ async function handleCleanupPurge(interaction) {
   });
 }
 
-// Helper functions would be added here...
-// (Due to 300 line limit, these will be added in the next edit)
+// Helper functions for cleanup operations
+async function isCurrentFormat(message) {
+  // Check if message has the current format (with voting buttons)
+  return message.components && message.components.length > 0;
+}
+
+async function updateMessageToCurrentFormat(message) {
+  // Update old format messages to current format
+  try {
+    const { components } = require('../utils');
+    const movieComponents = components.createStatusButtons(message.id, 'pending');
+
+    await message.edit({
+      embeds: message.embeds,
+      components: movieComponents
+    });
+    return true;
+  } catch (error) {
+    console.warn(`Failed to update message ${message.id}:`, error.message);
+    return false;
+  }
+}
+
+async function syncMessageWithDatabase(message, movie) {
+  // Sync message content with database state
+  try {
+    const { embeds, components } = require('../utils');
+    const movieEmbed = embeds.createMovieEmbed(movie);
+    const movieComponents = components.createStatusButtons(message.id, movie.status);
+
+    await message.edit({
+      embeds: [movieEmbed],
+      components: movieComponents
+    });
+    return true;
+  } catch (error) {
+    console.warn(`Failed to sync message ${message.id}:`, error.message);
+    return false;
+  }
+}
+
+async function recreateScheduledMovieAtBottom(message, movie, channel) {
+  // Recreate scheduled movie at bottom of channel
+  try {
+    const { embeds, components } = require('../utils');
+    const movieEmbed = embeds.createMovieEmbed(movie);
+    const movieComponents = components.createStatusButtons(movie.message_id, movie.status);
+
+    // Create new message at bottom
+    const newMessage = await channel.send({
+      embeds: [movieEmbed],
+      components: movieComponents
+    });
+
+    // Update database with new message ID
+    await database.updateMovieMessageId(movie.guild_id, movie.title, newMessage.id);
+
+    // Delete old message
+    await message.delete();
+
+    return true;
+  } catch (error) {
+    console.warn(`Failed to recreate scheduled movie ${movie.title}:`, error.message);
+    return false;
+  }
+}
+
+async function ensureGuideAtBottom(channel) {
+  // Ensure guide message is at the bottom of the channel
+  try {
+    const { embeds } = require('../utils');
+    const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+
+    const guideEmbed = embeds.createHelpEmbed();
+    const recommendButton = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId('create_recommendation')
+          .setLabel('🍿 Recommend a Movie')
+          .setStyle(ButtonStyle.Primary)
+      );
+
+    await channel.send({
+      embeds: [guideEmbed],
+      components: [recommendButton]
+    });
+  } catch (error) {
+    console.warn('Error ensuring guide at bottom:', error.message);
+  }
+}
 
 module.exports = {
   handleMovieCleanup,
