@@ -330,7 +330,7 @@ async function handleMovieCleanup(interaction) {
   }
 
   await interaction.reply({
-    content: '🧹 Starting channel cleanup... This may take a moment.',
+    content: '🧹 Starting comprehensive channel cleanup... This may take a moment.',
     flags: MessageFlags.Ephemeral
   });
 
@@ -339,20 +339,56 @@ async function handleMovieCleanup(interaction) {
     const botId = interaction.client.user.id;
     let updatedCount = 0;
     let processedCount = 0;
+    let orphanedCount = 0;
+    let syncedCount = 0;
 
-    // Fetch recent messages (last 100)
-    const messages = await channel.messages.fetch({ limit: 100 });
+    // Step 1: Get all movies from database for this channel
+    const dbMovies = await database.getMoviesByChannel(interaction.guild.id, channel.id);
+    const dbMovieIds = new Set(dbMovies.map(movie => movie.message_id));
+
+    // Step 2: Fetch recent messages (last 200 for more comprehensive cleanup)
+    const messages = await channel.messages.fetch({ limit: 200 });
     const botMessages = messages.filter(msg => msg.author.id === botId);
 
-    for (const [, message] of botMessages) {
+    // Step 3: Process each bot message
+    for (const [messageId, message] of botMessages) {
       processedCount++;
+
+      // Check if this is a movie recommendation message
+      const isMovieMessage = message.embeds.length > 0 &&
+                            message.embeds[0].title &&
+                            !message.embeds[0].title.includes('Quick Guide');
+
+      if (isMovieMessage) {
+        // Check if movie exists in database
+        if (!dbMovieIds.has(messageId)) {
+          // Orphaned message - movie was deleted from database
+          try {
+            await message.delete();
+            orphanedCount++;
+            console.log(`🗑️ Deleted orphaned movie message: ${messageId}`);
+          } catch (error) {
+            console.warn(`Failed to delete orphaned message ${messageId}:`, error.message);
+          }
+          continue;
+        }
+
+        // Sync message with database state
+        const movie = dbMovies.find(m => m.message_id === messageId);
+        if (movie) {
+          const synced = await syncMessageWithDatabase(message, movie);
+          if (synced) {
+            syncedCount++;
+          }
+        }
+      }
 
       // Skip if message already has the current format
       if (isCurrentFormat(message)) {
         continue;
       }
 
-      // Try to update the message
+      // Try to update the message to current format
       const updated = await updateMessageToCurrentFormat(message);
       if (updated) {
         updatedCount++;
@@ -361,7 +397,26 @@ async function handleMovieCleanup(interaction) {
       }
     }
 
-    const summary = [`✅ Cleanup complete! Processed ${processedCount} messages, updated ${updatedCount} to current format.`];
+    // Step 4: Check for database movies without Discord messages
+    const messageIds = new Set(Array.from(botMessages.keys()));
+    const missingMessages = dbMovies.filter(movie => !messageIds.has(movie.message_id));
+
+    if (missingMessages.length > 0) {
+      console.log(`⚠️ Found ${missingMessages.length} movies in database without Discord messages`);
+      // Optionally clean these from database or report them
+    }
+
+    const summary = [
+      `✅ **Comprehensive cleanup complete!**`,
+      `📊 Processed ${processedCount} messages`,
+      `🔄 Updated ${updatedCount} to current format`,
+      `🗑️ Removed ${orphanedCount} orphaned messages`,
+      `🔗 Synced ${syncedCount} messages with database`
+    ];
+
+    if (missingMessages.length > 0) {
+      summary.push(`⚠️ Found ${missingMessages.length} database entries without messages`);
+    }
 
     await interaction.followUp({
       content: summary.join('\n'),
@@ -374,6 +429,61 @@ async function handleMovieCleanup(interaction) {
       content: '❌ Cleanup failed. Check console for details.',
       flags: MessageFlags.Ephemeral
     });
+  }
+}
+
+async function syncMessageWithDatabase(message, movie) {
+  try {
+    const { embeds, components } = require('./utils');
+
+    // Check if message status matches database status
+    const currentEmbed = message.embeds[0];
+    if (!currentEmbed) return false;
+
+    // Extract current status from embed
+    const statusField = currentEmbed.fields?.find(field => field.name === '📊 Status');
+    let currentStatus = 'pending'; // default
+
+    if (statusField) {
+      if (statusField.value.includes('Watched')) currentStatus = 'watched';
+      else if (statusField.value.includes('Planned')) currentStatus = 'planned';
+      else if (statusField.value.includes('Scheduled')) currentStatus = 'scheduled';
+      else if (statusField.value.includes('Skipped')) currentStatus = 'skipped';
+    }
+
+    // If status matches, no sync needed
+    if (currentStatus === movie.status) {
+      return false;
+    }
+
+    console.log(`🔄 Syncing message ${message.id}: ${currentStatus} → ${movie.status}`);
+
+    // Create updated embed with correct status
+    const updatedEmbed = embeds.createMovieEmbed(movie);
+    let updatedComponents;
+
+    // Create appropriate components based on status
+    if (movie.status === 'watched') {
+      updatedComponents = []; // No buttons for watched movies
+    } else if (movie.status === 'scheduled') {
+      // Create session management buttons (simplified for cleanup)
+      updatedComponents = [components.createStatusButtons(movie.message_id, movie.status)];
+    } else {
+      // Create voting and status buttons
+      updatedComponents = [components.createVoteButtons(movie.message_id), components.createStatusButtons(movie.message_id, movie.status)];
+    }
+
+    // Update the message
+    await message.edit({
+      embeds: [updatedEmbed],
+      components: updatedComponents
+    });
+
+    return true;
+
+  } catch (error) {
+    console.error(`Error syncing message ${message.id}:`, error);
+    return false;
   }
 }
 

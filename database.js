@@ -1037,6 +1037,21 @@ class Database {
     }
   }
 
+  async getMoviesByChannel(guildId, channelId) {
+    if (!this.isConnected) return [];
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT * FROM movies WHERE guild_id = ? AND channel_id = ? ORDER BY created_at DESC`,
+        [guildId, channelId]
+      );
+      return rows;
+    } catch (error) {
+      console.error('Error getting movies by channel:', error.message);
+      return [];
+    }
+  }
+
   async close() {
     if (this.pool) {
       await this.pool.end();

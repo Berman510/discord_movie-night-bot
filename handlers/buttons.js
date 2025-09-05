@@ -103,13 +103,149 @@ async function handleButton(interaction) {
 
 // Placeholder functions - these will be implemented in the full refactor
 async function handleVoting(interaction, action, msgId, votes) {
-  // TODO: Move voting logic here
-  console.log(`Voting: ${action} for message ${msgId}`);
+  const database = require('../database');
+
+  try {
+    await interaction.deferUpdate();
+
+    const userId = interaction.user.id;
+    const isUpvote = action === 'up';
+
+    // Handle database voting
+    if (database.isConnected) {
+      // Check current vote
+      const currentVote = await database.getUserVote(msgId, userId);
+
+      if (currentVote === action) {
+        // Remove vote if clicking same button
+        await database.removeVote(msgId, userId);
+      } else {
+        // Add or change vote
+        await database.saveVote(msgId, userId, action);
+      }
+
+      // Get updated vote counts
+      const voteCounts = await database.getVoteCounts(msgId);
+
+      // Update message with new vote counts
+      const { components } = require('../utils');
+      const updatedComponents = components.createVotingButtons(msgId, voteCounts.up, voteCounts.down);
+
+      await interaction.editReply({
+        components: updatedComponents
+      });
+    } else {
+      // Fallback to in-memory voting
+      if (!votes.has(msgId)) {
+        votes.set(msgId, { up: new Set(), down: new Set() });
+      }
+
+      const voteState = votes.get(msgId);
+      const addSet = isUpvote ? voteState.up : voteState.down;
+      const removeSet = isUpvote ? voteState.down : voteState.up;
+
+      // Remove from opposite set
+      if (removeSet.has(userId)) {
+        removeSet.delete(userId);
+      }
+
+      // Toggle in current set
+      if (addSet.has(userId)) {
+        addSet.delete(userId);
+      } else {
+        addSet.add(userId);
+      }
+
+      // Update message
+      const { components } = require('../utils');
+      const updatedComponents = components.createVotingButtons(msgId, voteState.up.size, voteState.down.size);
+
+      await interaction.editReply({
+        components: updatedComponents
+      });
+    }
+
+    console.log(`Voting: ${action} for message ${msgId} by user ${userId}`);
+
+  } catch (error) {
+    console.error('Error handling voting:', error);
+
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: '❌ Error processing vote.',
+        flags: MessageFlags.Ephemeral
+      });
+    }
+  }
 }
 
 async function handleStatusChange(interaction, action, msgId) {
-  // TODO: Move status change logic here
-  console.log(`Status change: ${action} for message ${msgId}`);
+  const { EmbedBuilder } = require('discord.js');
+  const database = require('../database');
+
+  try {
+    await interaction.deferUpdate();
+
+    // Update movie status in database
+    const success = await database.updateMovieStatus(msgId, action);
+    if (!success) {
+      await interaction.followUp({
+        content: '❌ Failed to update movie status.',
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    // Get updated movie data
+    const movie = await database.getMovieById(msgId);
+    if (!movie) {
+      await interaction.followUp({
+        content: '❌ Movie not found.',
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    // Create updated embed
+    const { embeds, components } = require('../utils');
+    const updatedEmbed = embeds.createMovieEmbed(movie);
+    const updatedComponents = components.createStatusButtons(msgId, action);
+
+    // Update the message
+    await interaction.editReply({
+      embeds: [updatedEmbed],
+      components: updatedComponents
+    });
+
+    // Send confirmation
+    const statusLabels = {
+      watched: 'marked as watched and discussion closed',
+      planned: 'planned for later',
+      skipped: 'skipped'
+    };
+
+    await interaction.followUp({
+      content: `Movie ${statusLabels[action]}! 🎬`,
+      flags: MessageFlags.Ephemeral
+    });
+
+    console.log(`Status change: ${action} for message ${msgId}`);
+
+  } catch (error) {
+    console.error('Error handling status change:', error);
+
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: '❌ Error updating movie status.',
+        flags: MessageFlags.Ephemeral
+      });
+    } else {
+      await interaction.followUp({
+        content: '❌ Error updating movie status.',
+        flags: MessageFlags.Ephemeral
+      });
+    }
+  }
 }
 
 async function handleConfigurationButton(interaction, action) {

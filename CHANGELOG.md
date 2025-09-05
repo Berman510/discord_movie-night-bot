@@ -2,6 +2,29 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.10.1] - 2025-09-05
+### Added
+- **Enhanced Cleanup System:** Comprehensive database sync during cleanup operations
+- **Orphaned Message Removal:** Automatically deletes Discord messages for movies removed from database
+- **Database Sync:** Syncs message status with database state during cleanup
+- **Expanded Coverage:** Cleanup now processes 200 messages instead of 100
+- **Missing Database Method:** Added `getMoviesByChannel()` for channel-specific movie queries
+
+### Enhanced
+- **Comprehensive Cleanup:** `/movie-cleanup` now performs full database synchronization
+- **Orphan Detection:** Identifies and removes messages without corresponding database entries
+- **Status Synchronization:** Ensures Discord message status matches database status
+- **Better Reporting:** Detailed cleanup summary with sync statistics
+- **Database Integrity:** Maintains consistency between Discord and database states
+
+### Fixed
+- **Button Interaction Failures:** Resolved "This interaction failed" errors for Plan Later and voting
+- **Status Change Handlers:** Implemented proper interaction responses for all status buttons
+- **Vote Processing:** Fixed voting button interactions with database integration
+- **Error Handling:** Improved error handling prevents interaction timeouts
+
+---
+
 ## [1.10.0] - 2025-09-05
 ### Added
 - **Session Management Buttons:** Reschedule and Cancel buttons on scheduled movie posts
