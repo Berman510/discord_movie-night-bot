@@ -7,7 +7,7 @@
 
 require('dotenv').config();
 
-const { Client, GatewayIntentBits, REST, Routes, InteractionType } = require('discord.js');
+const { Client, GatewayIntentBits, REST, Routes, InteractionType, MessageFlags } = require('discord.js');
 const database = require('./database');
 const { commands, registerCommands } = require('./commands');
 const { handleInteraction } = require('./handlers');
@@ -74,7 +74,7 @@ client.on('interactionCreate', async (interaction) => {
     if (!interaction.replied && !interaction.deferred) {
       await interaction.reply({
         content: '❌ An error occurred while processing your request.',
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       }).catch(console.error);
     }
   }
@@ -117,7 +117,7 @@ async function handleSlashCommand(interaction) {
       default:
         await interaction.reply({
           content: `❌ Unknown command: ${commandName}`,
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         });
     }
   } catch (error) {
@@ -126,7 +126,7 @@ async function handleSlashCommand(interaction) {
     if (!interaction.replied && !interaction.deferred) {
       await interaction.reply({
         content: '❌ An error occurred while processing the command.',
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       }).catch(console.error);
     }
   }
@@ -137,7 +137,7 @@ async function handleMovieNight(interaction) {
   console.log('Movie night command called');
   await interaction.reply({
     content: 'Movie night command coming soon!',
-    ephemeral: true
+    flags: MessageFlags.Ephemeral
   });
 }
 
@@ -145,7 +145,7 @@ async function handleMovieQueue(interaction) {
   console.log('Movie queue command called');
   await interaction.reply({
     content: 'Movie queue command coming soon!',
-    ephemeral: true
+    flags: MessageFlags.Ephemeral
   });
 }
 
@@ -153,7 +153,7 @@ async function handleMovieHelp(interaction) {
   const helpEmbed = embeds.createHelpEmbed();
   await interaction.reply({
     embeds: [helpEmbed],
-    ephemeral: true
+    flags: MessageFlags.Ephemeral
   });
 }
 
@@ -161,23 +161,93 @@ async function handleMovieConfigure(interaction) {
   console.log('Movie configure command called');
   await interaction.reply({
     content: 'Movie configure command coming soon!',
-    ephemeral: true
+    flags: MessageFlags.Ephemeral
   });
 }
 
 async function handleMovieCleanup(interaction) {
-  console.log('Movie cleanup command called');
+  if (!database.isConnected) {
+    await interaction.reply({
+      content: '⚠️ Database not available - configuration features require database connection.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  // Check if user has proper permissions
+  const { permissions } = require('./services');
+  const hasPermission = await permissions.checkMovieAdminPermission(interaction);
+  if (!hasPermission) {
+    await interaction.reply({
+      content: '❌ You need Administrator permissions or a configured admin role to use this command.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  // Check if this is the configured movie channel (cleanup only works in movie channel)
+  const config = await database.getGuildConfig(interaction.guild.id);
+  if (config && config.movie_channel_id && config.movie_channel_id !== interaction.channel.id) {
+    await interaction.reply({
+      content: `❌ Cleanup can only be used in the configured movie channel: <#${config.movie_channel_id}>\n\n*Admin commands work anywhere, but cleanup must be in the movie channel for safety.*`,
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
   await interaction.reply({
-    content: 'Movie cleanup command coming soon!',
-    ephemeral: true
+    content: '🧹 Starting channel cleanup... This may take a moment.',
+    flags: MessageFlags.Ephemeral
   });
+
+  try {
+    const channel = interaction.channel;
+    const botId = interaction.client.user.id;
+    let updatedCount = 0;
+    let processedCount = 0;
+
+    // Fetch recent messages (last 100)
+    const messages = await channel.messages.fetch({ limit: 100 });
+    const botMessages = messages.filter(msg => msg.author.id === botId);
+
+    for (const [, message] of botMessages) {
+      processedCount++;
+
+      // Skip if message already has the current format
+      if (isCurrentFormat(message)) {
+        continue;
+      }
+
+      // Try to update the message
+      const updated = await updateMessageToCurrentFormat(message);
+      if (updated) {
+        updatedCount++;
+        // Add a small delay to avoid rate limits
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+
+    const summary = [`✅ Cleanup complete! Processed ${processedCount} messages, updated ${updatedCount} to current format.`];
+
+    await interaction.followUp({
+      content: summary.join('\n'),
+      flags: MessageFlags.Ephemeral
+    });
+
+  } catch (error) {
+    console.error('Cleanup error:', error);
+    await interaction.followUp({
+      content: '❌ Cleanup failed. Check console for details.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
 }
 
 async function handleMovieStats(interaction) {
   console.log('Movie stats command called');
   await interaction.reply({
     content: 'Movie stats command coming soon!',
-    ephemeral: true
+    flags: MessageFlags.Ephemeral
   });
 }
 
@@ -213,6 +283,52 @@ process.on('SIGTERM', async () => {
   client.destroy();
   process.exit(0);
 });
+
+// Helper functions for cleanup
+function isCurrentFormat(message) {
+  // Check if message has the current button format
+  if (message.embeds.length === 0) return false;
+
+  const embed = message.embeds[0];
+
+  // Check if it's a movie recommendation embed
+  if (!embed.title || !embed.title.includes('🍿')) return false;
+
+  // Check if it has current button format
+  if (message.components.length === 0) return false;
+
+  const hasVoteButtons = message.components.some(row =>
+    row.components.some(component =>
+      component.customId && component.customId.includes('mn:up:')
+    )
+  );
+
+  return hasVoteButtons;
+}
+
+async function updateMessageToCurrentFormat(message) {
+  try {
+    // Get movie data from database
+    const movie = await database.getMovieByMessageId(message.id);
+    if (!movie) return false;
+
+    // Create updated embed and components
+    const { embeds, components } = require('./utils');
+    const embed = embeds.createMovieEmbed(movie);
+    const movieComponents = components.createStatusButtons(message.id, movie.status);
+
+    // Update the message
+    await message.edit({
+      embeds: [embed],
+      components: movieComponents
+    });
+
+    return true;
+  } catch (error) {
+    console.warn(`Failed to update message ${message.id}:`, error.message);
+    return false;
+  }
+}
 
 // Start the bot
 client.login(DISCORD_TOKEN);

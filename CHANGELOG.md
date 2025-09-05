@@ -2,6 +2,29 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.9.2] - 2025-09-05
+### Fixed
+- **Cleanup Functionality:** Implemented real cleanup command to update old movie messages to current format
+- **Create Session Buttons:** Planned movies now get Create Session buttons through cleanup process
+- **Discord.js Compatibility:** Fixed all deprecation warnings by updating ephemeral to flags syntax
+- **Message Format Detection:** Added helper functions to detect and update message formats
+- **Admin Permissions:** Improved permission checking and error handling for cleanup command
+
+### Added
+- **Message Format Helpers:** Functions to detect current format and update old messages
+- **Better Error Handling:** Comprehensive error handling and user feedback for cleanup process
+
+---
+
+## [1.9.1] - 2025-09-05
+### Fixed
+- **Session Command UX:** Improved parameter descriptions for `/movie-session` command clarity
+- **Discord.js Compatibility:** Fixed deprecation warning by updating `ready` event to `clientReady`
+- **Command Registration:** Fixed missing Routes import causing command registration failures
+- **User Experience:** Clarified that session-id and movie-title parameters are only needed for specific actions
+
+---
+
 ## [1.9.0] - 2025-09-05
 ### Added
 - **Thread Recovery:** Cleanup feature now creates missing discussion threads for movies up for vote
