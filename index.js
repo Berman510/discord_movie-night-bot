@@ -488,18 +488,15 @@ async function syncMessageWithDatabase(message, movie) {
     // Create appropriate components based on status
     if (movie.status === 'watched') {
       updatedComponents = []; // No buttons for watched movies
-    } else if (movie.status === 'scheduled') {
-      // Create session management buttons (simplified for cleanup)
-      updatedComponents = [components.createStatusButtons(movie.message_id, movie.status)];
     } else {
-      // Create voting and status buttons
-      updatedComponents = [components.createVoteButtons(movie.message_id), components.createStatusButtons(movie.message_id, movie.status)];
+      // For all other statuses, use the standard status buttons
+      updatedComponents = components.createStatusButtons(movie.message_id, movie.status);
     }
 
     // Update the message
     await message.edit({
       embeds: [updatedEmbed],
-      components: updatedComponents
+      components: updatedComponents || []
     });
 
     return true;
