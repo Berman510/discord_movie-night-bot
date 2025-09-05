@@ -421,13 +421,35 @@ async function handleMovieCleanup(interaction) {
       }
     }
 
-    // Step 4: Check for database movies without Discord messages
+    // Step 4: Clean orphaned database entries (movies without Discord messages)
     const messageIds = new Set(botMessages.keys());
-    const missingMessages = dbMovies.filter(movie => !messageIds.has(movie.message_id));
+    const orphanedDbEntries = dbMovies.filter(movie => !messageIds.has(movie.message_id));
+    let cleanedDbCount = 0;
 
-    if (missingMessages.length > 0) {
-      console.log(`⚠️ Found ${missingMessages.length} movies in database without Discord messages`);
-      // Optionally clean these from database or report them
+    if (orphanedDbEntries.length > 0) {
+      console.log(`🗑️ Found ${orphanedDbEntries.length} orphaned database entries, cleaning up...`);
+
+      for (const orphanedMovie of orphanedDbEntries) {
+        try {
+          // Delete associated session if exists
+          const session = await database.getSessionByMovieId(orphanedMovie.message_id);
+          if (session) {
+            await database.deleteMovieSession(session.id);
+            console.log(`🗑️ Deleted orphaned session: ${session.name} (ID: ${session.id})`);
+          }
+
+          // Delete votes for this movie
+          await database.deleteVotesByMessageId(orphanedMovie.message_id);
+
+          // Delete the movie record
+          await database.deleteMovie(orphanedMovie.message_id);
+          cleanedDbCount++;
+
+          console.log(`🗑️ Cleaned orphaned database entry: ${orphanedMovie.title} (Message ID: ${orphanedMovie.message_id})`);
+        } catch (error) {
+          console.error(`Error cleaning orphaned entry ${orphanedMovie.title}:`, error.message);
+        }
+      }
     }
 
     // Step 5: Sync Discord events with database
@@ -445,12 +467,11 @@ async function handleMovieCleanup(interaction) {
       `🔄 Updated ${updatedCount} to current format`,
       `🗑️ Removed ${orphanedCount} orphaned messages`,
       `🔗 Synced ${syncedCount} messages with database`,
-      `🎪 Synced ${eventSyncResults.syncedCount} Discord events, deleted ${eventSyncResults.deletedCount} orphaned events`
+      `🎪 Synced ${eventSyncResults.syncedCount} Discord events, deleted ${eventSyncResults.deletedCount} orphaned events`,
+      `🗑️ Cleaned ${cleanedDbCount} orphaned database entries`
     ];
 
-    if (missingMessages.length > 0) {
-      summary.push(`⚠️ Found ${missingMessages.length} database entries without messages`);
-    }
+    // Note: Orphaned database entries are now automatically cleaned up
 
     await interaction.followUp({
       content: summary.join('\n'),

@@ -1131,6 +1131,54 @@ class Database {
     }
   }
 
+  async deleteMovieSession(sessionId) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `DELETE FROM movie_sessions WHERE id = ?`,
+        [sessionId]
+      );
+      console.log(`🗑️ Database: Deleted session ${sessionId}`);
+      return true;
+    } catch (error) {
+      console.error('Error deleting movie session:', error.message);
+      return false;
+    }
+  }
+
+  async deleteVotesByMessageId(messageId) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `DELETE FROM votes WHERE message_id = ?`,
+        [messageId]
+      );
+      console.log(`🗑️ Database: Deleted votes for message ${messageId}`);
+      return true;
+    } catch (error) {
+      console.error('Error deleting votes:', error.message);
+      return false;
+    }
+  }
+
+  async deleteMovie(messageId) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `DELETE FROM movies WHERE message_id = ?`,
+        [messageId]
+      );
+      console.log(`🗑️ Database: Deleted movie with message ID ${messageId}`);
+      return true;
+    } catch (error) {
+      console.error('Error deleting movie:', error.message);
+      return false;
+    }
+  }
+
   async close() {
     if (this.pool) {
       await this.pool.end();
