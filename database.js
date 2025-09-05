@@ -1084,6 +1084,53 @@ class Database {
     }
   }
 
+  async getAllSessions(guildId) {
+    if (!this.isConnected) return [];
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT * FROM movie_sessions WHERE guild_id = ? ORDER BY created_at DESC`,
+        [guildId]
+      );
+      return rows;
+    } catch (error) {
+      console.error('Error getting all sessions:', error.message);
+      return [];
+    }
+  }
+
+  async getMovieBySessionId(sessionId) {
+    if (!this.isConnected) return null;
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT m.* FROM movies m
+         JOIN movie_sessions s ON m.message_id = s.associated_movie_id
+         WHERE s.id = ?`,
+        [sessionId]
+      );
+      return rows.length > 0 ? rows[0] : null;
+    } catch (error) {
+      console.error('Error getting movie by session ID:', error.message);
+      return null;
+    }
+  }
+
+  async updateSessionEventId(sessionId, eventId) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `UPDATE movie_sessions SET discord_event_id = ? WHERE id = ?`,
+        [eventId, sessionId]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error updating session event ID:', error.message);
+      return false;
+    }
+  }
+
   async close() {
     if (this.pool) {
       await this.pool.end();

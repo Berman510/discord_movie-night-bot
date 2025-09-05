@@ -2,6 +2,37 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.10.2] - 2025-09-05
+### Added
+- **Complete Sync System:** Bidirectional synchronization between Discord events and database
+- **Session UID Tracking:** Embedded session UIDs in Discord event descriptions for tracking
+- **Discord Event Sync:** Automatic detection and cleanup of orphaned Discord events
+- **Vote Preservation:** Complete vote data preservation during message recreation
+- **IMDb Data Restoration:** Proper parsing and restoration of movie posters and details
+- **Enhanced Database Methods:** getAllSessions, getMovieBySessionId, updateSessionEventId, transferVotes
+
+### Enhanced
+- **Cleanup System:** Now includes Discord event synchronization and orphan cleanup
+- **Movie Recreation:** Recreates movies at bottom with full IMDb data and preserved votes
+- **Guide Interface:** Proper recommendation button instead of admin configuration buttons
+- **Event Management:** Automatic cleanup when Discord events are manually deleted
+- **Data Integrity:** Complete consistency between Discord messages, events, and database
+
+### Fixed
+- **Missing IMDb Data:** Movies now properly restore posters and details during cleanup
+- **Lost Vote Counts:** Vote preservation during message recreation (e.g., "3 👍 0 👎" maintained)
+- **Wrong Guide Buttons:** Fixed guide showing admin config instead of recommendation button
+- **Orphaned Events:** Automatic detection and cleanup of Discord events without database sessions
+- **Status Sync:** Movies automatically return to "planned" when associated events are deleted
+
+### Technical
+- **Session UID Format:** `SESSION_UID:123` embedded in Discord event descriptions
+- **Bidirectional Sync:** Discord events ↔ Database sessions with automatic reconciliation
+- **Vote Transfer:** Database-level vote migration during message ID changes
+- **Event Cleanup:** Comprehensive orphan detection and automatic status restoration
+
+---
+
 ## [1.10.1] - 2025-09-05
 ### Added
 - **Enhanced Cleanup System:** Comprehensive database sync during cleanup operations

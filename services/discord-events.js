@@ -39,9 +39,14 @@ async function createDiscordEvent(guild, sessionData, scheduledDate) {
 
     endTime.setMinutes(endTime.getMinutes() + durationMinutes);
 
+    // Add session UID to description for bidirectional sync
+    const sessionUID = `SESSION_UID:${sessionData.id || 'unknown'}`;
+    const baseDescription = sessionData.description || 'Movie night session - join us for a great movie!';
+    const enhancedDescription = `${baseDescription}\n\n🔗 ${sessionUID}`;
+
     const event = await guild.scheduledEvents.create({
       name: `🎬 ${sessionData.name}`,
-      description: sessionData.description || 'Movie night session - join us for a great movie!',
+      description: enhancedDescription,
       scheduledStartTime: scheduledDate,
       scheduledEndTime: endTime,
       privacyLevel: GuildScheduledEventPrivacyLevel.GuildOnly,
@@ -170,8 +175,70 @@ async function notifyRole(guild, event, sessionData) {
   }
 }
 
+async function syncDiscordEventsWithDatabase(guild) {
+  try {
+    console.log('🔄 Syncing Discord events with database...');
+
+    const database = require('../database');
+
+    // Get all Discord events for this guild
+    const discordEvents = await guild.scheduledEvents.fetch();
+
+    // Get all sessions from database
+    const sessions = await database.getAllSessions(guild.id);
+    const sessionMap = new Map(sessions.map(s => [s.id, s]));
+
+    let syncedCount = 0;
+    let deletedCount = 0;
+
+    for (const [eventId, event] of discordEvents) {
+      // Check if this event has a session UID
+      const sessionUIDMatch = event.description?.match(/SESSION_UID:(\d+)/);
+
+      if (sessionUIDMatch) {
+        const sessionId = parseInt(sessionUIDMatch[1]);
+        const session = sessionMap.get(sessionId);
+
+        if (!session) {
+          // Session was deleted from database but Discord event still exists
+          console.log(`🗑️ Deleting orphaned Discord event: ${event.name} (Session ${sessionId} not found)`);
+
+          try {
+            await event.delete();
+            deletedCount++;
+
+            // If this was associated with a movie, reset movie status to planned
+            const movie = await database.getMovieBySessionId(sessionId);
+            if (movie) {
+              await database.updateMovieStatus(movie.message_id, 'planned');
+              console.log(`🔄 Reset movie "${movie.title}" to planned status`);
+            }
+          } catch (error) {
+            console.warn(`Failed to delete orphaned event ${eventId}:`, error.message);
+          }
+        } else {
+          // Session exists, ensure database has correct event ID
+          if (session.discord_event_id !== eventId) {
+            await database.updateSessionEventId(sessionId, eventId);
+            syncedCount++;
+            console.log(`🔗 Synced session ${sessionId} with Discord event ${eventId}`);
+          }
+        }
+      }
+    }
+
+    console.log(`✅ Discord event sync complete: ${syncedCount} synced, ${deletedCount} orphaned events deleted`);
+    return { syncedCount, deletedCount };
+
+  } catch (error) {
+    console.error('Error syncing Discord events with database:', error);
+    return { syncedCount: 0, deletedCount: 0 };
+  }
+}
+
 module.exports = {
   createDiscordEvent,
   updateDiscordEvent,
-  deleteDiscordEvent
+  deleteDiscordEvent,
+  syncDiscordEventsWithDatabase
 };

@@ -430,12 +430,22 @@ async function handleMovieCleanup(interaction) {
       // Optionally clean these from database or report them
     }
 
+    // Step 5: Sync Discord events with database
+    let eventSyncResults = { syncedCount: 0, deletedCount: 0 };
+    try {
+      const discordEvents = require('./services/discord-events');
+      eventSyncResults = await discordEvents.syncDiscordEventsWithDatabase(interaction.guild);
+    } catch (error) {
+      console.warn('Error syncing Discord events:', error.message);
+    }
+
     const summary = [
       `✅ **Comprehensive cleanup complete!**`,
       `📊 Processed ${processedCount} messages (from ${allMessages.size} total fetched)`,
       `🔄 Updated ${updatedCount} to current format`,
       `🗑️ Removed ${orphanedCount} orphaned messages`,
-      `🔗 Synced ${syncedCount} messages with database`
+      `🔗 Synced ${syncedCount} messages with database`,
+      `🎪 Synced ${eventSyncResults.syncedCount} Discord events, deleted ${eventSyncResults.deletedCount} orphaned events`
     ];
 
     if (missingMessages.length > 0) {
@@ -530,7 +540,8 @@ async function recreateMovieAtBottom(oldMessage, movie, channel) {
     const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 
     // Use the standard movie embed which properly handles IMDb data
-    const movieEmbed = embeds.createMovieEmbed(movie);
+    const imdbData = movie.imdb_data ? (typeof movie.imdb_data === 'string' ? JSON.parse(movie.imdb_data) : movie.imdb_data) : null;
+    const movieEmbed = embeds.createMovieEmbed(movie, imdbData);
     let movieComponents;
 
     // Handle different statuses
@@ -654,14 +665,23 @@ async function ensureGuideAtBottom(channel) {
       }
     }
 
-    // Create new guide at bottom
-    const { embeds, components } = require('./utils');
+    // Create new guide at bottom with recommendation button
+    const { embeds } = require('./utils');
     const guideEmbed = embeds.createHelpEmbed();
-    const guideComponents = components.createConfigurationButtons ? components.createConfigurationButtons() : [];
+
+    // Create recommendation button (not config buttons)
+    const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+    const recommendButton = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId('create_recommendation')
+          .setLabel('🍿 Recommend a Movie')
+          .setStyle(ButtonStyle.Primary)
+      );
 
     await channel.send({
       embeds: [guideEmbed],
-      components: guideComponents
+      components: [recommendButton]
     });
 
     console.log('✅ Ensured guide message is at bottom');
