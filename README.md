@@ -2,7 +2,9 @@
 
 Discord bot to create in-channel movie recommendations with persistent voting, status tracking, queue management, and IMDb integration. Features MySQL database storage, movie night statistics, and smart suggestion management.
 
-**Version:** 1.7.1
+**Version:** 1.9.0
+
+> **🏗️ Modular Architecture**: The bot has been refactored into a clean modular structure for better maintainability. See [ARCHITECTURE.md](ARCHITECTURE.md) for details.
 
 ---
 
@@ -180,13 +182,19 @@ pm2 startup  # follow the printed instructions
 - **Help:** Run `/movie-help` for comprehensive help and current status
 
 ### Movie Night Sessions
-- **Create Event:** `/movie-session create name:"Friday Night" date:"2025-09-06 8pm"`
-- **List Sessions:** `/movie-session list` to see active movie night events
-- **Pick Winner:** `/movie-session winner` to automatically select the top-voted movie
-- **Event Organization:** Sessions help organize specific movie night events with dates and times
+- **Interactive Creation:** `/movie-session create` opens an intuitive interface with date/time buttons
+- **Smart Date Selection:** Choose from "Tonight", "Tomorrow", "This Friday", or custom dates
+- **Time Presets:** Quick selection for 7pm, 8pm, 9pm, or custom times
+- **Timezone Support:** Select timezone during creation or use server default timezone
+- **Discord Events:** Automatically creates Discord scheduled events for sessions with dates
+- **Planned Movie Integration:** Create sessions directly from planned movies with "🎪 Create Session" button
+- **Enhanced Listing:** `/movie-session list` shows detailed session info with organizer, date, timezone, and featured movies
+- **Session Management:** `/movie-session join [id]` to follow sessions, `/movie-session add-movie [id] [title]` to add movies
+- **Winner Selection:** `/movie-session winner` automatically selects the top-voted movie
 
 ### Server Configuration
 - **Setup:** `/movie-configure set-channel` to designate the movie recommendation channel
+- **Timezone:** `/movie-configure set-timezone` to set server's default timezone for movie sessions
 - **Admin Roles:** `/movie-configure add-admin-role @role` to allow specific roles to use admin commands
 - **View Settings:** `/movie-configure view-settings` to see current configuration
 - **Security:** Only Discord Administrators can modify bot configuration

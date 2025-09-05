@@ -1,0 +1,50 @@
+/**
+ * Movie Configuration Commands
+ * Slash command definitions for bot configuration
+ */
+
+const { TIMEZONE_OPTIONS } = require('../config/timezones');
+
+const commands = [
+  {
+    name: 'movie-configure',
+    description: 'Configure bot settings for this server (Administrator only)',
+    options: [
+      {
+        name: 'action',
+        description: 'Configuration action to perform',
+        type: 3, // STRING
+        required: true,
+        choices: [
+          { name: 'set-channel', value: 'set-channel' },
+          { name: 'set-timezone', value: 'set-timezone' },
+          { name: 'add-admin-role', value: 'add-admin-role' },
+          { name: 'remove-admin-role', value: 'remove-admin-role' },
+          { name: 'view-settings', value: 'view-settings' },
+          { name: 'reset', value: 'reset' }
+        ]
+      },
+      {
+        name: 'channel',
+        description: 'Channel to set as movie channel (for set-channel action)',
+        type: 7, // CHANNEL
+        required: false
+      },
+      {
+        name: 'timezone',
+        description: 'Timezone to set as default (for set-timezone action)',
+        type: 3, // STRING
+        required: false,
+        choices: TIMEZONE_OPTIONS.slice(0, 25).map(tz => ({ name: tz.label, value: tz.value }))
+      },
+      {
+        name: 'role',
+        description: 'Role to add/remove as admin (for admin role actions)',
+        type: 8, // ROLE
+        required: false
+      }
+    ]
+  }
+];
+
+module.exports = commands;

@@ -152,12 +152,17 @@ class Database {
         name VARCHAR(255) NOT NULL,
         description TEXT NULL,
         scheduled_date DATETIME NULL,
+        timezone VARCHAR(50) DEFAULT 'UTC',
         voting_deadline DATETIME NULL,
         status ENUM('planning', 'voting', 'decided', 'completed', 'cancelled') DEFAULT 'planning',
         winner_message_id VARCHAR(20) NULL,
+        associated_movie_id VARCHAR(20) NULL,
+        discord_event_id VARCHAR(20) NULL,
         created_by VARCHAR(20) NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        INDEX idx_guild_status (guild_id, status)
+        INDEX idx_guild_status (guild_id, status),
+        INDEX idx_associated_movie (associated_movie_id),
+        INDEX idx_discord_event (discord_event_id)
       )`,
 
       // User preferences and stats
@@ -179,6 +184,7 @@ class Database {
         guild_id VARCHAR(20) UNIQUE NOT NULL,
         movie_channel_id VARCHAR(20) NULL,
         admin_roles JSON NULL,
+        default_timezone VARCHAR(50) DEFAULT 'UTC',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )`
@@ -248,7 +254,7 @@ class Database {
 
   async updateMovieStatus(messageId, status, watchedAt = null) {
     if (!this.isConnected) return false;
-    
+
     try {
       await this.pool.execute(
         `UPDATE movies SET status = ?, watched_at = ? WHERE message_id = ?`,
@@ -258,6 +264,21 @@ class Database {
     } catch (error) {
       console.error('Error updating movie status:', error.message);
       return false;
+    }
+  }
+
+  async getMovieByMessageId(messageId) {
+    if (!this.isConnected) return null;
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT * FROM movies WHERE message_id = ?`,
+        [messageId]
+      );
+      return rows.length > 0 ? rows[0] : null;
+    } catch (error) {
+      console.error('Error getting movie by message ID:', error.message);
+      return null;
     }
   }
 
@@ -370,14 +391,17 @@ class Database {
 
     try {
       const [result] = await this.pool.execute(
-        `INSERT INTO movie_sessions (guild_id, channel_id, name, description, scheduled_date, created_by)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO movie_sessions (guild_id, channel_id, name, description, scheduled_date, timezone, associated_movie_id, discord_event_id, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           sessionData.guildId,
           sessionData.channelId,
           sessionData.name,
           sessionData.description || null,
           sessionData.scheduledDate || null,
+          sessionData.timezone || 'UTC',
+          sessionData.associatedMovieId || null,
+          sessionData.discordEventId || null,
           sessionData.createdBy
         ]
       );
@@ -418,6 +442,52 @@ class Database {
     } catch (error) {
       console.error('Error updating session status:', error.message);
       return false;
+    }
+  }
+
+  async updateSessionDiscordEvent(sessionId, discordEventId) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `UPDATE movie_sessions SET discord_event_id = ? WHERE id = ?`,
+        [discordEventId, sessionId]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error updating session Discord event:', error.message);
+      return false;
+    }
+  }
+
+  async setGuildTimezone(guildId, timezone) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `INSERT INTO guild_config (guild_id, default_timezone) VALUES (?, ?)
+         ON DUPLICATE KEY UPDATE default_timezone = VALUES(default_timezone)`,
+        [guildId, timezone]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error setting guild timezone:', error.message);
+      return false;
+    }
+  }
+
+  async getGuildTimezone(guildId) {
+    if (!this.isConnected) return 'UTC';
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT default_timezone FROM guild_config WHERE guild_id = ?`,
+        [guildId]
+      );
+      return rows.length > 0 ? rows[0].default_timezone : 'UTC';
+    } catch (error) {
+      console.error('Error getting guild timezone:', error.message);
+      return 'UTC';
     }
   }
 

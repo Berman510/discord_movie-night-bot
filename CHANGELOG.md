@@ -2,12 +2,31 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
-## [1.8.2] - 2025-09-05
+## [1.9.0] - 2025-09-05
 ### Added
 - **Thread Recovery:** Cleanup feature now creates missing discussion threads for movies up for vote
+- **Interactive Session Creation:** Modal-based session creation with intuitive date/time selection
+- **Smart Date Selection:** Quick buttons for "Tonight", "Tomorrow", "This Friday", "This Weekend"
+- **Time Presets:** Easy selection for 7pm, 8pm, 9pm, or custom times
+- **Timezone Support:** Full timezone awareness with selection during session creation
+- **Discord Event Integration:** Automatically creates Discord scheduled events for sessions with dates
+- **Guild Timezone Configuration:** Server admins can set default timezone via `/movie-configure set-timezone`
+- **Planned Movie Integration:** "Create Session" button on planned movies for direct session creation
+- **Enhanced Session Management:** Improved listing with detailed session information including timezone
+- **Session Joining:** Users can join sessions to receive updates and see session details
+- **Movie-Session Association:** Sessions can be linked to specific planned movies
 
 ### Changed
+- **Major Code Refactoring:** Split monolithic 2800+ line index.js into modular architecture
+- **Modular Structure:** Organized code into commands/, handlers/, services/, utils/, and config/ directories
+- **Improved Maintainability:** Each module has single responsibility and clear interfaces
 - Extended cleanup functionality to ensure all pending movies have discussion threads
+- Replaced text-based session creation with interactive button/modal interface
+- Enhanced session listing with organizer, date, timezone, featured movies, and Discord event status
+- Improved session commands with focused actions (create, list, join, add-movie, winner)
+- Added flexible date parsing supporting natural language like "Friday 8pm" and "Tomorrow 7:30pm"
+- All session dates now display with proper timezone information
+- Database schema updated to support timezone and Discord event tracking
 
 ---
 
