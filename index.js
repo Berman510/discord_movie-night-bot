@@ -39,7 +39,7 @@ const client = new Client({
 const rest = new REST({ version: '10' }).setToken(DISCORD_TOKEN);
 
 // Bot ready event
-client.once('ready', async () => {
+client.once('clientReady', async () => {
   console.log(`🎬 Movie Night Bot v${BOT_VERSION} is ready!`);
   console.log(`📊 Logged in as ${client.user.tag}`);
   console.log(`🏠 Serving ${client.guilds.cache.size} guilds`);

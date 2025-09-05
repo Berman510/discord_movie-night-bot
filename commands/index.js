@@ -3,6 +3,7 @@
  * Handles registration of all slash commands with Discord
  */
 
+const { Routes } = require('discord.js');
 const movieNightCommands = require('./movie-night');
 const movieSessionCommands = require('./movie-session');
 const movieConfigureCommands = require('./movie-configure');
