@@ -399,17 +399,10 @@ async function handleMovieCleanup(interaction) {
         // Sync message with database state
         const movie = dbMovies.find(m => m.message_id === messageId);
         if (movie) {
-          // For scheduled movies, recreate at bottom instead of syncing in place
-          if (movie.status === 'scheduled') {
-            const recreated = await recreateScheduledMovieAtBottom(message, movie, channel);
-            if (recreated) {
-              syncedCount++;
-            }
-          } else {
-            const synced = await syncMessageWithDatabase(message, movie);
-            if (synced) {
-              syncedCount++;
-            }
+          // Sync message with database (may recreate at bottom for better UX)
+          const synced = await syncMessageWithDatabase(message, movie);
+          if (synced) {
+            syncedCount++;
           }
         }
       }
@@ -467,7 +460,7 @@ async function syncMessageWithDatabase(message, movie) {
   try {
     const { embeds, components } = require('./utils');
 
-    // Check if message status matches database status
+    // Check if message status matches database status AND has proper IMDb data
     const currentEmbed = message.embeds[0];
     if (!currentEmbed) return false;
 
@@ -482,49 +475,26 @@ async function syncMessageWithDatabase(message, movie) {
       else if (statusField.value.includes('Skipped')) currentStatus = 'skipped';
     }
 
-    // If status matches, no sync needed
-    if (currentStatus === movie.status) {
+    // Check if IMDb data is missing (no thumbnail)
+    const hasPoster = currentEmbed.thumbnail && currentEmbed.thumbnail.url;
+    const shouldHavePoster = movie.imdb_data && movie.imdb_data.Poster && movie.imdb_data.Poster !== 'N/A';
+    const needsIMDbRestore = shouldHavePoster && !hasPoster;
+
+    // If status matches AND IMDb data is present, no sync needed
+    if (currentStatus === movie.status && !needsIMDbRestore) {
       return false;
     }
 
-    console.log(`🔄 Syncing message ${message.id}: ${currentStatus} → ${movie.status}`);
+    console.log(`🔄 Syncing message ${message.id}: ${currentStatus} → ${movie.status}${needsIMDbRestore ? ' (restoring IMDb data)' : ''}`);
 
-    // Create updated embed with correct status
-    const updatedEmbed = embeds.createMovieEmbed(movie);
-    let updatedComponents;
-
-    // Create appropriate components based on status
-    if (movie.status === 'watched') {
-      updatedComponents = []; // No buttons for watched movies
-    } else if (movie.status === 'scheduled') {
-      // For scheduled movies, create session management buttons
-      const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-
-      // We need to get the session ID from the database to create proper buttons
-      const session = await database.getSessionByMovieId(movie.message_id);
-
-      if (session) {
-        updatedComponents = [
-          new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-              .setCustomId(`session_reschedule:${session.id}:${movie.message_id}`)
-              .setLabel('📅 Reschedule')
-              .setStyle(ButtonStyle.Secondary)
-              .setEmoji('🔄'),
-            new ButtonBuilder()
-              .setCustomId(`session_cancel:${session.id}:${movie.message_id}`)
-              .setLabel('❌ Cancel Event')
-              .setStyle(ButtonStyle.Danger)
-          )
-        ];
-      } else {
-        // Fallback if no session found - use regular status buttons
-        updatedComponents = components.createStatusButtons(movie.message_id, movie.status);
-      }
-    } else {
-      // For all other statuses, use the standard status buttons
-      updatedComponents = components.createStatusButtons(movie.message_id, movie.status);
+    // For any movie that needs significant updates, recreate at bottom for better UX
+    if (needsIMDbRestore || movie.status === 'planned' || movie.status === 'scheduled') {
+      return await recreateMovieAtBottom(message, movie, message.channel);
     }
+
+    // For simple status updates, sync in place
+    const updatedEmbed = embeds.createMovieEmbed(movie);
+    const updatedComponents = components.createStatusButtons(movie.message_id, movie.status);
 
     // Update the message
     await message.edit({
@@ -540,83 +510,128 @@ async function syncMessageWithDatabase(message, movie) {
   }
 }
 
-async function recreateScheduledMovieAtBottom(oldMessage, movie, channel) {
+async function recreateMovieAtBottom(oldMessage, movie, channel) {
   try {
-    console.log(`🔄 Recreating scheduled movie at bottom: ${movie.title}`);
+    console.log(`🔄 Recreating movie at bottom: ${movie.title} (status: ${movie.status})`);
 
-    // Get session info for this movie
-    const session = await database.getSessionByMovieId(movie.message_id);
-    if (!session) {
-      console.warn('No session found for scheduled movie');
-      return false;
+    // CRITICAL: Preserve vote data before deleting message
+    const oldMessageId = oldMessage.id;
+    let voteData = { up: 0, down: 0 };
+
+    try {
+      voteData = await database.getVoteCounts(oldMessageId);
+      console.log(`📊 Preserving votes: ${voteData.up} up, ${voteData.down} down`);
+    } catch (error) {
+      console.warn('Could not get vote counts:', error.message);
     }
 
-    // Create new embed with scheduled status
-    const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+    // Create new embed using the standard movie embed function (preserves IMDb data)
+    const { embeds, components } = require('./utils');
+    const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 
-    // Create enhanced embed for scheduled movie
-    const scheduledEmbed = new EmbedBuilder()
-      .setTitle(`🍿 ${movie.title}`)
-      .setDescription(movie.description || 'Movie recommendation')
-      .setColor(0x57f287) // Green for scheduled
-      .addFields(
-        { name: '📺 Where to Watch', value: movie.where_to_watch, inline: true },
-        { name: '👤 Recommended by', value: `<@${movie.recommended_by}>`, inline: true },
-        { name: '📊 Status', value: `🗓️ **Scheduled for Session**\n📝 Session: ${session.name}\n🆔 Session ID: ${session.id}`, inline: false }
-      );
+    // Use the standard movie embed which properly handles IMDb data
+    const movieEmbed = embeds.createMovieEmbed(movie);
+    let movieComponents;
 
-    // Add session timing if available
-    if (session.scheduled_date) {
-      const timestamp = Math.floor(new Date(session.scheduled_date).getTime() / 1000);
-      scheduledEmbed.addFields({
-        name: '🗓️ Session Info',
-        value: `📅 **When:** <t:${timestamp}:F>\n🎪 **Session:** ${session.name}`,
-        inline: false
-      });
+    // Handle different statuses
+    if (movie.status === 'scheduled') {
+      // Get session info for scheduled movies
+      const session = await database.getSessionByMovieId(movie.message_id);
+      if (session) {
+        // Update embed for scheduled status
+        movieEmbed.setColor(0x57f287); // Green for scheduled
+
+        // Update status field
+        const statusFieldIndex = movieEmbed.data.fields?.findIndex(field => field.name === '📊 Status');
+        if (statusFieldIndex !== -1) {
+          movieEmbed.data.fields[statusFieldIndex] = {
+            name: '📊 Status',
+            value: `🗓️ **Scheduled for Session**\n📝 Session: ${session.name}\n🆔 Session ID: ${session.id}`,
+            inline: true
+          };
+        }
+
+        // Add session timing if available
+        if (session.scheduled_date) {
+          const timestamp = Math.floor(new Date(session.scheduled_date).getTime() / 1000);
+          movieEmbed.addFields({
+            name: '🗓️ Session Info',
+            value: `📅 **When:** <t:${timestamp}:F>\n🎪 **Session:** ${session.name}`,
+            inline: false
+          });
+        }
+
+        movieEmbed.setFooter({ text: `Scheduled for movie session • Session ID: ${session.id}` });
+
+        // Create session management buttons
+        movieComponents = [
+          new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+              .setCustomId(`session_reschedule:${session.id}:${movie.message_id}`)
+              .setLabel('📅 Reschedule')
+              .setStyle(ButtonStyle.Secondary)
+              .setEmoji('🔄'),
+            new ButtonBuilder()
+              .setCustomId(`session_cancel:${session.id}:${movie.message_id}`)
+              .setLabel('❌ Cancel Event')
+              .setStyle(ButtonStyle.Danger)
+          )
+        ];
+      } else {
+        // No session found, treat as planned
+        movieComponents = components.createStatusButtons(movie.message_id, 'planned');
+      }
+    } else {
+      // For all other statuses, use standard components
+      movieComponents = components.createStatusButtons(movie.message_id, movie.status);
     }
-
-    // Add IMDb poster if available
-    if (movie.imdb_data && movie.imdb_data.Poster && movie.imdb_data.Poster !== 'N/A') {
-      scheduledEmbed.setThumbnail(movie.imdb_data.Poster);
-    }
-
-    scheduledEmbed.setFooter({ text: `Scheduled for movie session • Session ID: ${session.id}` });
-
-    // Create session management buttons
-    const sessionButtons = new ActionRowBuilder()
-      .addComponents(
-        new ButtonBuilder()
-          .setCustomId(`session_reschedule:${session.id}:${movie.message_id}`)
-          .setLabel('📅 Reschedule')
-          .setStyle(ButtonStyle.Secondary)
-          .setEmoji('🔄'),
-        new ButtonBuilder()
-          .setCustomId(`session_cancel:${session.id}:${movie.message_id}`)
-          .setLabel('❌ Cancel Event')
-          .setStyle(ButtonStyle.Danger)
-      );
 
     // Delete the old message
     await oldMessage.delete();
-    console.log(`🗑️ Deleted old scheduled movie message: ${oldMessage.id}`);
+    console.log(`🗑️ Deleted old movie message: ${oldMessage.id}`);
 
     // Create new message at bottom (before guide)
     const newMessage = await channel.send({
-      embeds: [scheduledEmbed],
-      components: [sessionButtons]
+      embeds: [movieEmbed],
+      components: movieComponents
     });
 
-    // Update database with new message ID
-    await database.updateMovieMessageId(movie.guild_id, movie.title, newMessage.id);
+    // CRITICAL: Transfer votes from old message to new message
+    const newMessageId = newMessage.id;
+
+    try {
+      // Transfer all votes from old message ID to new message ID
+      await database.transferVotes(oldMessageId, newMessageId);
+      console.log(`📊 Transferred votes from ${oldMessageId} to ${newMessageId}`);
+
+      // Update the movie record with new message ID
+      await database.updateMovieMessageId(movie.guild_id, movie.title, newMessageId);
+
+      // Update the message components with correct vote counts
+      if (voteData.up > 0 || voteData.down > 0) {
+        // Create vote buttons with counts and status buttons
+        const voteButtons = components.createVoteButtons(newMessageId);
+        const statusButtons = components.createStatusButtons(newMessageId, movie.status);
+
+        // Combine vote and status buttons
+        const updatedComponents = [voteButtons, ...statusButtons];
+
+        await newMessage.edit({ components: updatedComponents });
+        console.log(`📊 Updated vote display: ${voteData.up} up, ${voteData.down} down`);
+      }
+    } catch (error) {
+      console.error('Error transferring votes:', error);
+      // Continue anyway - movie is recreated even if votes fail
+    }
 
     // Ensure guide message stays at bottom
     await ensureGuideAtBottom(channel);
 
-    console.log(`✅ Recreated scheduled movie at bottom: ${movie.title} (new ID: ${newMessage.id})`);
+    console.log(`✅ Recreated movie at bottom: ${movie.title} (new ID: ${newMessageId})`);
     return true;
 
   } catch (error) {
-    console.error(`Error recreating scheduled movie at bottom:`, error);
+    console.error(`Error recreating movie at bottom:`, error);
     return false;
   }
 }

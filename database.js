@@ -1067,6 +1067,23 @@ class Database {
     }
   }
 
+  async transferVotes(oldMessageId, newMessageId) {
+    if (!this.isConnected) return false;
+
+    try {
+      // Transfer all votes from old message ID to new message ID
+      await this.pool.execute(
+        `UPDATE votes SET message_id = ? WHERE message_id = ?`,
+        [newMessageId, oldMessageId]
+      );
+      console.log(`📊 Database: Transferred votes from ${oldMessageId} to ${newMessageId}`);
+      return true;
+    } catch (error) {
+      console.error('Error transferring votes:', error.message);
+      return false;
+    }
+  }
+
   async close() {
     if (this.pool) {
       await this.pool.end();
