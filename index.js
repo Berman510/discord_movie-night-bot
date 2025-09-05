@@ -346,9 +346,27 @@ async function handleMovieCleanup(interaction) {
     const dbMovies = await database.getMoviesByChannel(interaction.guild.id, channel.id);
     const dbMovieIds = new Set(dbMovies.map(movie => movie.message_id));
 
-    // Step 2: Fetch recent messages (last 200 for more comprehensive cleanup)
-    const messages = await channel.messages.fetch({ limit: 200 });
-    const botMessages = messages.filter(msg => msg.author.id === botId);
+    // Step 2: Fetch recent messages (Discord API limit is 100 per request)
+    // Fetch up to 200 messages in two batches for more comprehensive cleanup
+    let allMessages = new Map();
+
+    try {
+      // First batch (most recent 100)
+      const firstBatch = await channel.messages.fetch({ limit: 100 });
+      firstBatch.forEach((msg, id) => allMessages.set(id, msg));
+
+      // Second batch (next 100) if first batch was full
+      if (firstBatch.size === 100) {
+        const lastMessageId = Array.from(firstBatch.keys()).pop();
+        const secondBatch = await channel.messages.fetch({ limit: 100, before: lastMessageId });
+        secondBatch.forEach((msg, id) => allMessages.set(id, msg));
+      }
+    } catch (error) {
+      console.warn('Error fetching additional messages:', error.message);
+      // Continue with what we have
+    }
+
+    const botMessages = allMessages.filter(msg => msg.author.id === botId);
 
     // Step 3: Process each bot message
     for (const [messageId, message] of botMessages) {
@@ -408,7 +426,7 @@ async function handleMovieCleanup(interaction) {
 
     const summary = [
       `✅ **Comprehensive cleanup complete!**`,
-      `📊 Processed ${processedCount} messages`,
+      `📊 Processed ${processedCount} messages (from ${allMessages.size} total fetched)`,
       `🔄 Updated ${updatedCount} to current format`,
       `🗑️ Removed ${orphanedCount} orphaned messages`,
       `🔗 Synced ${syncedCount} messages with database`
