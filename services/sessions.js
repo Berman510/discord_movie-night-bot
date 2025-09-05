@@ -827,7 +827,7 @@ async function generateSessionDescription(state) {
   return description;
 }
 
-async function updateMoviePostForSession(interaction, movieMessageId, sessionId, sessionName, scheduledDate) {
+async function updateMoviePostForSession(interaction, movieMessageId, sessionId, sessionName, scheduledDate, discordEventId) {
   try {
     console.log(`🎬 Updating movie post ${movieMessageId} for session ${sessionId}`);
 
@@ -871,9 +871,16 @@ async function updateMoviePostForSession(interaction, movieMessageId, sessionId,
     // Copy existing fields and update status
     currentEmbed.fields.forEach(field => {
       if (field.name === '📊 Status') {
+        let statusValue = `🗓️ **Scheduled for Session**\n📝 Session: ${sessionName}\n🆔 Session ID: ${sessionId}`;
+
+        // Add event link if available
+        if (discordEventId) {
+          statusValue += `\n🎪 [View Discord Event](https://discord.com/events/${interaction.guild.id}/${discordEventId})`;
+        }
+
         updatedEmbed.addFields({
           name: '📊 Status',
-          value: `🗓️ **Scheduled for Session**\n📝 Session: ${sessionName}\n🆔 Session ID: ${sessionId}`,
+          value: statusValue,
           inline: true
         });
       } else if (field.name === '🗓️ Session Info') {
@@ -1153,7 +1160,7 @@ async function createMovieSessionFromModal(interaction) {
 
     // Update the movie post if a movie was selected
     if (state.selectedMovie && state.selectedMovie !== 'no_movie') {
-      await updateMoviePostForSession(interaction, state.selectedMovie, sessionId, sessionName, scheduledDate);
+      await updateMoviePostForSession(interaction, state.selectedMovie, sessionId, sessionName, scheduledDate, discordEventId);
     }
 
     // Clean up session state

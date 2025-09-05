@@ -275,6 +275,9 @@ async function handleMovieConfigure(interaction) {
       case 'remove-admin-role':
         await removeAdminRole(interaction, guildId);
         break;
+      case 'set-notification-role':
+        await setNotificationRole(interaction, guildId);
+        break;
       case 'view-settings':
         await viewSettings(interaction, guildId);
         break;
@@ -569,6 +572,7 @@ async function viewSettings(interaction, guildId) {
     '🎬 Movie Bot Configuration',
     `**Movie Channel:** ${config.movie_channel_id ? `<#${config.movie_channel_id}>` : 'Not configured - bot works in any channel'}\n\n` +
     `**Admin Roles:** ${hasAdminRoles ? config.admin_roles.map(id => `<@&${id}>`).join(', ') : 'None - only Discord Administrators can use admin commands'}\n\n` +
+    `**Notification Role:** ${config.notification_role_id ? `<@&${config.notification_role_id}>` : 'Not configured - no role will be pinged for events'}\n\n` +
     `**Timezone Handling:** Users select timezone when creating sessions (more flexible!)`
   );
 
@@ -576,6 +580,31 @@ async function viewSettings(interaction, guildId) {
     embeds: [embed],
     flags: MessageFlags.Ephemeral
   });
+}
+
+async function setNotificationRole(interaction, guildId) {
+  const role = interaction.options.getRole('role');
+
+  if (!role) {
+    await interaction.reply({
+      content: '❌ Please specify a role to set as the notification role.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  const success = await database.setNotificationRole(guildId, role.id);
+  if (success) {
+    await interaction.reply({
+      content: `✅ **Notification role set to ${role}**\n\nThis role will be pinged when movie night events are created.`,
+      flags: MessageFlags.Ephemeral
+    });
+  } else {
+    await interaction.reply({
+      content: '❌ Failed to set notification role.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
 }
 
 async function resetConfiguration(interaction, guildId) {

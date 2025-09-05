@@ -2,6 +2,26 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.9.12] - 2025-09-05
+### Added
+- **Role Notifications:** Configure notification role to be pinged when Discord events are created
+- **Event Links in Movie Posts:** Movie posts now show clickable Discord event links instead of "Planned for later"
+- **Notification Configuration:** `/movie-configure set-notification-role @role` to set up event notifications
+- **Smart Channel Selection:** Notifications sent to movie channel, session channel, or suitable fallback
+
+### Enhanced
+- **Movie Post Integration:** Scheduled movies now display direct links to Discord events
+- **Role Management:** Complete role notification system with database storage and configuration
+- **User Experience:** Clear visual connection between movie recommendations and scheduled events
+- **Event Visibility:** Role members automatically notified when new movie nights are scheduled
+
+### Fixed
+- **Movie Post Updates:** Fixed issue where scheduled movies still showed "Planned for later"
+- **Event Integration:** Movie posts now properly reflect scheduled status with event links
+- **Status Consistency:** Visual status now matches actual scheduling state
+
+---
+
 ## [1.9.11] - 2025-09-05
 ### Added
 - **Auto Movie Post Updates:** Automatically updates movie recommendation posts when scheduled for sessions

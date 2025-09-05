@@ -184,6 +184,7 @@ class Database {
         guild_id VARCHAR(20) UNIQUE NOT NULL,
         movie_channel_id VARCHAR(20) NULL,
         admin_roles JSON NULL,
+        notification_role_id VARCHAR(20) NULL,
         default_timezone VARCHAR(50) DEFAULT 'UTC',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -239,6 +240,12 @@ class Database {
       await this.pool.execute(`
         ALTER TABLE movies
         MODIFY COLUMN status ENUM('pending', 'watched', 'planned', 'skipped', 'scheduled') DEFAULT 'pending'
+      `);
+
+      // Migration 6: Add notification_role_id to guild_config
+      await this.pool.execute(`
+        ALTER TABLE guild_config
+        ADD COLUMN IF NOT EXISTS notification_role_id VARCHAR(20) DEFAULT NULL
       `);
 
       console.log('✅ Database migrations completed');
@@ -941,6 +948,37 @@ class Database {
     } catch (error) {
       console.error('Error updating movie status:', error.message);
       return false;
+    }
+  }
+
+  async setNotificationRole(guildId, roleId) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `INSERT INTO guild_config (guild_id, notification_role_id, admin_roles) VALUES (?, ?, ?)
+         ON DUPLICATE KEY UPDATE notification_role_id = VALUES(notification_role_id)`,
+        [guildId, roleId, JSON.stringify([])]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error setting notification role:', error.message);
+      return false;
+    }
+  }
+
+  async getNotificationRole(guildId) {
+    if (!this.isConnected) return null;
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT notification_role_id FROM guild_config WHERE guild_id = ?`,
+        [guildId]
+      );
+      return rows.length > 0 ? rows[0].notification_role_id : null;
+    } catch (error) {
+      console.error('Error getting notification role:', error.message);
+      return null;
     }
   }
 

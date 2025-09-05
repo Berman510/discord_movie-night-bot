@@ -52,6 +52,10 @@ async function createDiscordEvent(guild, sessionData, scheduledDate) {
     });
 
     console.log(`✅ Created Discord event: ${event.name} (ID: ${event.id}) - Duration: ${durationMinutes} minutes`);
+
+    // Send notification to configured role
+    await notifyRole(guild, event, sessionData);
+
     return event.id;
   } catch (error) {
     console.warn('Failed to create Discord event:', error.message);
@@ -93,6 +97,76 @@ async function deleteDiscordEvent(guild, eventId) {
   } catch (error) {
     console.warn('Failed to delete Discord event:', error.message);
     return false;
+  }
+}
+
+async function notifyRole(guild, event, sessionData) {
+  try {
+    const database = require('../database');
+    const notificationRoleId = await database.getNotificationRole(guild.id);
+
+    if (!notificationRoleId) {
+      console.log('No notification role configured for guild');
+      return;
+    }
+
+    // Find a suitable channel to send the notification
+    let notificationChannel = null;
+
+    // Try to use the configured movie channel first
+    const guildConfig = await database.getGuildConfig(guild.id);
+    if (guildConfig && guildConfig.movie_channel_id) {
+      notificationChannel = guild.channels.cache.get(guildConfig.movie_channel_id);
+    }
+
+    // Fallback to the session channel
+    if (!notificationChannel && sessionData.channelId) {
+      notificationChannel = guild.channels.cache.get(sessionData.channelId);
+    }
+
+    // Fallback to general channel
+    if (!notificationChannel) {
+      notificationChannel = guild.channels.cache.find(channel =>
+        channel.type === 0 && // TEXT channel
+        channel.permissionsFor(guild.members.me).has(['SendMessages', 'ViewChannel'])
+      );
+    }
+
+    if (!notificationChannel) {
+      console.warn('No suitable channel found for role notification');
+      return;
+    }
+
+    // Create notification message
+    const { EmbedBuilder } = require('discord.js');
+    const embed = new EmbedBuilder()
+      .setTitle('🎬 New Movie Night Event!')
+      .setDescription(`A new movie night session has been scheduled!`)
+      .setColor(0x5865f2)
+      .addFields(
+        { name: '📝 Session', value: sessionData.name, inline: false },
+        { name: '🎪 Event', value: `[${event.name}](${event.url})`, inline: false }
+      )
+      .setTimestamp();
+
+    if (sessionData.scheduledDate) {
+      embed.addFields({
+        name: '📅 When',
+        value: `<t:${Math.floor(sessionData.scheduledDate.getTime() / 1000)}:F>`,
+        inline: false
+      });
+    }
+
+    await notificationChannel.send({
+      content: `<@&${notificationRoleId}> 🍿`,
+      embeds: [embed]
+    });
+
+    console.log(`✅ Notified role ${notificationRoleId} about event ${event.id}`);
+
+  } catch (error) {
+    console.error('Error notifying role about event:', error);
+    // Don't fail event creation if notification fails
   }
 }
 
