@@ -2,6 +2,36 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.10.3] - 2025-09-05
+### Added
+- **Enhanced Cleanup Command:** Added sync/purge options with admin-only access control
+- **Purge Functionality:** Complete channel reset while preserving scheduled movies with active events
+- **Admin Permission Control:** Cleanup commands now restricted to server admins and configured admin roles
+- **Confirmation System:** Multi-step confirmation for destructive purge operations
+- **Selective Preservation:** Purge protects scheduled movies with active Discord events
+
+### Enhanced
+- **Cleanup Options:** `/movie-cleanup sync` for synchronization, `/movie-cleanup purge` for complete reset
+- **Smart Preservation:** Purge automatically detects and preserves movies with active Discord events
+- **Complete Cleanup:** Purge removes movies, votes, sessions, Discord messages, and threads
+- **Guide Recreation:** Automatic guide message recreation after purge operations
+- **Permission Validation:** Enhanced security with admin role checking for cleanup operations
+
+### Fixed
+- **Status Command Accuracy:** Fixed scheduled event counting to show only active Discord events
+- **Movie-Night Command:** Restored modal functionality instead of parameter requirements
+- **Event Count Verification:** Status now accurately reflects actual Discord events, not database entries
+- **IMDb Search Integration:** Proper movie recommendation workflow with IMDb selection
+- **Modal Processing:** Complete movie recommendation flow from modal to post creation
+
+### Technical
+- **Database Methods:** Added deleteMovieSession, deleteVotesByMessageId, deleteMovie for cleanup
+- **Event Verification:** Real-time Discord event existence checking for accurate statistics
+- **Purge Logic:** Intelligent separation of movies to delete vs preserve based on event status
+- **Admin Security:** Comprehensive permission checking for all cleanup operations
+
+---
+
 ## [1.10.2] - 2025-09-05
 ### Added
 - **Complete Sync System:** Bidirectional synchronization between Discord events and database

@@ -66,6 +66,12 @@ async function handleButton(interaction) {
       return;
     }
 
+    // Purge confirmation buttons
+    if (customId === 'confirm_purge' || customId === 'cancel_purge') {
+      await handlePurgeConfirmation(interaction);
+      return;
+    }
+
     // Session list management buttons
     if (customId === 'session_refresh_list') {
       await sessions.listMovieSessions(interaction);
@@ -251,6 +257,162 @@ async function handleStatusChange(interaction, action, msgId) {
 async function handleConfigurationButton(interaction, action) {
   // TODO: Move configuration logic here
   console.log(`Configuration: ${action}`);
+}
+
+async function handlePurgeConfirmation(interaction) {
+  const customId = interaction.customId;
+
+  if (customId === 'cancel_purge') {
+    await interaction.update({
+      content: '✅ Purge cancelled. No data was deleted.',
+      components: []
+    });
+    return;
+  }
+
+  if (customId === 'confirm_purge') {
+    // Import and execute the purge function
+    try {
+      await interaction.update({
+        content: '🗑️ **PURGING ALL RECOMMENDATIONS...**\n\nThis may take a moment...',
+        components: []
+      });
+
+      const database = require('../database');
+      const channel = interaction.channel;
+      const botId = interaction.client.user.id;
+      let deletedMessages = 0;
+      let deletedMovies = 0;
+      let deletedVotes = 0;
+      let preservedScheduled = 0;
+
+      // Get all movies from database
+      const allMovies = await database.getMoviesByChannel(interaction.guild.id, channel.id);
+
+      // Separate movies to preserve from those to delete
+      const moviesToDelete = [];
+      const moviesToPreserve = [];
+      let preservedWatched = 0;
+
+      for (const movie of allMovies) {
+        let shouldPreserve = false;
+
+        // Preserve watched movies (keep history)
+        if (movie.status === 'watched') {
+          moviesToPreserve.push(movie);
+          preservedWatched++;
+          shouldPreserve = true;
+        }
+
+        // Preserve scheduled movies with active Discord events
+        if (movie.status === 'scheduled') {
+          const session = await database.getSessionByMovieId(movie.message_id);
+          if (session && session.discord_event_id) {
+            try {
+              const event = await interaction.guild.scheduledEvents.fetch(session.discord_event_id);
+              if (event) {
+                moviesToPreserve.push(movie);
+                preservedScheduled++;
+                shouldPreserve = true;
+              }
+            } catch (error) {
+              // Event doesn't exist, safe to delete
+            }
+          }
+        }
+
+        if (!shouldPreserve) {
+          moviesToDelete.push(movie);
+        }
+      }
+
+      // Delete Discord messages for movies to be deleted
+      const messages = await channel.messages.fetch({ limit: 100 });
+      const botMessages = messages.filter(msg => msg.author.id === botId);
+
+      for (const [messageId, message] of botMessages) {
+        // Check if this message is for a movie we're deleting
+        const movieToDelete = moviesToDelete.find(m => m.message_id === messageId);
+        if (movieToDelete) {
+          try {
+            await message.delete();
+            deletedMessages++;
+
+            // Delete associated thread if exists
+            if (message.hasThread) {
+              await message.thread.delete();
+            }
+          } catch (error) {
+            console.warn(`Failed to delete message ${messageId}:`, error.message);
+          }
+        }
+      }
+
+      // Delete database records for movies to be deleted
+      for (const movie of moviesToDelete) {
+        try {
+          // Delete associated session if exists
+          const session = await database.getSessionByMovieId(movie.message_id);
+          if (session) {
+            await database.deleteMovieSession(session.id);
+          }
+
+          // Delete votes
+          await database.deleteVotesByMessageId(movie.message_id);
+          deletedVotes++;
+
+          // Delete movie
+          await database.deleteMovie(movie.message_id);
+          deletedMovies++;
+
+        } catch (error) {
+          console.error(`Error deleting movie ${movie.title}:`, error.message);
+        }
+      }
+
+      // Recreate guide message
+      const { embeds } = require('../utils');
+      const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+
+      const guideEmbed = embeds.createHelpEmbed();
+      const recommendButton = new ActionRowBuilder()
+        .addComponents(
+          new ButtonBuilder()
+            .setCustomId('create_recommendation')
+            .setLabel('🍿 Recommend a Movie')
+            .setStyle(ButtonStyle.Primary)
+        );
+
+      await channel.send({
+        embeds: [guideEmbed],
+        components: [recommendButton]
+      });
+
+      const summary = [
+        `✅ **PURGE COMPLETE**`,
+        `🗑️ Deleted ${deletedMessages} Discord messages`,
+        `🎬 Deleted ${deletedMovies} movie recommendations`,
+        `📊 Deleted ${deletedVotes} vote records`,
+        `🛡️ Preserved ${preservedScheduled} scheduled movies with active events`,
+        `📚 Preserved ${preservedWatched} watched movies (viewing history)`,
+        `📋 Guide message recreated`
+      ];
+
+      await interaction.followUp({
+        content: summary.join('\n'),
+        flags: MessageFlags.Ephemeral
+      });
+
+      console.log(`✅ Purge complete: ${deletedMovies} movies, ${deletedMessages} messages, ${preservedScheduled} preserved`);
+
+    } catch (error) {
+      console.error('Error during purge:', error);
+      await interaction.followUp({
+        content: '❌ Error during purge operation. Check console for details.',
+        flags: MessageFlags.Ephemeral
+      });
+    }
+  }
 }
 
 module.exports = {

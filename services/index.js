@@ -8,11 +8,15 @@ const sessionService = require('./sessions');
 const discordEventService = require('./discord-events');
 const timezoneService = require('./timezone');
 const permissionService = require('./permissions');
+const cleanupService = require('./cleanup');
+const statsService = require('./stats');
 
 module.exports = {
   imdb: imdbService,
   sessions: sessionService,
   discordEvents: discordEventService,
   timezone: timezoneService,
-  permissions: permissionService
+  permissions: permissionService,
+  cleanup: cleanupService,
+  stats: statsService
 };

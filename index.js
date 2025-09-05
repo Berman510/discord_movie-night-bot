@@ -11,6 +11,7 @@ const { Client, GatewayIntentBits, REST, Routes, InteractionType, MessageFlags, 
 const database = require('./database');
 const { commands, registerCommands } = require('./commands');
 const { handleInteraction } = require('./handlers');
+const { handleSlashCommand } = require('./handlers/commands');
 const { sessions } = require('./services');
 const { embeds } = require('./utils');
 const { startPayloadCleanup, BOT_VERSION } = require('./utils/constants');
@@ -132,51 +133,35 @@ async function handleSlashCommand(interaction) {
   }
 }
 
-// Placeholder command handlers - these will be implemented in the full refactor
+// Movie recommendation command handler
 async function handleMovieNight(interaction) {
-  const title = interaction.options.getString('title');
-  const where = interaction.options.getString('where');
+  // Show the movie recommendation modal
+  const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
 
-  if (!title || !where) {
-    await interaction.reply({
-      content: '❌ Please provide both movie title and where to watch it.',
-      flags: MessageFlags.Ephemeral
-    });
-    return;
-  }
+  const modal = new ModalBuilder()
+    .setCustomId('mn:modal')
+    .setTitle('New Movie Recommendation');
 
-  try {
-    // Create movie recommendation
-    const movieData = {
-      guildId: interaction.guild.id,
-      channelId: interaction.channel.id,
-      title: title,
-      whereToWatch: where,
-      recommendedBy: interaction.user.id,
-      status: 'pending'
-    };
+  const titleInput = new TextInputBuilder()
+    .setCustomId('mn:title')
+    .setLabel('Movie Title')
+    .setStyle(TextInputStyle.Short)
+    .setPlaceholder('e.g., Clueless (1995)')
+    .setRequired(true);
 
-    // Add to database and create message
-    const messageId = await createMovieRecommendation(interaction, movieData);
+  const whereInput = new TextInputBuilder()
+    .setCustomId('mn:where')
+    .setLabel('Where to Watch')
+    .setStyle(TextInputStyle.Short)
+    .setPlaceholder('Netflix, Hulu, Prime Video, etc.')
+    .setRequired(true);
 
-    if (messageId) {
-      await interaction.reply({
-        content: `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added to the queue for voting.`,
-        flags: MessageFlags.Ephemeral
-      });
-    } else {
-      await interaction.reply({
-        content: '❌ Failed to create movie recommendation.',
-        flags: MessageFlags.Ephemeral
-      });
-    }
-  } catch (error) {
-    console.error('Error handling movie night:', error);
-    await interaction.reply({
-      content: '❌ Failed to create movie recommendation.',
-      flags: MessageFlags.Ephemeral
-    });
-  }
+  const titleRow = new ActionRowBuilder().addComponents(titleInput);
+  const whereRow = new ActionRowBuilder().addComponents(whereInput);
+
+  modal.addComponents(titleRow, whereRow);
+
+  await interaction.showModal(modal);
 }
 
 async function handleMovieQueue(interaction) {
@@ -329,8 +314,23 @@ async function handleMovieCleanup(interaction) {
     return;
   }
 
+  const action = interaction.options.getString('action');
+
+  if (action === 'sync') {
+    await handleCleanupSync(interaction);
+  } else if (action === 'purge') {
+    await handleCleanupPurge(interaction);
+  } else {
+    await interaction.reply({
+      content: '❌ Invalid cleanup action. Use "sync" or "purge".',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+async function handleCleanupSync(interaction) {
   await interaction.reply({
-    content: '🧹 Starting comprehensive channel cleanup... This may take a moment.',
+    content: '🧹 Starting comprehensive channel sync... This may take a moment.',
     flags: MessageFlags.Ephemeral
   });
 
@@ -712,6 +712,147 @@ async function ensureGuideAtBottom(channel) {
   }
 }
 
+async function handleCleanupPurge(interaction) {
+  await interaction.reply({
+    content: '⚠️ **PURGE CONFIRMATION REQUIRED**\n\nThis will permanently delete ALL movie recommendations and their data (except scheduled movies with active events).\n\n**This action cannot be undone!**',
+    flags: MessageFlags.Ephemeral
+  });
+
+  // Create confirmation buttons
+  const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+
+  const confirmButtons = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('confirm_purge')
+        .setLabel('🗑️ YES, PURGE ALL RECOMMENDATIONS')
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId('cancel_purge')
+        .setLabel('❌ Cancel')
+        .setStyle(ButtonStyle.Secondary)
+    );
+
+  await interaction.followUp({
+    content: '**⚠️ FINAL WARNING:** This will delete all movie recommendations, votes, and discussion threads.\n\n**Scheduled movies with active Discord events will be preserved.**',
+    components: [confirmButtons],
+    flags: MessageFlags.Ephemeral
+  });
+}
+
+async function executePurge(interaction) {
+  try {
+    await interaction.update({
+      content: '🗑️ **PURGING ALL RECOMMENDATIONS...**\n\nThis may take a moment...',
+      components: []
+    });
+
+    const channel = interaction.channel;
+    const botId = interaction.client.user.id;
+    let deletedMessages = 0;
+    let deletedMovies = 0;
+    let deletedVotes = 0;
+    let preservedScheduled = 0;
+
+    // Get all movies from database
+    const allMovies = await database.getMoviesByChannel(interaction.guild.id, channel.id);
+
+    // Separate scheduled movies with active events from others
+    const moviesToDelete = [];
+    const moviesToPreserve = [];
+
+    for (const movie of allMovies) {
+      if (movie.status === 'scheduled') {
+        // Check if it has an active Discord event
+        const session = await database.getSessionByMovieId(movie.message_id);
+        if (session && session.discord_event_id) {
+          try {
+            const event = await interaction.guild.scheduledEvents.fetch(session.discord_event_id);
+            if (event) {
+              moviesToPreserve.push(movie);
+              preservedScheduled++;
+              continue;
+            }
+          } catch (error) {
+            // Event doesn't exist, safe to delete
+          }
+        }
+      }
+      moviesToDelete.push(movie);
+    }
+
+    // Delete Discord messages for movies to be deleted
+    const messages = await channel.messages.fetch({ limit: 100 });
+    const botMessages = messages.filter(msg => msg.author.id === botId);
+
+    for (const [messageId, message] of botMessages) {
+      // Check if this message is for a movie we're deleting
+      const movieToDelete = moviesToDelete.find(m => m.message_id === messageId);
+      if (movieToDelete) {
+        try {
+          await message.delete();
+          deletedMessages++;
+
+          // Delete associated thread if exists
+          if (message.hasThread) {
+            await message.thread.delete();
+          }
+        } catch (error) {
+          console.warn(`Failed to delete message ${messageId}:`, error.message);
+        }
+      }
+    }
+
+    // Delete database records for movies to be deleted
+    for (const movie of moviesToDelete) {
+      try {
+        // Delete associated session if exists
+        const session = await database.getSessionByMovieId(movie.message_id);
+        if (session) {
+          await database.deleteMovieSession(session.id);
+        }
+
+        // Delete votes
+        await database.deleteVotesByMessageId(movie.message_id);
+        deletedVotes++;
+
+        // Delete movie
+        await database.deleteMovie(movie.message_id);
+        deletedMovies++;
+
+      } catch (error) {
+        console.error(`Error deleting movie ${movie.title}:`, error.message);
+      }
+    }
+
+    // Recreate guide message
+    await ensureGuideAtBottom(channel);
+
+    const summary = [
+      `✅ **PURGE COMPLETE**`,
+      `🗑️ Deleted ${deletedMessages} Discord messages`,
+      `🎬 Deleted ${deletedMovies} movie recommendations`,
+      `📊 Deleted ${deletedVotes} vote records`,
+      `🛡️ Preserved ${preservedScheduled} scheduled movies with active events`,
+      `📋 Guide message recreated`
+    ];
+
+    await interaction.followUp({
+      content: summary.join('\n'),
+      flags: MessageFlags.Ephemeral
+    });
+
+    console.log(`✅ Purge complete: ${deletedMovies} movies, ${deletedMessages} messages, ${preservedScheduled} preserved`);
+
+  } catch (error) {
+    console.error('Error during purge:', error);
+    await interaction.followUp({
+      content: '❌ Error during purge operation. Check console for details.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
 async function handleMovieStats(interaction) {
   const type = interaction.options.getString('type') || 'overview';
   const user = interaction.options.getUser('user');
@@ -962,6 +1103,26 @@ async function showOverviewStats(interaction) {
   const guildId = interaction.guild.id;
   const stats = await database.getMovieStats(guildId);
 
+  // Get accurate count of active scheduled events
+  let activeScheduledEvents = 0;
+  try {
+    const sessions = await database.getAllSessions(guildId);
+    for (const session of sessions) {
+      if (session.discord_event_id) {
+        try {
+          const event = await interaction.guild.scheduledEvents.fetch(session.discord_event_id);
+          if (event) {
+            activeScheduledEvents++;
+          }
+        } catch (error) {
+          // Event doesn't exist, don't count it
+        }
+      }
+    }
+  } catch (error) {
+    console.warn('Error counting active events:', error.message);
+  }
+
   const embed = new EmbedBuilder()
     .setTitle('📊 Movie Night Statistics')
     .setDescription('Overview of movie recommendations and activity')
@@ -972,7 +1133,7 @@ async function showOverviewStats(interaction) {
       { name: '📌 Planned', value: stats.plannedMovies.toString(), inline: true },
       { name: '🗳️ Pending Votes', value: stats.pendingMovies.toString(), inline: true },
       { name: '👥 Active Users', value: stats.activeUsers.toString(), inline: true },
-      { name: '🎪 Sessions', value: stats.totalSessions.toString(), inline: true }
+      { name: '🎪 Scheduled Events', value: activeScheduledEvents.toString(), inline: true }
     )
     .setFooter({ text: `Stats for ${interaction.guild.name}` })
     .setTimestamp();

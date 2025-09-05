@@ -6,21 +6,7 @@
 const commands = [
   {
     name: 'movie-night',
-    description: 'Recommend a movie for movie night',
-    options: [
-      {
-        name: 'title',
-        description: 'Movie title to recommend',
-        type: 3, // STRING
-        required: true
-      },
-      {
-        name: 'where',
-        description: 'Where to watch it (Netflix, Hulu, etc.)',
-        type: 3, // STRING
-        required: true
-      }
-    ]
+    description: 'Recommend a movie for movie night'
   },
   {
     name: 'movie-queue',

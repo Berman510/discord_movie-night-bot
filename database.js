@@ -303,6 +303,29 @@ class Database {
         console.log('✅ notification_role_id column already exists');
       }
 
+      // Migration 7: Ensure watched_at column exists in movies table
+      try {
+        const [movieColumns] = await this.pool.execute(`
+          SELECT COLUMN_NAME
+          FROM INFORMATION_SCHEMA.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'movies'
+        `);
+        const movieColumnNames = movieColumns.map(row => row.COLUMN_NAME);
+
+        if (!movieColumnNames.includes('watched_at')) {
+          await this.pool.execute(`
+            ALTER TABLE movies
+            ADD COLUMN watched_at TIMESTAMP NULL
+          `);
+          console.log('✅ Added watched_at column to movies');
+        } else {
+          console.log('✅ watched_at column already exists');
+        }
+      } catch (error) {
+        console.error('❌ Failed to add watched_at column:', error.message);
+      }
+
       console.log('✅ Database migrations completed');
     } catch (error) {
       console.error('❌ Migration error:', error.message);
@@ -871,8 +894,10 @@ class Database {
         [guildId]
       );
 
+      // Count only sessions with active Discord events (scheduled sessions)
       const [sessionStats] = await this.pool.execute(
-        `SELECT COUNT(*) as total_sessions FROM movie_sessions WHERE guild_id = ?`,
+        `SELECT COUNT(*) as total_sessions FROM movie_sessions
+         WHERE guild_id = ? AND discord_event_id IS NOT NULL`,
         [guildId]
       );
 
@@ -995,10 +1020,18 @@ class Database {
     if (!this.isConnected) return false;
 
     try {
-      await this.pool.execute(
-        `UPDATE movies SET status = ? WHERE message_id = ?`,
-        [status, messageId]
-      );
+      // If marking as watched, also set watched_at timestamp
+      if (status === 'watched') {
+        await this.pool.execute(
+          `UPDATE movies SET status = ?, watched_at = CURRENT_TIMESTAMP WHERE message_id = ?`,
+          [status, messageId]
+        );
+      } else {
+        await this.pool.execute(
+          `UPDATE movies SET status = ? WHERE message_id = ?`,
+          [status, messageId]
+        );
+      }
       return true;
     } catch (error) {
       console.error('Error updating movie status:', error.message);
