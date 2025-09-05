@@ -2,6 +2,24 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.9.10] - 2025-09-05
+### Added
+- **Smart Event Duration:** Discord events now use movie runtime + 30 minutes buffer for accurate end times
+- **Runtime Integration:** Automatically calculates event duration based on selected movie's IMDb runtime data
+- **Intelligent Fallback:** Uses 2.5 hour default duration when movie runtime is unavailable
+
+### Enhanced
+- **Discord Event Creation:** Fixed required end time issue with smart runtime-based duration calculation
+- **Event Accuracy:** Events now reflect actual movie length plus conversation/setup time
+- **User Experience:** More accurate event scheduling based on actual movie duration
+
+### Fixed
+- **Discord Events:** Resolved "An end time is required for external events" error
+- **Event Duration:** Replaced arbitrary 3-hour duration with intelligent runtime-based calculation
+- **IMDb Integration:** Enhanced runtime parsing from IMDb data for event scheduling
+
+---
+
 ## [1.9.9] - 2025-09-05
 ### Fixed
 - **Session Creation Reliability:** Resolved all database errors preventing session creation
