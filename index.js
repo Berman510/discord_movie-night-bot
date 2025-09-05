@@ -31,9 +31,7 @@ if (!OMDB_API_KEY) {
 // Initialize Discord client
 const client = new Client({
   intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
+    GatewayIntentBits.Guilds
   ]
 });
 
@@ -196,22 +194,22 @@ process.on('uncaughtException', (error) => {
 // Graceful shutdown
 process.on('SIGINT', async () => {
   console.log('🛑 Received SIGINT, shutting down gracefully...');
-  
+
   if (database.isConnected) {
-    await database.disconnect();
+    await database.close();
   }
-  
+
   client.destroy();
   process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
   console.log('🛑 Received SIGTERM, shutting down gracefully...');
-  
+
   if (database.isConnected) {
-    await database.disconnect();
+    await database.close();
   }
-  
+
   client.destroy();
   process.exit(0);
 });
