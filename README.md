@@ -193,6 +193,7 @@ pm2 startup  # follow the printed instructions
 
 ### Channel Maintenance
 - **Cleanup:** `/movie-cleanup` updates old bot messages to current format (Configured admins only)
+- **Thread Creation:** Automatically creates missing discussion threads for movies up for vote
 - **Channel Safety:** Cleanup only works in the configured movie channel
 - **Permission Control:** Requires either Administrator permission or configured admin role
 - **Legacy Support:** Modernizes messages posted before new features were added
@@ -211,6 +212,7 @@ pm2 startup  # follow the printed instructions
 - **Slash command not appearing**: set `GUILD_ID` in `.env` for instant registration; restart the bot.
 - **“Invalid Form Body … SELECT_COMPONENT_OPTION_VALUE_DUPLICATED”**: fixed by deduping `imdbID` in v1.3.0.
 - **Threads not created**: ensure bot has *Create Public Threads* and *Send Messages in Threads*.
+- **Missing discussion threads**: run `/movie-cleanup` to automatically create threads for movies that are missing them.
 - **Global vs Guild**: remove `GUILD_ID` for public/global; keep it set for instant updates in a test server.
 
 ---

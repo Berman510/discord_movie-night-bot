@@ -2,6 +2,15 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.8.2] - 2025-09-05
+### Added
+- **Thread Recovery:** Cleanup feature now creates missing discussion threads for movies up for vote
+
+### Changed
+- Extended cleanup functionality to ensure all pending movies have discussion threads
+
+---
+
 ## [1.8.1] - 2025-09-04
 ### Added
 - **JSON File Storage Option:** Alternative to MySQL for simple persistent storage

@@ -1330,6 +1330,7 @@ async function handleMovieCleanup(interaction) {
     const botId = interaction.client.user.id;
     let updatedCount = 0;
     let processedCount = 0;
+    let threadsCreated = 0;
 
     // Fetch recent messages (last 100)
     const messages = await channel.messages.fetch({ limit: 100 });
@@ -1352,11 +1353,47 @@ async function handleMovieCleanup(interaction) {
       }
     }
 
+    // Check for missing threads on pending movies (only for normal text channels)
+    if (channel.type === ChannelType.GuildText) {
+      const pendingMovies = await database.getMoviesByStatus(interaction.guild.id, 'pending', 50);
+
+      for (const movie of pendingMovies) {
+        // Only check movies in this channel
+        if (movie.channel_id !== channel.id) continue;
+
+        try {
+          const message = await channel.messages.fetch(movie.message_id).catch(() => null);
+          if (!message) continue;
+
+          // Check if thread already exists
+          const hasThread = await checkIfThreadExists(message, movie.title);
+
+          if (!hasThread) {
+            // Create missing thread
+            const threadCreated = await createMissingThread(message, movie);
+            if (threadCreated) {
+              threadsCreated++;
+              console.log(`✅ Created missing thread for movie: ${movie.title}`);
+              // Add delay to avoid rate limits
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+          }
+        } catch (error) {
+          console.warn(`Failed to check/create thread for movie ${movie.title}:`, error.message);
+        }
+      }
+    }
+
     // Clean up old guide messages (keep only the most recent)
     await cleanupOldGuideMessages(channel, botId);
 
+    const summary = [`✅ Cleanup complete! Processed ${processedCount} messages, updated ${updatedCount} to current format.`];
+    if (threadsCreated > 0) {
+      summary.push(`🧵 Created ${threadsCreated} missing discussion threads.`);
+    }
+
     await interaction.followUp({
-      content: `✅ Cleanup complete! Processed ${processedCount} messages, updated ${updatedCount} to current format.`,
+      content: summary.join('\n'),
       flags: MessageFlags.Ephemeral
     });
 
@@ -1427,6 +1464,89 @@ async function updateMessageToCurrentFormat(message) {
     return true;
   } catch (error) {
     console.warn(`Failed to update message ${message.id}:`, error.message);
+    return false;
+  }
+}
+
+async function checkIfThreadExists(message, movieTitle) {
+  try {
+    // Check if message has a thread directly attached (for forum channels)
+    if (message.hasThread) {
+      return true;
+    }
+
+    // For normal text channels, look for threads started from this message
+    const channel = message.channel;
+    if (channel.threads) {
+      // Check both active and archived threads
+      const [activeThreads, archivedThreads] = await Promise.all([
+        channel.threads.fetchActive(),
+        channel.threads.fetchArchived({ limit: 100 })
+      ]);
+
+      const allThreads = new Map([...activeThreads.threads, ...archivedThreads.threads]);
+
+      const movieThread = Array.from(allThreads.values()).find(t =>
+        t.ownerId === message.author.id &&
+        (t.name.includes('Discussion') || t.name.includes(movieTitle)) &&
+        Math.abs(t.createdTimestamp - message.createdTimestamp) < 300000 // Within 5 minutes
+      );
+
+      return !!movieThread;
+    }
+
+    return false;
+  } catch (error) {
+    console.warn(`Failed to check if thread exists for message ${message.id}:`, error.message);
+    return false; // Assume no thread exists if we can't check
+  }
+}
+
+async function createMissingThread(message, movie) {
+  try {
+    // Only create threads for normal text channels
+    if (message.channel.type !== ChannelType.GuildText) {
+      return false;
+    }
+
+    // Get IMDb data if available
+    let imdb = null;
+    if (movie.imdb_data) {
+      try {
+        imdb = typeof movie.imdb_data === 'string' ? JSON.parse(movie.imdb_data) : movie.imdb_data;
+      } catch (e) {
+        console.warn('Failed to parse IMDb data:', e.message);
+      }
+    }
+
+    // Create the thread
+    const thread = await message.startThread({
+      name: `${movie.title} — Discussion`,
+      autoArchiveDuration: 1440
+    });
+
+    // Seed the thread with movie details
+    const base = `Discussion for **${movie.title}** (recommended by <@${movie.recommended_by}>)`;
+
+    if (imdb) {
+      const synopsis = imdb.Plot && imdb.Plot !== 'N/A' ? imdb.Plot : 'No synopsis available.';
+      const details = [
+        imdb.Year && `**Year:** ${imdb.Year}`,
+        imdb.Rated && imdb.Rated !== 'N/A' && `**Rated:** ${imdb.Rated}`,
+        imdb.Runtime && imdb.Runtime !== 'N/A' && `**Runtime:** ${imdb.Runtime}`,
+        imdb.Genre && imdb.Genre !== 'N/A' && `**Genre:** ${imdb.Genre}`,
+        imdb.Director && imdb.Director !== 'N/A' && `**Director:** ${imdb.Director}`,
+        imdb.Actors && imdb.Actors !== 'N/A' && `**Top cast:** ${imdb.Actors}`,
+      ].filter(Boolean).join(String.fromCharCode(10));
+
+      await thread.send({ content: `${base}\n\n**Synopsis:** ${synopsis}\n\n${details}` });
+    } else {
+      await thread.send({ content: `${base}\n\n*Thread created during cleanup - IMDb details may not be available.*` });
+    }
+
+    return true;
+  } catch (error) {
+    console.warn(`Failed to create thread for movie ${movie.title}:`, error.message);
     return false;
   }
 }
