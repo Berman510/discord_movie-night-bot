@@ -2,6 +2,28 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.9.5] - 2025-09-05
+### Added
+- **Complete Functionality:** Implemented all remaining placeholder commands
+- **Movie Recommendations:** Full /movie-night command with database integration
+- **Movie Queue:** Complete /movie-queue with vote scores and user display
+- **Session Management:** All session actions now fully functional (list, join, add-movie, close, winner)
+- **Statistics System:** Comprehensive /movie-stats with overview, top movies, user stats, and monthly data
+- **Database Methods:** Added all missing database operations for sessions and statistics
+
+### Fixed
+- **Command Parameter Clarity:** Improved descriptions for session-id and movie-title parameters
+- **Session Workflow:** Clear guidance on when to use which parameters
+- **Permission Checking:** Proper organizer and admin permission validation
+- **Error Handling:** Comprehensive error handling throughout all commands
+
+### Enhanced
+- **User Experience:** Clear feedback and guidance for all command interactions
+- **Data Integrity:** Proper database relationships and data validation
+- **Performance:** Optimized database queries for statistics and session management
+
+---
+
 ## [1.9.4] - 2025-09-05
 ### Changed
 - **Timezone Approach:** Pivoted from server-wide timezone config to per-session timezone selection

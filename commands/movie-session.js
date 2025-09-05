@@ -24,13 +24,13 @@ const commands = [
       },
       {
         name: 'session-id',
-        description: 'Session ID (only needed for join and add-movie actions)',
+        description: '🔢 Session ID from /movie-session list (ONLY for: join, add-movie, close, winner)',
         type: 4, // INTEGER
         required: false
       },
       {
         name: 'movie-title',
-        description: 'Movie title (only needed for add-movie action)',
+        description: '🎬 Movie title (ONLY for: add-movie action) - leave empty for create/list',
         type: 3, // STRING
         required: false
       }

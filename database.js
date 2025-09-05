@@ -597,6 +597,254 @@ class Database {
     }
   }
 
+  // Additional session management methods
+  async getMovieSessionsByGuild(guildId) {
+    if (!this.isConnected) return [];
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT * FROM movie_sessions WHERE guild_id = ? AND status != 'cancelled' ORDER BY created_at DESC`,
+        [guildId]
+      );
+      return rows;
+    } catch (error) {
+      console.error('Error getting guild sessions:', error.message);
+      return [];
+    }
+  }
+
+  async getMovieSessionById(sessionId) {
+    if (!this.isConnected) return null;
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT * FROM movie_sessions WHERE id = ?`,
+        [sessionId]
+      );
+      return rows.length > 0 ? rows[0] : null;
+    } catch (error) {
+      console.error('Error getting session by ID:', error.message);
+      return null;
+    }
+  }
+
+  async updateSessionStatus(sessionId, status) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `UPDATE movie_sessions SET status = ? WHERE id = ?`,
+        [status, sessionId]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error updating session status:', error.message);
+      return false;
+    }
+  }
+
+  async updateSessionWinner(sessionId, winnerMessageId) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `UPDATE movie_sessions SET winner_message_id = ? WHERE id = ?`,
+        [winnerMessageId, sessionId]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error updating session winner:', error.message);
+      return false;
+    }
+  }
+
+  async updateSessionMovie(sessionId, movieMessageId) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `UPDATE movie_sessions SET associated_movie_id = ? WHERE id = ?`,
+        [movieMessageId, sessionId]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error updating session movie:', error.message);
+      return false;
+    }
+  }
+
+  async getTopVotedMovie(guildId) {
+    if (!this.isConnected) return null;
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT * FROM movies WHERE guild_id = ? AND status = 'pending' ORDER BY (upvotes - downvotes) DESC, upvotes DESC LIMIT 1`,
+        [guildId]
+      );
+      return rows.length > 0 ? rows[0] : null;
+    } catch (error) {
+      console.error('Error getting top voted movie:', error.message);
+      return null;
+    }
+  }
+
+  async findMovieByTitle(guildId, title) {
+    if (!this.isConnected) return null;
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT * FROM movies WHERE guild_id = ? AND title LIKE ? ORDER BY created_at DESC LIMIT 1`,
+        [guildId, `%${title}%`]
+      );
+      return rows.length > 0 ? rows[0] : null;
+    } catch (error) {
+      console.error('Error finding movie by title:', error.message);
+      return null;
+    }
+  }
+
+  async getMovieById(messageId) {
+    if (!this.isConnected) return null;
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT * FROM movies WHERE message_id = ?`,
+        [messageId]
+      );
+      return rows.length > 0 ? rows[0] : null;
+    } catch (error) {
+      console.error('Error getting movie by ID:', error.message);
+      return null;
+    }
+  }
+
+  async updateMovieMessageId(guildId, title, messageId) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `UPDATE movies SET message_id = ? WHERE guild_id = ? AND title = ? ORDER BY created_at DESC LIMIT 1`,
+        [messageId, guildId, title]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error updating movie message ID:', error.message);
+      return false;
+    }
+  }
+
+  // Statistics methods
+  async getMovieStats(guildId) {
+    if (!this.isConnected) return {
+      totalMovies: 0, watchedMovies: 0, plannedMovies: 0,
+      pendingMovies: 0, activeUsers: 0, totalSessions: 0
+    };
+
+    try {
+      const [movieStats] = await this.pool.execute(
+        `SELECT
+          COUNT(*) as total,
+          SUM(CASE WHEN status = 'watched' THEN 1 ELSE 0 END) as watched,
+          SUM(CASE WHEN status = 'planned' THEN 1 ELSE 0 END) as planned,
+          SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+          COUNT(DISTINCT recommended_by) as active_users
+         FROM movies WHERE guild_id = ?`,
+        [guildId]
+      );
+
+      const [sessionStats] = await this.pool.execute(
+        `SELECT COUNT(*) as total_sessions FROM movie_sessions WHERE guild_id = ?`,
+        [guildId]
+      );
+
+      return {
+        totalMovies: movieStats[0].total || 0,
+        watchedMovies: movieStats[0].watched || 0,
+        plannedMovies: movieStats[0].planned || 0,
+        pendingMovies: movieStats[0].pending || 0,
+        activeUsers: movieStats[0].active_users || 0,
+        totalSessions: sessionStats[0].total_sessions || 0
+      };
+    } catch (error) {
+      console.error('Error getting movie stats:', error.message);
+      return {
+        totalMovies: 0, watchedMovies: 0, plannedMovies: 0,
+        pendingMovies: 0, activeUsers: 0, totalSessions: 0
+      };
+    }
+  }
+
+  async getTopVotedMovies(guildId, limit = 10) {
+    if (!this.isConnected) return [];
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT * FROM movies WHERE guild_id = ? AND (upvotes > 0 OR downvotes > 0)
+         ORDER BY (upvotes - downvotes) DESC, upvotes DESC LIMIT ?`,
+        [guildId, limit]
+      );
+      return rows;
+    } catch (error) {
+      console.error('Error getting top voted movies:', error.message);
+      return [];
+    }
+  }
+
+  async getUserStats(guildId, userId) {
+    if (!this.isConnected) return {
+      recommended: 0, upvotesReceived: 0, downvotesReceived: 0,
+      watched: 0, planned: 0
+    };
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT
+          COUNT(*) as recommended,
+          SUM(upvotes) as upvotes_received,
+          SUM(downvotes) as downvotes_received,
+          SUM(CASE WHEN status = 'watched' THEN 1 ELSE 0 END) as watched,
+          SUM(CASE WHEN status = 'planned' THEN 1 ELSE 0 END) as planned
+         FROM movies WHERE guild_id = ? AND recommended_by = ?`,
+        [guildId, userId]
+      );
+
+      return {
+        recommended: rows[0].recommended || 0,
+        upvotesReceived: rows[0].upvotes_received || 0,
+        downvotesReceived: rows[0].downvotes_received || 0,
+        watched: rows[0].watched || 0,
+        planned: rows[0].planned || 0
+      };
+    } catch (error) {
+      console.error('Error getting user stats:', error.message);
+      return {
+        recommended: 0, upvotesReceived: 0, downvotesReceived: 0,
+        watched: 0, planned: 0
+      };
+    }
+  }
+
+  async getMonthlyStats(guildId) {
+    if (!this.isConnected) return [];
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT
+          DATE_FORMAT(created_at, '%Y-%m') as month,
+          COUNT(*) as movies,
+          0 as sessions
+         FROM movies WHERE guild_id = ?
+         GROUP BY DATE_FORMAT(created_at, '%Y-%m')
+         ORDER BY month DESC LIMIT 12`,
+        [guildId]
+      );
+      return rows;
+    } catch (error) {
+      console.error('Error getting monthly stats:', error.message);
+      return [];
+    }
+  }
+
   async close() {
     if (this.pool) {
       await this.pool.end();

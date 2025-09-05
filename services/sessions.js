@@ -140,30 +140,309 @@ async function showSessionCreationModal(interaction) {
   });
 }
 
-// Placeholder functions - these will be fully implemented
 async function listMovieSessions(interaction) {
-  console.log('List sessions called');
-  await interaction.reply({ content: 'Sessions list coming soon!', flags: MessageFlags.Ephemeral });
+  try {
+    const sessions = await database.getMovieSessionsByGuild(interaction.guild.id);
+
+    if (!sessions || sessions.length === 0) {
+      const embed = new EmbedBuilder()
+        .setTitle('🎬 Movie Sessions')
+        .setDescription('No active movie sessions found.\n\nUse `/movie-session action:create` to create your first session!')
+        .setColor(0x5865f2);
+
+      await interaction.reply({
+        embeds: [embed],
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    const embed = new EmbedBuilder()
+      .setTitle('🎬 Active Movie Sessions')
+      .setDescription(`Found ${sessions.length} active session${sessions.length === 1 ? '' : 's'}:`)
+      .setColor(0x5865f2);
+
+    for (const session of sessions.slice(0, 10)) { // Limit to 10 sessions
+      const scheduledText = session.scheduled_date
+        ? `📅 ${timezone.formatDateWithTimezone(new Date(session.scheduled_date), session.timezone || 'UTC')}`
+        : '📅 No specific date';
+
+      const statusEmoji = {
+        'planning': '📝',
+        'voting': '🗳️',
+        'decided': '✅',
+        'completed': '🎉',
+        'cancelled': '❌'
+      }[session.status] || '📝';
+
+      let movieInfo = '';
+      if (session.associated_movie_id) {
+        const movie = await database.getMovieById(session.associated_movie_id);
+        if (movie) {
+          movieInfo = `\n🎬 Featured: **${movie.title}**`;
+        }
+      }
+
+      embed.addFields({
+        name: `${statusEmoji} Session #${session.id}: ${session.name}`,
+        value: `${scheduledText}\n👤 Organizer: <@${session.created_by}>\n📍 <#${session.channel_id}>${movieInfo}`,
+        inline: false
+      });
+    }
+
+    embed.setFooter({
+      text: `Use /movie-session action:join session-id:[ID] to join a session`
+    });
+
+    await interaction.reply({
+      embeds: [embed],
+      flags: MessageFlags.Ephemeral
+    });
+
+  } catch (error) {
+    console.error('Error listing sessions:', error);
+    await interaction.reply({
+      content: '❌ Failed to retrieve sessions.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
 }
 
 async function closeSessionVoting(interaction) {
-  console.log('Close voting called');
-  await interaction.reply({ content: 'Close voting coming soon!', flags: MessageFlags.Ephemeral });
+  const sessionId = interaction.options.getInteger('session-id');
+
+  if (!sessionId) {
+    await interaction.reply({
+      content: '❌ Please provide a session ID. Use `/movie-session action:list` to see available sessions.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  try {
+    const session = await database.getMovieSessionById(sessionId);
+    if (!session || session.guild_id !== interaction.guild.id) {
+      await interaction.reply({
+        content: '❌ Session not found or not in this server.',
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    // Check if user is organizer or admin
+    const { permissions } = require('./permissions');
+    const isOrganizer = session.created_by === interaction.user.id;
+    const isAdmin = await permissions.checkMovieAdminPermission(interaction);
+
+    if (!isOrganizer && !isAdmin) {
+      await interaction.reply({
+        content: '❌ Only the session organizer or admins can close voting.',
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    const success = await database.updateSessionStatus(sessionId, 'decided');
+    if (success) {
+      await interaction.reply({
+        content: `✅ **Voting closed for session "${session.name}"**\n\nUse \`/movie-session action:winner session-id:${sessionId}\` to pick the winning movie.`,
+        flags: MessageFlags.Ephemeral
+      });
+    } else {
+      await interaction.reply({
+        content: '❌ Failed to close voting.',
+        flags: MessageFlags.Ephemeral
+      });
+    }
+  } catch (error) {
+    console.error('Error closing session voting:', error);
+    await interaction.reply({
+      content: '❌ Failed to close voting.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
 }
 
 async function pickSessionWinner(interaction) {
-  console.log('Pick winner called');
-  await interaction.reply({ content: 'Pick winner coming soon!', flags: MessageFlags.Ephemeral });
+  const sessionId = interaction.options.getInteger('session-id');
+
+  if (!sessionId) {
+    await interaction.reply({
+      content: '❌ Please provide a session ID. Use `/movie-session action:list` to see available sessions.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  try {
+    const session = await database.getMovieSessionById(sessionId);
+    if (!session || session.guild_id !== interaction.guild.id) {
+      await interaction.reply({
+        content: '❌ Session not found or not in this server.',
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    // Check permissions
+    const { permissions } = require('./permissions');
+    const isOrganizer = session.created_by === interaction.user.id;
+    const isAdmin = await permissions.checkMovieAdminPermission(interaction);
+
+    if (!isOrganizer && !isAdmin) {
+      await interaction.reply({
+        content: '❌ Only the session organizer or admins can pick the winner.',
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    // Get top-voted movie from current queue
+    const topMovie = await database.getTopVotedMovie(interaction.guild.id);
+    if (!topMovie) {
+      await interaction.reply({
+        content: '❌ No movies found in the voting queue. Add some movie recommendations first!',
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    // Update session with winner
+    const success = await database.updateSessionWinner(sessionId, topMovie.message_id);
+    if (success) {
+      await database.updateSessionStatus(sessionId, 'decided');
+
+      await interaction.reply({
+        content: `🎉 **Winner selected for "${session.name}"!**\n\n🏆 **${topMovie.title}**\n📺 ${topMovie.where_to_watch}\n👤 Recommended by <@${topMovie.recommended_by}>`,
+        flags: MessageFlags.Ephemeral
+      });
+    } else {
+      await interaction.reply({
+        content: '❌ Failed to set session winner.',
+        flags: MessageFlags.Ephemeral
+      });
+    }
+  } catch (error) {
+    console.error('Error picking session winner:', error);
+    await interaction.reply({
+      content: '❌ Failed to pick winner.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
 }
 
 async function addMovieToSession(interaction) {
-  console.log('Add movie called');
-  await interaction.reply({ content: 'Add movie coming soon!', flags: MessageFlags.Ephemeral });
+  const sessionId = interaction.options.getInteger('session-id');
+  const movieTitle = interaction.options.getString('movie-title');
+
+  if (!sessionId || !movieTitle) {
+    await interaction.reply({
+      content: '❌ Please provide both session ID and movie title.\n\nExample: `/movie-session action:add-movie session-id:123 movie-title:The Matrix`',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  try {
+    const session = await database.getMovieSessionById(sessionId);
+    if (!session || session.guild_id !== interaction.guild.id) {
+      await interaction.reply({
+        content: '❌ Session not found or not in this server.',
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    // Find movie in current recommendations
+    const movie = await database.findMovieByTitle(interaction.guild.id, movieTitle);
+    if (!movie) {
+      await interaction.reply({
+        content: `❌ Movie "${movieTitle}" not found in current recommendations.\n\nUse \`/movie-night\` to add it first, or check the exact title with \`/movie-queue\`.`,
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    // Associate movie with session
+    const success = await database.updateSessionMovie(sessionId, movie.message_id);
+    if (success) {
+      await interaction.reply({
+        content: `✅ **Added "${movie.title}" to session "${session.name}"**\n\nThis movie is now featured in the session!`,
+        flags: MessageFlags.Ephemeral
+      });
+    } else {
+      await interaction.reply({
+        content: '❌ Failed to add movie to session.',
+        flags: MessageFlags.Ephemeral
+      });
+    }
+  } catch (error) {
+    console.error('Error adding movie to session:', error);
+    await interaction.reply({
+      content: '❌ Failed to add movie to session.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
 }
 
 async function joinSession(interaction) {
-  console.log('Join session called');
-  await interaction.reply({ content: 'Join session coming soon!', flags: MessageFlags.Ephemeral });
+  const sessionId = interaction.options.getInteger('session-id');
+
+  if (!sessionId) {
+    await interaction.reply({
+      content: '❌ Please provide a session ID. Use `/movie-session action:list` to see available sessions.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  try {
+    const session = await database.getMovieSessionById(sessionId);
+    if (!session || session.guild_id !== interaction.guild.id) {
+      await interaction.reply({
+        content: '❌ Session not found or not in this server.',
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    const scheduledText = session.scheduled_date
+      ? timezone.formatDateWithTimezone(new Date(session.scheduled_date), session.timezone || 'UTC')
+      : 'No specific date set';
+
+    let movieInfo = '';
+    if (session.associated_movie_id) {
+      const movie = await database.getMovieById(session.associated_movie_id);
+      if (movie) {
+        movieInfo = `\n\n🎬 **Featured Movie:** ${movie.title}\n📺 ${movie.where_to_watch}`;
+      }
+    }
+
+    const embed = new EmbedBuilder()
+      .setTitle(`🎪 Joined: ${session.name}`)
+      .setDescription(`You've joined this movie session!${movieInfo}`)
+      .setColor(0x57f287)
+      .addFields(
+        { name: '📅 Scheduled', value: scheduledText, inline: true },
+        { name: '👤 Organizer', value: `<@${session.created_by}>`, inline: true },
+        { name: '📍 Channel', value: `<#${session.channel_id}>`, inline: true }
+      )
+      .setFooter({ text: `Session ID: ${session.id}` });
+
+    await interaction.reply({
+      embeds: [embed],
+      flags: MessageFlags.Ephemeral
+    });
+
+    // TODO: In future, could add user to session participants table
+
+  } catch (error) {
+    console.error('Error joining session:', error);
+    await interaction.reply({
+      content: '❌ Failed to join session.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
 }
 
 async function handleCreateSessionFromMovie(interaction, messageId) {

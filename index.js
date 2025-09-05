@@ -7,7 +7,7 @@
 
 require('dotenv').config();
 
-const { Client, GatewayIntentBits, REST, Routes, InteractionType, MessageFlags } = require('discord.js');
+const { Client, GatewayIntentBits, REST, Routes, InteractionType, MessageFlags, EmbedBuilder } = require('discord.js');
 const database = require('./database');
 const { commands, registerCommands } = require('./commands');
 const { handleInteraction } = require('./handlers');
@@ -134,19 +134,101 @@ async function handleSlashCommand(interaction) {
 
 // Placeholder command handlers - these will be implemented in the full refactor
 async function handleMovieNight(interaction) {
-  console.log('Movie night command called');
-  await interaction.reply({
-    content: 'Movie night command coming soon!',
-    flags: MessageFlags.Ephemeral
-  });
+  const title = interaction.options.getString('title');
+  const where = interaction.options.getString('where');
+
+  if (!title || !where) {
+    await interaction.reply({
+      content: '❌ Please provide both movie title and where to watch it.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  try {
+    // Create movie recommendation
+    const movieData = {
+      guildId: interaction.guild.id,
+      channelId: interaction.channel.id,
+      title: title,
+      whereToWatch: where,
+      recommendedBy: interaction.user.id,
+      status: 'pending'
+    };
+
+    // Add to database and create message
+    const messageId = await createMovieRecommendation(interaction, movieData);
+
+    if (messageId) {
+      await interaction.reply({
+        content: `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added to the queue for voting.`,
+        flags: MessageFlags.Ephemeral
+      });
+    } else {
+      await interaction.reply({
+        content: '❌ Failed to create movie recommendation.',
+        flags: MessageFlags.Ephemeral
+      });
+    }
+  } catch (error) {
+    console.error('Error handling movie night:', error);
+    await interaction.reply({
+      content: '❌ Failed to create movie recommendation.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
 }
 
 async function handleMovieQueue(interaction) {
-  console.log('Movie queue command called');
-  await interaction.reply({
-    content: 'Movie queue command coming soon!',
-    flags: MessageFlags.Ephemeral
-  });
+  try {
+    const movies = await database.getMoviesByStatus(interaction.guild.id, 'pending', 10);
+
+    if (!movies || movies.length === 0) {
+      const embed = new EmbedBuilder()
+        .setTitle('🍿 Movie Queue')
+        .setDescription('No movies in the queue yet!\n\nUse `/movie-night` to add your first recommendation.')
+        .setColor(0x5865f2);
+
+      await interaction.reply({
+        embeds: [embed],
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+
+    const embed = new EmbedBuilder()
+      .setTitle('🍿 Current Movie Queue')
+      .setDescription(`${movies.length} movie${movies.length === 1 ? '' : 's'} waiting for votes:`)
+      .setColor(0x5865f2);
+
+    for (const movie of movies) {
+      const voteScore = (movie.upvotes || 0) - (movie.downvotes || 0);
+      const voteText = voteScore > 0 ? `+${voteScore}` : voteScore.toString();
+
+      embed.addFields({
+        name: `🍿 ${movie.title}`,
+        value: `📺 ${movie.where_to_watch}\n👤 <@${movie.recommended_by}>\n🗳️ Score: ${voteText} (${movie.upvotes || 0}👍 ${movie.downvotes || 0}👎)`,
+        inline: true
+      });
+    }
+
+    embed.setFooter({
+      text: 'Vote on movies in the channel to help decide what to watch!'
+    });
+
+    await interaction.reply({
+      embeds: [embed],
+      flags: MessageFlags.Ephemeral
+    });
+
+  } catch (error) {
+    console.error('Error showing movie queue:', error);
+    await interaction.reply({
+      content: '❌ Failed to retrieve movie queue.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
 }
 
 async function handleMovieHelp(interaction) {
@@ -159,7 +241,6 @@ async function handleMovieHelp(interaction) {
 
 async function handleMovieConfigure(interaction) {
   const { permissions } = require('./services');
-  const { TIMEZONE_OPTIONS } = require('./config/timezones');
 
   // Check admin permissions
   const hasPermission = await permissions.checkMovieAdminPermission(interaction);
@@ -294,11 +375,33 @@ async function handleMovieCleanup(interaction) {
 }
 
 async function handleMovieStats(interaction) {
-  console.log('Movie stats command called');
-  await interaction.reply({
-    content: 'Movie stats command coming soon!',
-    flags: MessageFlags.Ephemeral
-  });
+  const type = interaction.options.getString('type') || 'overview';
+  const user = interaction.options.getUser('user');
+
+  try {
+    switch (type) {
+      case 'overview':
+        await showOverviewStats(interaction);
+        break;
+      case 'top-movies':
+        await showTopMovies(interaction);
+        break;
+      case 'user-stats':
+        await showUserStats(interaction, user);
+        break;
+      case 'monthly':
+        await showMonthlyStats(interaction);
+        break;
+      default:
+        await showOverviewStats(interaction);
+    }
+  } catch (error) {
+    console.error('Error showing movie stats:', error);
+    await interaction.reply({
+      content: '❌ Failed to retrieve statistics.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
 }
 
 // Error handling
@@ -487,6 +590,162 @@ async function resetConfiguration(interaction, guildId) {
       content: '❌ Failed to reset configuration.',
       flags: MessageFlags.Ephemeral
     });
+  }
+}
+
+// Statistics helper functions
+async function showOverviewStats(interaction) {
+  const guildId = interaction.guild.id;
+  const stats = await database.getMovieStats(guildId);
+
+  const embed = new EmbedBuilder()
+    .setTitle('📊 Movie Night Statistics')
+    .setDescription('Overview of movie recommendations and activity')
+    .setColor(0x5865f2)
+    .addFields(
+      { name: '🍿 Total Movies', value: stats.totalMovies.toString(), inline: true },
+      { name: '✅ Watched', value: stats.watchedMovies.toString(), inline: true },
+      { name: '📌 Planned', value: stats.plannedMovies.toString(), inline: true },
+      { name: '🗳️ Pending Votes', value: stats.pendingMovies.toString(), inline: true },
+      { name: '👥 Active Users', value: stats.activeUsers.toString(), inline: true },
+      { name: '🎪 Sessions', value: stats.totalSessions.toString(), inline: true }
+    )
+    .setFooter({ text: `Stats for ${interaction.guild.name}` })
+    .setTimestamp();
+
+  await interaction.reply({
+    embeds: [embed],
+    flags: MessageFlags.Ephemeral
+  });
+}
+
+async function showTopMovies(interaction) {
+  const topMovies = await database.getTopVotedMovies(interaction.guild.id, 10);
+
+  if (!topMovies || topMovies.length === 0) {
+    await interaction.reply({
+      content: '📊 No movies with votes found yet!',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  const embed = new EmbedBuilder()
+    .setTitle('🏆 Top Voted Movies')
+    .setDescription('Movies ranked by vote score (upvotes - downvotes)')
+    .setColor(0xffd700);
+
+  topMovies.forEach((movie, index) => {
+    const score = (movie.upvotes || 0) - (movie.downvotes || 0);
+    const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+
+    embed.addFields({
+      name: `${medal} ${movie.title}`,
+      value: `📺 ${movie.where_to_watch}\n🗳️ Score: ${score > 0 ? '+' : ''}${score} (${movie.upvotes || 0}👍 ${movie.downvotes || 0}👎)\n👤 <@${movie.recommended_by}>`,
+      inline: false
+    });
+  });
+
+  await interaction.reply({
+    embeds: [embed],
+    flags: MessageFlags.Ephemeral
+  });
+}
+
+async function showUserStats(interaction, user) {
+  const targetUser = user || interaction.user;
+  const userStats = await database.getUserStats(interaction.guild.id, targetUser.id);
+
+  const embed = new EmbedBuilder()
+    .setTitle(`📊 ${targetUser.displayName || targetUser.username}'s Movie Stats`)
+    .setDescription('Personal movie recommendation statistics')
+    .setColor(0x5865f2)
+    .addFields(
+      { name: '🍿 Movies Recommended', value: userStats.recommended.toString(), inline: true },
+      { name: '👍 Total Upvotes Received', value: userStats.upvotesReceived.toString(), inline: true },
+      { name: '👎 Total Downvotes Received', value: userStats.downvotesReceived.toString(), inline: true },
+      { name: '🏆 Net Score', value: (userStats.upvotesReceived - userStats.downvotesReceived).toString(), inline: true },
+      { name: '✅ Movies Watched', value: userStats.watched.toString(), inline: true },
+      { name: '📌 Movies Planned', value: userStats.planned.toString(), inline: true }
+    )
+    .setThumbnail(targetUser.displayAvatarURL())
+    .setFooter({ text: `Stats for ${interaction.guild.name}` })
+    .setTimestamp();
+
+  await interaction.reply({
+    embeds: [embed],
+    flags: MessageFlags.Ephemeral
+  });
+}
+
+async function showMonthlyStats(interaction) {
+  const monthlyStats = await database.getMonthlyStats(interaction.guild.id);
+
+  const embed = new EmbedBuilder()
+    .setTitle('📅 Monthly Movie Activity')
+    .setDescription('Movie recommendations by month')
+    .setColor(0x5865f2);
+
+  if (monthlyStats.length === 0) {
+    embed.setDescription('No monthly data available yet.');
+  } else {
+    monthlyStats.forEach(stat => {
+      embed.addFields({
+        name: stat.month,
+        value: `🍿 ${stat.movies} movies\n🎪 ${stat.sessions} sessions`,
+        inline: true
+      });
+    });
+  }
+
+  await interaction.reply({
+    embeds: [embed],
+    flags: MessageFlags.Ephemeral
+  });
+}
+
+// Movie recommendation helper function
+async function createMovieRecommendation(interaction, movieData) {
+  try {
+    // Add movie to database
+    const success = await database.addMovie(
+      movieData.guildId,
+      movieData.channelId,
+      movieData.title,
+      movieData.whereToWatch,
+      movieData.recommendedBy
+    );
+
+    if (!success) {
+      return null;
+    }
+
+    // Create embed and components
+    const { embeds, components } = require('./utils');
+    const movie = {
+      title: movieData.title,
+      where_to_watch: movieData.whereToWatch,
+      recommended_by: movieData.recommendedBy,
+      status: 'pending',
+      created_at: new Date()
+    };
+
+    const embed = embeds.createMovieEmbed(movie);
+    const movieComponents = components.createStatusButtons('temp', 'pending');
+
+    // Send message to channel
+    const message = await interaction.channel.send({
+      embeds: [embed],
+      components: movieComponents
+    });
+
+    // Update database with message ID
+    await database.updateMovieMessageId(movieData.guildId, movieData.title, message.id);
+
+    return message.id;
+  } catch (error) {
+    console.error('Error creating movie recommendation:', error);
+    return null;
   }
 }
 
