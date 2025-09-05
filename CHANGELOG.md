@@ -2,6 +2,15 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.9.1] - 2025-09-05
+### Fixed
+- **Session Command UX:** Improved parameter descriptions for `/movie-session` command clarity
+- **Discord.js Compatibility:** Fixed deprecation warning by updating `ready` event to `clientReady`
+- **Command Registration:** Fixed missing Routes import causing command registration failures
+- **User Experience:** Clarified that session-id and movie-title parameters are only needed for specific actions
+
+---
+
 ## [1.9.0] - 2025-09-05
 ### Added
 - **Thread Recovery:** Cleanup feature now creates missing discussion threads for movies up for vote
