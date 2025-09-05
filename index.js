@@ -1,6 +1,6 @@
 /**
  * Movie Night Bot — Main Entry Point
- * Version: 1.10.4
+ * Version: 1.10.5
  * 
  * A modular Discord bot for organizing movie nights with voting, sessions, and IMDb integration
  */
@@ -40,7 +40,7 @@ const client = new Client({
 });
 
 // Bot ready event
-client.once('ready', () => {
+client.once('clientReady', () => {
   console.log(`✅ ${client.user.tag} is online!`);
   console.log(`🎬 Movie Night Bot v${BOT_VERSION} ready`);
   console.log(`📊 Serving ${client.guilds.cache.size} guilds`);

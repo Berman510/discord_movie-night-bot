@@ -2,6 +2,19 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.10.5] - 2025-09-05
+### Fixed
+- **Deprecation Warning:** Fixed Discord.js v14 deprecation warning for 'ready' event
+- **Event Handler:** Updated to use 'clientReady' event instead of deprecated 'ready' event
+- **Future Compatibility:** Ensures compatibility with Discord.js v15 when released
+
+### Technical
+- **Event Migration:** Changed from `client.once('ready')` to `client.once('clientReady')`
+- **Clean Startup:** Eliminated deprecation warning during bot initialization
+- **Forward Compatibility:** Prepared for Discord.js v15 breaking changes
+
+---
+
 ## [1.10.4] - 2025-09-05
 ### Fixed
 - **Command Registration Error:** Fixed `Cannot read properties of undefined (reading 'put')` error
