@@ -2,6 +2,22 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.9.3] - 2025-09-05
+### Fixed
+- **Configuration Commands:** Implemented real configuration functionality for all settings
+- **Timezone Setting:** Users can now actually set server timezone through `/movie-configure`
+- **Channel Configuration:** Movie channel can be set and managed properly
+- **Admin Role Management:** Add/remove admin roles functionality now works
+- **Settings Viewing:** Complete configuration overview with current settings display
+
+### Added
+- **Full Configuration System:** All configuration actions now functional instead of placeholders
+- **Timezone Integration:** Proper timezone handling for session creation and display
+- **Admin Permission System:** Role-based admin permissions with database storage
+- **Configuration Reset:** Ability to reset all settings to defaults
+
+---
+
 ## [1.9.2] - 2025-09-05
 ### Fixed
 - **Cleanup Functionality:** Implemented real cleanup command to update old movie messages to current format

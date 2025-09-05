@@ -158,11 +158,63 @@ async function handleMovieHelp(interaction) {
 }
 
 async function handleMovieConfigure(interaction) {
-  console.log('Movie configure command called');
-  await interaction.reply({
-    content: 'Movie configure command coming soon!',
-    flags: MessageFlags.Ephemeral
-  });
+  const { permissions } = require('./services');
+  const { TIMEZONE_OPTIONS } = require('./config/timezones');
+
+  // Check admin permissions
+  const hasPermission = await permissions.checkMovieAdminPermission(interaction);
+  if (!hasPermission) {
+    await interaction.reply({
+      content: '❌ You need Administrator permissions or a configured admin role to use this command.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  if (!database.isConnected) {
+    await interaction.reply({
+      content: '⚠️ Database not available - configuration features require database connection.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  const action = interaction.options.getString('action');
+  const guildId = interaction.guild.id;
+
+  try {
+    switch (action) {
+      case 'set-channel':
+        await configureMovieChannel(interaction, guildId);
+        break;
+      case 'set-timezone':
+        await configureTimezone(interaction, guildId);
+        break;
+      case 'add-admin-role':
+        await addAdminRole(interaction, guildId);
+        break;
+      case 'remove-admin-role':
+        await removeAdminRole(interaction, guildId);
+        break;
+      case 'view-settings':
+        await viewSettings(interaction, guildId);
+        break;
+      case 'reset':
+        await resetConfiguration(interaction, guildId);
+        break;
+      default:
+        await interaction.reply({
+          content: '❌ Unknown configuration action.',
+          flags: MessageFlags.Ephemeral
+        });
+    }
+  } catch (error) {
+    console.error('Configuration error:', error);
+    await interaction.reply({
+      content: '❌ Configuration failed. Check console for details.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
 }
 
 async function handleMovieCleanup(interaction) {
@@ -327,6 +379,145 @@ async function updateMessageToCurrentFormat(message) {
   } catch (error) {
     console.warn(`Failed to update message ${message.id}:`, error.message);
     return false;
+  }
+}
+
+// Configuration helper functions
+async function configureMovieChannel(interaction, guildId) {
+  const channel = interaction.options.getChannel('channel') || interaction.channel;
+
+  const success = await database.setMovieChannel(guildId, channel.id);
+  if (success) {
+    await interaction.reply({
+      content: `✅ **Movie channel set to ${channel}**\n\nCleanup commands will only work in this channel for safety.`,
+      flags: MessageFlags.Ephemeral
+    });
+  } else {
+    await interaction.reply({
+      content: '❌ Failed to set movie channel.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+async function configureTimezone(interaction, guildId) {
+  const { TIMEZONE_OPTIONS } = require('./config/timezones');
+  const timezone = interaction.options.getString('timezone');
+
+  if (!timezone) {
+    await interaction.reply({
+      content: '❌ Please specify a timezone to set.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  const success = await database.setGuildTimezone(guildId, timezone);
+  const timezoneName = TIMEZONE_OPTIONS.find(tz => tz.value === timezone)?.label || timezone;
+
+  if (success) {
+    await interaction.reply({
+      content: `🌍 **Timezone Updated!**\n\nDefault timezone set to **${timezoneName}**\n\nThis will be used for movie sessions when users don't specify a timezone.`,
+      flags: MessageFlags.Ephemeral
+    });
+  } else {
+    await interaction.reply({
+      content: '❌ Failed to update timezone.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+async function addAdminRole(interaction, guildId) {
+  const role = interaction.options.getRole('role');
+  if (!role) {
+    await interaction.reply({
+      content: '❌ Please specify a role to add as admin.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  const success = await database.addAdminRole(guildId, role.id);
+  if (success) {
+    await interaction.reply({
+      content: `✅ **Admin role added!**\n\nUsers with the ${role} role can now use admin commands.`,
+      flags: MessageFlags.Ephemeral
+    });
+  } else {
+    await interaction.reply({
+      content: '❌ Failed to add admin role.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+async function removeAdminRole(interaction, guildId) {
+  const role = interaction.options.getRole('role');
+  if (!role) {
+    await interaction.reply({
+      content: '❌ Please specify a role to remove from admin.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  const success = await database.removeAdminRole(guildId, role.id);
+  if (success) {
+    await interaction.reply({
+      content: `✅ **Admin role removed!**\n\nUsers with the ${role} role can no longer use admin commands.`,
+      flags: MessageFlags.Ephemeral
+    });
+  } else {
+    await interaction.reply({
+      content: '❌ Failed to remove admin role.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+async function viewSettings(interaction, guildId) {
+  const { TIMEZONE_OPTIONS } = require('./config/timezones');
+  const config = await database.getGuildConfig(guildId);
+
+  if (!config) {
+    await interaction.reply({
+      content: '❌ Failed to retrieve guild configuration.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  const currentTimezone = await database.getGuildTimezone(guildId);
+  const timezoneName = TIMEZONE_OPTIONS.find(tz => tz.value === currentTimezone)?.label || currentTimezone;
+  const hasAdminRoles = config.admin_roles && config.admin_roles.length > 0;
+
+  const { embeds } = require('./utils');
+  const embed = embeds.createSuccessEmbed(
+    '🎬 Movie Bot Configuration',
+    `**Movie Channel:** ${config.movie_channel_id ? `<#${config.movie_channel_id}>` : 'Not configured - bot works in any channel'}\n\n` +
+    `**Default Timezone:** ${timezoneName}\n\n` +
+    `**Admin Roles:** ${hasAdminRoles ? config.admin_roles.map(id => `<@&${id}>`).join(', ') : 'None - only Discord Administrators can use admin commands'}`
+  );
+
+  await interaction.reply({
+    embeds: [embed],
+    flags: MessageFlags.Ephemeral
+  });
+}
+
+async function resetConfiguration(interaction, guildId) {
+  const success = await database.resetGuildConfig(guildId);
+  if (success) {
+    await interaction.reply({
+      content: '✅ **Configuration reset!**\n\nAll settings have been reset to defaults.',
+      flags: MessageFlags.Ephemeral
+    });
+  } else {
+    await interaction.reply({
+      content: '❌ Failed to reset configuration.',
+      flags: MessageFlags.Ephemeral
+    });
   }
 }
 
