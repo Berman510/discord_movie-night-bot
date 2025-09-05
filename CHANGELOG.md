@@ -2,6 +2,27 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.9.7] - 2025-09-05
+### Added
+- **Movie Selection Step:** Added movie selection as Step 4 in session creation workflow
+- **Smart Movie Categorization:** Movies grouped by Top Voted, Planned, Pending, and No Movie options
+- **Movie Information Display:** Shows vote scores, platforms, and movie status in selection dropdown
+- **Session-Movie Association:** Sessions can now be linked to specific movies from the queue
+- **Navigation Controls:** Back buttons to change movie selection during session creation
+
+### Enhanced
+- **Complete Session Workflow:** Date → Time → Timezone → Movie → Details (5-step process)
+- **Movie Integration:** Sessions automatically associate with selected movies in database
+- **User Experience:** Clear categorization and information display for movie selection
+- **Flexible Options:** Can create general sessions or movie-specific sessions
+
+### Fixed
+- **Missing Imports:** Added required Discord.js imports for enhanced select menu functionality
+- **State Management:** Improved session creation state handling for movie selection
+- **Database Integration:** Proper movie association with session creation
+
+---
+
 ## [1.9.6] - 2025-09-05
 ### Enhanced
 - **Session Creation UX:** Completely redesigned workflow with intuitive Date → Time → Timezone → Details flow

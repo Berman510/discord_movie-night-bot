@@ -477,6 +477,11 @@ async function handleSessionCreationButton(interaction) {
       await showSessionDetailsModal(interaction, state);
     } else if (customId === 'session_back_to_timezone') {
       await showTimezoneSelection(interaction, state);
+    } else if (customId === 'session_back_to_movie') {
+      // Import the function from selects handler
+      const selectsHandler = require('../handlers/selects');
+      await selectsHandler.showMovieSelection(interaction, state);
+    }
     } else {
       await interaction.reply({
         content: '❌ Unknown session creation action.',
@@ -849,7 +854,8 @@ async function createMovieSessionFromModal(interaction) {
       createdBy: interaction.user.id,
       scheduledDate: scheduledDate,
       timezone: state.selectedTimezone || 'UTC',
-      status: 'planning'
+      status: 'planning',
+      associatedMovieId: state.selectedMovie || null
     };
 
     const sessionId = await database.createMovieSession(sessionData);

@@ -3,7 +3,7 @@
  * Handles all select menu interactions
  */
 
-const { MessageFlags } = require('discord.js');
+const { MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
 const database = require('../database');
 const { TIMEZONE_OPTIONS } = require('../config/timezones');
 
@@ -20,6 +20,12 @@ async function handleSelect(interaction) {
     // Configuration timezone selection
     if (customId === 'config_timezone_selected') {
       await handleConfigTimezoneSelection(interaction);
+      return;
+    }
+
+    // Session movie selection
+    if (customId === 'session_movie_selected') {
+      await handleSessionMovieSelection(interaction);
       return;
     }
 
@@ -48,7 +54,6 @@ async function handleSelect(interaction) {
 }
 
 async function handleSessionTimezoneSelection(interaction) {
-  const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
   const selectedTimezone = interaction.values[0];
   const timezoneName = TIMEZONE_OPTIONS.find(tz => tz.value === selectedTimezone)?.label || selectedTimezone;
 
@@ -63,20 +68,159 @@ async function handleSessionTimezoneSelection(interaction) {
   state.timezoneName = timezoneName;
   global.sessionCreationState.set(userId, state);
 
-  // Show final step - session details
+  // Show movie selection step
+  await showMovieSelection(interaction, state);
+}
+
+async function handleSessionMovieSelection(interaction) {
+  const selectedValue = interaction.values[0];
+
+  // Store movie selection in session state
+  if (!global.sessionCreationState) {
+    global.sessionCreationState = new Map();
+  }
+
+  const userId = interaction.user.id;
+  let state = global.sessionCreationState.get(userId) || {};
+
+  if (selectedValue === 'no_movie') {
+    state.selectedMovie = null;
+    state.movieDisplay = 'No specific movie';
+  } else {
+    // Extract movie message ID
+    const movieMessageId = selectedValue.replace('movie_', '');
+
+    try {
+      // Get movie details from database
+      const movie = await database.getMovieById(movieMessageId);
+      if (movie) {
+        state.selectedMovie = movieMessageId;
+        state.movieDisplay = `**${movie.title}**\n📺 ${movie.where_to_watch}`;
+      } else {
+        state.selectedMovie = null;
+        state.movieDisplay = 'Movie not found';
+      }
+    } catch (error) {
+      console.error('Error getting movie details:', error);
+      state.selectedMovie = null;
+      state.movieDisplay = 'Error loading movie';
+    }
+  }
+
+  global.sessionCreationState.set(userId, state);
+
+  // Show session details step
   await showSessionDetailsModal(interaction, state);
+}
+
+async function showMovieSelection(interaction, state) {
+  try {
+    // Get available movies from database
+    const guildId = interaction.guild.id;
+    const plannedMovies = await database.getMoviesByStatus(guildId, 'planned', 10);
+    const pendingMovies = await database.getMoviesByStatus(guildId, 'pending', 10);
+    const topMovie = await database.getTopVotedMovie(guildId);
+
+    const embed = new EmbedBuilder()
+      .setTitle('🎬 Create Movie Night Session')
+      .setDescription('**Step 4:** Choose a movie for your session\n\n*Select a movie to feature in this session, or create a general session*')
+      .setColor(0x5865f2)
+      .addFields(
+        { name: '📅 Selected Date', value: state.dateDisplay, inline: true },
+        { name: '🕐 Selected Time', value: state.timeDisplay || 'No specific time', inline: true },
+        { name: '🌍 Selected Timezone', value: state.timezoneName, inline: true }
+      );
+
+    // Build movie selection options
+    const movieOptions = [];
+
+    // Add "No specific movie" option
+    movieOptions.push({
+      label: '📝 No Specific Movie (General Session)',
+      value: 'no_movie',
+      description: 'Create a general movie night session'
+    });
+
+    // Add top-voted movie if available
+    if (topMovie) {
+      movieOptions.push({
+        label: `🏆 ${topMovie.title} (Top Voted)`,
+        value: `movie_${topMovie.message_id}`,
+        description: `${topMovie.where_to_watch} • ${topMovie.upvotes || 0}👍 ${topMovie.downvotes || 0}👎`
+      });
+    }
+
+    // Add planned movies
+    plannedMovies.forEach(movie => {
+      if (movieOptions.length < 25) { // Discord limit
+        movieOptions.push({
+          label: `📌 ${movie.title} (Planned)`,
+          value: `movie_${movie.message_id}`,
+          description: `${movie.where_to_watch} • Planned for later`
+        });
+      }
+    });
+
+    // Add pending movies (if space)
+    pendingMovies.forEach(movie => {
+      if (movieOptions.length < 25 && !movieOptions.find(opt => opt.value === `movie_${movie.message_id}`)) {
+        const score = (movie.upvotes || 0) - (movie.downvotes || 0);
+        movieOptions.push({
+          label: `🍿 ${movie.title} (Pending)`,
+          value: `movie_${movie.message_id}`,
+          description: `${movie.where_to_watch} • Score: ${score > 0 ? '+' : ''}${score}`
+        });
+      }
+    });
+
+    if (movieOptions.length === 1) {
+      // Only "no movie" option available
+      embed.addFields({
+        name: '🎬 Available Movies',
+        value: 'No movies found in queue. You can create a general session and add movies later.',
+        inline: false
+      });
+    }
+
+    const movieSelect = new ActionRowBuilder()
+      .addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId('session_movie_selected')
+          .setPlaceholder('Choose a movie for your session...')
+          .addOptions(movieOptions.slice(0, 25)) // Discord limit
+      );
+
+    await interaction.update({
+      embeds: [embed],
+      components: [movieSelect]
+    });
+
+  } catch (error) {
+    console.error('Error showing movie selection:', error);
+    // Fallback to session details if movie selection fails
+    await showSessionDetailsModal(interaction, state);
+  }
 }
 
 async function showSessionDetailsModal(interaction, state) {
   const embed = new EmbedBuilder()
     .setTitle('🎬 Create Movie Night Session')
-    .setDescription('**Step 4:** Enter session details\n\n*Almost done! Just add a name and description for your session.*')
+    .setDescription('**Step 5:** Enter session details\n\n*Almost done! Just add a name and description for your session.*')
     .setColor(0x57f287) // Green to show progress
     .addFields(
       { name: '📅 Selected Date', value: state.dateDisplay, inline: true },
       { name: '🕐 Selected Time', value: state.timeDisplay || 'No specific time', inline: true },
       { name: '🌍 Selected Timezone', value: state.timezoneName, inline: true }
     );
+
+  // Add movie info if selected
+  if (state.selectedMovie && state.selectedMovie !== 'no_movie') {
+    embed.addFields({
+      name: '🎬 Featured Movie',
+      value: state.movieDisplay || 'Movie selected',
+      inline: false
+    });
+  }
 
   const createButton = new ActionRowBuilder()
     .addComponents(
@@ -86,8 +230,8 @@ async function showSessionDetailsModal(interaction, state) {
         .setStyle(ButtonStyle.Success)
         .setEmoji('📝'),
       new ButtonBuilder()
-        .setCustomId('session_back_to_timezone')
-        .setLabel('🔄 Change Settings')
+        .setCustomId('session_back_to_movie')
+        .setLabel('🔄 Change Movie')
         .setStyle(ButtonStyle.Secondary)
     );
 
@@ -129,5 +273,6 @@ async function handleImdbSelection(interaction) {
 }
 
 module.exports = {
-  handleSelect
+  handleSelect,
+  showMovieSelection
 };
