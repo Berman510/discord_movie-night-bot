@@ -399,9 +399,17 @@ async function handleMovieCleanup(interaction) {
         // Sync message with database state
         const movie = dbMovies.find(m => m.message_id === messageId);
         if (movie) {
-          const synced = await syncMessageWithDatabase(message, movie);
-          if (synced) {
-            syncedCount++;
+          // For scheduled movies, recreate at bottom instead of syncing in place
+          if (movie.status === 'scheduled') {
+            const recreated = await recreateScheduledMovieAtBottom(message, movie, channel);
+            if (recreated) {
+              syncedCount++;
+            }
+          } else {
+            const synced = await syncMessageWithDatabase(message, movie);
+            if (synced) {
+              syncedCount++;
+            }
           }
         }
       }
@@ -529,6 +537,122 @@ async function syncMessageWithDatabase(message, movie) {
   } catch (error) {
     console.error(`Error syncing message ${message.id}:`, error);
     return false;
+  }
+}
+
+async function recreateScheduledMovieAtBottom(oldMessage, movie, channel) {
+  try {
+    console.log(`🔄 Recreating scheduled movie at bottom: ${movie.title}`);
+
+    // Get session info for this movie
+    const session = await database.getSessionByMovieId(movie.message_id);
+    if (!session) {
+      console.warn('No session found for scheduled movie');
+      return false;
+    }
+
+    // Create new embed with scheduled status
+    const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+
+    // Create enhanced embed for scheduled movie
+    const scheduledEmbed = new EmbedBuilder()
+      .setTitle(`🍿 ${movie.title}`)
+      .setDescription(movie.description || 'Movie recommendation')
+      .setColor(0x57f287) // Green for scheduled
+      .addFields(
+        { name: '📺 Where to Watch', value: movie.where_to_watch, inline: true },
+        { name: '👤 Recommended by', value: `<@${movie.recommended_by}>`, inline: true },
+        { name: '📊 Status', value: `🗓️ **Scheduled for Session**\n📝 Session: ${session.name}\n🆔 Session ID: ${session.id}`, inline: false }
+      );
+
+    // Add session timing if available
+    if (session.scheduled_date) {
+      const timestamp = Math.floor(new Date(session.scheduled_date).getTime() / 1000);
+      scheduledEmbed.addFields({
+        name: '🗓️ Session Info',
+        value: `📅 **When:** <t:${timestamp}:F>\n🎪 **Session:** ${session.name}`,
+        inline: false
+      });
+    }
+
+    // Add IMDb poster if available
+    if (movie.imdb_data && movie.imdb_data.Poster && movie.imdb_data.Poster !== 'N/A') {
+      scheduledEmbed.setThumbnail(movie.imdb_data.Poster);
+    }
+
+    scheduledEmbed.setFooter({ text: `Scheduled for movie session • Session ID: ${session.id}` });
+
+    // Create session management buttons
+    const sessionButtons = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId(`session_reschedule:${session.id}:${movie.message_id}`)
+          .setLabel('📅 Reschedule')
+          .setStyle(ButtonStyle.Secondary)
+          .setEmoji('🔄'),
+        new ButtonBuilder()
+          .setCustomId(`session_cancel:${session.id}:${movie.message_id}`)
+          .setLabel('❌ Cancel Event')
+          .setStyle(ButtonStyle.Danger)
+      );
+
+    // Delete the old message
+    await oldMessage.delete();
+    console.log(`🗑️ Deleted old scheduled movie message: ${oldMessage.id}`);
+
+    // Create new message at bottom (before guide)
+    const newMessage = await channel.send({
+      embeds: [scheduledEmbed],
+      components: [sessionButtons]
+    });
+
+    // Update database with new message ID
+    await database.updateMovieMessageId(movie.guild_id, movie.title, newMessage.id);
+
+    // Ensure guide message stays at bottom
+    await ensureGuideAtBottom(channel);
+
+    console.log(`✅ Recreated scheduled movie at bottom: ${movie.title} (new ID: ${newMessage.id})`);
+    return true;
+
+  } catch (error) {
+    console.error(`Error recreating scheduled movie at bottom:`, error);
+    return false;
+  }
+}
+
+async function ensureGuideAtBottom(channel) {
+  try {
+    // Find existing guide messages
+    const messages = await channel.messages.fetch({ limit: 10 });
+    const guideMessages = messages.filter(msg =>
+      msg.author.id === channel.client.user.id &&
+      msg.embeds.length > 0 &&
+      msg.embeds[0].title &&
+      msg.embeds[0].title.includes('Quick Guide')
+    );
+
+    if (guideMessages.size > 0) {
+      // Delete existing guide messages
+      for (const [, guideMsg] of guideMessages) {
+        await guideMsg.delete();
+      }
+    }
+
+    // Create new guide at bottom
+    const { embeds, components } = require('./utils');
+    const guideEmbed = embeds.createHelpEmbed();
+    const guideComponents = components.createConfigurationButtons ? components.createConfigurationButtons() : [];
+
+    await channel.send({
+      embeds: [guideEmbed],
+      components: guideComponents
+    });
+
+    console.log('✅ Ensured guide message is at bottom');
+
+  } catch (error) {
+    console.warn('Error ensuring guide at bottom:', error.message);
   }
 }
 
