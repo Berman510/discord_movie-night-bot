@@ -461,17 +461,24 @@ class Database {
   }
 
   async setGuildTimezone(guildId, timezone) {
-    if (!this.isConnected) return false;
+    if (!this.isConnected) {
+      console.error('Database not connected for setGuildTimezone');
+      return false;
+    }
 
     try {
-      await this.pool.execute(
+      console.log(`🔍 Setting guild timezone:`, { guildId, timezone });
+
+      const result = await this.pool.execute(
         `INSERT INTO guild_config (guild_id, default_timezone) VALUES (?, ?)
          ON DUPLICATE KEY UPDATE default_timezone = VALUES(default_timezone)`,
         [guildId, timezone]
       );
+
+      console.log(`✅ Guild timezone set successfully:`, result);
       return true;
     } catch (error) {
-      console.error('Error setting guild timezone:', error.message);
+      console.error('Error setting guild timezone:', error);
       return false;
     }
   }

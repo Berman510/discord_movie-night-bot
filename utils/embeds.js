@@ -107,7 +107,12 @@ function createHelpEmbed() {
       },
       {
         name: '⚙️ Admin Commands',
-        value: '`/movie-configure` - Configure bot settings\n`/movie-cleanup` - Update old messages and create missing threads',
+        value: '`/movie-configure` - Configure movie channel and admin roles\n`/movie-cleanup` - Update old messages and create missing threads',
+        inline: false
+      },
+      {
+        name: '🌍 Timezone Handling',
+        value: 'Select your timezone when creating sessions - no server setup needed!\nSupports 10+ common timezones with automatic time conversion.',
         inline: false
       }
     )

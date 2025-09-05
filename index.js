@@ -187,9 +187,7 @@ async function handleMovieConfigure(interaction) {
       case 'set-channel':
         await configureMovieChannel(interaction, guildId);
         break;
-      case 'set-timezone':
-        await configureTimezone(interaction, guildId);
-        break;
+
       case 'add-admin-role':
         await addAdminRole(interaction, guildId);
         break;
@@ -400,33 +398,7 @@ async function configureMovieChannel(interaction, guildId) {
   }
 }
 
-async function configureTimezone(interaction, guildId) {
-  const { TIMEZONE_OPTIONS } = require('./config/timezones');
-  const timezone = interaction.options.getString('timezone');
 
-  if (!timezone) {
-    await interaction.reply({
-      content: '❌ Please specify a timezone to set.',
-      flags: MessageFlags.Ephemeral
-    });
-    return;
-  }
-
-  const success = await database.setGuildTimezone(guildId, timezone);
-  const timezoneName = TIMEZONE_OPTIONS.find(tz => tz.value === timezone)?.label || timezone;
-
-  if (success) {
-    await interaction.reply({
-      content: `🌍 **Timezone Updated!**\n\nDefault timezone set to **${timezoneName}**\n\nThis will be used for movie sessions when users don't specify a timezone.`,
-      flags: MessageFlags.Ephemeral
-    });
-  } else {
-    await interaction.reply({
-      content: '❌ Failed to update timezone.',
-      flags: MessageFlags.Ephemeral
-    });
-  }
-}
 
 async function addAdminRole(interaction, guildId) {
   const role = interaction.options.getRole('role');
@@ -477,7 +449,6 @@ async function removeAdminRole(interaction, guildId) {
 }
 
 async function viewSettings(interaction, guildId) {
-  const { TIMEZONE_OPTIONS } = require('./config/timezones');
   const config = await database.getGuildConfig(guildId);
 
   if (!config) {
@@ -488,16 +459,14 @@ async function viewSettings(interaction, guildId) {
     return;
   }
 
-  const currentTimezone = await database.getGuildTimezone(guildId);
-  const timezoneName = TIMEZONE_OPTIONS.find(tz => tz.value === currentTimezone)?.label || currentTimezone;
   const hasAdminRoles = config.admin_roles && config.admin_roles.length > 0;
 
   const { embeds } = require('./utils');
   const embed = embeds.createSuccessEmbed(
     '🎬 Movie Bot Configuration',
     `**Movie Channel:** ${config.movie_channel_id ? `<#${config.movie_channel_id}>` : 'Not configured - bot works in any channel'}\n\n` +
-    `**Default Timezone:** ${timezoneName}\n\n` +
-    `**Admin Roles:** ${hasAdminRoles ? config.admin_roles.map(id => `<@&${id}>`).join(', ') : 'None - only Discord Administrators can use admin commands'}`
+    `**Admin Roles:** ${hasAdminRoles ? config.admin_roles.map(id => `<@&${id}>`).join(', ') : 'None - only Discord Administrators can use admin commands'}\n\n` +
+    `**Timezone Handling:** Users select timezone when creating sessions (more flexible!)`
   );
 
   await interaction.reply({

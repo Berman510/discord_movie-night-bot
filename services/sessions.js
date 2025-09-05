@@ -60,34 +60,53 @@ async function handleMovieSession(interaction) {
 }
 
 async function showSessionCreationModal(interaction) {
-  // First, show quick date/time selection buttons
+  // Enhanced session creation with prominent timezone selection
   const embed = new EmbedBuilder()
     .setTitle('🎬 Create Movie Night Session')
-    .setDescription('Choose when you want to schedule your movie night:')
-    .setColor(0x5865f2);
+    .setDescription('**Step 1:** Choose your timezone first, then select date and time.\n\n*Timezone selection ensures everyone sees the correct time!*')
+    .setColor(0x5865f2)
+    .addFields({
+      name: '🌍 Current Selection',
+      value: 'No timezone selected yet',
+      inline: false
+    });
+
+  // Prominent timezone selection first
+  const timezoneButton = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('session_timezone_select')
+        .setLabel('🌍 Choose Your Timezone First')
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji('🌍')
+    );
 
   const quickDateButtons = new ActionRowBuilder()
     .addComponents(
       new ButtonBuilder()
         .setCustomId('session_date:tonight')
         .setLabel('Tonight')
-        .setStyle(ButtonStyle.Primary)
-        .setEmoji('🌙'),
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('🌙')
+        .setDisabled(true), // Disabled until timezone selected
       new ButtonBuilder()
         .setCustomId('session_date:tomorrow')
         .setLabel('Tomorrow')
-        .setStyle(ButtonStyle.Primary)
-        .setEmoji('📅'),
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('📅')
+        .setDisabled(true),
       new ButtonBuilder()
         .setCustomId('session_date:this_friday')
         .setLabel('This Friday')
-        .setStyle(ButtonStyle.Primary)
-        .setEmoji('🎉'),
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('🎉')
+        .setDisabled(true),
       new ButtonBuilder()
         .setCustomId('session_date:this_weekend')
         .setLabel('This Weekend')
-        .setStyle(ButtonStyle.Primary)
+        .setStyle(ButtonStyle.Secondary)
         .setEmoji('🏖️')
+        .setDisabled(true)
     );
 
   const timeButtons = new ActionRowBuilder()
@@ -95,43 +114,28 @@ async function showSessionCreationModal(interaction) {
       new ButtonBuilder()
         .setCustomId('session_time:7pm')
         .setLabel('7:00 PM')
-        .setStyle(ButtonStyle.Secondary),
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(true),
       new ButtonBuilder()
         .setCustomId('session_time:8pm')
         .setLabel('8:00 PM')
-        .setStyle(ButtonStyle.Secondary),
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(true),
       new ButtonBuilder()
         .setCustomId('session_time:9pm')
         .setLabel('9:00 PM')
-        .setStyle(ButtonStyle.Secondary),
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(true),
       new ButtonBuilder()
         .setCustomId('session_time:custom')
         .setLabel('Custom Time')
         .setStyle(ButtonStyle.Secondary)
-    );
-
-  const actionButtons = new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId('session_create:no_date')
-        .setLabel('No Specific Date')
-        .setStyle(ButtonStyle.Success)
-        .setEmoji('📝'),
-      new ButtonBuilder()
-        .setCustomId('session_create:custom_date')
-        .setLabel('Custom Date/Time')
-        .setStyle(ButtonStyle.Success)
-        .setEmoji('⏰'),
-      new ButtonBuilder()
-        .setCustomId('session_timezone_select')
-        .setLabel('Select Timezone')
-        .setStyle(ButtonStyle.Secondary)
-        .setEmoji('🌍')
+        .setDisabled(true)
     );
 
   await interaction.reply({
     embeds: [embed],
-    components: [quickDateButtons, timeButtons, actionButtons],
+    components: [timezoneButton, quickDateButtons, timeButtons],
     flags: MessageFlags.Ephemeral
   });
 }

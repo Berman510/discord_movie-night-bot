@@ -2,6 +2,26 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.9.4] - 2025-09-05
+### Changed
+- **Timezone Approach:** Pivoted from server-wide timezone config to per-session timezone selection
+- **Session Creation UX:** Enhanced workflow with timezone selection as first step
+- **Configuration Simplification:** Removed timezone from `/movie-configure` command
+- **User Experience:** No server setup required - users select timezone when creating sessions
+
+### Added
+- **Progressive Session Creation:** Step-by-step workflow with visual progress indication
+- **Flexible Timezone Selection:** Different sessions can use different timezones
+- **Better Visual Feedback:** Clear indication of selected timezone throughout process
+- **Change Timezone Option:** Users can modify timezone selection during session creation
+
+### Removed
+- **Server Timezone Configuration:** No longer needed with per-session approach
+- **Database Timezone Dependency:** Simplified architecture without timezone storage
+- **Complex Configuration:** Streamlined setup process for better user experience
+
+---
+
 ## [1.9.3] - 2025-09-05
 ### Fixed
 - **Configuration Commands:** Implemented real configuration functionality for all settings

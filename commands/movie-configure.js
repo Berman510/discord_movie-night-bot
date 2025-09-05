@@ -17,7 +17,6 @@ const commands = [
         required: true,
         choices: [
           { name: 'set-channel', value: 'set-channel' },
-          { name: 'set-timezone', value: 'set-timezone' },
           { name: 'add-admin-role', value: 'add-admin-role' },
           { name: 'remove-admin-role', value: 'remove-admin-role' },
           { name: 'view-settings', value: 'view-settings' },
@@ -30,13 +29,7 @@ const commands = [
         type: 7, // CHANNEL
         required: false
       },
-      {
-        name: 'timezone',
-        description: 'Timezone to set as default (for set-timezone action)',
-        type: 3, // STRING
-        required: false,
-        choices: TIMEZONE_OPTIONS.slice(0, 25).map(tz => ({ name: tz.label, value: tz.value }))
-      },
+
       {
         name: 'role',
         description: 'Role to add/remove as admin (for admin role actions)',
