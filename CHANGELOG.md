@@ -2,6 +2,22 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.10.4] - 2025-09-05
+### Fixed
+- **Command Registration Error:** Fixed `Cannot read properties of undefined (reading 'put')` error
+- **Discord Intents Error:** Removed privileged MessageContent intent that was causing startup failure
+- **REST API Setup:** Properly initialized REST client for command registration
+- **Bot Status Setting:** Fixed activity type to use numeric value instead of string
+- **Startup Reliability:** Enhanced error handling and parameter passing for command registration
+
+### Technical
+- **REST Client:** Added proper REST client initialization in command registration module
+- **Intent Optimization:** Removed unnecessary MessageContent intent (bot uses slash commands only)
+- **Parameter Passing:** Fixed registerCommands function to receive token, clientId, and guildId
+- **Error Propagation:** Enhanced error handling in command registration process
+
+---
+
 ## [1.10.3] - 2025-09-05
 ### Added
 - **Enhanced Cleanup Command:** Added sync/purge options with admin-only access control

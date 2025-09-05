@@ -1,6 +1,6 @@
 /**
  * Movie Night Bot — Main Entry Point
- * Version: 1.10.3
+ * Version: 1.10.4
  * 
  * A modular Discord bot for organizing movie nights with voting, sessions, and IMDb integration
  */
@@ -35,7 +35,6 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.GuildMessageReactions,
-    GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildScheduledEvents
   ]
 });
@@ -47,7 +46,7 @@ client.once('ready', () => {
   console.log(`📊 Serving ${client.guilds.cache.size} guilds`);
   
   // Set bot status
-  client.user.setActivity('🍿 Movie Night', { type: 'WATCHING' });
+  client.user.setActivity('🍿 Movie Night', { type: 3 }); // 3 = WATCHING
 });
 
 // Handle all interactions
@@ -120,7 +119,7 @@ async function startBot() {
     await database.connect();
     
     // Register commands
-    await registerCommands();
+    await registerCommands(DISCORD_TOKEN, CLIENT_ID, GUILD_ID);
     
     // Login to Discord
     await client.login(DISCORD_TOKEN);

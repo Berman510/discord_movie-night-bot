@@ -3,7 +3,7 @@
  * Handles registration of all slash commands with Discord
  */
 
-const { Routes } = require('discord.js');
+const { Routes, REST } = require('discord.js');
 const movieNightCommands = require('./movie-night');
 const movieSessionCommands = require('./movie-session');
 const movieConfigureCommands = require('./movie-configure');
@@ -21,11 +21,13 @@ const commands = [
 
 module.exports = {
   commands,
-  registerCommands: async (rest, clientId, guildId = null) => {
+  registerCommands: async (token, clientId, guildId = null) => {
+    const rest = new REST({ version: '10' }).setToken(token);
+
     try {
       console.log('🔄 Started refreshing application (/) commands.');
 
-      const route = guildId 
+      const route = guildId
         ? Routes.applicationGuildCommands(clientId, guildId)
         : Routes.applicationCommands(clientId);
 
@@ -35,6 +37,7 @@ module.exports = {
       console.log(`✅ Successfully reloaded ${commands.length} application (/) commands ${scope}.`);
     } catch (error) {
       console.error('❌ Error registering commands:', error);
+      throw error;
     }
   }
 };
