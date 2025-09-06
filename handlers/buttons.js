@@ -277,8 +277,40 @@ async function handleStatusChange(interaction, action, msgId) {
 }
 
 async function handleConfigurationButton(interaction, action) {
-  // TODO: Move configuration logic here
-  console.log(`Configuration: ${action}`);
+  const { configuration } = require('../services');
+
+  try {
+    switch (action) {
+      case 'set-channel':
+        await configuration.configureMovieChannel(interaction, interaction.guild.id);
+        break;
+      case 'set-timezone':
+        await configuration.configureTimezone(interaction, interaction.guild.id);
+        break;
+      case 'manage-roles':
+        await configuration.configureAdminRoles(interaction, interaction.guild.id);
+        break;
+      case 'view-settings':
+        await configuration.viewConfiguration(interaction, interaction.guild.id);
+        break;
+      case 'reset':
+        await configuration.resetConfiguration(interaction, interaction.guild.id);
+        break;
+      default:
+        await interaction.reply({
+          content: `❌ Unknown configuration action: ${action}`,
+          flags: MessageFlags.Ephemeral
+        });
+    }
+  } catch (error) {
+    console.error('Error handling configuration button:', error);
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: '❌ Error processing configuration.',
+        flags: MessageFlags.Ephemeral
+      }).catch(console.error);
+    }
+  }
 }
 
 async function handlePurgeConfirmation(interaction) {

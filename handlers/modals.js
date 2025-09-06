@@ -113,10 +113,12 @@ async function handleMovieRecommendationModal(interaction) {
 
   } catch (error) {
     console.error('Error handling movie recommendation modal:', error);
-    await interaction.reply({
-      content: '❌ Error processing movie recommendation.',
-      flags: MessageFlags.Ephemeral
-    });
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: '❌ Error processing movie recommendation.',
+        flags: MessageFlags.Ephemeral
+      }).catch(console.error);
+    }
   }
 }
 

@@ -188,6 +188,16 @@ class Database {
         default_timezone VARCHAR(50) DEFAULT 'UTC',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )`,
+
+      // Session participants
+      `CREATE TABLE IF NOT EXISTS session_participants (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        session_id INT NOT NULL,
+        user_id VARCHAR(20) NOT NULL,
+        joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (session_id) REFERENCES movie_sessions(id) ON DELETE CASCADE,
+        UNIQUE KEY unique_participant (session_id, user_id)
       )`
     ];
 
@@ -1205,6 +1215,37 @@ class Database {
     } catch (error) {
       console.error('Error deleting movie:', error.message);
       return false;
+    }
+  }
+
+  // Session participants functionality
+  async addSessionParticipant(sessionId, userId) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `INSERT IGNORE INTO session_participants (session_id, user_id) VALUES (?, ?)`,
+        [sessionId, userId]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error adding session participant:', error.message);
+      return false;
+    }
+  }
+
+  async getSessionParticipants(sessionId) {
+    if (!this.isConnected) return [];
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT user_id FROM session_participants WHERE session_id = ?`,
+        [sessionId]
+      );
+      return rows.map(row => row.user_id);
+    } catch (error) {
+      console.error('Error getting session participants:', error.message);
+      return [];
     }
   }
 

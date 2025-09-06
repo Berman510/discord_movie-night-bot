@@ -187,9 +187,15 @@ async function listMovieSessions(interaction) {
         }
       }
 
+      // Get session participants
+      const participants = await database.getSessionParticipants(session.id);
+      const participantInfo = participants.length > 0
+        ? `\n👥 Participants: ${participants.length} joined`
+        : `\n👥 No participants yet`;
+
       embed.addFields({
         name: `${statusEmoji} Session #${session.id}: ${session.name}`,
-        value: `${scheduledText}\n👤 Organizer: <@${session.created_by}>\n📍 <#${session.channel_id}>${movieInfo}`,
+        value: `${scheduledText}\n👤 Organizer: <@${session.created_by}>\n📍 <#${session.channel_id}>${movieInfo}${participantInfo}`,
         inline: false
       });
     }
@@ -433,12 +439,17 @@ async function joinSession(interaction) {
       )
       .setFooter({ text: `Session ID: ${session.id}` });
 
+    // Add user to session participants
+    const participantAdded = await database.addSessionParticipant(session.id, interaction.user.id);
+
     await interaction.reply({
       embeds: [embed],
       flags: MessageFlags.Ephemeral
     });
 
-    // TODO: In future, could add user to session participants table
+    if (participantAdded) {
+      console.log(`✅ Added user ${interaction.user.id} to session ${session.id}`);
+    }
 
   } catch (error) {
     console.error('Error joining session:', error);
