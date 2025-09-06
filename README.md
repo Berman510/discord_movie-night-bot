@@ -1,33 +1,44 @@
 # Movie Night Bot
 
-Discord bot to create in-channel movie recommendations with persistent voting, status tracking, queue management, and IMDb integration. Features MySQL database storage, movie night statistics, and smart suggestion management.
+**Version:** 1.10.25
 
-**Version:** 1.10.21
+A comprehensive Discord bot for managing movie recommendations, voting, and organized movie night sessions. Features persistent voting, IMDb integration, session scheduling with Discord events, and comprehensive movie night statistics.
 
-> **🏗️ Modular Architecture**: The bot has been refactored into a clean modular structure for better maintainability. See [ARCHITECTURE.md](ARCHITECTURE.md) for details.
+> **🏗️ Modular Architecture**: Clean, maintainable codebase with separation of concerns. See [ARCHITECTURE.md](ARCHITECTURE.md) for technical details.
 
-## 🆕 Recent Major Updates (v1.10.17-1.10.21)
+## ✨ Key Features
 
-### ✅ **Fully Functional Voting System**
-- **Fixed critical voting bugs** that prevented vote counting
-- **Button persistence** - buttons no longer disappear after interactions
-- **Real-time vote updates** with proper count display
-- **Preserved IMDb data** during all button interactions
+### 🍿 **Movie Recommendations**
+- **IMDb Integration**: Automatic movie data fetching with posters, ratings, and details
+- **Smart Duplicate Detection**: Warns when movies have been previously recommended
+- **Persistent Voting**: Real-time vote counting with button persistence
+- **Status Tracking**: Movies progress through pending → planned → watched/skipped
+- **Discussion Threads**: Automatic thread creation for movie discussions
 
-### 🔍 **Smart Duplicate Detection**
-- **Warns before adding duplicate movies** with current status information
-- **Shows watch dates** for previously watched movies
-- **Status-aware recommendations** (🍿 pending, ✅ watched, 📌 planned, ⏭️ skipped)
+### 🗳️ **Voting System**
+- **Real-time Vote Counts**: Live updates on recommendation posts
+- **Vote Persistence**: Buttons remain functional after all interactions
+- **User Vote Tracking**: Complete database tracking of all voting activity
+- **Vote Analytics**: Foundation for user preference analysis (see Future Features)
 
-### 🎯 **Complete Session Management**
-- **Working Cancel/Reschedule buttons** for scheduled movie sessions
-- **Discord event integration** for movie night scheduling
-- **Timezone-aware scheduling** with proper date/time handling
+### 🎪 **Session Management**
+- **Discord Event Integration**: Automatic Discord event creation for movie nights
+- **Timezone Support**: Proper timezone handling for global servers
+- **Session Participants**: Track who joins sessions vs. who actually attends
+- **Flexible Scheduling**: Support for specific dates/times or general planning
+- **Cancel/Reschedule**: Full session management with proper cleanup
 
-### 🛠️ **Technical Improvements**
-- **Comprehensive function name cleanup** - resolved modularization conflicts
-- **Database consistency** - fixed foreign key constraint issues
-- **Improved error handling** and debugging throughout
+### 📊 **Statistics & Analytics**
+- **Movie Statistics**: Track recommendations, votes, and watch history
+- **User Analytics**: Individual user stats and preferences
+- **Guild Overview**: Server-wide movie night statistics
+- **Voting Patterns**: Complete voting history and trends
+
+### ⚙️ **Configuration**
+- **Channel Management**: Dedicated movie recommendation channels
+- **Admin Roles**: Role-based permission system
+- **Timezone Settings**: Server-wide timezone configuration
+- **Notification Roles**: Ping roles for movie night events
 
 ---
 
@@ -266,11 +277,39 @@ pm2 startup  # follow the printed instructions
 
 ---
 
-## Versioning
-- `package.json` holds the canonical version (`1.3.0`).
-- `index.js` reads it via `require('./package.json').version` and logs on startup.
+## Version Information
+- **Current Version**: 1.10.25 (see [CHANGELOG.md](CHANGELOG.md) for detailed release history)
+- **Version Source**: `package.json` holds the canonical version
+- **Startup Logging**: Bot displays current version on startup
+
+---
+
+## 🚀 Future Features (Planned)
+
+### Enhanced Session Participant Tracking
+- **Automatic Attendance Monitoring**: Bot monitors configured viewing channels during session times
+- **Real-time Participant Tracking**: Track users who join/leave voice channels during movie nights
+- **Attendance Analytics**: Compare registered participants vs. actual attendees
+- **Session Duration Tracking**: Monitor how long users stay for each session
+- **Viewing Channel Configuration**: Set dedicated channels where movie nights happen
+- **Attendance Reports**: Generate detailed reports for completed sessions
+
+### Advanced Voting Analytics
+- **User Voting Patterns**: Analyze individual user preferences and voting history
+- **Taste Similarity Analysis**: Find users with similar movie preferences
+- **Voting Trends**: Track voting patterns over time and by genre
+- **Recommendation Success Rates**: Analyze which movies get the most votes
+- **Most Active Voters**: Identify and celebrate engaged community members
+- **Preference Learning**: Bot learns user tastes for better recommendations
+
+### Enhanced Configuration
+- **Session Viewing Channels**: Configure voice/text channels for automatic attendance tracking
+- **Flexible Session Duration**: Configurable session lengths for different types of events
+- **Advanced Permissions**: Granular permission control for different bot features
+- **Custom Status Emojis**: Personalize movie status indicators per server
+- **Notification Preferences**: Fine-grained control over who gets pinged for what events
 
 ---
 
 ## License
-ISC (adapt as needed).
+ISC License - See LICENSE file for details.

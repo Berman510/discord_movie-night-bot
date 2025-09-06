@@ -2,6 +2,51 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.10.25] - 2025-09-06
+### Fixed
+- **Startup Crash:** Fixed "Cannot find module ./votes" error after removing unused votes.js handler
+- **Module Imports:** Removed import of deleted votes.js handler from handlers/index.js
+- **Interaction Routing:** Removed voting interaction routing since voting is handled in buttons.js
+
+### Technical
+- **Code Cleanup:** Voting functionality remains fully functional through button handlers
+- **Module Organization:** Consolidated all voting logic in buttons.js handler
+
+## [1.10.24] - 2025-09-06
+### Added
+- **Comprehensive TODOs:** Added detailed future feature planning for enhanced functionality
+- **Session Tracking TODOs:** Documented automatic participant tracking during session times
+- **Voting Analytics TODOs:** Documented voting pattern analysis and user preference tracking
+- **Configuration TODOs:** Documented session viewing channel configuration features
+
+### Technical
+- **Future Planning:** Enhanced session participant tracking with real-time monitoring
+- **Analytics Framework:** Voting button clicks already tracked, ready for analytics features
+- **Channel Monitoring:** Framework for automatic attendance tracking in viewing channels
+
+## [1.10.23] - 2025-09-06
+### Fixed
+- **Interaction Timeout Errors:** Fixed "Unknown interaction" errors in modal submissions
+- **Configuration Buttons:** Implemented all configuration button handlers instead of placeholders
+- **Session Participants:** Added session participants tracking with database table
+
+### Enhanced
+- **Session Management:** Users can now join sessions and be tracked in participant list
+- **Session Listings:** Enhanced to show participant counts and organizer information
+- **Error Handling:** Improved interaction timeout handling throughout all handlers
+
+### Technical
+- **Database Schema:** Added session_participants table with proper foreign key constraints
+- **Participant Functions:** Added addSessionParticipant() and getSessionParticipants() functions
+- **Code Quality:** Removed unused votes.js handler, consolidated voting logic
+
+## [1.10.22] - 2025-09-06
+### Documentation
+- **Comprehensive Changelog:** Updated with all versions from 1.10.9 to 1.10.21
+- **README Updates:** Added "Recent Major Updates" section highlighting key improvements
+- **Version Documentation:** Updated README version to reflect current functionality
+- **Release Notes:** Detailed documentation of voting fixes, duplicate detection, and session management
+
 ## [1.10.21] - 2025-09-06
 ### Fixed
 - **Button Persistence:** Fixed buttons disappearing after status changes (Watched, Skip, Plan Later)
