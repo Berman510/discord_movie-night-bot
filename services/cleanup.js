@@ -345,10 +345,28 @@ async function ensureQuickActionAtBottom(channel) {
   try {
     await cleanupOldGuideMessages(channel);
 
+    // Check if there's an active voting session
+    const database = require('../database');
+    const activeSession = await database.getActiveVotingSession(channel.guild.id);
+
+    if (!activeSession) {
+      // No active session - just add a message explaining the situation
+      const { embeds } = require('../utils');
+      const noSessionEmbed = embeds.createNoSessionEmbed();
+
+      await channel.send({
+        embeds: [noSessionEmbed]
+      });
+
+      console.log('✅ Added no session message at bottom');
+      return;
+    }
+
+    // Active session exists - add recommend button
     const { embeds } = require('../utils');
     const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 
-    const quickActionEmbed = embeds.createQuickActionEmbed();
+    const quickActionEmbed = embeds.createQuickActionEmbed(activeSession);
     const recommendButton = new ActionRowBuilder()
       .addComponents(
         new ButtonBuilder()

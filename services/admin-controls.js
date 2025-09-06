@@ -3,7 +3,7 @@
  * Manages persistent admin control panel with quick action buttons
  */
 
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
 const database = require('../database');
 
 /**

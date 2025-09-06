@@ -155,11 +155,13 @@ async function createVotingSession(interaction, state) {
     // Create the voting session in the database
     const sessionData = {
       guildId: interaction.guild.id,
+      channelId: interaction.channel?.id || null,
       name: state.sessionName,
       description: state.sessionDescription,
       scheduledDate: state.sessionDateTime,
+      timezone: 'UTC',
       createdBy: interaction.user.id,
-      status: 'planned'
+      status: 'voting'
     };
 
     const sessionId = await database.createVotingSession(sessionData);

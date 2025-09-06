@@ -79,24 +79,19 @@ async function handleDeepPurgeSelection(interaction) {
   const selectedCategories = interaction.values;
 
   try {
-    // Create confirmation embed with data counts
-    const embed = await deepPurge.createConfirmationEmbed(
-      interaction.guild.id,
-      interaction.guild.name,
-      selectedCategories
-    );
-
-    // Create confirmation modal
+    // Create confirmation modal directly (no need for embed here)
     const modal = deepPurge.createConfirmationModal(selectedCategories);
 
     await interaction.showModal(modal);
 
   } catch (error) {
     console.error('Error handling deep purge selection:', error);
-    await interaction.reply({
-      content: '❌ An error occurred while preparing the deep purge confirmation.',
-      flags: MessageFlags.Ephemeral
-    });
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: '❌ An error occurred while preparing the deep purge confirmation.',
+        flags: MessageFlags.Ephemeral
+      });
+    }
   }
 }
 

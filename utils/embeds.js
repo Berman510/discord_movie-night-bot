@@ -128,11 +128,46 @@ function createHelpEmbed() {
   return embed;
 }
 
-function createQuickActionEmbed() {
+function createQuickActionEmbed(activeSession = null) {
+  if (activeSession) {
+    const embed = new EmbedBuilder()
+      .setTitle(`🍿 ${activeSession.name}`)
+      .setDescription('Click the button below to recommend a movie for this voting session!')
+      .setColor(COLORS.primary)
+      .setFooter({ text: 'Use /movie-help for detailed commands and features' });
+
+    if (activeSession.scheduled_date) {
+      embed.addFields({
+        name: '📅 Scheduled Date',
+        value: new Date(activeSession.scheduled_date).toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        }),
+        inline: false
+      });
+    }
+
+    return embed;
+  }
+
+  // Fallback for no session
+  return createNoSessionEmbed();
+}
+
+function createNoSessionEmbed() {
   const embed = new EmbedBuilder()
-    .setTitle('🍿 Ready to recommend a movie?')
-    .setDescription('Click the button below to get started, or use `/movie-help` for full commands.')
-    .setColor(COLORS.primary)
+    .setTitle('🎬 No Active Voting Session')
+    .setDescription('Movie recommendations are currently not available. An admin needs to start a new voting session using the "Plan Next Session" button in the admin channel.')
+    .setColor(COLORS.warning)
+    .addFields({
+      name: '🔧 For Admins',
+      value: 'Use the admin channel controls to plan the next voting session.',
+      inline: false
+    })
     .setFooter({ text: 'Use /movie-help for detailed commands and features' });
 
   return embed;
@@ -164,6 +199,7 @@ module.exports = {
   createSessionEmbed,
   createHelpEmbed,
   createQuickActionEmbed,
+  createNoSessionEmbed,
   createErrorEmbed,
   createSuccessEmbed,
   createWarningEmbed
