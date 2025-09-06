@@ -2,6 +2,130 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.11.8] - 2025-09-06
+### Fixed
+- **Foreign Key Constraints:** Fixed "Cannot delete or update a parent row: foreign key constraint fails" error
+- **Database Integrity:** Enhanced updateMovieMessageId to properly update votes table references
+- **SESSION_UID Unknown:** Added automatic fixing of Discord events showing "SESSION_UID:unknown"
+- **Event Sync:** Enhanced bidirectional sync between Discord events and database sessions
+
+### Added
+- **Database Cleanup:** Added cleanupOrphanedData function for automatic maintenance
+- **Orphaned Data Removal:** Automatically removes orphaned votes, participants, and attendees
+- **Cleanup Reporting:** Detailed statistics for database maintenance operations
+
+### Technical
+- **Data Integrity:** Prevents database constraint violations during message recreation
+- **Event Repair:** Intelligent Discord event description fixing during sync operations
+- **Maintenance Automation:** Prevents database bloat from deleted movies and sessions
+
+## [1.11.7] - 2025-09-06
+### Fixed
+- **Session ID Display:** Fixed SESSION_UID:unknown in Discord events by properly setting session IDs
+- **Purge Functionality:** Fixed purge operations breaking scheduled movie session management
+- **Button Restoration:** Added automatic session management button restoration after purge
+
+### Added
+- **Session Management Buttons:** Created createSessionManagementButtons utility for consistency
+- **Purge Preservation:** Scheduled movies maintain full functionality through purge operations
+
+### Technical
+- **Session Data Flow:** Proper session ID propagation from database to Discord events
+- **Button Management:** Consistent session management button creation across operations
+
+## [1.11.6] - 2025-09-06
+### Fixed
+- **Permission Errors:** Fixed session cancel/reschedule permission errors (checkMovieAdminPermission undefined)
+- **Module Imports:** Removed incorrect require statements in session management functions
+- **Session Management:** Proper permission checking for all session operations
+
+### Added
+- **Voice Tracking Debug:** Added debug logging to voice state tracking for troubleshooting
+- **Configuration Diagnostics:** Enhanced troubleshooting for viewing channel setup issues
+
+### Technical
+- **Permission System:** Cleaned up permission module usage in session handlers
+- **Debug Logging:** Improved diagnostics for session monitoring configuration
+
+## [1.11.5] - 2025-09-06
+### Enhanced
+- **Command Registration:** Clear logging for development vs production command registration modes
+- **Development Mode:** GUILD_ID present - registers to specific guilds for instant updates
+- **Production Mode:** No GUILD_ID - registers globally for all servers (1 hour propagation)
+- **Deployment Flexibility:** Better support for public bot distribution
+
+### Technical
+- **Registration Modes:** Automatic detection of development vs production deployment
+- **Guild Management:** Improved filtering and error handling for guild IDs
+- **Public Bot Ready:** Optimized for public distribution while maintaining dev flexibility
+
+## [1.11.4] - 2025-09-06
+### Added
+- **Viewing Channel Config:** Added 'set-viewing-channel' option to /movie-configure command
+- **Session Monitoring Setup:** Voice/text channel configuration for session attendance tracking
+- **Settings Display:** Enhanced view-settings to show configured viewing channel
+- **Complete Interface:** Full configuration interface for session participant tracking
+
+### Technical
+- **Channel Validation:** Support for both voice and text channels for different viewing setups
+- **Configuration Integration:** Seamless integration with existing guild configuration system
+
+## [1.11.3] - 2025-09-06
+### Fixed
+- **Session Description Error:** Fixed session description generation error (interaction is not defined)
+- **Parameter Passing:** Proper parameter passing to generateSessionDescription function
+- **Console Errors:** Session creation with pre-selected movies now works without errors
+
+### Technical
+- **Function Signatures:** Corrected function parameter requirements for session generation
+- **Error Handling:** Improved error handling in session creation workflow
+
+## [1.11.2] - 2025-09-06
+### Fixed
+- **Create Session Button:** Fixed "Create Session from Movie" button functionality
+- **Function References:** Replaced undefined createMovieSession with proper showSessionCreationModal
+- **Movie Pre-selection:** Enhanced movie pre-selection in session creation workflow
+
+### Added
+- **Session State Management:** Proper session state initialization with pre-selected movies
+- **Workflow Integration:** Seamless integration from movie recommendations to session creation
+
+### Technical
+- **Function Mapping:** Corrected function calls in session creation from movie posts
+- **State Persistence:** Improved session creation state management
+
+## [1.11.1] - 2025-09-06
+### Added
+- **Multi-Guild Commands:** Support for multiple guild IDs in GUILD_ID environment variable
+- **Development Flexibility:** Commands register instantly in multiple test/development servers
+- **Comma-Separated IDs:** Use GUILD_ID=guild1,guild2,guild3 for multiple instant registrations
+
+### Enhanced
+- **Testing Efficiency:** Eliminates 1-hour wait for global command registration during development
+- **Backwards Compatibility:** Maintains compatibility with single guild ID configuration
+
+### Technical
+- **Command Registration:** Enhanced command registration logic for multiple guilds
+- **Development Workflow:** Improved development and testing experience
+
+## [1.11.0] - 2025-09-06
+### Added
+- **Enhanced Session Participant Tracking:** Real-time voice channel monitoring for session attendance
+- **Automatic Attendance Detection:** Bot automatically detects when users join/leave viewing channels
+- **Session Attendees Table:** New database table for actual attendance vs registered participants
+- **Voice State Monitoring:** Added GuildVoiceStates intent for voice channel activity tracking
+- **Attendance Analytics:** Duration tracking and attendance rate calculations
+
+### Enhanced
+- **Database Structure:** Added session_attendees table and session_viewing_channel_id configuration
+- **Guild Configuration:** Added viewing channel configuration for session monitoring
+- **Session Tracking Service:** Comprehensive service for real-time participant monitoring
+
+### Technical
+- **Voice Channel Integration:** Automatic detection during scheduled movie session times
+- **Database Migrations:** Added migrations for new attendance tracking tables and columns
+- **Event Handling:** Voice state change event handler for real-time monitoring
+
 ## [1.10.25] - 2025-09-06
 ### Fixed
 - **Startup Crash:** Fixed "Cannot find module ./votes" error after removing unused votes.js handler
