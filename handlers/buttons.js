@@ -499,9 +499,9 @@ async function createMovieWithoutImdb(interaction, title, where) {
     };
 
     // Add to database
-    const success = await database.addMovie(movieData);
+    const movieId = await database.saveMovie(movieData);
 
-    if (success) {
+    if (movieId) {
       // Create movie embed and post
       const movieEmbed = embeds.createMovieEmbed(movieData);
       const movieComponents = components.createStatusButtons(null, 'pending');
@@ -555,9 +555,9 @@ async function createMovieWithImdb(interaction, title, where, imdbData) {
     };
 
     // Add to database
-    const success = await database.addMovie(movieData);
+    const movieId = await database.saveMovie(movieData);
 
-    if (success) {
+    if (movieId) {
       // Create movie embed with IMDb data and post
       const movieEmbed = embeds.createMovieEmbed(movieData);
       const movieComponents = components.createStatusButtons(null, 'pending');

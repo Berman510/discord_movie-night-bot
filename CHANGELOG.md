@@ -2,6 +2,22 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.10.8] - 2025-09-05
+### Fixed
+- **IMDb Service Method:** Fixed `imdb.searchMovies is not a function` error by using correct `searchMovie` method
+- **Database Method:** Fixed `database.addMovie is not a function` error by using correct `saveMovie` method
+- **Movie Creation:** Fixed movie recommendation workflow to use proper database and service methods
+- **IMDb Search Results:** Enhanced IMDb search to properly handle search result structure
+- **Error Handling:** Improved error handling for movie creation and IMDb integration
+
+### Technical
+- **Method Names:** Updated all handlers to use correct database method `saveMovie` instead of `addMovie`
+- **IMDb Integration:** Fixed IMDb service calls to use `searchMovie` and handle `Search` array properly
+- **Result Validation:** Added proper validation for IMDb search results structure
+- **Database Calls:** Corrected all database method calls throughout handlers
+
+---
+
 ## [1.10.7] - 2025-09-05
 ### Fixed
 - **Sync Data Loss:** Fixed sync function removing IMDb data from movie recommendations

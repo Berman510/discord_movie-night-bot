@@ -67,7 +67,10 @@ async function handleMovieRecommendationModal(interaction) {
     // Search IMDb for the movie
     let imdbResults = [];
     try {
-      imdbResults = await imdb.searchMovies(title);
+      const searchResult = await imdb.searchMovie(title);
+      if (searchResult && searchResult.Search) {
+        imdbResults = searchResult.Search;
+      }
     } catch (error) {
       console.warn('IMDb search failed:', error.message);
     }
@@ -149,9 +152,9 @@ async function createMovieWithoutImdb(interaction, title, where) {
     };
 
     // Add to database
-    const success = await database.addMovie(movieData);
+    const movieId = await database.saveMovie(movieData);
 
-    if (success) {
+    if (movieId) {
       // Create movie embed and post
       const movieEmbed = embeds.createMovieEmbed(movieData);
       const movieComponents = components.createStatusButtons(movieData.message_id, 'pending');

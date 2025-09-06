@@ -1,6 +1,6 @@
 /**
  * Movie Night Bot — Main Entry Point
- * Version: 1.10.7
+ * Version: 1.10.8
  * 
  * A modular Discord bot for organizing movie nights with voting, sessions, and IMDb integration
  */
