@@ -26,22 +26,33 @@ async function handleMovieCleanup(interaction) {
     return;
   }
 
-  // Check if this is the configured movie channel (cleanup only works in movie channel)
+  // Check if movie channel is configured
   const config = await database.getGuildConfig(interaction.guild.id);
-  if (config && config.movie_channel_id && config.movie_channel_id !== interaction.channel.id) {
+
+  if (!config || !config.movie_channel_id) {
     await interaction.reply({
-      content: `❌ Cleanup can only be used in the configured movie channel: <#${config.movie_channel_id}>\n\n*Admin commands work anywhere, but cleanup must be in the movie channel for safety.*`,
+      content: '❌ **Movie channel not configured!**\n\nPlease use `/movie-configure action:set-channel` to set up the movie channel first.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  // Get the configured movie channel
+  const movieChannel = interaction.guild.channels.cache.get(config.movie_channel_id);
+  if (!movieChannel) {
+    await interaction.reply({
+      content: '❌ **Configured movie channel not found!**\n\nThe configured channel may have been deleted. Please reconfigure with `/movie-configure action:set-channel`.',
       flags: MessageFlags.Ephemeral
     });
     return;
   }
 
   const action = interaction.options.getString('action');
-  
+
   if (action === 'sync') {
-    await handleCleanupSync(interaction);
+    await handleCleanupSync(interaction, movieChannel);
   } else if (action === 'purge') {
-    await handleCleanupPurge(interaction);
+    await handleCleanupPurge(interaction, movieChannel);
   } else {
     await interaction.reply({
       content: '❌ Invalid cleanup action. Use "sync" or "purge".',
@@ -50,14 +61,14 @@ async function handleMovieCleanup(interaction) {
   }
 }
 
-async function handleCleanupSync(interaction) {
+async function handleCleanupSync(interaction, movieChannel) {
   await interaction.reply({
-    content: '🧹 Starting comprehensive channel sync... This may take a moment.',
+    content: `🧹 Starting comprehensive sync of <#${movieChannel.id}>... This may take a moment.`,
     flags: MessageFlags.Ephemeral
   });
 
   try {
-    const channel = interaction.channel;
+    const channel = movieChannel;
     const botId = interaction.client.user.id;
     let updatedCount = 0;
     let processedCount = 0;
@@ -200,6 +211,9 @@ async function handleCleanupSync(interaction) {
       console.warn('Error syncing Discord events:', error.message);
     }
 
+    // Clean up orphaned threads
+    const threadsCleanedCount = await cleanupOrphanedThreads(channel, dbMovieIds);
+
     // Ensure quick action message at bottom
     await ensureQuickActionAtBottom(channel);
 
@@ -211,6 +225,7 @@ async function handleCleanupSync(interaction) {
       `🔗 Synced ${syncedCount} messages with database`,
       `🎪 Synced ${eventSyncResults.syncedCount} Discord events, deleted ${eventSyncResults.deletedCount} orphaned events`,
       `🗑️ Cleaned ${cleanedDbCount} orphaned database entries`,
+      `🧵 Cleaned ${threadsCleanedCount} orphaned threads`,
       `🍿 Added quick action message at bottom`
     ];
 
@@ -230,9 +245,9 @@ async function handleCleanupSync(interaction) {
   }
 }
 
-async function handleCleanupPurge(interaction) {
+async function handleCleanupPurge(interaction, movieChannel) {
   await interaction.reply({
-    content: '⚠️ **PURGE CONFIRMATION REQUIRED**\n\nThis will permanently delete ALL movie recommendations and their data (except watched movies and scheduled movies with active events).\n\n**This action cannot be undone!**',
+    content: `⚠️ **PURGE CONFIRMATION REQUIRED**\n\nThis will completely clear <#${movieChannel.id}> and delete ALL current movie recommendations.\n\n**Watched movies and session data will be preserved for analytics.**\n\n**This action cannot be undone!**`,
     flags: MessageFlags.Ephemeral
   });
 
@@ -250,7 +265,7 @@ async function handleCleanupPurge(interaction) {
     );
 
   await interaction.followUp({
-    content: '**⚠️ FINAL WARNING:** This will delete all movie recommendations, votes, and discussion threads.\n\n**Watched movies and scheduled movies with active Discord events will be preserved.**',
+    content: `**⚠️ FINAL WARNING:** This will completely clear <#${movieChannel.id}> including:\n• All current movie recommendations\n• All voting data\n• All discussion threads\n\n**Watched movies and session analytics will be preserved.**`,
     components: [confirmButtons],
     flags: MessageFlags.Ephemeral
   });
@@ -381,10 +396,92 @@ async function cleanupOldGuideMessages(channel) {
   }
 }
 
+async function cleanupOrphanedThreads(channel, validMovieIds) {
+  // Clean up threads that no longer have corresponding movie posts
+  let cleanedCount = 0;
+
+  try {
+    const botId = channel.client.user.id;
+
+    // Fetch all threads (active and archived)
+    const [activeThreads, archivedThreads] = await Promise.all([
+      channel.threads.fetchActive(),
+      channel.threads.fetchArchived({ limit: 100 })
+    ]);
+
+    const allThreads = new Map([...activeThreads.threads, ...archivedThreads.threads]);
+
+    for (const [threadId, thread] of allThreads) {
+      // Only clean up threads created by the bot
+      if (thread.ownerId !== botId) continue;
+
+      // Check if this thread corresponds to an existing movie
+      const isOrphaned = !Array.from(validMovieIds).some(movieId => {
+        // Thread names typically contain movie titles or are created from movie messages
+        return thread.name.includes('Discussion') ||
+               thread.parentId === movieId ||
+               Math.abs(thread.createdTimestamp - new Date().getTime()) < 300000; // Recent threads get a pass
+      });
+
+      if (isOrphaned) {
+        try {
+          await thread.delete();
+          cleanedCount++;
+          console.log(`🧵 Deleted orphaned thread: ${thread.name} (${threadId})`);
+        } catch (error) {
+          console.warn(`Failed to delete thread ${threadId}:`, error.message);
+        }
+      }
+    }
+
+    return cleanedCount;
+  } catch (error) {
+    console.warn('Error cleaning up orphaned threads:', error.message);
+    return 0;
+  }
+}
+
+async function cleanupAllThreads(channel) {
+  // Clean up ALL threads in the channel (for purge operations)
+  let cleanedCount = 0;
+
+  try {
+    const botId = channel.client.user.id;
+
+    // Fetch all threads (active and archived)
+    const [activeThreads, archivedThreads] = await Promise.all([
+      channel.threads.fetchActive(),
+      channel.threads.fetchArchived({ limit: 100 })
+    ]);
+
+    const allThreads = new Map([...activeThreads.threads, ...archivedThreads.threads]);
+
+    for (const [threadId, thread] of allThreads) {
+      // Only clean up threads created by the bot
+      if (thread.ownerId !== botId) continue;
+
+      try {
+        await thread.delete();
+        cleanedCount++;
+        console.log(`🧵 Deleted thread: ${thread.name} (${threadId})`);
+      } catch (error) {
+        console.warn(`Failed to delete thread ${threadId}:`, error.message);
+      }
+    }
+
+    return cleanedCount;
+  } catch (error) {
+    console.warn('Error cleaning up all threads:', error.message);
+    return 0;
+  }
+}
+
 module.exports = {
   handleMovieCleanup,
   handleCleanupSync,
   handleCleanupPurge,
   ensureQuickActionAtBottom,
-  cleanupOldGuideMessages
+  cleanupOldGuideMessages,
+  cleanupOrphanedThreads,
+  cleanupAllThreads
 };

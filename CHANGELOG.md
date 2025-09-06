@@ -2,6 +2,33 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.11.13] - 2025-09-06
+### Major Improvements
+- **Cleanup Commands Work Anywhere:** No longer restricted to movie channel - can be run from any channel
+- **Automatic Thread Cleanup:** Removes orphaned discussion threads during sync and purge operations
+- **Enhanced Purge Behavior:** Completely clears movie channel while preserving watched movies in database
+- **Channel Configuration Required:** Cleanup commands now require proper movie channel configuration
+
+### Added
+- **cleanupOrphanedThreads:** Intelligent cleanup of threads that no longer have corresponding movie posts
+- **cleanupAllThreads:** Complete thread removal for purge operations
+- **Movie Channel Validation:** Ensures cleanup operations target the correct configured channel
+
+### Enhanced
+- **Purge Operations:** Now completely clear the movie channel including all threads and messages
+- **Database Preservation:** Watched movies and session analytics preserved during purge for historical data
+- **Better Error Handling:** Clear error messages when movie channel is not configured or found
+
+### Fixed
+- **Thread Accumulation:** Prevents orphaned threads from cluttering the movie channel
+- **Channel Restrictions:** Cleanup commands no longer require being run in the movie channel
+- **Purge Completeness:** Purge now truly clears the channel instead of selective deletion
+
+### Technical
+- **Function Parameters:** Updated cleanup functions to accept movie channel parameter
+- **Thread Management:** Comprehensive thread lifecycle management during cleanup operations
+- **Configuration Validation:** Robust checking of guild configuration before cleanup operations
+
 ## [1.11.12] - 2025-09-06
 ### Enhanced
 - **Shorter Guide Messages:** Replaced verbose help embeds with concise quick action messages

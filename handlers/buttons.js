@@ -430,121 +430,78 @@ async function handlePurgeConfirmation(interaction) {
       });
 
       const database = require('../database');
-      const channel = interaction.channel;
+
+      // Get the configured movie channel
+      const guildConfig = await database.getGuildConfig(interaction.guild.id);
+      if (!guildConfig || !guildConfig.movie_channel_id) {
+        await interaction.followUp({
+          content: '❌ Movie channel not configured. Cannot perform purge.',
+          flags: MessageFlags.Ephemeral
+        });
+        return;
+      }
+
+      const channel = interaction.guild.channels.cache.get(guildConfig.movie_channel_id);
+      if (!channel) {
+        await interaction.followUp({
+          content: '❌ Configured movie channel not found.',
+          flags: MessageFlags.Ephemeral
+        });
+        return;
+      }
+
       const botId = interaction.client.user.id;
       let deletedMessages = 0;
       let deletedMovies = 0;
-      let deletedVotes = 0;
-      let preservedScheduled = 0;
-
-      // Get all movies from database
-      const allMovies = await database.getMoviesByChannel(interaction.guild.id, channel.id);
-
-      // Separate movies to preserve from those to delete
-      const moviesToDelete = [];
-      const moviesToPreserve = [];
+      let deletedThreads = 0;
       let preservedWatched = 0;
 
+      // Get all current movies from database for this channel
+      const allMovies = await database.getMoviesByChannel(interaction.guild.id, channel.id);
+
+      // Count watched movies that will be preserved in database
       for (const movie of allMovies) {
-        let shouldPreserve = false;
-
-        // Preserve watched movies (keep history)
         if (movie.status === 'watched') {
-          moviesToPreserve.push(movie);
           preservedWatched++;
-          shouldPreserve = true;
-        }
-
-        // Preserve scheduled movies with active Discord events
-        if (movie.status === 'scheduled') {
-          const session = await database.getSessionByMovieId(movie.message_id);
-          if (session && session.discord_event_id) {
-            try {
-              const event = await interaction.guild.scheduledEvents.fetch(session.discord_event_id);
-              if (event) {
-                moviesToPreserve.push(movie);
-                preservedScheduled++;
-                shouldPreserve = true;
-              }
-            } catch (error) {
-              // Event doesn't exist, safe to delete
-            }
-          }
-        }
-
-        if (!shouldPreserve) {
-          moviesToDelete.push(movie);
         }
       }
 
-      // Delete Discord messages for movies to be deleted
+      // Clear ALL bot messages from the channel
       const messages = await channel.messages.fetch({ limit: 100 });
       const botMessages = messages.filter(msg => msg.author.id === botId);
 
       for (const [messageId, message] of botMessages) {
-        // Check if this message is for a movie we're deleting
-        const movieToDelete = moviesToDelete.find(m => m.message_id === messageId);
-        const movieToPreserve = moviesToPreserve.find(m => m.message_id === messageId);
-
-        if (movieToDelete && !movieToPreserve) {
-          try {
-            await message.delete();
-            deletedMessages++;
-
-            // Delete associated thread if exists
-            if (message.hasThread) {
-              await message.thread.delete();
-            }
-          } catch (error) {
-            console.warn(`Failed to delete message ${messageId}:`, error.message);
-          }
-        }
-        // If it's a preserved movie, leave the message alone
-      }
-
-      // Delete database records for movies to be deleted
-      for (const movie of moviesToDelete) {
         try {
-          // Delete associated session if exists
-          const session = await database.getSessionByMovieId(movie.message_id);
-          if (session) {
-            await database.deleteMovieSession(session.id);
-          }
-
-          // Delete votes
-          await database.deleteVotesByMessageId(movie.message_id);
-          deletedVotes++;
-
-          // Delete movie
-          await database.deleteMovie(movie.message_id);
-          deletedMovies++;
-
+          await message.delete();
+          deletedMessages++;
         } catch (error) {
-          console.error(`Error deleting movie ${movie.title}:`, error.message);
+          console.warn(`Failed to delete message ${messageId}:`, error.message);
         }
       }
 
-      // Restore session management buttons for preserved scheduled movies
-      for (const movie of moviesToPreserve) {
-        if (movie.status === 'scheduled') {
-          try {
-            const session = await database.getSessionByMovieId(movie.message_id);
-            if (session && session.discord_event_id) {
-              // Find the movie message and update its buttons
-              const movieMessage = await channel.messages.fetch(movie.message_id).catch(() => null);
-              if (movieMessage) {
-                const { components } = require('../utils');
-                const sessionButtons = components.createSessionManagementButtons(movie.message_id, session.id);
+      // Clean up ALL threads in the channel
+      const cleanup = require('../services/cleanup');
+      deletedThreads = await cleanup.cleanupAllThreads(channel);
 
-                await movieMessage.edit({
-                  embeds: movieMessage.embeds,
-                  components: sessionButtons
-                });
-                console.log(`🔧 Restored session buttons for preserved movie: ${movie.title}`);
-              }
+      // Delete current queue movies from database (preserve watched movies)
+      for (const movie of allMovies) {
+        if (movie.status !== 'watched') {
+          try {
+            // Delete associated session if exists
+            const session = await database.getSessionByMovieId(movie.message_id);
+            if (session) {
+              await database.deleteMovieSession(session.id);
             }
+
+            // Delete votes
+            await database.deleteVotesByMessageId(movie.message_id);
+
+            // Delete movie
+            await database.deleteMovie(movie.message_id);
+            deletedMovies++;
+
           } catch (error) {
-            console.warn(`Failed to restore session buttons for ${movie.title}:`, error.message);
+            console.error(`Error deleting movie ${movie.title}:`, error.message);
           }
         }
       }
@@ -554,13 +511,12 @@ async function handlePurgeConfirmation(interaction) {
       await cleanup.ensureQuickActionAtBottom(channel);
 
       const summary = [
-        `✅ **PURGE COMPLETE**`,
+        `✅ **CHANNEL PURGE COMPLETE**`,
         `🗑️ Deleted ${deletedMessages} Discord messages`,
-        `🎬 Deleted ${deletedMovies} movie recommendations`,
-        `📊 Deleted ${deletedVotes} vote records`,
-        `🛡️ Preserved ${preservedScheduled} scheduled movies with active events`,
-        `📚 Preserved ${preservedWatched} watched movies (viewing history)`,
-        `📋 Guide message recreated`
+        `🎬 Deleted ${deletedMovies} current movie recommendations`,
+        `🧵 Deleted ${deletedThreads} discussion threads`,
+        `📚 Preserved ${preservedWatched} watched movies in database (viewing history)`,
+        `🍿 Clean channel ready for new recommendations`
       ];
 
       await interaction.followUp({
