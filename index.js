@@ -40,6 +40,9 @@ const client = new Client({
   ]
 });
 
+// Make client globally available for session tracking
+global.discordClient = client;
+
 // Bot ready event
 client.once('clientReady', () => {
   console.log(`✅ ${client.user.tag} is online!`);

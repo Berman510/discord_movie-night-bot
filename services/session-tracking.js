@@ -43,9 +43,14 @@ async function handleVoiceStateChange(oldState, newState) {
 async function handleUserJoinedViewingChannel(guildId, userId, channelId) {
   // Find active sessions for this guild
   const activeSessions = await getActiveSessionsForGuild(guildId);
-  
+
   for (const session of activeSessions) {
     if (isSessionActive(session)) {
+      // Ensure session monitoring is started
+      if (!activeSessions.has(session.id)) {
+        await startSessionMonitoring(session.id, guildId, channelId);
+      }
+
       // Add user to session participants
       await addSessionAttendee(session.id, userId);
       console.log(`👥 User ${userId} joined viewing channel during session ${session.id}`);
@@ -133,9 +138,49 @@ async function startSessionMonitoring(sessionId, guildId, viewingChannelId) {
     startTime: new Date(),
     participants: new Set()
   };
-  
+
   activeSessions.set(sessionId, session);
   console.log(`🎬 Started monitoring session ${sessionId} in channel ${viewingChannelId}`);
+
+  // Check for users already in the viewing channel
+  await checkExistingUsersInChannel(sessionId, guildId, viewingChannelId);
+}
+
+/**
+ * Check for users already in the viewing channel when session starts
+ */
+async function checkExistingUsersInChannel(sessionId, guildId, viewingChannelId) {
+  try {
+    // Get the client from the voice state change context
+    // This will be called from voice state handlers which have access to the client
+    const client = global.discordClient;
+
+    if (!client) {
+      console.warn('Client not available for checking existing users');
+      return;
+    }
+
+    const guild = client.guilds.cache.get(guildId);
+    if (!guild) {
+      console.warn(`Guild ${guildId} not found`);
+      return;
+    }
+
+    const channel = guild.channels.cache.get(viewingChannelId);
+    if (!channel || !channel.isVoiceBased()) {
+      console.warn(`Voice channel ${viewingChannelId} not found`);
+      return;
+    }
+
+    // Add all users currently in the channel
+    for (const [userId, member] of channel.members) {
+      await addSessionAttendee(sessionId, userId);
+      console.log(`👥 User ${userId} was already in viewing channel when session ${sessionId} started`);
+    }
+
+  } catch (error) {
+    console.error('Error checking existing users in channel:', error);
+  }
 }
 
 /**
@@ -172,6 +217,38 @@ async function getSessionAttendanceReport(sessionId) {
     return null;
   }
 }
+
+/**
+ * Periodic check for sessions that should be active
+ */
+async function checkForActiveSessionsToMonitor() {
+  try {
+    const database = require('../database');
+    const client = global.discordClient;
+
+    if (!client) return;
+
+    // Check all guilds
+    for (const [guildId, guild] of client.guilds.cache) {
+      const config = await database.getGuildConfig(guildId);
+      if (!config || !config.session_viewing_channel_id) continue;
+
+      const activeSessions = await getActiveSessionsForGuild(guildId);
+
+      for (const session of activeSessions) {
+        // Start monitoring if not already monitoring
+        if (!activeSessions.has(session.id)) {
+          await startSessionMonitoring(session.id, guildId, config.session_viewing_channel_id);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error checking for active sessions:', error);
+  }
+}
+
+// Start periodic checking every minute
+setInterval(checkForActiveSessionsToMonitor, 60000);
 
 module.exports = {
   handleVoiceStateChange,

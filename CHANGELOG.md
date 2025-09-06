@@ -2,6 +2,31 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.11.25] - 2025-09-06
+### Fixed
+- **Session Tracking:** Fixed session attendance tracking not starting automatically when events become active
+- **Existing User Detection:** Added detection of users already in viewing channel when session starts
+- **Automatic Monitoring:** Added periodic checks to start monitoring for active sessions
+- **Real-time Attendance:** Session tracking now properly records attendance during active events
+
+### Added
+- **checkExistingUsersInChannel:** Function to detect users already in viewing channel at session start
+- **checkForActiveSessionsToMonitor:** Periodic check for sessions that should be monitored
+- **Global Client Access:** Made Discord client globally available for session tracking operations
+- **Automatic Session Start:** Sessions now automatically begin monitoring when they become active
+
+### Enhanced
+- **Session Monitoring:** Improved session monitoring to handle users present before session start
+- **Real-time Tracking:** Better real-time attendance tracking during active sessions
+- **Database Updates:** Proper population of session_attendees, session_participants, and user_stats tables
+- **Event Integration:** Better integration between Discord events and session tracking
+
+### Technical
+- **Client Reference:** Added global Discord client reference for session tracking access
+- **Periodic Monitoring:** Added 60-second interval checks for active sessions
+- **Error Handling:** Enhanced error handling for session monitoring operations
+- **Database Integration:** Improved database updates during session tracking
+
 ## [1.11.24] - 2025-09-06
 ### Fixed
 - **IMDb Data Recreation:** Fixed missing IMDb information in recreated movie posts
