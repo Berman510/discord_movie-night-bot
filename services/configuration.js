@@ -142,6 +142,13 @@ async function viewSettings(interaction, guildId) {
             `<@&${config.notification_role_id}>\n*This role gets pinged for Discord events*` :
             'Not set\n*No role notifications for events*',
           inline: false
+        },
+        {
+          name: '🎤 Session Viewing Channel',
+          value: config.session_viewing_channel_id ?
+            `<#${config.session_viewing_channel_id}>\n*Bot tracks attendance during sessions in this channel*` :
+            'Not set\n*No automatic attendance tracking*',
+          inline: false
         }
       )
       .setFooter({ text: `Configuration for ${interaction.guild.name}` })

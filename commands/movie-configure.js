@@ -17,6 +17,7 @@ const commands = [
         required: true,
         choices: [
           { name: 'set-channel', value: 'set-channel' },
+          { name: 'set-viewing-channel', value: 'set-viewing-channel' },
           { name: 'add-admin-role', value: 'add-admin-role' },
           { name: 'remove-admin-role', value: 'remove-admin-role' },
           { name: 'set-notification-role', value: 'set-notification-role' },
@@ -26,7 +27,7 @@ const commands = [
       },
       {
         name: 'channel',
-        description: 'Channel to set as movie channel (for set-channel action)',
+        description: 'Channel to set (for set-channel or set-viewing-channel actions)',
         type: 7, // CHANNEL
         required: false
       },
