@@ -67,9 +67,14 @@ async function handleMovieRecommendationModal(interaction) {
     // Search IMDb for the movie
     let imdbResults = [];
     try {
+      console.log(`🔍 Searching IMDb for: "${title}"`);
       const searchResult = await imdb.searchMovie(title);
-      if (searchResult && searchResult.Search) {
-        imdbResults = searchResult.Search;
+      console.log(`🎬 IMDb search result:`, searchResult);
+      if (searchResult && Array.isArray(searchResult)) {
+        imdbResults = searchResult;
+        console.log(`✅ Found ${imdbResults.length} IMDb results`);
+      } else {
+        console.log(`❌ No IMDb results found or invalid response`);
       }
     } catch (error) {
       console.warn('IMDb search failed:', error.message);
