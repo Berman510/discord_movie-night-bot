@@ -6,7 +6,7 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ### Fixed
 - **CRITICAL:** Fixed purge operation incorrectly deleting session data and attendance records
 - **Session Preservation:** Purge now properly preserves all session data for analytics as intended
-- **Data Integrity:** Fixed unintended deletion of session_attendees, session_participants, and user_stats
+- **Data Integrity:** Fixed unintended deletion of session_attendees and session_participants
 - **Analytics Protection:** Session data now preserved even when associated movies are purged
 
 ### Added
@@ -82,7 +82,7 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ### Enhanced
 - **Session Monitoring:** Improved session monitoring to handle users present before session start
 - **Real-time Tracking:** Better real-time attendance tracking during active sessions
-- **Database Updates:** Proper population of session_attendees, session_participants, and user_stats tables
+- **Database Updates:** Proper population of session_attendees and session_participants tables
 - **Event Integration:** Better integration between Discord events and session tracking
 
 ### Technical

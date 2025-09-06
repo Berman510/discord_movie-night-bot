@@ -131,9 +131,12 @@ async function showUserStats(interaction, user) {
     .addFields(
       { name: '🍿 Movies Recommended', value: userStats.moviesRecommended.toString(), inline: true },
       { name: '✅ Movies Watched', value: userStats.moviesWatched.toString(), inline: true },
+      { name: '📌 Movies Planned', value: userStats.moviesPlanned.toString(), inline: true },
       { name: '🗳️ Total Votes Cast', value: userStats.totalVotes.toString(), inline: true },
       { name: '👍 Upvotes Given', value: userStats.upvotesGiven.toString(), inline: true },
       { name: '👎 Downvotes Given', value: userStats.downvotesGiven.toString(), inline: true },
+      { name: '⬆️ Upvotes Received', value: userStats.upvotesReceived.toString(), inline: true },
+      { name: '⬇️ Downvotes Received', value: userStats.downvotesReceived.toString(), inline: true },
       { name: '🎪 Sessions Created', value: userStats.sessionsCreated.toString(), inline: true }
     )
     .setFooter({ text: `Stats for ${interaction.guild.name}` })
