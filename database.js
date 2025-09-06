@@ -1179,6 +1179,21 @@ class Database {
     }
   }
 
+  async getAllMovies(guildId) {
+    if (!this.isConnected) return [];
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT * FROM movies WHERE guild_id = ? ORDER BY created_at DESC`,
+        [guildId]
+      );
+      return rows;
+    } catch (error) {
+      console.error('Error getting all movies:', error.message);
+      return [];
+    }
+  }
+
   async getSessionByMovieId(movieMessageId) {
     if (!this.isConnected) return null;
 

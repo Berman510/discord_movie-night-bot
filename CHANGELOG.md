@@ -2,6 +2,22 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.11.17] - 2025-09-06
+### Fixed
+- **Purge Database Cleanup:** Fixed purge not deleting movies from database when channel was switched
+- **Cross-Channel Cleanup:** Purge now cleans up movies from all channels in guild, not just current channel
+- **Debug Logging:** Added detailed logging to track purge operations and identify issues
+
+### Added
+- **getAllMovies:** New database function to get all movies for a guild regardless of channel
+- **Enhanced Purge Logic:** Purge now handles movies that may be in different channels due to channel switches
+- **Better Debugging:** Detailed console output for purge operations to track what's being deleted
+
+### Technical
+- **Channel Migration Support:** Purge operations now work correctly after channel configuration changes
+- **Database Query Enhancement:** Added guild-wide movie queries for comprehensive cleanup
+- **Logging Improvements:** Better tracking of purge operations for troubleshooting
+
 ## [1.11.16] - 2025-09-06
 ### Fixed
 - **Critical Sync Logic:** Fixed sync deleting movies instead of recreating missing posts

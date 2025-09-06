@@ -459,12 +459,18 @@ async function handlePurgeConfirmation(interaction) {
 
       // Get all current movies from database for this channel
       const allMovies = await database.getMoviesByChannel(interaction.guild.id, channel.id);
+      console.log(`🔍 Found ${allMovies.length} movies in database for channel ${channel.id}`);
+
+      // Also check for movies in other channels (in case of channel switches)
+      const allGuildMovies = await database.getAllMovies(interaction.guild.id);
+      console.log(`🔍 Found ${allGuildMovies.length} total movies in guild`);
 
       // Count watched movies that will be preserved in database
       for (const movie of allMovies) {
         if (movie.status === 'watched') {
           preservedWatched++;
         }
+        console.log(`🎬 Movie: ${movie.title} (${movie.status}) - Message ID: ${movie.message_id}`);
       }
 
       // Clear ALL bot messages from the channel
@@ -484,25 +490,27 @@ async function handlePurgeConfirmation(interaction) {
       deletedThreads = await cleanup.cleanupAllThreads(channel);
 
       // Delete current queue movies from database (preserve watched movies)
-      for (const movie of allMovies) {
-        if (movie.status !== 'watched') {
-          try {
-            // Delete associated session if exists
-            const session = await database.getSessionByMovieId(movie.message_id);
-            if (session) {
-              await database.deleteMovieSession(session.id);
-            }
+      // Use all guild movies to catch movies from old channels
+      const moviesToDelete = allGuildMovies.filter(movie => movie.status !== 'watched');
 
-            // Delete votes
-            await database.deleteVotesByMessageId(movie.message_id);
-
-            // Delete movie
-            await database.deleteMovie(movie.message_id);
-            deletedMovies++;
-
-          } catch (error) {
-            console.error(`Error deleting movie ${movie.title}:`, error.message);
+      for (const movie of moviesToDelete) {
+        try {
+          // Delete associated session if exists
+          const session = await database.getSessionByMovieId(movie.message_id);
+          if (session) {
+            await database.deleteMovieSession(session.id);
           }
+
+          // Delete votes
+          await database.deleteVotesByMessageId(movie.message_id);
+
+          // Delete movie
+          await database.deleteMovie(movie.message_id);
+          deletedMovies++;
+          console.log(`🗑️ Deleted movie from database: ${movie.title} (${movie.message_id}) from channel ${movie.channel_id}`);
+
+        } catch (error) {
+          console.error(`Error deleting movie ${movie.title}:`, error.message);
         }
       }
 
