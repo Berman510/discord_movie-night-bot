@@ -46,6 +46,17 @@ async function handleButton(interaction) {
       return;
     }
 
+    // Duplicate movie confirmation
+    if (ns === 'mn' && action === 'duplicate_confirm') {
+      await handleDuplicateConfirm(interaction, msgId);
+      return;
+    }
+
+    if (ns === 'mn' && action === 'duplicate_cancel') {
+      await handleDuplicateCancel(interaction);
+      return;
+    }
+
     // Configuration button handlers
     if (ns === 'config') {
       await handleConfigurationButton(interaction, action);
@@ -231,6 +242,11 @@ async function handleStatusChange(interaction, action, msgId) {
       return;
     }
 
+    // If marking as watched, increment watch count
+    if (action === 'watched') {
+      await database.incrementWatchCount(msgId);
+    }
+
     // Get updated movie data
     const movie = await database.getMovieById(msgId);
     if (!movie) {
@@ -283,6 +299,76 @@ async function handleStatusChange(interaction, action, msgId) {
         content: '❌ Error updating movie status.',
         flags: MessageFlags.Ephemeral
       });
+    }
+  }
+}
+
+async function handleDuplicateConfirm(interaction, customIdParts) {
+  try {
+    // Parse title and where from custom ID: mn:duplicate_confirm:title:where
+    const title = customIdParts;
+    const where = customIdParts; // This will need to be parsed properly
+
+    // Extract title and where from the custom ID
+    const fullCustomId = interaction.customId;
+    const parts = fullCustomId.split(':');
+    if (parts.length >= 4) {
+      const movieTitle = parts.slice(2, -1).join(':'); // Everything between duplicate_confirm and the last part
+      const movieWhere = parts[parts.length - 1]; // Last part
+
+      // Proceed with movie creation
+      const imdb = require('../services/imdb');
+
+      // Search IMDb for the movie
+      let imdbResults = [];
+      try {
+        const searchResult = await imdb.searchMovie(movieTitle);
+        if (searchResult && Array.isArray(searchResult)) {
+          imdbResults = searchResult;
+        }
+      } catch (error) {
+        console.warn('IMDb search failed:', error.message);
+      }
+
+      if (imdbResults.length > 0) {
+        // Show IMDb selection buttons
+        const { showImdbSelection } = require('./modals');
+        await showImdbSelection(interaction, movieTitle, movieWhere, imdbResults);
+      } else {
+        // No IMDb results, create movie without IMDb data
+        const { createMovieWithoutImdb } = require('./modals');
+        await createMovieWithoutImdb(interaction, movieTitle, movieWhere);
+      }
+    } else {
+      await interaction.reply({
+        content: '❌ Error parsing movie information.',
+        flags: MessageFlags.Ephemeral
+      });
+    }
+  } catch (error) {
+    console.error('Error handling duplicate confirmation:', error);
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: '❌ Error processing duplicate confirmation.',
+        flags: MessageFlags.Ephemeral
+      }).catch(console.error);
+    }
+  }
+}
+
+async function handleDuplicateCancel(interaction) {
+  try {
+    await interaction.update({
+      content: '❌ Movie recommendation cancelled.',
+      components: []
+    });
+  } catch (error) {
+    console.error('Error handling duplicate cancellation:', error);
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: '❌ Error processing cancellation.',
+        flags: MessageFlags.Ephemeral
+      }).catch(console.error);
     }
   }
 }

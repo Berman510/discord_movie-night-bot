@@ -336,6 +336,29 @@ class Database {
         console.error('❌ Failed to add watched_at column:', error.message);
       }
 
+      // Migration 8: Ensure watch_count column exists in movies table
+      try {
+        const [movieColumns2] = await this.pool.execute(`
+          SELECT COLUMN_NAME
+          FROM INFORMATION_SCHEMA.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'movies'
+        `);
+        const movieColumnNames2 = movieColumns2.map(row => row.COLUMN_NAME);
+
+        if (!movieColumnNames2.includes('watch_count')) {
+          await this.pool.execute(`
+            ALTER TABLE movies
+            ADD COLUMN watch_count INT DEFAULT 0
+          `);
+          console.log('✅ Added watch_count column to movies');
+        } else {
+          console.log('✅ watch_count column already exists');
+        }
+      } catch (error) {
+        console.error('❌ Failed to add watch_count column:', error.message);
+      }
+
       console.log('✅ Database migrations completed');
     } catch (error) {
       console.error('❌ Migration error:', error.message);
@@ -1246,6 +1269,36 @@ class Database {
     } catch (error) {
       console.error('Error getting session participants:', error.message);
       return [];
+    }
+  }
+
+  async incrementWatchCount(messageId) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `UPDATE movies SET watch_count = watch_count + 1 WHERE message_id = ?`,
+        [messageId]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error incrementing watch count:', error.message);
+      return false;
+    }
+  }
+
+  async getWatchCount(messageId) {
+    if (!this.isConnected) return 0;
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT watch_count FROM movies WHERE message_id = ?`,
+        [messageId]
+      );
+      return rows.length > 0 ? rows[0].watch_count || 0 : 0;
+    } catch (error) {
+      console.error('Error getting watch count:', error.message);
+      return 0;
     }
   }
 

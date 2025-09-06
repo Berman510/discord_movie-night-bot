@@ -479,7 +479,20 @@ async function joinSession(interaction) {
 
 async function handleCreateSessionFromMovie(interaction, messageId) {
   console.log(`Create session from movie: ${messageId}`);
-  await interaction.reply({ content: 'Create session from movie coming soon!', flags: MessageFlags.Ephemeral });
+  // Get the movie from the database
+  const movie = await database.getMovieById(messageId);
+  if (!movie) {
+    await interaction.reply({
+      content: '❌ Movie not found.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  console.log(`Create session from movie: ${messageId}`);
+
+  // Create session with movie pre-selected
+  await createMovieSession(interaction, movie.title, messageId);
 }
 
 async function handleSessionCreationButton(interaction) {

@@ -85,8 +85,24 @@ async function handleMovieRecommendationModal(interaction) {
 
       statusMessage += '.\n\nWould you like to add it again anyway?';
 
+      // Create confirmation buttons
+      const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+      const confirmRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`mn:duplicate_confirm:${title}:${where}`)
+          .setLabel('Yes, Add Again')
+          .setStyle(ButtonStyle.Primary)
+          .setEmoji('✅'),
+        new ButtonBuilder()
+          .setCustomId(`mn:duplicate_cancel`)
+          .setLabel('Cancel')
+          .setStyle(ButtonStyle.Secondary)
+          .setEmoji('❌')
+      );
+
       await interaction.reply({
         content: `⚠️ ${statusMessage}`,
+        components: [confirmRow],
         flags: MessageFlags.Ephemeral
       });
       return;
