@@ -2,6 +2,27 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.11.12] - 2025-09-06
+### Enhanced
+- **Shorter Guide Messages:** Replaced verbose help embeds with concise quick action messages
+- **Guide Message Cleanup:** Automatically removes duplicate guide/action messages to prevent clutter
+- **Improved UX:** Quick action message mentions `/movie-help` for full commands while keeping interface clean
+
+### Added
+- **createQuickActionEmbed:** New concise embed for bottom-of-channel quick actions
+- **cleanupOldGuideMessages:** Function to remove duplicate guide messages before posting new ones
+- **ensureQuickActionAtBottom:** Comprehensive function that cleans up and posts single action message
+
+### Fixed
+- **Duplicate Guide Messages:** Purge operations no longer leave multiple guide messages
+- **Message Clutter:** Only one guide/action message exists at bottom of channel at any time
+- **Verbose Interface:** Replaced detailed help with simple "Ready to recommend?" message
+
+### Technical
+- **Message Management:** Improved tracking and cleanup of bot-generated guide messages
+- **Function Consolidation:** Replaced multiple postQuickGuide functions with centralized cleanup approach
+- **Better UX Flow:** Users can still access full help via `/movie-help` command when needed
+
 ## [1.11.11] - 2025-09-06
 ### Fixed
 - **Session Cancellation:** Fixed "ReferenceError: restoreMoviePost is not defined" error during session cancellation

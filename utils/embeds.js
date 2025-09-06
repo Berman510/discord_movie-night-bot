@@ -128,6 +128,16 @@ function createHelpEmbed() {
   return embed;
 }
 
+function createQuickActionEmbed() {
+  const embed = new EmbedBuilder()
+    .setTitle('🍿 Ready to recommend a movie?')
+    .setDescription('Click the button below to get started, or use `/movie-help` for full commands.')
+    .setColor(COLORS.primary)
+    .setFooter({ text: 'Use /movie-help for detailed commands and features' });
+
+  return embed;
+}
+
 function createErrorEmbed(title, description) {
   return new EmbedBuilder()
     .setTitle(`❌ ${title}`)
@@ -153,6 +163,7 @@ module.exports = {
   createMovieEmbed,
   createSessionEmbed,
   createHelpEmbed,
+  createQuickActionEmbed,
   createErrorEmbed,
   createSuccessEmbed,
   createWarningEmbed

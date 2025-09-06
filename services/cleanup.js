@@ -200,6 +200,9 @@ async function handleCleanupSync(interaction) {
       console.warn('Error syncing Discord events:', error.message);
     }
 
+    // Ensure quick action message at bottom
+    await ensureQuickActionAtBottom(channel);
+
     const summary = [
       `✅ **Comprehensive sync complete!**`,
       `📊 Processed ${processedCount} messages (from ${allMessages.size} total fetched)`,
@@ -207,7 +210,8 @@ async function handleCleanupSync(interaction) {
       `🗑️ Removed ${orphanedCount} orphaned messages`,
       `🔗 Synced ${syncedCount} messages with database`,
       `🎪 Synced ${eventSyncResults.syncedCount} Discord events, deleted ${eventSyncResults.deletedCount} orphaned events`,
-      `🗑️ Cleaned ${cleanedDbCount} orphaned database entries`
+      `🗑️ Cleaned ${cleanedDbCount} orphaned database entries`,
+      `🍿 Added quick action message at bottom`
     ];
 
     // Note: Orphaned database entries are now automatically cleaned up
@@ -319,13 +323,15 @@ async function recreateScheduledMovieAtBottom(message, movie, channel) {
   }
 }
 
-async function ensureGuideAtBottom(channel) {
-  // Ensure guide message is at the bottom of the channel
+async function ensureQuickActionAtBottom(channel) {
+  // Clean up old guide/action messages and ensure only one quick action message at bottom
   try {
+    await cleanupOldGuideMessages(channel);
+
     const { embeds } = require('../utils');
     const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 
-    const guideEmbed = embeds.createHelpEmbed();
+    const quickActionEmbed = embeds.createQuickActionEmbed();
     const recommendButton = new ActionRowBuilder()
       .addComponents(
         new ButtonBuilder()
@@ -335,16 +341,50 @@ async function ensureGuideAtBottom(channel) {
       );
 
     await channel.send({
-      embeds: [guideEmbed],
+      embeds: [quickActionEmbed],
       components: [recommendButton]
     });
+
+    console.log('✅ Added quick action message at bottom');
   } catch (error) {
-    console.warn('Error ensuring guide at bottom:', error.message);
+    console.warn('Error ensuring quick action at bottom:', error.message);
+  }
+}
+
+async function cleanupOldGuideMessages(channel) {
+  // Remove old guide/quick action messages to prevent duplicates
+  try {
+    const botId = channel.client.user.id;
+
+    // Fetch recent messages to find old guide messages
+    const messages = await channel.messages.fetch({ limit: 50 });
+    const botMessages = messages.filter(msg => msg.author.id === botId);
+
+    for (const [messageId, message] of botMessages) {
+      // Check if this is a guide/quick action message
+      const isGuideMessage = message.embeds.length > 0 &&
+                            message.embeds[0].title &&
+                            (message.embeds[0].title.includes('Quick Guide') ||
+                             message.embeds[0].title.includes('Ready to recommend'));
+
+      if (isGuideMessage) {
+        try {
+          await message.delete();
+          console.log(`🗑️ Cleaned up old guide message: ${messageId}`);
+        } catch (error) {
+          console.warn(`Failed to delete old guide message ${messageId}:`, error.message);
+        }
+      }
+    }
+  } catch (error) {
+    console.warn('Error cleaning up old guide messages:', error.message);
   }
 }
 
 module.exports = {
   handleMovieCleanup,
   handleCleanupSync,
-  handleCleanupPurge
+  handleCleanupPurge,
+  ensureQuickActionAtBottom,
+  cleanupOldGuideMessages
 };
