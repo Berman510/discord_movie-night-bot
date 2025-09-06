@@ -72,6 +72,18 @@ async function handleButton(interaction) {
       return;
     }
 
+    // Create recommendation button
+    if (customId === 'create_recommendation') {
+      await handleCreateRecommendation(interaction);
+      return;
+    }
+
+    // IMDb selection buttons
+    if (customId.startsWith('select_imdb:')) {
+      await handleImdbSelection(interaction);
+      return;
+    }
+
     // Session list management buttons
     if (customId === 'session_refresh_list') {
       await sessions.listMovieSessions(interaction);
@@ -412,6 +424,172 @@ async function handlePurgeConfirmation(interaction) {
         flags: MessageFlags.Ephemeral
       });
     }
+  }
+}
+
+async function handleCreateRecommendation(interaction) {
+  // Show the movie recommendation modal
+  const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
+
+  const modal = new ModalBuilder()
+    .setCustomId('mn:modal')
+    .setTitle('New Movie Recommendation');
+
+  const titleInput = new TextInputBuilder()
+    .setCustomId('mn:title')
+    .setLabel('Movie Title')
+    .setStyle(TextInputStyle.Short)
+    .setPlaceholder('e.g., Clueless (1995)')
+    .setRequired(true);
+
+  const whereInput = new TextInputBuilder()
+    .setCustomId('mn:where')
+    .setLabel('Where to Watch')
+    .setStyle(TextInputStyle.Short)
+    .setPlaceholder('Netflix, Hulu, Prime Video, etc.')
+    .setRequired(true);
+
+  const titleRow = new ActionRowBuilder().addComponents(titleInput);
+  const whereRow = new ActionRowBuilder().addComponents(whereInput);
+
+  modal.addComponents(titleRow, whereRow);
+
+  await interaction.showModal(modal);
+}
+
+async function handleImdbSelection(interaction) {
+  const customId = interaction.customId;
+  const [, indexStr, dataStr] = customId.split(':');
+
+  try {
+    const data = JSON.parse(Buffer.from(dataStr, 'base64').toString());
+    const { title, where, imdbResults } = data;
+
+    if (indexStr === 'none') {
+      // User selected "None of these" - create without IMDb data
+      await createMovieWithoutImdb(interaction, title, where);
+    } else {
+      // User selected a specific movie
+      const index = parseInt(indexStr);
+      const selectedMovie = imdbResults[index];
+      await createMovieWithImdb(interaction, title, where, selectedMovie);
+    }
+  } catch (error) {
+    console.error('Error handling IMDb selection:', error);
+    await interaction.reply({
+      content: '❌ Error processing movie selection.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+async function createMovieWithoutImdb(interaction, title, where) {
+  const database = require('../database');
+  const { embeds, components } = require('../utils');
+
+  try {
+    // Create movie data
+    const movieData = {
+      guild_id: interaction.guild.id,
+      channel_id: interaction.channel.id,
+      title: title,
+      where_to_watch: where,
+      recommended_by: interaction.user.id,
+      status: 'pending'
+    };
+
+    // Add to database
+    const success = await database.addMovie(movieData);
+
+    if (success) {
+      // Create movie embed and post
+      const movieEmbed = embeds.createMovieEmbed(movieData);
+      const movieComponents = components.createStatusButtons(null, 'pending');
+
+      const message = await interaction.channel.send({
+        embeds: [movieEmbed],
+        components: movieComponents
+      });
+
+      // Update database with message ID
+      await database.updateMovieMessageId(interaction.guild.id, title, message.id);
+
+      await interaction.update({
+        content: `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added to the queue for voting.`,
+        embeds: [],
+        components: []
+      });
+    } else {
+      await interaction.update({
+        content: '❌ Failed to create movie recommendation.',
+        embeds: [],
+        components: []
+      });
+    }
+
+  } catch (error) {
+    console.error('Error creating movie without IMDb:', error);
+    await interaction.update({
+      content: '❌ Error creating movie recommendation.',
+      embeds: [],
+      components: []
+    });
+  }
+}
+
+async function createMovieWithImdb(interaction, title, where, imdbData) {
+  const database = require('../database');
+  const { embeds, components } = require('../utils');
+
+  try {
+    // Create movie data with IMDb info
+    const movieData = {
+      guild_id: interaction.guild.id,
+      channel_id: interaction.channel.id,
+      title: title,
+      where_to_watch: where,
+      recommended_by: interaction.user.id,
+      status: 'pending',
+      imdb_id: imdbData.imdbID,
+      imdb_data: imdbData
+    };
+
+    // Add to database
+    const success = await database.addMovie(movieData);
+
+    if (success) {
+      // Create movie embed with IMDb data and post
+      const movieEmbed = embeds.createMovieEmbed(movieData);
+      const movieComponents = components.createStatusButtons(null, 'pending');
+
+      const message = await interaction.channel.send({
+        embeds: [movieEmbed],
+        components: movieComponents
+      });
+
+      // Update database with message ID
+      await database.updateMovieMessageId(interaction.guild.id, title, message.id);
+
+      await interaction.update({
+        content: `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added to the queue for voting.`,
+        embeds: [],
+        components: []
+      });
+    } else {
+      await interaction.update({
+        content: '❌ Failed to create movie recommendation.',
+        embeds: [],
+        components: []
+      });
+    }
+
+  } catch (error) {
+    console.error('Error creating movie with IMDb:', error);
+    await interaction.update({
+      content: '❌ Error creating movie recommendation.',
+      embeds: [],
+      components: []
+    });
   }
 }
 

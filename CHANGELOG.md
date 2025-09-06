@@ -2,6 +2,34 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.10.7] - 2025-09-05
+### Fixed
+- **Sync Data Loss:** Fixed sync function removing IMDb data from movie recommendations
+- **Recommend Button Error:** Fixed "Unknown button interaction" error for create_recommendation button
+- **IMDb Selection Missing:** Added missing IMDb selection handlers for movie recommendation workflow
+- **Data Preservation:** Sync now preserves existing embed data including posters and ratings
+- **Button Functionality:** Restored complete movie recommendation workflow from guide button
+
+### Enhanced
+- **Conservative Sync:** Sync only updates components when needed, preserves embed content
+- **Complete Workflow:** Full movie recommendation flow: button → modal → IMDb search → selection → post
+- **IMDb Integration:** Proper handling of IMDb movie selection with poster and rating preservation
+- **Error Handling:** Enhanced error handling throughout movie creation process
+
+### Added
+- **Create Recommendation Handler:** Added missing button handler for guide recommendation button
+- **IMDb Selection Handler:** Complete IMDb movie selection and creation workflow
+- **Movie Creation Functions:** Both IMDb and non-IMDb movie creation paths
+- **Data Validation:** Proper validation and error handling for movie recommendation process
+
+### Technical
+- **Button Handlers:** Added handleCreateRecommendation and handleImdbSelection functions
+- **Data Preservation:** Modified syncMessageWithDatabase to preserve existing embeds
+- **Workflow Completion:** Complete end-to-end movie recommendation functionality
+- **Component Updates:** Smart component updating without overwriting embed data
+
+---
+
 ## [1.10.6] - 2025-09-05
 ### Fixed
 - **Configuration Service Error:** Fixed `Cannot read properties of undefined (reading 'checkMovieAdminPermission')`

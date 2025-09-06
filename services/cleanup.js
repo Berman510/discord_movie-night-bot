@@ -119,7 +119,7 @@ async function handleCleanupSync(interaction) {
           continue;
         }
 
-        // Sync message with database state
+        // Sync message with database state only if needed
         const movie = dbMovies.find(m => m.message_id === messageId);
         if (movie) {
           // For scheduled movies, recreate at bottom instead of syncing in place
@@ -129,9 +129,13 @@ async function handleCleanupSync(interaction) {
               syncedCount++;
             }
           } else {
-            const synced = await syncMessageWithDatabase(message, movie);
-            if (synced) {
-              syncedCount++;
+            // Only sync if message components are missing or outdated
+            const needsSync = !message.components || message.components.length === 0;
+            if (needsSync) {
+              const synced = await syncMessageWithDatabase(message, movie);
+              if (synced) {
+                syncedCount++;
+              }
             }
           }
         }
@@ -272,14 +276,14 @@ async function updateMessageToCurrentFormat(message) {
 }
 
 async function syncMessageWithDatabase(message, movie) {
-  // Sync message content with database state
+  // Sync message content with database state while preserving existing embed data
   try {
-    const { embeds, components } = require('../utils');
-    const movieEmbed = embeds.createMovieEmbed(movie);
+    const { components } = require('../utils');
     const movieComponents = components.createStatusButtons(message.id, movie.status);
 
+    // Only update components, preserve existing embed with IMDb data
     await message.edit({
-      embeds: [movieEmbed],
+      embeds: message.embeds, // Keep existing embeds with IMDb data
       components: movieComponents
     });
     return true;
