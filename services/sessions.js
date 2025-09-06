@@ -934,7 +934,6 @@ async function handleSessionReschedule(interaction, sessionId, movieMessageId) {
     return;
   }
 
-  const { permissions } = require('./permissions');
   const isCreator = session.created_by === interaction.user.id;
   const isAdmin = await permissions.checkMovieAdminPermission(interaction);
 
@@ -972,7 +971,6 @@ async function handleSessionCancel(interaction, sessionId, movieMessageId) {
     return;
   }
 
-  const { permissions } = require('./permissions');
   const isCreator = session.created_by === interaction.user.id;
   const isAdmin = await permissions.checkMovieAdminPermission(interaction);
 

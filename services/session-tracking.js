@@ -14,10 +14,13 @@ const activeSessions = new Map(); // sessionId -> { guildId, channelId, startTim
 async function handleVoiceStateChange(oldState, newState) {
   const guildId = newState.guild.id;
   const userId = newState.member.id;
-  
+
+  console.log(`🎤 Voice state change: User ${userId} in guild ${guildId}`);
+
   // Get guild configuration to find the viewing channel
   const config = await database.getGuildConfig(guildId);
   if (!config || !config.session_viewing_channel_id) {
+    console.log(`⚠️ No viewing channel configured for guild ${guildId}`);
     return; // No viewing channel configured
   }
   
