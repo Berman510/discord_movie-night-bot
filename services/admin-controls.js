@@ -211,6 +211,12 @@ async function handleSyncChannel(interaction) {
 
           for (const movie of allMovies) {
             try {
+              // Skip movies with purged message IDs - they need proper recreation
+              if (movie.message_id && movie.message_id.startsWith('purged_')) {
+                console.log(`⏭️ Skipping purged movie for voting sync: ${movie.title}`);
+                continue;
+              }
+
               const cleanup = require('./cleanup');
               await cleanup.recreateMoviePost(votingChannel, movie);
               votingSynced++;
@@ -279,9 +285,38 @@ async function handlePurgeQueue(interaction) {
         content: `✅ Queue purged successfully!\nPurged: ${result.purged} items, Preserved: ${result.preserved} movie records`
       });
 
-      // Refresh admin channel after purge
-      const adminMirror = require('./admin-mirror');
-      await adminMirror.syncAdminChannel(interaction.client, interaction.guild.id);
+      // Clear admin channel after purge (since movies are now archived)
+      const config = await database.getGuildConfig(interaction.guild.id);
+      if (config && config.admin_channel_id) {
+        try {
+          const adminChannel = await interaction.client.channels.fetch(config.admin_channel_id);
+          if (adminChannel) {
+            // Clear all movie messages from admin channel
+            const messages = await adminChannel.messages.fetch({ limit: 100 });
+            const botMessages = messages.filter(msg => msg.author.id === interaction.client.user.id);
+
+            for (const [messageId, message] of botMessages) {
+              try {
+                // Skip admin control panel messages
+                const isControlPanel = message.embeds.length > 0 &&
+                                      message.embeds[0].title &&
+                                      message.embeds[0].title.includes('Admin Control Panel');
+
+                if (!isControlPanel) {
+                  await message.delete();
+                }
+              } catch (error) {
+                console.warn(`Failed to delete admin message ${messageId}:`, error.message);
+              }
+            }
+
+            // Ensure admin control panel is at bottom
+            await ensureAdminControlPanel(interaction.client, interaction.guild.id);
+          }
+        } catch (error) {
+          console.warn('Error clearing admin channel after purge:', error.message);
+        }
+      }
     }
   } catch (error) {
     console.error('Error purging queue:', error);
@@ -299,7 +334,7 @@ async function handleGuildStats(interaction) {
 
   try {
     const stats = require('./stats');
-    await stats.showGuildOverview(interaction);
+    await stats.showOverviewStats(interaction);
   } catch (error) {
     console.error('Error showing guild stats:', error);
     await interaction.editReply({
