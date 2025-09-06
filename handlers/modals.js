@@ -36,6 +36,12 @@ async function handleModal(interaction) {
       return;
     }
 
+    // Deep purge confirmation modal
+    if (customId.startsWith('deep_purge_confirm:')) {
+      await handleDeepPurgeConfirmation(interaction, customId);
+      return;
+    }
+
     // Unknown modal
     console.warn(`Unknown modal interaction: ${customId}`);
     await interaction.reply({
@@ -275,7 +281,66 @@ async function createMovieWithoutImdb(interaction, title, where) {
   }
 }
 
+/**
+ * Handle deep purge confirmation modal
+ */
+async function handleDeepPurgeConfirmation(interaction, customId) {
+  const { permissions } = require('../services');
+  const deepPurge = require('../services/deep-purge');
 
+  // Check admin permissions
+  const hasPermission = await permissions.checkMovieAdminPermission(interaction);
+  if (!hasPermission) {
+    await interaction.reply({
+      content: '❌ You need Administrator permissions or a configured admin role to use this action.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  // Extract categories from custom ID
+  const categoriesString = customId.split(':')[1];
+  const categories = categoriesString.split(',');
+
+  // Get form data
+  const confirmationText = interaction.fields.getTextInputValue('confirmation_text');
+  const reason = interaction.fields.getTextInputValue('purge_reason') || null;
+
+  // Validate confirmation text
+  if (confirmationText !== 'DELETE EVERYTHING') {
+    await interaction.reply({
+      content: '❌ Confirmation text must be exactly "DELETE EVERYTHING" to proceed.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  await interaction.deferReply({ ephemeral: true });
+
+  try {
+    // Execute deep purge
+    const result = await deepPurge.executeDeepPurge(interaction.guild.id, categories, reason);
+
+    // Create success embed
+    const successEmbed = deepPurge.createSuccessEmbed(interaction.guild.name, result, categories);
+
+    await interaction.editReply({
+      embeds: [successEmbed]
+    });
+
+    // Log the purge action
+    console.log(`🗑️ Deep purge executed by ${interaction.user.tag} (${interaction.user.id}) in guild ${interaction.guild.name} (${interaction.guild.id})`);
+    console.log(`📋 Categories: ${categories.join(', ')}`);
+    console.log(`📝 Reason: ${reason || 'No reason provided'}`);
+    console.log(`📊 Result: ${result.deleted} items deleted, ${result.errors.length} errors`);
+
+  } catch (error) {
+    console.error('Error executing deep purge:', error);
+    await interaction.editReply({
+      content: '❌ An error occurred while executing the deep purge. Please check the logs and try again.'
+    });
+  }
+}
 
 module.exports = {
   handleModal

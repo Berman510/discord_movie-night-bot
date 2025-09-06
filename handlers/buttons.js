@@ -1199,11 +1199,17 @@ async function handleAdminControlButtons(interaction, customId) {
 }
 
 /**
- * Handle deep purge initiation (will be implemented in next task)
+ * Handle deep purge initiation
  */
 async function handleDeepPurgeInitiation(interaction) {
+  const deepPurge = require('../services/deep-purge');
+
+  const embed = deepPurge.createDeepPurgeSelectionEmbed(interaction.guild.name);
+  const components = deepPurge.createDeepPurgeSelectionMenu();
+
   await interaction.reply({
-    content: '🚧 Deep purge system coming soon! This will provide selective guild data removal with confirmations.',
+    embeds: [embed],
+    components: components,
     flags: MessageFlags.Ephemeral
   });
 }
