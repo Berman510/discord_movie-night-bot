@@ -1,6 +1,8 @@
 # Movie Night Bot
 
-**Version:** 1.10.25
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/Berman510/discord_movie-night-bot)](https://github.com/Berman510/discord_movie-night-bot/releases/latest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
 
 A comprehensive Discord bot for managing movie recommendations, voting, and organized movie night sessions. Features persistent voting, IMDb integration, session scheduling with Discord events, and comprehensive movie night statistics.
 
@@ -278,7 +280,7 @@ pm2 startup  # follow the printed instructions
 ---
 
 ## Version Information
-- **Current Version**: 1.10.25 (see [CHANGELOG.md](CHANGELOG.md) for detailed release history)
+- **Release History**: See [CHANGELOG.md](CHANGELOG.md) for detailed release notes
 - **Version Source**: `package.json` holds the canonical version
 - **Startup Logging**: Bot displays current version on startup
 
@@ -312,4 +314,4 @@ pm2 startup  # follow the printed instructions
 ---
 
 ## License
-ISC License - See LICENSE file for details.
+MIT License - See [LICENSE](LICENSE) file for details.
