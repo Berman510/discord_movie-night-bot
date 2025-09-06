@@ -2,6 +2,26 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.11.29] - 2025-09-06
+### Added
+- **Guild ID Normalization**: Added `guild_id` columns to `votes`, `session_participants`, and `session_attendees` tables
+- **Enhanced User Statistics**: Comprehensive user analytics including votes given/received, movies planned, and session creation counts
+- **Database Migration 11**: Automatic population of existing data via parent table joins with proper indexing
+
+### Enhanced
+- **Query Performance**: New indexes on guild_id columns for faster multi-guild operations
+- **Statistics Display**: More detailed user statistics with better organization and additional metrics
+- **Database Management**: Direct guild filtering capabilities for easier database maintenance and debugging
+
+### Removed
+- **Dead Code Cleanup**: Removed unused `user_stats` table definition and all references (manual table drop required)
+- **Schema Optimization**: Eliminated redundant table that was never used in favor of dynamic calculations
+
+### Technical
+- **Backward Compatibility**: Updated database methods with optional guild_id parameters and fallback lookups
+- **Data Integrity**: Enhanced guild context for all records with explicit foreign key relationships
+- **Code Quality**: Removed dead code references and improved method signatures
+
 ## [1.11.28] - 2025-09-06
 ### Fixed
 - **CRITICAL:** Fixed purge operation incorrectly deleting session data and attendance records
