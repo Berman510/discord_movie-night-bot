@@ -2,6 +2,20 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.11.11] - 2025-09-06
+### Fixed
+- **Session Cancellation:** Fixed "ReferenceError: restoreMoviePost is not defined" error during session cancellation
+- **Movie Post Restoration:** Added missing restoreMoviePost function to properly restore movie posts after session cancellation
+- **Duplicate Functions:** Removed duplicate updateMoviePostForSession function that was causing confusion
+
+### Added
+- **Movie Post Restoration:** Proper restoration of movie posts to voting state when sessions are cancelled
+- **Vote Button Restoration:** Movie posts now properly restore voting buttons and status after session cancellation
+
+### Technical
+- **Function Organization:** Cleaned up duplicate function definitions in sessions service
+- **Error Handling:** Improved error handling for movie post restoration operations
+
 ## [1.11.10] - 2025-09-06
 ### Fixed
 - **Critical Syntax Error:** Fixed missing catch/finally block in discord-events.js causing bot startup crash

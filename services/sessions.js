@@ -257,7 +257,6 @@ async function closeSessionVoting(interaction) {
     }
 
     // Check if user is organizer or admin
-    const { permissions } = require('./permissions');
     const isOrganizer = session.created_by === interaction.user.id;
     const isAdmin = await permissions.checkMovieAdminPermission(interaction);
 
@@ -312,7 +311,6 @@ async function pickSessionWinner(interaction) {
     }
 
     // Check permissions
-    const { permissions } = require('./permissions');
     const isOrganizer = session.created_by === interaction.user.id;
     const isAdmin = await permissions.checkMovieAdminPermission(interaction);
 
@@ -1049,7 +1047,6 @@ async function handleCancelConfirmation(interaction) {
     // Delete Discord event if it exists
     if (session.discord_event_id) {
       try {
-        const discordEvents = require('./discord-events');
         await discordEvents.deleteDiscordEvent(interaction.guild, session.discord_event_id);
         console.log(`✅ Deleted Discord event ${session.discord_event_id}`);
       } catch (error) {
@@ -1086,79 +1083,45 @@ async function handleCancelConfirmation(interaction) {
   }
 }
 
-async function updateMoviePostForSession(interaction, movieMessageId, sessionId, sessionName, scheduledDate, discordEventId) {
+async function restoreMoviePost(interaction, movieMessageId) {
   try {
-    // Get movie details
+    // Get movie details from database
     const movie = await database.getMovieById(movieMessageId, interaction.guild.id);
     if (!movie) {
       console.warn('Movie not found for post restoration');
       return;
     }
 
-    // Find the original movie post
-    const channel = interaction.guild.channels.cache.get(movie.channel_id);
-    if (!channel) {
-      console.warn('Movie channel not found');
+    // Get the movie channel
+    const channel = interaction.channel;
+
+    // Find the movie message
+    const movieMessage = await channel.messages.fetch(movieMessageId).catch(() => null);
+    if (!movieMessage) {
+      console.warn('Movie message not found for restoration');
       return;
     }
 
-    const message = await channel.messages.fetch(movieMessageId).catch(() => null);
-    if (!message) {
-      console.warn('Movie message not found');
-      return;
-    }
+    // Get vote counts
+    const voteCounts = await database.getVoteCounts(movieMessageId);
 
-    // Get current embed and restore it
-    const currentEmbed = message.embeds[0];
-    if (!currentEmbed) {
-      console.warn('Movie embed not found');
-      return;
-    }
-
-    // Create restored embed
-    const restoredEmbed = new EmbedBuilder()
-      .setTitle(currentEmbed.title)
-      .setDescription(currentEmbed.description)
-      .setColor(0xffa500) // Orange for planned
-      .setThumbnail(currentEmbed.thumbnail?.url || null);
-
-    // Copy existing fields and restore status
-    currentEmbed.fields.forEach(field => {
-      if (field.name === '📊 Status') {
-        restoredEmbed.addFields({
-          name: '📊 Status',
-          value: '📋 **Planned for later**',
-          inline: true
-        });
-      } else if (field.name === '🗓️ Session Info') {
-        // Skip - remove session info
-      } else {
-        restoredEmbed.addFields({
-          name: field.name,
-          value: field.value,
-          inline: field.inline || false
-        });
-      }
-    });
-
-    restoredEmbed.setFooter({ text: 'Vote with 👍 👎 • React with 📋 to plan for later' });
-
-    // Restore voting buttons
+    // Create voting buttons (restore to normal movie post state)
     const { components } = require('../utils');
-    const votingButtons = components.createVotingButtons(movieMessageId);
+    const movieComponents = components.createStatusButtons(movieMessageId, movie.status, voteCounts.up, voteCounts.down);
 
-    // Update the message
-    await message.edit({
-      embeds: [restoredEmbed],
-      components: votingButtons
+    // Update the message to restore voting buttons
+    await movieMessage.edit({
+      embeds: movieMessage.embeds, // Keep existing embeds
+      components: movieComponents
     });
 
-    console.log(`✅ Restored movie post ${movieMessageId} to planned status`);
-
+    console.log(`🔄 Restored movie post ${movieMessageId} to voting state`);
   } catch (error) {
     console.error('Error restoring movie post:', error);
   }
 }
+
+
 
 async function updateMoviePostForSession(interaction, movieMessageId, sessionId, sessionName, scheduledDate, discordEventId) {
   try {
