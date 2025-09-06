@@ -561,6 +561,26 @@ async function recreateMoviePost(channel, movie) {
     // Get vote counts
     const voteCounts = await database.getVoteCounts(movie.message_id);
 
+    // Parse IMDb data with proper handling for double-encoded JSON
+    let imdbData = null;
+    if (movie.imdb_data) {
+      try {
+        // Handle both single and double-encoded JSON
+        let parsedData = movie.imdb_data;
+        if (typeof parsedData === 'string') {
+          parsedData = JSON.parse(parsedData);
+        }
+        if (typeof parsedData === 'string') {
+          parsedData = JSON.parse(parsedData); // Handle double-encoding
+        }
+        imdbData = parsedData;
+        console.log(`🎬 Successfully parsed IMDb data for ${movie.title}`);
+      } catch (error) {
+        console.warn(`Failed to parse IMDb data for ${movie.title}:`, error.message);
+        imdbData = null;
+      }
+    }
+
     // Create movie embed with proper field mapping and safety checks
     const movieEmbed = embeds.createMovieEmbed({
       title: movie.title || 'Unknown Movie',
@@ -569,7 +589,7 @@ async function recreateMoviePost(channel, movie) {
       recommended_by: movie.recommended_by || 'Unknown User',
       status: movie.status || 'pending',
       created_at: movie.created_at
-    }, movie.imdb_data ? JSON.parse(movie.imdb_data) : null);
+    }, imdbData);
 
     // Create voting buttons only (admin buttons require permission checks)
     const movieComponents = components.createVotingButtons(movie.message_id, voteCounts.up, voteCounts.down);

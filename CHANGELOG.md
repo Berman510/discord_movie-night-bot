@@ -2,6 +2,25 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.11.24] - 2025-09-06
+### Fixed
+- **IMDb Data Recreation:** Fixed missing IMDb information in recreated movie posts
+- **JSON Parsing:** Enhanced JSON parsing to handle double-encoded IMDb data
+- **Data Integrity:** Improved IMDb data preservation during movie post recreation
+- **Error Handling:** Better error handling for malformed IMDb data during recreation
+
+### Enhanced
+- **Recreation Robustness:** More reliable IMDb data parsing with fallback handling
+- **Logging:** Added success/failure logging for IMDb data parsing during recreation
+- **Data Validation:** Better validation of IMDb data before embed creation
+- **Double-Encoding Support:** Handles both single and double-encoded JSON data
+
+### Technical
+- **JSON Handling:** Enhanced JSON parsing logic to handle various encoding scenarios
+- **Error Recovery:** Graceful fallback when IMDb data parsing fails
+- **Data Preservation:** Better preservation of movie metadata during recreation
+- **Debugging:** Improved logging for troubleshooting IMDb data issues
+
 ## [1.11.23] - 2025-09-06
 ### Changed
 - **Removed Admin Buttons:** Eliminated Watched/Plan Later/Skip buttons from all movie posts
