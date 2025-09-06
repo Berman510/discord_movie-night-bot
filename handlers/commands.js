@@ -39,7 +39,19 @@ async function handleSlashCommand(interaction) {
       case 'movie-stats':
         await handleMovieStats(interaction);
         break;
-      
+
+      case 'movie-watched':
+        await handleMovieWatched(interaction);
+        break;
+
+      case 'movie-skip':
+        await handleMovieSkip(interaction);
+        break;
+
+      case 'movie-plan':
+        await handleMoviePlan(interaction);
+        break;
+
       default:
         await interaction.reply({
           content: `❌ Unknown command: ${commandName}`,
@@ -48,7 +60,7 @@ async function handleSlashCommand(interaction) {
     }
   } catch (error) {
     console.error(`Error handling command ${commandName}:`, error);
-    
+
     if (!interaction.replied && !interaction.deferred) {
       await interaction.reply({
         content: '❌ An error occurred while processing the command.',
@@ -210,6 +222,138 @@ async function handleMovieStats(interaction) {
   await stats.handleMovieStats(interaction);
 }
 
+async function handleMovieWatched(interaction) {
+  const { permissions } = require('../services');
+
+  // Check admin permissions
+  const hasPermission = await permissions.checkMovieAdminPermission(interaction);
+  if (!hasPermission) {
+    await interaction.reply({
+      content: '❌ You need admin permissions to mark movies as watched.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  const movieTitle = interaction.options.getString('title');
+
+  try {
+    // Find the movie by title
+    const movie = await database.findMovieByTitle(interaction.guild.id, movieTitle);
+
+    if (!movie) {
+      await interaction.reply({
+        content: `❌ Movie "${movieTitle}" not found in the queue.`,
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    // Mark as watched
+    await database.updateMovieStatus(movie.message_id, 'watched');
+
+    await interaction.reply({
+      content: `✅ **${movie.title}** has been marked as watched!`,
+      flags: MessageFlags.Ephemeral
+    });
+
+  } catch (error) {
+    console.error('Error marking movie as watched:', error);
+    await interaction.reply({
+      content: '❌ An error occurred while marking the movie as watched.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+async function handleMovieSkip(interaction) {
+  const { permissions } = require('../services');
+
+  // Check admin permissions
+  const hasPermission = await permissions.checkMovieAdminPermission(interaction);
+  if (!hasPermission) {
+    await interaction.reply({
+      content: '❌ You need admin permissions to skip movies.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  const movieTitle = interaction.options.getString('title');
+
+  try {
+    // Find the movie by title
+    const movie = await database.findMovieByTitle(interaction.guild.id, movieTitle);
+
+    if (!movie) {
+      await interaction.reply({
+        content: `❌ Movie "${movieTitle}" not found in the queue.`,
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    // Mark as skipped
+    await database.updateMovieStatus(movie.message_id, 'skipped');
+
+    await interaction.reply({
+      content: `⏭️ **${movie.title}** has been skipped.`,
+      flags: MessageFlags.Ephemeral
+    });
+
+  } catch (error) {
+    console.error('Error skipping movie:', error);
+    await interaction.reply({
+      content: '❌ An error occurred while skipping the movie.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+async function handleMoviePlan(interaction) {
+  const { permissions } = require('../services');
+
+  // Check admin permissions
+  const hasPermission = await permissions.checkMovieAdminPermission(interaction);
+  if (!hasPermission) {
+    await interaction.reply({
+      content: '❌ You need admin permissions to plan movies.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  const movieTitle = interaction.options.getString('title');
+
+  try {
+    // Find the movie by title
+    const movie = await database.findMovieByTitle(interaction.guild.id, movieTitle);
+
+    if (!movie) {
+      await interaction.reply({
+        content: `❌ Movie "${movieTitle}" not found in the queue.`,
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    // Mark as planned
+    await database.updateMovieStatus(movie.message_id, 'planned');
+
+    await interaction.reply({
+      content: `📌 **${movie.title}** has been planned for later. Use \`/movie-session\` to schedule it!`,
+      flags: MessageFlags.Ephemeral
+    });
+
+  } catch (error) {
+    console.error('Error planning movie:', error);
+    await interaction.reply({
+      content: '❌ An error occurred while planning the movie.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
 module.exports = {
   handleSlashCommand,
   handleMovieNight,
@@ -217,5 +361,8 @@ module.exports = {
   handleMovieHelp,
   handleMovieConfigure,
   handleMovieCleanup,
-  handleMovieStats
+  handleMovieStats,
+  handleMovieWatched,
+  handleMovieSkip,
+  handleMoviePlan
 };

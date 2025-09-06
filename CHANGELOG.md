@@ -2,6 +2,30 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.11.20] - 2025-09-06
+### Added
+- **Admin Slash Commands:** New admin-only commands for movie management
+  - `/movie-watched <title>` - Mark a movie as watched
+  - `/movie-skip <title>` - Skip a movie
+  - `/movie-plan <title>` - Plan a movie for later
+- **Permission Checks:** All admin commands require proper admin role permissions
+- **Autocomplete Support:** Movie title autocomplete for admin commands
+
+### Fixed
+- **Thread Cleanup Order:** Fixed orphaned thread cleanup to run before recreation
+- **Thread Recreation:** Recreated movie posts now properly get discussion threads
+- **Sync Process:** Improved sync order to prevent deletion of newly created threads
+
+### Enhanced
+- **Admin Workflow:** Clean slash command interface for movie status management
+- **Permission Security:** Admin commands properly validate user permissions
+- **User Experience:** Autocomplete makes it easy to select movies by title
+
+### Technical
+- **Command Registration:** Added new admin commands to command registration system
+- **Handler Integration:** Integrated admin commands with existing permission system
+- **Error Handling:** Comprehensive error handling for admin command operations
+
 ## [1.11.19] - 2025-09-06
 ### Fixed
 - **Movie Recreation Data:** Fixed field mapping to use correct database schema (where_to_watch, recommended_by)

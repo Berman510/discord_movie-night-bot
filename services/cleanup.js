@@ -201,7 +201,10 @@ async function handleCleanupSync(interaction, movieChannel) {
       }
     }
 
-    // Step 5: Sync Discord events with database
+    // Step 5: Clean up orphaned threads BEFORE recreation
+    const threadsCleanedCount = await cleanupOrphanedThreads(channel);
+
+    // Step 6: Sync Discord events with database
     let eventSyncResults = { syncedCount: 0, deletedCount: 0 };
     try {
       const discordEvents = require('./discord-events');
@@ -209,11 +212,6 @@ async function handleCleanupSync(interaction, movieChannel) {
     } catch (error) {
       console.warn('Error syncing Discord events:', error.message);
     }
-
-    // Step 6: Additional recreation check (handled in Step 4)
-
-    // Clean up orphaned threads
-    const threadsCleanedCount = await cleanupOrphanedThreads(channel);
 
     // Ensure quick action message at bottom
     await ensureQuickActionAtBottom(channel);

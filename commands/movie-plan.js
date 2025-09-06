@@ -1,0 +1,17 @@
+const { SlashCommandBuilder } = require('discord.js');
+
+module.exports = {
+  data: new SlashCommandBuilder()
+    .setName('movie-plan')
+    .setDescription('Plan a movie for later (Admin only)')
+    .addStringOption(option =>
+      option.setName('title')
+        .setDescription('The title of the movie to plan for later')
+        .setRequired(true)
+        .setAutocomplete(true)
+    ),
+  async execute(interaction) {
+    // This is handled in handlers/commands.js
+    throw new Error('This command should be handled by the command handler');
+  },
+};
