@@ -239,6 +239,17 @@ async function createMovieWithoutImdb(interaction, title, where) {
 
     console.log(`💾 Movie save result: ${movieId ? 'SUCCESS' : 'FAILED'} (ID: ${movieId})`);
     if (movieId) {
+      // Post to admin channel if configured
+      try {
+        const movie = await database.getMovieByMessageId(message.id);
+        if (movie) {
+          const adminMirror = require('../services/admin-mirror');
+          await adminMirror.postMovieToAdminChannel(interaction.client, interaction.guild.id, movie);
+        }
+      } catch (error) {
+        console.error('Error posting to admin channel:', error);
+      }
+
       // Post Quick Action at bottom of channel
       await cleanup.ensureQuickActionAtBottom(interaction.channel);
 

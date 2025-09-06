@@ -53,6 +53,12 @@ async function handleButton(interaction) {
       return;
     }
 
+    // Admin movie action buttons
+    if (customId.startsWith('admin_')) {
+      await handleAdminMovieButtons(interaction, customId);
+      return;
+    }
+
     // Duplicate movie confirmation
     if (ns === 'mn' && action === 'duplicate_confirm') {
       await handleDuplicateConfirm(interaction, msgId);
@@ -666,6 +672,17 @@ async function createMovieWithoutImdb(interaction, title, where) {
     });
 
     if (movieId) {
+      // Post to admin channel if configured
+      try {
+        const movie = await database.getMovieByMessageId(message.id);
+        if (movie) {
+          const adminMirror = require('../services/admin-mirror');
+          await adminMirror.postMovieToAdminChannel(interaction.client, interaction.guild.id, movie);
+        }
+      } catch (error) {
+        console.error('Error posting to admin channel:', error);
+      }
+
       await interaction.update({
         content: `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added to the queue for voting.`,
         embeds: [],
@@ -767,6 +784,17 @@ async function createMovieWithImdb(interaction, title, where, imdbData) {
         console.warn('Thread creation failed:', e?.message || e);
       }
 
+      // Post to admin channel if configured
+      try {
+        const movie = await database.getMovieByMessageId(message.id);
+        if (movie) {
+          const adminMirror = require('../services/admin-mirror');
+          await adminMirror.postMovieToAdminChannel(interaction.client, interaction.guild.id, movie);
+        }
+      } catch (error) {
+        console.error('Error posting to admin channel:', error);
+      }
+
       // Post Quick Action at bottom of channel
       await cleanup.ensureQuickActionAtBottom(interaction.channel);
 
@@ -822,6 +850,293 @@ async function handleSetupGuideButtons(interaction, customId) {
         content: '❌ Unknown setup guide action.',
         flags: MessageFlags.Ephemeral
       });
+  }
+}
+
+/**
+ * Handle admin movie action buttons
+ */
+async function handleAdminMovieButtons(interaction, customId) {
+  const { permissions } = require('../services');
+  const database = require('../database');
+  const adminMirror = require('../services/admin-mirror');
+
+  // Check admin permissions
+  const hasPermission = await permissions.checkMovieAdminPermission(interaction);
+  if (!hasPermission) {
+    await interaction.reply({
+      content: '❌ You need Administrator permissions or a configured admin role to use this action.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  const [action, movieId] = customId.split(':');
+  const guildId = interaction.guild.id;
+
+  try {
+    switch (action) {
+      case 'admin_schedule':
+        await handleScheduleMovie(interaction, guildId, movieId);
+        break;
+      case 'admin_ban':
+        await handleBanMovie(interaction, guildId, movieId);
+        break;
+      case 'admin_unban':
+        await handleUnbanMovie(interaction, guildId, movieId);
+        break;
+      case 'admin_watched':
+        await handleMarkWatched(interaction, guildId, movieId);
+        break;
+      case 'admin_skip':
+        await handleSkipMovie(interaction, guildId, movieId);
+        break;
+      default:
+        await interaction.reply({
+          content: '❌ Unknown admin action.',
+          flags: MessageFlags.Ephemeral
+        });
+    }
+  } catch (error) {
+    console.error('Error handling admin movie button:', error);
+    await interaction.reply({
+      content: '❌ An error occurred while processing the admin action.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+/**
+ * Handle scheduling a movie from admin panel
+ */
+async function handleScheduleMovie(interaction, guildId, movieId) {
+  const database = require('../database');
+  const sessions = require('../services/sessions');
+
+  try {
+    // Get movie details
+    const movie = await database.getMovieByMessageId(movieId);
+    if (!movie) {
+      await interaction.reply({
+        content: '❌ Movie not found.',
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    // Update movie status to scheduled
+    await database.updateMovieStatus(movieId, 'scheduled');
+
+    // Create a movie session
+    const sessionData = {
+      guildId: guildId,
+      movieTitle: movie.title,
+      scheduledBy: interaction.user.id,
+      movieMessageId: movieId
+    };
+
+    const sessionId = await sessions.createMovieSession(sessionData);
+
+    await interaction.reply({
+      content: `✅ **${movie.title}** has been scheduled! Session ID: ${sessionId}`,
+      flags: MessageFlags.Ephemeral
+    });
+
+    // Update the admin message
+    await updateAdminMessage(interaction, movie);
+
+  } catch (error) {
+    console.error('Error scheduling movie:', error);
+    await interaction.reply({
+      content: '❌ Failed to schedule movie.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+/**
+ * Handle banning a movie from admin panel
+ */
+async function handleBanMovie(interaction, guildId, movieId) {
+  const database = require('../database');
+
+  try {
+    // Get movie details
+    const movie = await database.getMovieByMessageId(movieId);
+    if (!movie) {
+      await interaction.reply({
+        content: '❌ Movie not found.',
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    // Ban the movie
+    const success = await database.banMovie(guildId, movie.title);
+    if (success) {
+      await interaction.reply({
+        content: `🚫 **${movie.title}** has been banned and cannot be recommended again.`,
+        flags: MessageFlags.Ephemeral
+      });
+
+      // Update the admin message
+      movie.is_banned = true;
+      movie.status = 'banned';
+      await updateAdminMessage(interaction, movie);
+    } else {
+      await interaction.reply({
+        content: '❌ Failed to ban movie.',
+        flags: MessageFlags.Ephemeral
+      });
+    }
+
+  } catch (error) {
+    console.error('Error banning movie:', error);
+    await interaction.reply({
+      content: '❌ Failed to ban movie.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+/**
+ * Handle unbanning a movie from admin panel
+ */
+async function handleUnbanMovie(interaction, guildId, movieId) {
+  const database = require('../database');
+
+  try {
+    // Get movie details
+    const movie = await database.getMovieByMessageId(movieId);
+    if (!movie) {
+      await interaction.reply({
+        content: '❌ Movie not found.',
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    // Unban the movie
+    const success = await database.unbanMovie(guildId, movie.title);
+    if (success) {
+      await interaction.reply({
+        content: `✅ **${movie.title}** has been unbanned and can be recommended again.`,
+        flags: MessageFlags.Ephemeral
+      });
+
+      // Update the admin message
+      movie.is_banned = false;
+      movie.status = 'pending';
+      await updateAdminMessage(interaction, movie);
+    } else {
+      await interaction.reply({
+        content: '❌ Failed to unban movie.',
+        flags: MessageFlags.Ephemeral
+      });
+    }
+
+  } catch (error) {
+    console.error('Error unbanning movie:', error);
+    await interaction.reply({
+      content: '❌ Failed to unban movie.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+/**
+ * Handle marking a movie as watched from admin panel
+ */
+async function handleMarkWatched(interaction, guildId, movieId) {
+  const database = require('../database');
+
+  try {
+    // Update movie status to watched
+    const success = await database.updateMovieStatus(movieId, 'watched');
+    if (success) {
+      const movie = await database.getMovieByMessageId(movieId);
+      await interaction.reply({
+        content: `✅ **${movie.title}** has been marked as watched!`,
+        flags: MessageFlags.Ephemeral
+      });
+
+      // Update the admin message
+      movie.status = 'watched';
+      await updateAdminMessage(interaction, movie);
+    } else {
+      await interaction.reply({
+        content: '❌ Failed to mark movie as watched.',
+        flags: MessageFlags.Ephemeral
+      });
+    }
+
+  } catch (error) {
+    console.error('Error marking movie as watched:', error);
+    await interaction.reply({
+      content: '❌ Failed to mark movie as watched.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+/**
+ * Handle skipping a movie from admin panel
+ */
+async function handleSkipMovie(interaction, guildId, movieId) {
+  const database = require('../database');
+
+  try {
+    // Update movie status to skipped
+    const success = await database.updateMovieStatus(movieId, 'skipped');
+    if (success) {
+      const movie = await database.getMovieByMessageId(movieId);
+      await interaction.reply({
+        content: `⏭️ **${movie.title}** has been skipped.`,
+        flags: MessageFlags.Ephemeral
+      });
+
+      // Update the admin message
+      movie.status = 'skipped';
+      await updateAdminMessage(interaction, movie);
+    } else {
+      await interaction.reply({
+        content: '❌ Failed to skip movie.',
+        flags: MessageFlags.Ephemeral
+      });
+    }
+
+  } catch (error) {
+    console.error('Error skipping movie:', error);
+    await interaction.reply({
+      content: '❌ Failed to skip movie.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+/**
+ * Update the admin message with new movie status
+ */
+async function updateAdminMessage(interaction, movie) {
+  try {
+    const adminMirror = require('../services/admin-mirror');
+    const database = require('../database');
+
+    // Get updated vote counts
+    const voteCounts = await database.getVoteCounts(movie.message_id);
+
+    // Create updated embed and buttons
+    const embed = adminMirror.createAdminMovieEmbed(movie, voteCounts);
+    const components = adminMirror.createAdminActionButtons(movie.message_id, movie.status, movie.is_banned);
+
+    // Update the message
+    await interaction.message.edit({
+      embeds: [embed],
+      components: components
+    });
+
+  } catch (error) {
+    console.error('Error updating admin message:', error);
   }
 }
 
