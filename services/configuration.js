@@ -1,6 +1,14 @@
 /**
  * Configuration Service Module
  * Handles server configuration and settings management
+ *
+ * TODO: Session Viewing Channel Configuration
+ * - Add configuration for session viewing channel (voice/text channel where movie nights happen)
+ * - Add database field for session_viewing_channel_id in guild_config table
+ * - Add configuration command: /movie-configure action:set-viewing-channel
+ * - This channel would be monitored during scheduled session times for automatic participant tracking
+ * - Could support both voice channels (for watch parties) and text channels (for chat-based viewing)
+ * - Add validation to ensure configured channel exists and bot has proper permissions
  */
 
 const { MessageFlags, EmbedBuilder } = require('discord.js');

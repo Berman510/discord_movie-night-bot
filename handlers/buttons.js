@@ -1,6 +1,17 @@
 /**
  * Button Interaction Handlers
  * Handles all button click interactions
+ *
+ * TODO: Enhanced Voting Analytics
+ * - We already track all voting button clicks in the votes table (user_id, message_id, vote_type, created_at)
+ * - Could implement voting analytics features:
+ *   - User voting patterns and preferences
+ *   - Most active voters per guild
+ *   - Voting trends over time
+ *   - Movie recommendation success rates (votes received)
+ *   - User taste similarity analysis
+ *   - Voting history for individual users
+ * - Add commands like /movie-stats voting-patterns or /movie-stats user-votes
  */
 
 const { MessageFlags } = require('discord.js');

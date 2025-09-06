@@ -1,6 +1,23 @@
 /**
  * Session Management Service
  * Handles movie session creation, management, and interactions
+ *
+ * TODO: Enhanced Session Participant Tracking
+ * - Add guild configuration for session viewing channel (where movie nights happen)
+ * - Implement automatic participant tracking during session times:
+ *   - Bot monitors configured viewing channel during scheduled session times
+ *   - Tracks users who join/leave voice channel during session duration
+ *   - Records actual attendance vs. registered participants
+ * - Add session start/end time tracking based on session creation data
+ * - Implement real-time session monitoring:
+ *   - Bot knows current time and compares to scheduled session times
+ *   - Automatically starts tracking when session begins
+ *   - Stops tracking when session ends (configurable duration, e.g., 3 hours)
+ * - Enhanced participant management:
+ *   - Show registered vs. actual attendees
+ *   - Track session duration per user
+ *   - Generate attendance reports for completed sessions
+ * - Add configuration commands for session viewing channel setup
  */
 
 const { 
