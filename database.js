@@ -1732,39 +1732,74 @@ class Database {
     }
   }
 
-  // Database cleanup and maintenance functions
-  async cleanupOrphanedData() {
+  // Database cleanup and maintenance functions - GUILD-SCOPED for security
+  async cleanupOrphanedData(guildId = null) {
     if (!this.isConnected) return { cleaned: 0, errors: [] };
 
     const results = { cleaned: 0, errors: [] };
 
     try {
-      // Clean up votes for non-existent movies
-      const [orphanedVotes] = await this.pool.execute(`
-        DELETE v FROM votes v
-        LEFT JOIN movies m ON v.message_id = m.message_id
-        WHERE m.message_id IS NULL
-      `);
-      results.cleaned += orphanedVotes.affectedRows;
-      console.log(`🧹 Cleaned up ${orphanedVotes.affectedRows} orphaned votes`);
+      if (guildId) {
+        // Guild-specific cleanup (SECURE)
 
-      // Clean up session participants for non-existent sessions
-      const [orphanedParticipants] = await this.pool.execute(`
-        DELETE sp FROM session_participants sp
-        LEFT JOIN movie_sessions ms ON sp.session_id = ms.id
-        WHERE ms.id IS NULL
-      `);
-      results.cleaned += orphanedParticipants.affectedRows;
-      console.log(`🧹 Cleaned up ${orphanedParticipants.affectedRows} orphaned session participants`);
+        // Clean up votes for non-existent movies in this guild
+        const [orphanedVotes] = await this.pool.execute(`
+          DELETE v FROM votes v
+          LEFT JOIN movies m ON v.message_id = m.message_id AND m.guild_id = ?
+          WHERE v.guild_id = ? AND m.message_id IS NULL
+        `, [guildId, guildId]);
+        results.cleaned += orphanedVotes.affectedRows;
+        console.log(`🧹 Guild ${guildId}: Cleaned up ${orphanedVotes.affectedRows} orphaned votes`);
 
-      // Clean up session attendees for non-existent sessions
-      const [orphanedAttendees] = await this.pool.execute(`
-        DELETE sa FROM session_attendees sa
-        LEFT JOIN movie_sessions ms ON sa.session_id = ms.id
-        WHERE ms.id IS NULL
-      `);
-      results.cleaned += orphanedAttendees.affectedRows;
-      console.log(`🧹 Cleaned up ${orphanedAttendees.affectedRows} orphaned session attendees`);
+        // Clean up session participants for non-existent sessions in this guild
+        const [orphanedParticipants] = await this.pool.execute(`
+          DELETE sp FROM session_participants sp
+          LEFT JOIN movie_sessions ms ON sp.session_id = ms.id AND ms.guild_id = ?
+          WHERE sp.guild_id = ? AND ms.id IS NULL
+        `, [guildId, guildId]);
+        results.cleaned += orphanedParticipants.affectedRows;
+        console.log(`🧹 Guild ${guildId}: Cleaned up ${orphanedParticipants.affectedRows} orphaned session participants`);
+
+        // Clean up session attendees for non-existent sessions in this guild
+        const [orphanedAttendees] = await this.pool.execute(`
+          DELETE sa FROM session_attendees sa
+          LEFT JOIN movie_sessions ms ON sa.session_id = ms.id AND ms.guild_id = ?
+          WHERE sa.guild_id = ? AND ms.id IS NULL
+        `, [guildId, guildId]);
+        results.cleaned += orphanedAttendees.affectedRows;
+        console.log(`🧹 Guild ${guildId}: Cleaned up ${orphanedAttendees.affectedRows} orphaned session attendees`);
+
+      } else {
+        // Global cleanup (ADMIN ONLY - should rarely be used)
+        console.warn('⚠️ PERFORMING GLOBAL DATABASE CLEANUP - This affects ALL guilds!');
+
+        // Clean up votes for non-existent movies (global)
+        const [orphanedVotes] = await this.pool.execute(`
+          DELETE v FROM votes v
+          LEFT JOIN movies m ON v.message_id = m.message_id
+          WHERE m.message_id IS NULL
+        `);
+        results.cleaned += orphanedVotes.affectedRows;
+        console.log(`🧹 Global: Cleaned up ${orphanedVotes.affectedRows} orphaned votes`);
+
+        // Clean up session participants for non-existent sessions (global)
+        const [orphanedParticipants] = await this.pool.execute(`
+          DELETE sp FROM session_participants sp
+          LEFT JOIN movie_sessions ms ON sp.session_id = ms.id
+          WHERE ms.id IS NULL
+        `);
+        results.cleaned += orphanedParticipants.affectedRows;
+        console.log(`🧹 Global: Cleaned up ${orphanedParticipants.affectedRows} orphaned session participants`);
+
+        // Clean up session attendees for non-existent sessions (global)
+        const [orphanedAttendees] = await this.pool.execute(`
+          DELETE sa FROM session_attendees sa
+          LEFT JOIN movie_sessions ms ON sa.session_id = ms.id
+          WHERE ms.id IS NULL
+        `);
+        results.cleaned += orphanedAttendees.affectedRows;
+        console.log(`🧹 Global: Cleaned up ${orphanedAttendees.affectedRows} orphaned session attendees`);
+      }
 
     } catch (error) {
       console.error('Error during database cleanup:', error.message);
