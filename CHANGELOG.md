@@ -2,6 +2,30 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.11.28] - 2025-09-06
+### Fixed
+- **CRITICAL:** Fixed purge operation incorrectly deleting session data and attendance records
+- **Session Preservation:** Purge now properly preserves all session data for analytics as intended
+- **Data Integrity:** Fixed unintended deletion of session_attendees, session_participants, and user_stats
+- **Analytics Protection:** Session data now preserved even when associated movies are purged
+
+### Added
+- **updateSessionMovieAssociation:** New database function to update session-movie associations
+- **Session Data Protection:** Enhanced purge logic to preserve session analytics while removing movie associations
+- **Better Logging:** Added logging for session preservation during purge operations
+
+### Enhanced
+- **Purge Behavior:** Purge now matches its description - preserves session data for analytics
+- **Data Separation:** Better separation between movie data and session analytics data
+- **Historical Preservation:** Session attendance and participation data preserved for long-term analytics
+- **User Experience:** Purge summary now correctly shows session data preservation
+
+### Technical
+- **Database Operations:** Enhanced session management with movie association updates
+- **Cascade Prevention:** Prevents unintended cascade deletion of session data during purge
+- **Analytics Integrity:** Maintains session analytics data integrity during cleanup operations
+- **Data Relationships:** Better handling of movie-session relationships during purge
+
 ## [1.11.27] - 2025-09-06
 ### Fixed
 - **Database Schema:** Added 'active' status to movie_sessions ENUM to fix status update errors

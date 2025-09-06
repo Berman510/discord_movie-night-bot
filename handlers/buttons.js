@@ -496,10 +496,12 @@ async function handlePurgeConfirmation(interaction) {
 
       for (const movie of moviesToDelete) {
         try {
-          // Delete associated session if exists
+          // Preserve session data but update associated_movie_id to null
           const session = await database.getSessionByMovieId(movie.message_id);
           if (session) {
-            await database.deleteMovieSession(session.id);
+            // Preserve session for analytics but remove movie association
+            await database.updateSessionMovieAssociation(session.id, null);
+            console.log(`📊 Preserved session ${session.id} for analytics (removed movie association)`);
           }
 
           // Delete votes
@@ -524,6 +526,7 @@ async function handlePurgeConfirmation(interaction) {
         `🎬 Deleted ${deletedMovies} current movie recommendations`,
         `🧵 Deleted ${deletedThreads} discussion threads`,
         `📚 Preserved ${preservedWatched} watched movies in database (viewing history)`,
+        `📊 Preserved all session data and attendance records for analytics`,
         `🍿 Clean channel ready for new recommendations`
       ];
 

@@ -1315,6 +1315,22 @@ class Database {
     }
   }
 
+  async updateSessionMovieAssociation(sessionId, movieMessageId) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `UPDATE movie_sessions SET associated_movie_id = ? WHERE id = ?`,
+        [movieMessageId, sessionId]
+      );
+      console.log(`📊 Database: Updated session ${sessionId} movie association to ${movieMessageId || 'null'}`);
+      return true;
+    } catch (error) {
+      console.error('Error updating session movie association:', error.message);
+      return false;
+    }
+  }
+
   async deleteVotesByMessageId(messageId) {
     if (!this.isConnected) return false;
 
