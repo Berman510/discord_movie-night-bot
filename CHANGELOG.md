@@ -2,6 +2,25 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.11.26] - 2025-09-06
+### Fixed
+- **CRITICAL BUG:** Fixed variable name conflict causing session monitoring to never start
+- **Session Status Updates:** Fixed sessions remaining in "planning" status instead of becoming "active"
+- **Automatic Status Change:** Sessions now automatically change from "planning" to "active" when events start
+- **Monitoring Initialization:** Fixed periodic check function that was preventing session monitoring
+
+### Enhanced
+- **Variable Naming:** Fixed activeSessions array vs Map confusion in periodic checks
+- **Status Management:** Automatic session status updates when Discord events become active
+- **Logging:** Added comprehensive logging for session monitoring and status changes
+- **Error Prevention:** Better variable naming to prevent type confusion
+
+### Technical
+- **Array vs Map Fix:** Fixed .has() method being called on array instead of Map
+- **Session Lifecycle:** Proper session status progression from planning → active → completed
+- **Monitoring Logic:** Enhanced session monitoring startup and management
+- **Database Updates:** Automatic session status updates during periodic checks
+
 ## [1.11.25] - 2025-09-06
 ### Fixed
 - **Session Tracking:** Fixed session attendance tracking not starting automatically when events become active

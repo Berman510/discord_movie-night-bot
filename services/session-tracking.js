@@ -42,9 +42,9 @@ async function handleVoiceStateChange(oldState, newState) {
  */
 async function handleUserJoinedViewingChannel(guildId, userId, channelId) {
   // Find active sessions for this guild
-  const activeSessions = await getActiveSessionsForGuild(guildId);
+  const activeSessionsList = await getActiveSessionsForGuild(guildId);
 
-  for (const session of activeSessions) {
+  for (const session of activeSessionsList) {
     if (isSessionActive(session)) {
       // Ensure session monitoring is started
       if (!activeSessions.has(session.id)) {
@@ -63,9 +63,9 @@ async function handleUserJoinedViewingChannel(guildId, userId, channelId) {
  */
 async function handleUserLeftViewingChannel(guildId, userId, channelId) {
   // Find active sessions for this guild
-  const activeSessions = await getActiveSessionsForGuild(guildId);
-  
-  for (const session of activeSessions) {
+  const activeSessionsList = await getActiveSessionsForGuild(guildId);
+
+  for (const session of activeSessionsList) {
     if (isSessionActive(session)) {
       // Record user leaving (but don't remove from participants - they still attended)
       await recordSessionLeave(session.id, userId);
@@ -233,12 +233,27 @@ async function checkForActiveSessionsToMonitor() {
       const config = await database.getGuildConfig(guildId);
       if (!config || !config.session_viewing_channel_id) continue;
 
-      const activeSessions = await getActiveSessionsForGuild(guildId);
+      const activeSessionsList = await getActiveSessionsForGuild(guildId);
 
-      for (const session of activeSessions) {
+      if (activeSessionsList.length > 0) {
+        console.log(`🔍 Found ${activeSessionsList.length} active sessions for guild ${guildId}`);
+      }
+
+      for (const session of activeSessionsList) {
+        console.log(`🎬 Processing session ${session.id} (status: ${session.status})`);
+
+        // Update session status to 'active' if it's still 'planning'
+        if (session.status === 'planning') {
+          await database.updateSessionStatus(session.id, 'active');
+          console.log(`🎬 Updated session ${session.id} status from 'planning' to 'active'`);
+        }
+
         // Start monitoring if not already monitoring
         if (!activeSessions.has(session.id)) {
+          console.log(`🎬 Starting monitoring for session ${session.id}`);
           await startSessionMonitoring(session.id, guildId, config.session_viewing_channel_id);
+        } else {
+          console.log(`🎬 Session ${session.id} already being monitored`);
         }
       }
     }
