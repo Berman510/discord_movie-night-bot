@@ -1115,6 +1115,21 @@ class Database {
     }
   }
 
+  async getSessionById(sessionId) {
+    if (!this.isConnected) return null;
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT * FROM movie_sessions WHERE id = ?`,
+        [sessionId]
+      );
+      return rows.length > 0 ? rows[0] : null;
+    } catch (error) {
+      console.error('Error getting session by ID:', error.message);
+      return null;
+    }
+  }
+
   async transferVotes(oldMessageId, newMessageId) {
     if (!this.isConnected) return false;
 
