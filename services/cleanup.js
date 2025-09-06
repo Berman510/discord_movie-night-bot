@@ -181,6 +181,15 @@ async function handleCleanupSync(interaction, movieChannel) {
             continue;
           }
 
+          // Debug: Log movie data before recreation
+          console.log(`🔍 Movie data for ${movie.title}:`, {
+            where_to_watch: movie.where_to_watch,
+            recommended_by: movie.recommended_by,
+            description: movie.description,
+            imdb_id: movie.imdb_id,
+            imdb_data: movie.imdb_data
+          });
+
           // Recreate the movie post
           await recreateMoviePost(channel, movie);
           cleanedDbCount++;
@@ -533,25 +542,14 @@ async function recreateMoviePost(channel, movie) {
     const movieEmbed = embeds.createMovieEmbed({
       title: movie.title || 'Unknown Movie',
       description: movie.description || '',
-      where_to_watch: movie.platform || 'Unknown Platform',
-      recommended_by: movie.added_by || 'Unknown User',
+      where_to_watch: movie.where_to_watch || 'Unknown Platform',
+      recommended_by: movie.recommended_by || 'Unknown User',
       status: movie.status || 'pending',
       created_at: movie.created_at
-    });
+    }, movie.imdb_data ? JSON.parse(movie.imdb_data) : null);
 
-    // Create appropriate buttons based on status
-    let movieComponents;
-    if (movie.status === 'scheduled') {
-      // Check if there's an active session
-      const session = await database.getSessionByMovieId(movie.message_id);
-      if (session) {
-        movieComponents = components.createSessionManagementButtons(movie.message_id, session.id);
-      } else {
-        movieComponents = components.createStatusButtons(movie.message_id, movie.status, voteCounts.up, voteCounts.down);
-      }
-    } else {
-      movieComponents = components.createStatusButtons(movie.message_id, movie.status, voteCounts.up, voteCounts.down);
-    }
+    // Create voting buttons only (admin buttons require permission checks)
+    const movieComponents = components.createVotingButtons(movie.message_id, voteCounts.up, voteCounts.down);
 
     // Post the recreated message
     const newMessage = await channel.send({
@@ -562,14 +560,17 @@ async function recreateMoviePost(channel, movie) {
     // Update the message ID in database
     await database.updateMovieMessageId(channel.guild.id, movie.title, newMessage.id);
 
-    // Create thread if the movie had one
-    if (movie.description && movie.description.includes('Discussion')) {
+    // Create discussion thread for the movie
+    try {
       const thread = await newMessage.startThread({
-        name: `${movie.title} Discussion`,
+        name: `${movie.title} — Discussion`,
         autoArchiveDuration: 1440 // 24 hours
       });
 
       await thread.send(`💬 **Discussion thread for ${movie.title}**\n\nShare your thoughts, reviews, or questions about this movie!`);
+      console.log(`🧵 Created discussion thread for recreated post: ${movie.title}`);
+    } catch (threadError) {
+      console.warn(`Failed to create thread for ${movie.title}:`, threadError.message);
     }
 
   } catch (error) {

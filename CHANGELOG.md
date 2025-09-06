@@ -2,6 +2,25 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.11.19] - 2025-09-06
+### Fixed
+- **Movie Recreation Data:** Fixed field mapping to use correct database schema (where_to_watch, recommended_by)
+- **Thread Recreation:** Fixed thread creation for recreated movie posts - now always creates discussion threads
+- **IMDb Data Restoration:** Added IMDb data parsing for recreated posts to restore full movie information
+- **Debug Logging:** Enhanced logging to track movie data during recreation process
+
+### Enhanced
+- **Thread Creation:** Recreated movie posts now automatically get discussion threads
+- **Data Integrity:** Better handling of database field mapping during post recreation
+- **Error Handling:** Improved error handling for thread creation during recreation
+- **Button Simplification:** Recreated posts use voting buttons only (admin buttons require permission checks)
+
+### Technical
+- **Field Mapping:** Corrected platform→where_to_watch and addedBy→recommended_by mapping
+- **IMDb Integration:** Added JSON parsing for stored IMDb data during recreation
+- **Thread Logic:** Fixed thread creation logic to always create threads for movie posts
+- **Debug Enhancement:** Added detailed logging for troubleshooting recreation issues
+
 ## [1.11.18] - 2025-09-06
 ### Fixed
 - **Movie Recreation Error:** Fixed CombinedPropertyError when recreating movie posts during sync
