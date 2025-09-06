@@ -79,15 +79,13 @@ function createAdminActionButtons(movieId, status, isBanned = false) {
     );
   }
 
-  // Skip button (for pending/planned/scheduled movies)
-  if (['pending', 'planned', 'scheduled'].includes(status) && !isBanned) {
-    row.addComponents(
-      new ButtonBuilder()
-        .setCustomId(`admin_skip:${movieId}`)
-        .setLabel('⏭️ Skip')
-        .setStyle(ButtonStyle.Secondary)
-    );
-  }
+  // View Details button (for all movies)
+  row.addComponents(
+    new ButtonBuilder()
+      .setCustomId(`admin_details:${movieId}`)
+      .setLabel('📋 Details')
+      .setStyle(ButtonStyle.Secondary)
+  );
 
   return row.components.length > 0 ? [row] : [];
 }

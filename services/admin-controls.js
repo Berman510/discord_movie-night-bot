@@ -134,28 +134,87 @@ async function ensureAdminControlPanel(client, guildId) {
 }
 
 /**
- * Handle sync channel action
+ * Handle sync channel action - syncs both admin and voting channels
  */
 async function handleSyncChannel(interaction) {
   await interaction.deferReply({ ephemeral: true });
 
   try {
-    const adminMirror = require('./admin-mirror');
-    const result = await adminMirror.syncAdminChannel(interaction.client, interaction.guild.id);
+    const database = require('../database');
+    const config = await database.getGuildConfig(interaction.guild.id);
 
-    if (result.error) {
+    if (!config) {
       await interaction.editReply({
-        content: `❌ Sync failed: ${result.error}`
+        content: '❌ No guild configuration found. Please run `/movie-configure` first.'
+      });
+      return;
+    }
+
+    let adminSynced = 0;
+    let votingSynced = 0;
+    const errors = [];
+
+    // Sync admin channel if configured
+    if (config.admin_channel_id) {
+      try {
+        const adminMirror = require('./admin-mirror');
+        const adminResult = await adminMirror.syncAdminChannel(interaction.client, interaction.guild.id);
+
+        if (adminResult.error) {
+          errors.push(`Admin channel: ${adminResult.error}`);
+        } else {
+          adminSynced = adminResult.synced;
+        }
+      } catch (error) {
+        errors.push(`Admin channel: ${error.message}`);
+      }
+    }
+
+    // Sync voting channel if configured
+    if (config.movie_channel_id) {
+      try {
+        const votingChannel = await interaction.client.channels.fetch(config.movie_channel_id);
+        if (votingChannel) {
+          const cleanup = require('./cleanup');
+          votingSynced = await cleanup.recreateMissingMoviePosts(votingChannel, interaction.guild.id);
+
+          // Also ensure quick action message at bottom
+          await cleanup.ensureQuickActionAtBottom(votingChannel);
+        } else {
+          errors.push('Voting channel not found');
+        }
+      } catch (error) {
+        errors.push(`Voting channel: ${error.message}`);
+      }
+    }
+
+    // Prepare response
+    const successParts = [];
+    if (adminSynced > 0) {
+      successParts.push(`${adminSynced} movies to admin channel`);
+    }
+    if (votingSynced > 0) {
+      successParts.push(`${votingSynced} movies to voting channel`);
+    }
+
+    if (errors.length > 0) {
+      await interaction.editReply({
+        content: `⚠️ Sync completed with errors:\n${errors.join('\n')}\n\nSynced: ${successParts.join(', ')}`
+      });
+    } else if (successParts.length > 0) {
+      await interaction.editReply({
+        content: `✅ Successfully synced ${successParts.join(' and ')}.`
       });
     } else {
       await interaction.editReply({
-        content: `✅ Successfully synced ${result.synced} movies to admin channel.`
+        content: '✅ Sync completed. No movies found to sync.'
       });
     }
+
   } catch (error) {
-    console.error('Error syncing admin channel:', error);
+    console.error('Error syncing channels:', error);
     await interaction.editReply({
-      content: '❌ An error occurred while syncing the admin channel.'
+      content: '❌ An error occurred while syncing the channels.'
     });
   }
 }

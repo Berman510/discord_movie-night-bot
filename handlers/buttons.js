@@ -894,8 +894,8 @@ async function handleAdminMovieButtons(interaction, customId) {
       case 'admin_watched':
         await handleMarkWatched(interaction, guildId, movieId);
         break;
-      case 'admin_skip':
-        await handleSkipMovie(interaction, guildId, movieId);
+      case 'admin_details':
+        await handleMovieDetails(interaction, guildId, movieId);
         break;
       default:
         await interaction.reply({
@@ -1086,35 +1086,72 @@ async function handleMarkWatched(interaction, guildId, movieId) {
 }
 
 /**
- * Handle skipping a movie from admin panel
+ * Handle showing movie details from admin panel
  */
-async function handleSkipMovie(interaction, guildId, movieId) {
+async function handleMovieDetails(interaction, guildId, movieId) {
   const database = require('../database');
 
   try {
-    // Update movie status to skipped
-    const success = await database.updateMovieStatus(movieId, 'skipped');
-    if (success) {
-      const movie = await database.getMovieByMessageId(movieId);
+    const movie = await database.getMovieByMessageId(movieId);
+    if (!movie) {
       await interaction.reply({
-        content: `⏭️ **${movie.title}** has been skipped.`,
+        content: '❌ Movie not found.',
         flags: MessageFlags.Ephemeral
       });
-
-      // Update the admin message
-      movie.status = 'skipped';
-      await updateAdminMessage(interaction, movie);
-    } else {
-      await interaction.reply({
-        content: '❌ Failed to skip movie.',
-        flags: MessageFlags.Ephemeral
-      });
+      return;
     }
 
-  } catch (error) {
-    console.error('Error skipping movie:', error);
+    // Get vote counts
+    const voteCounts = await database.getVoteCounts(movieId);
+
+    // Parse IMDb data if available
+    let imdbData = null;
+    if (movie.imdb_data) {
+      try {
+        imdbData = typeof movie.imdb_data === 'string' ? JSON.parse(movie.imdb_data) : movie.imdb_data;
+      } catch (error) {
+        console.warn('Error parsing IMDb data:', error);
+      }
+    }
+
+    // Create detailed embed
+    const { EmbedBuilder } = require('discord.js');
+    const embed = new EmbedBuilder()
+      .setTitle(`📋 ${movie.title}`)
+      .setColor(0x5865f2)
+      .addFields(
+        { name: '🎭 Status', value: movie.status || 'pending', inline: true },
+        { name: '📺 Platform', value: movie.where_to_watch || 'Unknown', inline: true },
+        { name: '👤 Recommended by', value: `<@${movie.recommended_by}>`, inline: true },
+        { name: '🗳️ Votes', value: `👍 ${voteCounts.up} | 👎 ${voteCounts.down}`, inline: true },
+        { name: '📅 Added', value: movie.created_at ? new Date(movie.created_at).toLocaleDateString() : 'Unknown', inline: true }
+      );
+
+    if (movie.description) {
+      embed.addFields({ name: '📝 Description', value: movie.description.substring(0, 1024), inline: false });
+    }
+
+    if (imdbData) {
+      if (imdbData.Year) embed.addFields({ name: '📅 Year', value: imdbData.Year, inline: true });
+      if (imdbData.Runtime) embed.addFields({ name: '⏱️ Runtime', value: imdbData.Runtime, inline: true });
+      if (imdbData.Genre) embed.addFields({ name: '🎬 Genre', value: imdbData.Genre, inline: true });
+      if (imdbData.Director) embed.addFields({ name: '🎬 Director', value: imdbData.Director, inline: false });
+      if (imdbData.imdbRating) embed.addFields({ name: '⭐ IMDb Rating', value: `${imdbData.imdbRating}/10`, inline: true });
+    }
+
+    if (movie.is_banned) {
+      embed.addFields({ name: '🚫 Status', value: 'This movie is banned', inline: false });
+    }
+
     await interaction.reply({
-      content: '❌ Failed to skip movie.',
+      embeds: [embed],
+      flags: MessageFlags.Ephemeral
+    });
+
+  } catch (error) {
+    console.error('Error showing movie details:', error);
+    await interaction.reply({
+      content: '❌ Failed to load movie details.',
       flags: MessageFlags.Ephemeral
     });
   }
