@@ -173,7 +173,7 @@ async function handleVoting(interaction, action, msgId, votes) {
       const { components, embeds } = require('../utils');
       const imdbData = movie && movie.imdb_data ? JSON.parse(movie.imdb_data) : null;
       const updatedEmbed = movie ? embeds.createMovieEmbed(movie, imdbData) : null;
-      const updatedComponents = components.createStatusButtons(msgId, movie?.status || 'pending', voteCounts.up, voteCounts.down);
+      const updatedComponents = components.createVotingButtons(msgId, voteCounts.up, voteCounts.down);
 
       const updateData = { components: updatedComponents };
       if (updatedEmbed) {
@@ -265,7 +265,8 @@ async function handleStatusChange(interaction, action, msgId) {
     const { embeds, components } = require('../utils');
     const imdbData = movie.imdb_data ? JSON.parse(movie.imdb_data) : null;
     const updatedEmbed = embeds.createMovieEmbed(movie, imdbData);
-    const updatedComponents = components.createStatusButtons(msgId, action, voteCounts.up, voteCounts.down);
+    // Remove buttons for non-pending movies (status changed via admin buttons - transitioning to slash commands)
+    const updatedComponents = action === 'pending' ? components.createVotingButtons(msgId, voteCounts.up, voteCounts.down) : [];
 
     // Update the message
     await interaction.editReply({
@@ -634,8 +635,8 @@ async function createMovieWithoutImdb(interaction, title, where) {
       embeds: [movieEmbed]
     });
 
-    // Now create buttons with the actual message ID
-    const movieComponents = components.createStatusButtons(message.id, 'pending');
+    // Now create buttons with the actual message ID (voting only - admin uses slash commands)
+    const movieComponents = components.createVotingButtons(message.id);
 
     // Update the message with the correct buttons
     await message.edit({
@@ -707,8 +708,8 @@ async function createMovieWithImdb(interaction, title, where, imdbData) {
       embeds: [movieEmbed]
     });
 
-    // Now create buttons with the actual message ID
-    const movieComponents = components.createStatusButtons(message.id, 'pending');
+    // Now create buttons with the actual message ID (voting only - admin uses slash commands)
+    const movieComponents = components.createVotingButtons(message.id);
 
     // Update the message with the correct buttons
     await message.edit({

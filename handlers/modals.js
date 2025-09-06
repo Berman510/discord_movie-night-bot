@@ -215,8 +215,8 @@ async function createMovieWithoutImdb(interaction, title, where) {
       embeds: [movieEmbed]
     });
 
-    // Now create buttons with the actual message ID
-    const movieComponents = components.createStatusButtons(message.id, 'pending');
+    // Now create buttons with the actual message ID (voting only - admin uses slash commands)
+    const movieComponents = components.createVotingButtons(message.id);
 
     // Update the message with the correct buttons
     await message.edit({

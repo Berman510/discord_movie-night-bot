@@ -2,6 +2,24 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.11.23] - 2025-09-06
+### Changed
+- **Removed Admin Buttons:** Eliminated Watched/Plan Later/Skip buttons from all movie posts
+- **Voting Only Interface:** Movie posts now only show Vote Up and Vote Down buttons
+- **Slash Command Transition:** Admin functions moved to dedicated slash commands (/movie-watched, /movie-skip, /movie-plan)
+- **Cleaner UI:** Simplified movie post interface focuses on community voting
+
+### Enhanced
+- **Consistent Button Interface:** All movie posts (new and recreated) have same button layout
+- **Admin Workflow:** Clean separation between voting (buttons) and admin actions (slash commands)
+- **Status Updates:** Movies with changed status (watched/skipped/planned) have no buttons
+- **User Experience:** Simplified interface reduces button clutter on movie posts
+
+### Technical
+- **Button Creation:** Updated all movie post creation to use createVotingButtons instead of createStatusButtons
+- **Status Handling:** Status changes remove buttons entirely for completed movies
+- **Interface Consistency:** Unified button interface across all movie post creation paths
+
 ## [1.11.22] - 2025-09-06
 ### Fixed
 - **Database Save Error:** Fixed "Bind parameters must not contain undefined" error during movie recreation
