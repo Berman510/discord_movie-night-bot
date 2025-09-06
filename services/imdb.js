@@ -12,21 +12,13 @@ async function searchMovie(title) {
   }
 
   try {
-    const url = `http://www.omdbapi.com/?apikey=${OMDB_API_KEY}&s=${encodeURIComponent(title)}&type=movie`;
-    console.log(`🌐 Making OMDb API request: ${url.replace(OMDB_API_KEY, '[API_KEY]')}`);
-
-    const response = await fetch(url);
+    const response = await fetch(`http://www.omdbapi.com/?apikey=${OMDB_API_KEY}&s=${encodeURIComponent(title)}&type=movie`);
     const data = await response.json();
 
-    console.log(`📡 OMDb API response:`, data);
-
     if (data.Response === 'True' && data.Search) {
-      const results = data.Search.slice(0, 10);
-      console.log(`🎯 Returning ${results.length} search results`);
-      return results;
+      return data.Search.slice(0, 10); // Return up to 10 results
     }
 
-    console.log(`❌ OMDb API returned no results or error:`, data.Error || 'No search results');
     return null;
   } catch (error) {
     console.error('Error searching IMDb:', error.message);

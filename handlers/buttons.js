@@ -459,10 +459,21 @@ async function handleCreateRecommendation(interaction) {
 
 async function handleImdbSelection(interaction) {
   const customId = interaction.customId;
-  const [, indexStr, dataStr] = customId.split(':');
+  const [, indexStr, dataKey] = customId.split(':');
 
   try {
-    const data = JSON.parse(Buffer.from(dataStr, 'base64').toString());
+    const { pendingPayloads } = require('../utils/constants');
+
+    // Retrieve the stored data
+    const data = pendingPayloads.get(dataKey);
+    if (!data) {
+      await interaction.reply({
+        content: '❌ Selection expired. Please try creating the recommendation again.',
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
     const { title, where, imdbResults } = data;
 
     if (indexStr === 'none') {
@@ -474,6 +485,10 @@ async function handleImdbSelection(interaction) {
       const selectedMovie = imdbResults[index];
       await createMovieWithImdb(interaction, title, where, selectedMovie);
     }
+
+    // Clean up the stored data
+    pendingPayloads.delete(dataKey);
+
   } catch (error) {
     console.error('Error handling IMDb selection:', error);
     await interaction.reply({

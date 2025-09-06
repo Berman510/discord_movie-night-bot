@@ -67,14 +67,9 @@ async function handleMovieRecommendationModal(interaction) {
     // Search IMDb for the movie
     let imdbResults = [];
     try {
-      console.log(`🔍 Searching IMDb for: "${title}"`);
       const searchResult = await imdb.searchMovie(title);
-      console.log(`🎬 IMDb search result:`, searchResult);
       if (searchResult && Array.isArray(searchResult)) {
         imdbResults = searchResult;
-        console.log(`✅ Found ${imdbResults.length} IMDb results`);
-      } else {
-        console.log(`❌ No IMDb results found or invalid response`);
       }
     } catch (error) {
       console.warn('IMDb search failed:', error.message);
@@ -99,6 +94,18 @@ async function handleMovieRecommendationModal(interaction) {
 
 async function showImdbSelection(interaction, title, where, imdbResults) {
   const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+  const { pendingPayloads } = require('../utils/constants');
+
+  // Generate a short key for storing the data temporarily
+  const dataKey = `imdb_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+  // Store the data temporarily (will be cleaned up automatically)
+  pendingPayloads.set(dataKey, {
+    title,
+    where,
+    imdbResults,
+    createdAt: Date.now()
+  });
 
   const embed = new EmbedBuilder()
     .setTitle('🎬 Select the correct movie')
@@ -115,12 +122,12 @@ async function showImdbSelection(interaction, title, where, imdbResults) {
     });
   });
 
-  // Create selection buttons
+  // Create selection buttons with short custom IDs
   const buttons = new ActionRowBuilder();
   displayResults.forEach((movie, index) => {
     buttons.addComponents(
       new ButtonBuilder()
-        .setCustomId(`select_imdb:${index}:${Buffer.from(JSON.stringify({title, where, imdbResults})).toString('base64')}`)
+        .setCustomId(`select_imdb:${index}:${dataKey}`)
         .setLabel(`${index + 1}. ${movie.Title} (${movie.Year})`)
         .setStyle(ButtonStyle.Primary)
     );
@@ -129,7 +136,7 @@ async function showImdbSelection(interaction, title, where, imdbResults) {
   // Add "None of these" button
   buttons.addComponents(
     new ButtonBuilder()
-      .setCustomId(`select_imdb:none:${Buffer.from(JSON.stringify({title, where})).toString('base64')}`)
+      .setCustomId(`select_imdb:none:${dataKey}`)
       .setLabel('None of these')
       .setStyle(ButtonStyle.Secondary)
   );
