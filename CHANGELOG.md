@@ -2,6 +2,22 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.11.18] - 2025-09-06
+### Fixed
+- **Movie Recreation Error:** Fixed CombinedPropertyError when recreating movie posts during sync
+- **Field Mapping:** Corrected field mapping between database schema and embed creation function
+- **Undefined Values:** Added safety checks for undefined/null values in movie data
+
+### Enhanced
+- **Error Handling:** Better handling of missing or incomplete movie data during recreation
+- **Data Validation:** Added fallback values for required fields to prevent embed creation errors
+- **Sync Reliability:** Improved reliability of movie post recreation during sync operations
+
+### Technical
+- **Field Mapping Fix:** Changed platform→where_to_watch and addedBy→recommended_by mapping
+- **Safety Checks:** Added null/undefined checks for all movie fields during recreation
+- **Embed Creation:** Enhanced robustness of movie embed creation with fallback values
+
 ## [1.11.17] - 2025-09-06
 ### Fixed
 - **Purge Database Cleanup:** Fixed purge not deleting movies from database when channel was switched

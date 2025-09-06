@@ -529,16 +529,14 @@ async function recreateMoviePost(channel, movie) {
     // Get vote counts
     const voteCounts = await database.getVoteCounts(movie.message_id);
 
-    // Create movie embed
+    // Create movie embed with proper field mapping and safety checks
     const movieEmbed = embeds.createMovieEmbed({
-      title: movie.title,
-      description: movie.description,
-      platform: movie.platform,
-      imdbId: movie.imdb_id,
-      poster: movie.poster_url,
-      status: movie.status,
-      addedBy: movie.added_by,
-      addedAt: movie.created_at
+      title: movie.title || 'Unknown Movie',
+      description: movie.description || '',
+      where_to_watch: movie.platform || 'Unknown Platform',
+      recommended_by: movie.added_by || 'Unknown User',
+      status: movie.status || 'pending',
+      created_at: movie.created_at
     });
 
     // Create appropriate buttons based on status
