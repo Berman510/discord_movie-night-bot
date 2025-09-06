@@ -47,10 +47,13 @@ async function createAdminActionButtons(movieId, status, isBanned = false, guild
   if (guildId) {
     try {
       const activeSession = await database.getActiveVotingSession(guildId);
+      console.log(`🔍 Active voting session for guild ${guildId}:`, activeSession ? `Session ${activeSession.id}` : 'None');
+
       if (activeSession) {
         // Check if this movie is part of the voting session
         const movie = await database.getMovieByMessageId(movieId);
         isInVotingSession = movie && movie.session_id === activeSession.id;
+        console.log(`🔍 Movie ${movieId} in voting session:`, isInVotingSession, `(movie session_id: ${movie?.session_id})`);
       }
     } catch (error) {
       console.warn('Error checking voting session status:', error.message);

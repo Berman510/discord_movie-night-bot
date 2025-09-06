@@ -1107,7 +1107,7 @@ async function handleMovieDetails(interaction, guildId, movieId) {
       return;
     }
 
-    // Get vote counts
+    // Get vote counts with voter details
     const voteCounts = await database.getVoteCounts(movieId);
 
     // Parse IMDb data if available
@@ -1129,9 +1129,20 @@ async function handleMovieDetails(interaction, guildId, movieId) {
         { name: '🎭 Status', value: movie.status || 'pending', inline: true },
         { name: '📺 Platform', value: movie.where_to_watch || 'Unknown', inline: true },
         { name: '👤 Recommended by', value: `<@${movie.recommended_by}>`, inline: true },
-        { name: '🗳️ Votes', value: `👍 ${voteCounts.up} | 👎 ${voteCounts.down}`, inline: true },
+        { name: '🗳️ Vote Summary', value: `👍 ${voteCounts.up} | 👎 ${voteCounts.down}`, inline: true },
         { name: '📅 Added', value: movie.created_at ? new Date(movie.created_at).toLocaleDateString() : 'Unknown', inline: true }
       );
+
+    // Add voter details if there are any votes
+    if (voteCounts.voters.up.length > 0) {
+      const upVoters = voteCounts.voters.up.map(userId => `<@${userId}>`).join(', ');
+      embed.addFields({ name: '👍 Upvoted by', value: upVoters.length > 1024 ? upVoters.substring(0, 1021) + '...' : upVoters, inline: false });
+    }
+
+    if (voteCounts.voters.down.length > 0) {
+      const downVoters = voteCounts.voters.down.map(userId => `<@${userId}>`).join(', ');
+      embed.addFields({ name: '👎 Downvoted by', value: downVoters.length > 1024 ? downVoters.substring(0, 1021) + '...' : downVoters, inline: false });
+    }
 
     if (movie.description) {
       embed.addFields({ name: '📝 Description', value: movie.description.substring(0, 1024), inline: false });

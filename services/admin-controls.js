@@ -118,22 +118,21 @@ async function ensureAdminControlPanel(client, guildId) {
     const components = createAdminControlButtons();
 
     if (existingPanel) {
-      // Update existing panel
-      await existingPanel.edit({
-        embeds: [embed],
-        components: components
-      });
-      console.log('🔧 Updated admin control panel');
-      return existingPanel;
-    } else {
-      // Create new panel
-      const controlPanel = await adminChannel.send({
-        embeds: [embed],
-        components: components
-      });
-      console.log('🔧 Created admin control panel');
-      return controlPanel;
+      // Delete existing panel to move it to bottom
+      try {
+        await existingPanel.delete();
+      } catch (error) {
+        console.warn('Could not delete existing admin panel:', error.message);
+      }
     }
+
+    // Always create new panel at bottom
+    const controlPanel = await adminChannel.send({
+      embeds: [embed],
+      components: components
+    });
+    console.log('🔧 Created admin control panel at bottom');
+    return controlPanel;
 
   } catch (error) {
     console.error('Error ensuring admin control panel:', error);
