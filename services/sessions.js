@@ -18,6 +18,7 @@ const {
 const database = require('../database');
 const { TIMEZONE_OPTIONS } = require('../config/timezones');
 const discordEvents = require('./discord-events');
+const permissions = require('./permissions');
 const timezone = require('./timezone');
 
 async function handleMovieSession(interaction) {

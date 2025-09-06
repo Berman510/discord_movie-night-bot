@@ -171,6 +171,7 @@ async function createMovieWithoutImdb(interaction, title, where) {
     });
 
     // Now save to database with the message ID
+    console.log(`💾 Saving movie to database: ${title} (${message.id})`);
     const movieId = await database.saveMovie({
       messageId: message.id,
       guildId: interaction.guild.id,
@@ -182,6 +183,7 @@ async function createMovieWithoutImdb(interaction, title, where) {
       imdbData: null
     });
 
+    console.log(`💾 Movie save result: ${movieId ? 'SUCCESS' : 'FAILED'} (ID: ${movieId})`);
     if (movieId) {
       // Post Quick Guide at bottom of channel
       await postQuickGuide(interaction.channel);

@@ -587,6 +587,7 @@ async function createMovieWithImdb(interaction, title, where, imdbData) {
     });
 
     // Now save to database with the message ID
+    console.log(`💾 Saving movie to database: ${title} (${message.id})`);
     const movieId = await database.saveMovie({
       messageId: message.id,
       guildId: interaction.guild.id,
@@ -595,9 +596,10 @@ async function createMovieWithImdb(interaction, title, where, imdbData) {
       whereToWatch: where,
       recommendedBy: interaction.user.id,
       imdbId: imdbData.imdbID,
-      imdbData: imdbData
+      imdbData: detailedImdbData || imdbData
     });
 
+    console.log(`💾 Movie save result: ${movieId ? 'SUCCESS' : 'FAILED'} (ID: ${movieId})`);
     if (movieId) {
       // Create a thread for discussion and seed details from IMDb
       try {

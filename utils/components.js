@@ -22,6 +22,21 @@ function createVoteButtons(messageId) {
   );
 }
 
+function createVotingButtons(messageId, upCount = 0, downCount = 0) {
+  return [new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`mn:up:${messageId}`)
+      .setLabel(`Vote Up (${upCount})`)
+      .setStyle(ButtonStyle.Success)
+      .setEmoji(VOTE_EMOJIS.up),
+    new ButtonBuilder()
+      .setCustomId(`mn:down:${messageId}`)
+      .setLabel(`Vote Down (${downCount})`)
+      .setStyle(ButtonStyle.Danger)
+      .setEmoji(VOTE_EMOJIS.down)
+  )];
+}
+
 function createStatusButtons(messageId, status = 'pending') {
   const buttons = [];
 
@@ -195,6 +210,7 @@ function createConfigurationButtons() {
 
 module.exports = {
   createVoteButtons,
+  createVotingButtons,
   createStatusButtons,
   createTimezoneSelect,
   createSessionDateButtons,
