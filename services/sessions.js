@@ -792,7 +792,7 @@ async function showCustomTimeModal(interaction) {
 async function showSessionDetailsModal(interaction, state) {
   // Generate smart templated name and description
   const templatedName = generateSessionName(state);
-  const templatedDescription = await generateSessionDescription(state);
+  const templatedDescription = await generateSessionDescription(state, interaction);
 
   const modal = new ModalBuilder()
     .setCustomId('session_details_modal')
@@ -845,7 +845,7 @@ function generateSessionName(state) {
   return name;
 }
 
-async function generateSessionDescription(state) {
+async function generateSessionDescription(state, interaction) {
   let description = '';
 
   // Add movie information if selected
