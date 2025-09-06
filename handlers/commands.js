@@ -69,7 +69,7 @@ async function handleMovieNight(interaction) {
     .setCustomId('mn:title')
     .setLabel('Movie Title')
     .setStyle(TextInputStyle.Short)
-    .setPlaceholder('e.g., Clueless (1995)')
+    .setPlaceholder('e.g., The Matrix')
     .setRequired(true);
 
   const whereInput = new TextInputBuilder()

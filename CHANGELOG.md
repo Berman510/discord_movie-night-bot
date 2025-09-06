@@ -2,6 +2,23 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.11.16] - 2025-09-06
+### Fixed
+- **Critical Sync Logic:** Fixed sync deleting movies instead of recreating missing posts
+- **Thread Cleanup Permissions:** Added permission checks for ManageThreads before attempting deletion
+- **Thread Detection:** Improved orphaned thread detection by checking for parent message existence
+- **Sync Behavior:** Sync now properly recreates missing movie posts instead of treating them as orphaned
+
+### Enhanced
+- **Permission Validation:** Bot checks for ManageThreads permission before attempting thread operations
+- **Error Handling:** Better error handling for thread operations with clear permission warnings
+- **Thread Cleanup:** More robust thread cleanup that handles permission errors gracefully
+
+### Technical
+- **Logic Correction:** Changed "orphaned database entries" logic to "missing post recreation"
+- **Permission Checks:** Added runtime permission validation for thread management operations
+- **Error Recovery:** Improved error handling for thread fetch and deletion operations
+
 ## [1.11.15] - 2025-09-06
 ### Fixed
 - **Purge Error:** Fixed "preservedScheduled is not defined" error during purge operations

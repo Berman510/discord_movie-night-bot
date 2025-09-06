@@ -166,38 +166,28 @@ async function handleCleanupSync(interaction, movieChannel) {
       }
     }
 
-    // Step 4: Clean orphaned database entries (movies without Discord messages)
+    // Step 4: Handle movies without Discord messages - recreate instead of delete
     const messageIds = new Set(botMessages.keys());
-    const orphanedDbEntries = dbMovies.filter(movie => !messageIds.has(movie.message_id));
-    
-    if (orphanedDbEntries.length > 0) {
-      console.log(`🗑️ Found ${orphanedDbEntries.length} orphaned database entries, cleaning up...`);
-      
-      for (const orphanedMovie of orphanedDbEntries) {
+    const moviesWithoutMessages = dbMovies.filter(movie => !messageIds.has(movie.message_id));
+
+    if (moviesWithoutMessages.length > 0) {
+      console.log(`🎬 Found ${moviesWithoutMessages.length} movies without Discord messages, recreating...`);
+
+      for (const movie of moviesWithoutMessages) {
         try {
-          // Skip watched movies - preserve viewing history
-          if (orphanedMovie.status === 'watched') {
-            console.log(`📚 Preserving watched movie: ${orphanedMovie.title}`);
+          // Skip watched movies - they don't need posts
+          if (movie.status === 'watched') {
+            console.log(`📚 Skipping watched movie: ${movie.title}`);
             continue;
           }
-          
-          // Delete associated session if exists
-          const session = await database.getSessionByMovieId(orphanedMovie.message_id);
-          if (session) {
-            await database.deleteMovieSession(session.id);
-            console.log(`🗑️ Deleted orphaned session: ${session.name} (ID: ${session.id})`);
-          }
-          
-          // Delete votes for this movie
-          await database.deleteVotesByMessageId(orphanedMovie.message_id);
-          
-          // Delete the movie record
-          await database.deleteMovie(orphanedMovie.message_id);
+
+          // Recreate the movie post
+          await recreateMoviePost(channel, movie);
           cleanedDbCount++;
-          
-          console.log(`🗑️ Cleaned orphaned database entry: ${orphanedMovie.title} (Message ID: ${orphanedMovie.message_id})`);
+
+          console.log(`🎬 Recreated missing post: ${movie.title}`);
         } catch (error) {
-          console.error(`Error cleaning orphaned entry ${orphanedMovie.title}:`, error.message);
+          console.error(`Error recreating post for ${movie.title}:`, error.message);
         }
       }
     }
@@ -211,11 +201,10 @@ async function handleCleanupSync(interaction, movieChannel) {
       console.warn('Error syncing Discord events:', error.message);
     }
 
-    // Step 6: Recreate missing movie posts
-    const recreatedCount = await recreateMissingMoviePosts(channel, interaction.guild.id);
+    // Step 6: Additional recreation check (handled in Step 4)
 
     // Clean up orphaned threads
-    const threadsCleanedCount = await cleanupOrphanedThreads(channel, dbMovieIds);
+    const threadsCleanedCount = await cleanupOrphanedThreads(channel);
 
     // Ensure quick action message at bottom
     await ensureQuickActionAtBottom(channel);
@@ -227,8 +216,7 @@ async function handleCleanupSync(interaction, movieChannel) {
       `🗑️ Removed ${orphanedCount} orphaned messages`,
       `🔗 Synced ${syncedCount} messages with database`,
       `🎪 Synced ${eventSyncResults.syncedCount} Discord events, deleted ${eventSyncResults.deletedCount} orphaned events`,
-      `🗑️ Cleaned ${cleanedDbCount} orphaned database entries`,
-      `🎬 Recreated ${recreatedCount} missing movie posts`,
+      `🎬 Recreated ${cleanedDbCount} missing movie posts`,
       `🧵 Cleaned ${threadsCleanedCount} orphaned threads`,
       `🍿 Added quick action message at bottom`
     ];
@@ -400,40 +388,46 @@ async function cleanupOldGuideMessages(channel) {
   }
 }
 
-async function cleanupOrphanedThreads(channel, validMovieIds) {
+async function cleanupOrphanedThreads(channel) {
   // Clean up threads that no longer have corresponding movie posts
   let cleanedCount = 0;
 
   try {
     const botId = channel.client.user.id;
 
+    // Check if bot has manage threads permission
+    const botMember = await channel.guild.members.fetch(botId);
+    const hasManageThreads = botMember.permissions.has('ManageThreads');
+
+    if (!hasManageThreads) {
+      console.warn('⚠️ Bot lacks ManageThreads permission - cannot delete orphaned threads');
+      return 0;
+    }
+
     // Fetch all threads (active and archived)
     const [activeThreads, archivedThreads] = await Promise.all([
-      channel.threads.fetchActive(),
-      channel.threads.fetchArchived({ limit: 100 })
+      channel.threads.fetchActive().catch(() => ({ threads: new Map() })),
+      channel.threads.fetchArchived({ limit: 100 }).catch(() => ({ threads: new Map() }))
     ]);
 
     const allThreads = new Map([...activeThreads.threads, ...archivedThreads.threads]);
 
+    // Get current messages in channel to check for parent posts
+    const messages = await channel.messages.fetch({ limit: 100 });
+    const currentMessageIds = new Set(messages.keys());
+
     for (const [threadId, thread] of allThreads) {
-      // Only clean up threads created by the bot
-      if (thread.ownerId !== botId) continue;
+      // Check if this thread's parent message still exists
+      const parentExists = currentMessageIds.has(thread.id) ||
+                          (thread.parentId && currentMessageIds.has(thread.parentId));
 
-      // Check if this thread corresponds to an existing movie
-      const isOrphaned = !Array.from(validMovieIds).some(movieId => {
-        // Thread names typically contain movie titles or are created from movie messages
-        return thread.name.includes('Discussion') ||
-               thread.parentId === movieId ||
-               Math.abs(thread.createdTimestamp - new Date().getTime()) < 300000; // Recent threads get a pass
-      });
-
-      if (isOrphaned) {
+      if (!parentExists) {
         try {
           await thread.delete();
           cleanedCount++;
           console.log(`🧵 Deleted orphaned thread: ${thread.name} (${threadId})`);
         } catch (error) {
-          console.warn(`Failed to delete thread ${threadId}:`, error.message);
+          console.warn(`Failed to delete orphaned thread ${threadId}:`, error.message);
         }
       }
     }
@@ -452,18 +446,25 @@ async function cleanupAllThreads(channel) {
   try {
     const botId = channel.client.user.id;
 
+    // Check if bot has manage threads permission
+    const botMember = await channel.guild.members.fetch(botId);
+    const hasManageThreads = botMember.permissions.has('ManageThreads');
+
+    if (!hasManageThreads) {
+      console.warn('⚠️ Bot lacks ManageThreads permission - cannot delete threads');
+      return 0;
+    }
+
     // Fetch all threads (active and archived)
     const [activeThreads, archivedThreads] = await Promise.all([
-      channel.threads.fetchActive(),
-      channel.threads.fetchArchived({ limit: 100 })
+      channel.threads.fetchActive().catch(() => ({ threads: new Map() })),
+      channel.threads.fetchArchived({ limit: 100 }).catch(() => ({ threads: new Map() }))
     ]);
 
     const allThreads = new Map([...activeThreads.threads, ...archivedThreads.threads]);
 
     for (const [threadId, thread] of allThreads) {
-      // Only clean up threads created by the bot
-      if (thread.ownerId !== botId) continue;
-
+      // Clean up all threads in the movie channel during purge
       try {
         await thread.delete();
         cleanedCount++;
