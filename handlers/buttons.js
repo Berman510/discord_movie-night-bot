@@ -561,19 +561,23 @@ async function createMovieWithoutImdb(interaction, title, where) {
 async function createMovieWithImdb(interaction, title, where, imdbData) {
   const database = require('../database');
   const { embeds, components } = require('../utils');
+  const imdb = require('../services/imdb');
 
   try {
-    // Create movie embed first
+    // Fetch detailed movie info from OMDb
+    const detailedImdbData = await imdb.getMovieDetails(imdbData.imdbID);
+
+    // Create movie embed with detailed IMDb data
     const movieData = {
       title: title,
       where_to_watch: where,
       recommended_by: interaction.user.id,
       status: 'pending',
       imdb_id: imdbData.imdbID,
-      imdb_data: imdbData
+      imdb_data: detailedImdbData || imdbData
     };
 
-    const movieEmbed = embeds.createMovieEmbed(movieData);
+    const movieEmbed = embeds.createMovieEmbed(movieData, detailedImdbData);
     const movieComponents = components.createStatusButtons(null, 'pending');
 
     // Create the message first
@@ -595,6 +599,32 @@ async function createMovieWithImdb(interaction, title, where, imdbData) {
     });
 
     if (movieId) {
+      // Create a thread for discussion and seed details from IMDb
+      try {
+        const thread = await message.startThread({
+          name: `${title} — Discussion`,
+          autoArchiveDuration: 1440
+        });
+
+        const base = `Discussion for **${title}** (recommended by <@${interaction.user.id}>)`;
+        if (detailedImdbData) {
+          const synopsis = detailedImdbData.Plot && detailedImdbData.Plot !== 'N/A' ? detailedImdbData.Plot : 'No synopsis available.';
+          const details = [
+            detailedImdbData.Year && `**Year:** ${detailedImdbData.Year}`,
+            detailedImdbData.Rated && detailedImdbData.Rated !== 'N/A' && `**Rated:** ${detailedImdbData.Rated}`,
+            detailedImdbData.Runtime && detailedImdbData.Runtime !== 'N/A' && `**Runtime:** ${detailedImdbData.Runtime}`,
+            detailedImdbData.Genre && detailedImdbData.Genre !== 'N/A' && `**Genre:** ${detailedImdbData.Genre}`,
+            detailedImdbData.Director && detailedImdbData.Director !== 'N/A' && `**Director:** ${detailedImdbData.Director}`,
+            detailedImdbData.Actors && detailedImdbData.Actors !== 'N/A' && `**Top cast:** ${detailedImdbData.Actors}`,
+          ].filter(Boolean).join('\n');
+          await thread.send({ content: `${base}\n\n**Synopsis:** ${synopsis}\n\n${details}` });
+        } else {
+          await thread.send({ content: `${base}\n\nIMDb details weren't available at creation time.` });
+        }
+      } catch (e) {
+        console.warn('Thread creation failed:', e?.message || e);
+      }
+
       await interaction.update({
         content: `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added to the queue for voting.`,
         embeds: [],

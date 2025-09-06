@@ -117,7 +117,7 @@ async function showImdbSelection(interaction, title, where, imdbResults) {
   displayResults.forEach((movie, index) => {
     embed.addFields({
       name: `${index + 1}. ${movie.Title} (${movie.Year})`,
-      value: movie.Plot || 'No plot available',
+      value: `Type: ${movie.Type} • IMDb ID: ${movie.imdbID}`,
       inline: false
     });
   });
