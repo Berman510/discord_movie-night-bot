@@ -166,7 +166,10 @@ async function handleCleanupSync(interaction, movieChannel) {
       }
     }
 
-    // Step 4: Handle movies without Discord messages - recreate instead of delete
+    // Step 4: Clean up orphaned threads BEFORE recreation
+    const threadsCleanedCount = await cleanupOrphanedThreads(channel);
+
+    // Step 5: Handle movies without Discord messages - recreate instead of delete
     const messageIds = new Set(botMessages.keys());
     const moviesWithoutMessages = dbMovies.filter(movie => !messageIds.has(movie.message_id));
 
@@ -200,9 +203,6 @@ async function handleCleanupSync(interaction, movieChannel) {
         }
       }
     }
-
-    // Step 5: Clean up orphaned threads BEFORE recreation
-    const threadsCleanedCount = await cleanupOrphanedThreads(channel);
 
     // Step 6: Sync Discord events with database
     let eventSyncResults = { syncedCount: 0, deletedCount: 0 };
@@ -555,8 +555,43 @@ async function recreateMoviePost(channel, movie) {
       components: movieComponents
     });
 
-    // Update the message ID in database
-    await database.updateMovieMessageId(channel.guild.id, movie.title, newMessage.id);
+    // Create new movie record with new message ID and delete old one
+    try {
+      // Get vote counts from old message
+      const voteCounts = await database.getVoteCounts(movie.message_id);
+
+      // Create new movie record
+      await database.saveMovie(
+        newMessage.id,
+        channel.guild.id,
+        channel.id,
+        movie.title,
+        movie.where_to_watch,
+        movie.recommended_by,
+        movie.imdb_id,
+        movie.imdb_data
+      );
+
+      // Transfer votes to new message ID
+      if (voteCounts.up > 0 || voteCounts.down > 0) {
+        // Transfer up votes
+        for (const userId of voteCounts.voters.up) {
+          await database.saveVote(newMessage.id, userId, 'up');
+        }
+        // Transfer down votes
+        for (const userId of voteCounts.voters.down) {
+          await database.saveVote(newMessage.id, userId, 'down');
+        }
+        console.log(`🗳️ Transferred ${voteCounts.up} up votes and ${voteCounts.down} down votes`);
+      }
+
+      // Delete old movie record (this will cascade delete old votes)
+      await database.deleteMovie(movie.message_id);
+
+      console.log(`🔄 Updated movie record: ${movie.title} (${movie.message_id} → ${newMessage.id})`);
+    } catch (dbError) {
+      console.warn(`Failed to update movie record for ${movie.title}:`, dbError.message);
+    }
 
     // Create discussion thread for the movie
     try {

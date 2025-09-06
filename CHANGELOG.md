@@ -2,6 +2,25 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.11.21] - 2025-09-06
+### Fixed
+- **Thread Cleanup Order:** Fixed thread cleanup to run BEFORE recreation instead of after
+- **Database Foreign Key Error:** Fixed foreign key constraint error when updating message IDs
+- **Vote Preservation:** Enhanced vote transfer system for recreated posts
+- **Thread Recreation:** Recreated posts now properly keep their discussion threads
+
+### Enhanced
+- **Movie Record Management:** Improved database record handling during recreation
+- **Vote Transfer:** Better vote preservation when recreating movie posts
+- **Error Handling:** Enhanced error handling for database operations during recreation
+- **Logging:** Added detailed logging for vote transfer and record updates
+
+### Technical
+- **Database Operations:** Changed from UPDATE to CREATE/DELETE approach for message ID changes
+- **Vote System:** Enhanced vote transfer to handle foreign key constraints properly
+- **Thread Management:** Corrected sync process order to prevent thread deletion after creation
+- **Record Integrity:** Better handling of database record transitions during recreation
+
 ## [1.11.20] - 2025-09-06
 ### Added
 - **Admin Slash Commands:** New admin-only commands for movie management
