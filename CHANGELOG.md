@@ -2,6 +2,30 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.11.22] - 2025-09-06
+### Fixed
+- **Database Save Error:** Fixed "Bind parameters must not contain undefined" error during movie recreation
+- **Thread Cleanup Logic:** Enhanced thread cleanup to be smarter about what constitutes orphaned threads
+- **Missing Thread Recreation:** Added detection and recreation of missing discussion threads for existing posts
+- **Movie Record Creation:** Fixed saveMovie function call to use proper parameter object format
+
+### Added
+- **recreateMissingThreads:** New function to detect and recreate missing discussion threads
+- **Intelligent Thread Cleanup:** Thread cleanup now checks movie database and post existence before deletion
+- **Thread-Post Synchronization:** Ensures all movie posts have corresponding discussion threads
+
+### Enhanced
+- **Thread Management:** Better logic for determining when threads should be preserved vs deleted
+- **Database Operations:** Improved parameter handling for movie record creation during recreation
+- **Sync Completeness:** Comprehensive sync now handles both missing posts AND missing threads
+- **Error Prevention:** Better validation to prevent database constraint errors
+
+### Technical
+- **Parameter Validation:** Fixed saveMovie calls to use proper object parameter format
+- **Thread Detection:** Enhanced thread cleanup logic to check movie existence in database
+- **Post-Thread Mapping:** Better correlation between movie posts and discussion threads
+- **Cleanup Intelligence:** Smarter cleanup that preserves relevant threads while removing orphaned ones
+
 ## [1.11.21] - 2025-09-06
 ### Fixed
 - **Thread Cleanup Order:** Fixed thread cleanup to run BEFORE recreation instead of after

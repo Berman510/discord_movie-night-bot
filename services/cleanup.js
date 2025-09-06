@@ -204,6 +204,9 @@ async function handleCleanupSync(interaction, movieChannel) {
       }
     }
 
+    // Step 6: Check for movies with posts but missing threads
+    await recreateMissingThreads(channel, botMessages);
+
     // Step 6: Sync Discord events with database
     let eventSyncResults = { syncedCount: 0, deletedCount: 0 };
     try {
@@ -421,21 +424,43 @@ async function cleanupOrphanedThreads(channel) {
 
     // Get current messages in channel to check for parent posts
     const messages = await channel.messages.fetch({ limit: 100 });
-    const currentMessageIds = new Set(messages.keys());
+    const botMessages = messages.filter(msg => msg.author.id === channel.client.user.id);
+
+    // Get current movie titles from database to check if threads are still relevant
+    const database = require('../database');
+    const currentMovies = await database.getMoviesByChannel(channel.guild.id, channel.id);
+    const currentMovieTitles = new Set(currentMovies.map(movie => movie.title));
 
     for (const [threadId, thread] of allThreads) {
-      // Check if this thread's parent message still exists
-      const parentExists = currentMessageIds.has(thread.id) ||
-                          (thread.parentId && currentMessageIds.has(thread.parentId));
+      // Skip if not a movie discussion thread
+      if (!thread.name.includes('Discussion')) {
+        continue;
+      }
 
-      if (!parentExists) {
+      // Extract movie title from thread name (format: "Movie Title — Discussion")
+      const movieTitle = thread.name.replace(' — Discussion', '');
+
+      // Check if this movie still exists in the database
+      const movieStillExists = currentMovieTitles.has(movieTitle);
+
+      // Check if there's a corresponding bot message for this movie
+      const hasCorrespondingPost = botMessages.some(msg =>
+        msg.embeds.length > 0 &&
+        msg.embeds[0].title &&
+        msg.embeds[0].title.includes(movieTitle)
+      );
+
+      // Only delete if movie doesn't exist in database AND no corresponding post
+      if (!movieStillExists && !hasCorrespondingPost) {
         try {
           await thread.delete();
           cleanedCount++;
-          console.log(`🧵 Deleted orphaned thread: ${thread.name} (${threadId})`);
+          console.log(`🧵 Deleted orphaned thread: ${thread.name} (${threadId}) - movie no longer exists`);
         } catch (error) {
           console.warn(`Failed to delete orphaned thread ${threadId}:`, error.message);
         }
+      } else {
+        console.log(`🧵 Keeping thread: ${thread.name} (movie exists: ${movieStillExists}, has post: ${hasCorrespondingPost})`);
       }
     }
 
@@ -561,16 +586,16 @@ async function recreateMoviePost(channel, movie) {
       const voteCounts = await database.getVoteCounts(movie.message_id);
 
       // Create new movie record
-      await database.saveMovie(
-        newMessage.id,
-        channel.guild.id,
-        channel.id,
-        movie.title,
-        movie.where_to_watch,
-        movie.recommended_by,
-        movie.imdb_id,
-        movie.imdb_data
-      );
+      await database.saveMovie({
+        messageId: newMessage.id,
+        guildId: channel.guild.id,
+        channelId: channel.id,
+        title: movie.title,
+        whereToWatch: movie.where_to_watch,
+        recommendedBy: movie.recommended_by,
+        imdbId: movie.imdb_id,
+        imdbData: movie.imdb_data
+      });
 
       // Transfer votes to new message ID
       if (voteCounts.up > 0 || voteCounts.down > 0) {
@@ -612,6 +637,66 @@ async function recreateMoviePost(channel, movie) {
   }
 }
 
+async function recreateMissingThreads(channel, botMessages) {
+  // Check for movies that have Discord posts but missing threads
+  let threadsCreated = 0;
+
+  try {
+    // Get all current threads
+    const [activeThreads, archivedThreads] = await Promise.all([
+      channel.threads.fetchActive().catch(() => ({ threads: new Map() })),
+      channel.threads.fetchArchived({ limit: 100 }).catch(() => ({ threads: new Map() }))
+    ]);
+
+    const allThreads = new Map([...activeThreads.threads, ...archivedThreads.threads]);
+    const existingThreadTitles = new Set();
+
+    // Extract movie titles from existing threads
+    for (const [, thread] of allThreads) {
+      if (thread.name.includes(' — Discussion')) {
+        const movieTitle = thread.name.replace(' — Discussion', '');
+        existingThreadTitles.add(movieTitle);
+      }
+    }
+
+    // Check each movie with a Discord post
+    for (const [, message] of botMessages) {
+      // Skip if not a movie post (no embeds or wrong format)
+      if (!message.embeds.length || !message.embeds[0].title) continue;
+
+      // Extract movie title from embed
+      const embedTitle = message.embeds[0].title;
+      const movieTitle = embedTitle.replace(/^[🎬🍿⭐📌⏭️✅]\s*/, ''); // Remove status emojis
+
+      // Check if this movie has a thread
+      if (!existingThreadTitles.has(movieTitle)) {
+        try {
+          // Create missing thread
+          const thread = await message.startThread({
+            name: `${movieTitle} — Discussion`,
+            autoArchiveDuration: 1440 // 24 hours
+          });
+
+          await thread.send(`💬 **Discussion thread for ${movieTitle}**\n\nShare your thoughts, reviews, or questions about this movie!`);
+          threadsCreated++;
+          console.log(`🧵 Created missing thread for: ${movieTitle}`);
+        } catch (error) {
+          console.warn(`Failed to create thread for ${movieTitle}:`, error.message);
+        }
+      }
+    }
+
+    if (threadsCreated > 0) {
+      console.log(`🧵 Created ${threadsCreated} missing discussion threads`);
+    }
+
+    return threadsCreated;
+  } catch (error) {
+    console.warn('Error recreating missing threads:', error.message);
+    return 0;
+  }
+}
+
 module.exports = {
   handleMovieCleanup,
   handleCleanupSync,
@@ -621,5 +706,6 @@ module.exports = {
   cleanupOrphanedThreads,
   cleanupAllThreads,
   recreateMissingMoviePosts,
-  recreateMoviePost
+  recreateMoviePost,
+  recreateMissingThreads
 };
