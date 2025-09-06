@@ -6,6 +6,7 @@
 const { MessageFlags } = require('discord.js');
 const { sessions } = require('../services');
 const { imdb } = require('../services');
+const cleanup = require('../services/cleanup');
 
 async function handleModal(interaction) {
   const customId = interaction.customId;
@@ -239,7 +240,6 @@ async function createMovieWithoutImdb(interaction, title, where) {
     console.log(`💾 Movie save result: ${movieId ? 'SUCCESS' : 'FAILED'} (ID: ${movieId})`);
     if (movieId) {
       // Post Quick Action at bottom of channel
-      const cleanup = require('../services/cleanup');
       await cleanup.ensureQuickActionAtBottom(interaction.channel);
 
       await interaction.reply({

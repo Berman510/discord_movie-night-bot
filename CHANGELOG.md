@@ -2,6 +2,16 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.11.14] - 2025-09-06
+### Fixed
+- **Critical Startup Error:** Fixed "Identifier 'cleanup' has already been declared" syntax error
+- **Duplicate Requires:** Moved cleanup service require to top of handler files to prevent redeclaration
+- **Module Organization:** Consolidated require statements for better code organization
+
+### Technical
+- **Import Management:** Proper module import organization in button and modal handlers
+- **Code Quality:** Eliminated duplicate const declarations that caused startup crashes
+
 ## [1.11.13] - 2025-09-06
 ### Major Improvements
 - **Cleanup Commands Work Anywhere:** No longer restricted to movie channel - can be run from any channel

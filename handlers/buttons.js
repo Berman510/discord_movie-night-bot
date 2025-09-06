@@ -18,6 +18,7 @@ const { MessageFlags } = require('discord.js');
 const database = require('../database');
 const { sessions } = require('../services');
 const { permissions } = require('../services');
+const cleanup = require('../services/cleanup');
 
 async function handleButton(interaction) {
   const customId = interaction.customId;
@@ -480,7 +481,6 @@ async function handlePurgeConfirmation(interaction) {
       }
 
       // Clean up ALL threads in the channel
-      const cleanup = require('../services/cleanup');
       deletedThreads = await cleanup.cleanupAllThreads(channel);
 
       // Delete current queue movies from database (preserve watched movies)
@@ -507,7 +507,6 @@ async function handlePurgeConfirmation(interaction) {
       }
 
       // Recreate quick action message
-      const cleanup = require('../services/cleanup');
       await cleanup.ensureQuickActionAtBottom(channel);
 
       const summary = [
@@ -751,7 +750,6 @@ async function createMovieWithImdb(interaction, title, where, imdbData) {
       }
 
       // Post Quick Action at bottom of channel
-      const cleanup = require('../services/cleanup');
       await cleanup.ensureQuickActionAtBottom(interaction.channel);
 
       await interaction.update({
