@@ -182,6 +182,9 @@ async function handleMovieConfigure(interaction) {
       case 'set-viewing-channel':
         await configuration.configureViewingChannel(interaction, guildId);
         break;
+      case 'set-admin-channel':
+        await configuration.configureAdminChannel(interaction, guildId);
+        break;
       case 'add-admin-role':
         await configuration.addAdminRole(interaction, guildId);
         break;

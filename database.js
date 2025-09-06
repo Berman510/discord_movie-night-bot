@@ -176,6 +176,7 @@ class Database {
         notification_role_id VARCHAR(20) NULL,
         default_timezone VARCHAR(50) DEFAULT 'UTC',
         session_viewing_channel_id VARCHAR(20) NULL,
+        admin_channel_id VARCHAR(20) NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )`,
@@ -505,6 +506,29 @@ class Database {
 
       } catch (error) {
         console.error('❌ Failed to add guild_id columns (Migration 11):', error.message);
+      }
+
+      // Migration 12: Add admin_channel_id column to guild_config table
+      try {
+        const [adminChannelColumns] = await this.pool.execute(`
+          SELECT COLUMN_NAME
+          FROM INFORMATION_SCHEMA.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'guild_config'
+        `);
+        const adminChannelColumnNames = adminChannelColumns.map(row => row.COLUMN_NAME);
+
+        if (!adminChannelColumnNames.includes('admin_channel_id')) {
+          await this.pool.execute(`
+            ALTER TABLE guild_config
+            ADD COLUMN admin_channel_id VARCHAR(20) NULL
+          `);
+          console.log('✅ Added admin_channel_id column to guild_config');
+        } else {
+          console.log('✅ admin_channel_id column already exists in guild_config');
+        }
+      } catch (error) {
+        console.error('❌ Failed to add admin_channel_id column (Migration 12):', error.message);
       }
 
       console.log('✅ Database migrations completed');
@@ -1309,6 +1333,23 @@ class Database {
       return true;
     } catch (error) {
       console.error('Error setting viewing channel:', error.message);
+      return false;
+    }
+  }
+
+  async setAdminChannel(guildId, channelId) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `INSERT INTO guild_config (guild_id, admin_channel_id, admin_roles)
+         VALUES (?, ?, ?)
+         ON DUPLICATE KEY UPDATE admin_channel_id = VALUES(admin_channel_id)`,
+        [guildId, channelId, JSON.stringify([])]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error setting admin channel:', error.message);
       return false;
     }
   }

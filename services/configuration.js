@@ -124,9 +124,16 @@ async function viewSettings(interaction, guildId) {
       .addFields(
         {
           name: '📺 Movie Channel',
-          value: config.movie_channel_id ? 
-            `<#${config.movie_channel_id}>\n*Movies and cleanup restricted to this channel*` : 
+          value: config.movie_channel_id ?
+            `<#${config.movie_channel_id}>\n*Movies and cleanup restricted to this channel*` :
             'Not set\n*Bot works in any channel*',
+          inline: false
+        },
+        {
+          name: '🔧 Admin Channel',
+          value: config.admin_channel_id ?
+            `<#${config.admin_channel_id}>\n*Admin controls and movie management*` :
+            'Not set\n*No admin channel configured*',
           inline: false
         },
         {
@@ -218,12 +225,47 @@ async function configureViewingChannel(interaction, guildId) {
   }
 }
 
+async function configureAdminChannel(interaction, guildId) {
+  const channel = interaction.options.getChannel('channel');
+
+  if (!channel) {
+    await interaction.reply({
+      content: '❌ Please specify a channel for admin operations.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  // Validate channel type (text only)
+  if (channel.type !== 0) { // 0 = text
+    await interaction.reply({
+      content: '❌ Please select a text channel for admin operations.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  const success = await database.setAdminChannel(guildId, channel.id);
+  if (success) {
+    await interaction.reply({
+      content: `✅ Admin channel set to ${channel}. This channel will display admin controls and movie management tools.`,
+      flags: MessageFlags.Ephemeral
+    });
+  } else {
+    await interaction.reply({
+      content: '❌ Failed to set admin channel.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
 module.exports = {
   configureMovieChannel,
   addAdminRole,
   removeAdminRole,
   setNotificationRole,
   configureViewingChannel,
+  configureAdminChannel,
   viewSettings,
   resetConfiguration
 };
