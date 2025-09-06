@@ -960,6 +960,23 @@ class Database {
     if (!this.isConnected) return false;
 
     try {
+      // First get the old message ID
+      const [oldMovie] = await this.pool.execute(
+        `SELECT message_id FROM movies WHERE guild_id = ? AND title = ? ORDER BY created_at DESC LIMIT 1`,
+        [guildId, title]
+      );
+
+      if (oldMovie.length > 0) {
+        const oldMessageId = oldMovie[0].message_id;
+
+        // Update votes to reference the new message ID
+        await this.pool.execute(
+          `UPDATE votes SET message_id = ? WHERE message_id = ?`,
+          [messageId, oldMessageId]
+        );
+      }
+
+      // Now update the movie message ID
       await this.pool.execute(
         `UPDATE movies SET message_id = ? WHERE guild_id = ? AND title = ? ORDER BY created_at DESC LIMIT 1`,
         [messageId, guildId, title]
@@ -1363,6 +1380,48 @@ class Database {
       console.error('Error getting watch count:', error.message);
       return 0;
     }
+  }
+
+  // Database cleanup and maintenance functions
+  async cleanupOrphanedData() {
+    if (!this.isConnected) return { cleaned: 0, errors: [] };
+
+    const results = { cleaned: 0, errors: [] };
+
+    try {
+      // Clean up votes for non-existent movies
+      const [orphanedVotes] = await this.pool.execute(`
+        DELETE v FROM votes v
+        LEFT JOIN movies m ON v.message_id = m.message_id
+        WHERE m.message_id IS NULL
+      `);
+      results.cleaned += orphanedVotes.affectedRows;
+      console.log(`🧹 Cleaned up ${orphanedVotes.affectedRows} orphaned votes`);
+
+      // Clean up session participants for non-existent sessions
+      const [orphanedParticipants] = await this.pool.execute(`
+        DELETE sp FROM session_participants sp
+        LEFT JOIN movie_sessions ms ON sp.session_id = ms.id
+        WHERE ms.id IS NULL
+      `);
+      results.cleaned += orphanedParticipants.affectedRows;
+      console.log(`🧹 Cleaned up ${orphanedParticipants.affectedRows} orphaned session participants`);
+
+      // Clean up session attendees for non-existent sessions
+      const [orphanedAttendees] = await this.pool.execute(`
+        DELETE sa FROM session_attendees sa
+        LEFT JOIN movie_sessions ms ON sa.session_id = ms.id
+        WHERE ms.id IS NULL
+      `);
+      results.cleaned += orphanedAttendees.affectedRows;
+      console.log(`🧹 Cleaned up ${orphanedAttendees.affectedRows} orphaned session attendees`);
+
+    } catch (error) {
+      console.error('Error during database cleanup:', error.message);
+      results.errors.push(error.message);
+    }
+
+    return results;
   }
 
   // Session attendance tracking functions

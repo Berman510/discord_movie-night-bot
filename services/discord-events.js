@@ -224,6 +224,26 @@ async function syncDiscordEventsWithDatabase(guild) {
             console.log(`🔗 Synced session ${sessionId} with Discord event ${eventId}`);
           }
         }
+      } else if (event.description && event.description.includes('SESSION_UID:unknown')) {
+        // Fix events with SESSION_UID:unknown
+        console.log(`🔧 Found event with SESSION_UID:unknown: ${event.name}`);
+
+        // Try to find the session by event ID in database
+        const sessionWithEvent = sessions.find(s => s.discord_event_id === eventId);
+        if (sessionWithEvent) {
+          const fixedDescription = event.description.replace('SESSION_UID:unknown', `SESSION_UID:${sessionWithEvent.id}`);
+
+          try {
+            await event.edit({
+              description: fixedDescription
+            });
+            console.log(`✅ Fixed SESSION_UID for event ${event.name} -> SESSION_UID:${sessionWithEvent.id}`);
+            syncedCount++;
+          } catch (editError) {
+            console.warn(`Failed to fix SESSION_UID for event ${eventId}:`, editError.message);
+          }
+        }
+      }
       }
     }
 
