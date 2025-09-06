@@ -142,16 +142,22 @@ async function handleVoting(interaction, action, msgId, votes) {
         await database.saveVote(msgId, userId, action);
       }
 
-      // Get updated vote counts
+      // Get updated vote counts and movie data
       const voteCounts = await database.getVoteCounts(msgId);
+      const movie = await database.getMovieById(msgId);
 
-      // Update message with new vote counts
-      const { components } = require('../utils');
-      const updatedComponents = components.createVotingButtons(msgId, voteCounts.up, voteCounts.down);
+      // Update message with new vote counts and preserve all buttons
+      const { components, embeds } = require('../utils');
+      const imdbData = movie && movie.imdb_data ? JSON.parse(movie.imdb_data) : null;
+      const updatedEmbed = movie ? embeds.createMovieEmbed(movie, imdbData) : null;
+      const updatedComponents = components.createStatusButtons(msgId, movie?.status || 'pending', voteCounts.up, voteCounts.down);
 
-      await interaction.editReply({
-        components: updatedComponents
-      });
+      const updateData = { components: updatedComponents };
+      if (updatedEmbed) {
+        updateData.embeds = [updatedEmbed];
+      }
+
+      await interaction.editReply(updateData);
     } else {
       // Fallback to in-memory voting
       if (!votes.has(msgId)) {
@@ -224,10 +230,14 @@ async function handleStatusChange(interaction, action, msgId) {
       return;
     }
 
-    // Create updated embed
+    // Get current vote counts
+    const voteCounts = await database.getVoteCounts(msgId);
+
+    // Create updated embed with IMDb data if available
     const { embeds, components } = require('../utils');
-    const updatedEmbed = embeds.createMovieEmbed(movie);
-    const updatedComponents = components.createStatusButtons(msgId, action);
+    const imdbData = movie.imdb_data ? JSON.parse(movie.imdb_data) : null;
+    const updatedEmbed = embeds.createMovieEmbed(movie, imdbData);
+    const updatedComponents = components.createStatusButtons(msgId, action, voteCounts.up, voteCounts.down);
 
     // Update the message
     await interaction.editReply({

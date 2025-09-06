@@ -461,6 +461,21 @@ class Database {
     }
   }
 
+  async findMovieByTitle(guildId, title) {
+    if (!this.isConnected) return null;
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT * FROM movies WHERE guild_id = ? AND title = ? ORDER BY created_at DESC LIMIT 1`,
+        [guildId, title]
+      );
+      return rows.length > 0 ? rows[0] : null;
+    } catch (error) {
+      console.error('Error finding movie by title:', error.message);
+      return null;
+    }
+  }
+
   async getVoteCounts(messageId) {
     if (!this.isConnected) return { up: 0, down: 0, voters: { up: [], down: [] } };
     

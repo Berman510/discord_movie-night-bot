@@ -64,6 +64,34 @@ async function handleMovieRecommendationModal(interaction) {
     const imdb = require('../services/imdb');
     const database = require('../database');
 
+    // Check for duplicate movies
+    const existingMovie = await database.findMovieByTitle(interaction.guild.id, title);
+
+    if (existingMovie) {
+      const statusEmoji = {
+        'pending': '🍿',
+        'planned': '📌',
+        'watched': '✅',
+        'skipped': '⏭️',
+        'scheduled': '📅'
+      }[existingMovie.status] || '🎬';
+
+      let statusMessage = `**${title}** has already been added and is currently ${statusEmoji} ${existingMovie.status}`;
+
+      if (existingMovie.status === 'watched' && existingMovie.watched_at) {
+        const watchedDate = new Date(existingMovie.watched_at).toLocaleDateString();
+        statusMessage += ` (watched on ${watchedDate})`;
+      }
+
+      statusMessage += '.\n\nWould you like to add it again anyway?';
+
+      await interaction.reply({
+        content: `⚠️ ${statusMessage}`,
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
     // Search IMDb for the movie
     let imdbResults = [];
     try {
