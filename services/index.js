@@ -11,6 +11,7 @@ const permissionService = require('./permissions');
 const cleanupService = require('./cleanup');
 const statsService = require('./stats');
 const configurationService = require('./configuration');
+const sessionTrackingService = require('./session-tracking');
 
 module.exports = {
   imdb: imdbService,
@@ -20,5 +21,6 @@ module.exports = {
   permissions: permissionService,
   cleanup: cleanupService,
   stats: statsService,
-  configuration: configurationService
+  configuration: configurationService,
+  sessionTracking: sessionTrackingService
 };

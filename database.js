@@ -186,11 +186,12 @@ class Database {
         admin_roles JSON NULL,
         notification_role_id VARCHAR(20) NULL,
         default_timezone VARCHAR(50) DEFAULT 'UTC',
+        session_viewing_channel_id VARCHAR(20) NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )`,
 
-      // Session participants
+      // Session participants (registered)
       `CREATE TABLE IF NOT EXISTS session_participants (
         id INT AUTO_INCREMENT PRIMARY KEY,
         session_id INT NOT NULL,
@@ -198,6 +199,18 @@ class Database {
         joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (session_id) REFERENCES movie_sessions(id) ON DELETE CASCADE,
         UNIQUE KEY unique_participant (session_id, user_id)
+      )`,
+
+      // Session attendees (actual attendance tracking)
+      `CREATE TABLE IF NOT EXISTS session_attendees (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        session_id INT NOT NULL,
+        user_id VARCHAR(20) NOT NULL,
+        joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        left_at TIMESTAMP NULL,
+        duration_minutes INT DEFAULT 0,
+        FOREIGN KEY (session_id) REFERENCES movie_sessions(id) ON DELETE CASCADE,
+        UNIQUE KEY unique_attendee (session_id, user_id)
       )`
     ];
 
@@ -357,6 +370,29 @@ class Database {
         }
       } catch (error) {
         console.error('❌ Failed to add watch_count column:', error.message);
+      }
+
+      // Migration 9: Ensure session_viewing_channel_id column exists in guild_config table
+      try {
+        const [guildColumns2] = await this.pool.execute(`
+          SELECT COLUMN_NAME
+          FROM INFORMATION_SCHEMA.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'guild_config'
+        `);
+        const guildColumnNames2 = guildColumns2.map(row => row.COLUMN_NAME);
+
+        if (!guildColumnNames2.includes('session_viewing_channel_id')) {
+          await this.pool.execute(`
+            ALTER TABLE guild_config
+            ADD COLUMN session_viewing_channel_id VARCHAR(20) NULL
+          `);
+          console.log('✅ Added session_viewing_channel_id column to guild_config');
+        } else {
+          console.log('✅ session_viewing_channel_id column already exists');
+        }
+      } catch (error) {
+        console.error('❌ Failed to add session_viewing_channel_id column:', error.message);
       }
 
       console.log('✅ Database migrations completed');
@@ -1094,6 +1130,23 @@ class Database {
     }
   }
 
+  async setViewingChannel(guildId, channelId) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `INSERT INTO guild_config (guild_id, session_viewing_channel_id, admin_roles)
+         VALUES (?, ?, ?)
+         ON DUPLICATE KEY UPDATE session_viewing_channel_id = VALUES(session_viewing_channel_id)`,
+        [guildId, channelId, JSON.stringify([])]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error setting viewing channel:', error.message);
+      return false;
+    }
+  }
+
   async getMoviesByChannel(guildId, channelId) {
     if (!this.isConnected) return [];
 
@@ -1309,6 +1362,60 @@ class Database {
     } catch (error) {
       console.error('Error getting watch count:', error.message);
       return 0;
+    }
+  }
+
+  // Session attendance tracking functions
+  async addSessionAttendee(sessionId, userId) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `INSERT INTO session_attendees (session_id, user_id)
+         VALUES (?, ?)
+         ON DUPLICATE KEY UPDATE joined_at = CURRENT_TIMESTAMP`,
+        [sessionId, userId]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error adding session attendee:', error.message);
+      return false;
+    }
+  }
+
+  async recordSessionLeave(sessionId, userId) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `UPDATE session_attendees
+         SET left_at = CURRENT_TIMESTAMP,
+             duration_minutes = TIMESTAMPDIFF(MINUTE, joined_at, CURRENT_TIMESTAMP)
+         WHERE session_id = ? AND user_id = ? AND left_at IS NULL`,
+        [sessionId, userId]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error recording session leave:', error.message);
+      return false;
+    }
+  }
+
+  async getSessionAttendees(sessionId) {
+    if (!this.isConnected) return [];
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT user_id, joined_at, left_at, duration_minutes
+         FROM session_attendees
+         WHERE session_id = ?
+         ORDER BY joined_at`,
+        [sessionId]
+      );
+      return rows;
+    } catch (error) {
+      console.error('Error getting session attendees:', error.message);
+      return [];
     }
   }
 

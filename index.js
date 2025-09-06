@@ -35,7 +35,8 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.GuildMessageReactions,
-    GatewayIntentBits.GuildScheduledEvents
+    GatewayIntentBits.GuildScheduledEvents,
+    GatewayIntentBits.GuildVoiceStates  // For voice channel monitoring
   ]
 });
 
@@ -70,6 +71,16 @@ client.on('interactionCreate', async (interaction) => {
         flags: MessageFlags.Ephemeral
       }).catch(console.error);
     }
+  }
+});
+
+// Handle voice state changes for session participant tracking
+client.on('voiceStateUpdate', async (oldState, newState) => {
+  try {
+    const { sessionTracking } = require('./services');
+    await sessionTracking.handleVoiceStateChange(oldState, newState);
+  } catch (error) {
+    console.error('Error handling voice state change:', error);
   }
 });
 

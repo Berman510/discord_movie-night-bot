@@ -176,11 +176,47 @@ async function resetConfiguration(interaction, guildId) {
   }
 }
 
+async function configureViewingChannel(interaction, guildId) {
+  const channel = interaction.options.getChannel('channel');
+
+  if (!channel) {
+    await interaction.reply({
+      content: '❌ Please specify a channel for session viewing.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  // Validate channel type (voice or text)
+  if (![0, 2].includes(channel.type)) { // 0 = text, 2 = voice
+    await interaction.reply({
+      content: '❌ Please select a text or voice channel for session viewing.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  const success = await database.setViewingChannel(guildId, channel.id);
+  if (success) {
+    const channelType = channel.type === 2 ? 'voice' : 'text';
+    await interaction.reply({
+      content: `✅ Session viewing channel set to ${channel} (${channelType} channel). The bot will now track attendance during scheduled movie sessions.`,
+      flags: MessageFlags.Ephemeral
+    });
+  } else {
+    await interaction.reply({
+      content: '❌ Failed to set viewing channel.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
 module.exports = {
   configureMovieChannel,
   addAdminRole,
   removeAdminRole,
   setNotificationRole,
+  configureViewingChannel,
   viewSettings,
   resetConfiguration
 };
