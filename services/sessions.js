@@ -223,7 +223,7 @@ async function closeSessionVoting(interaction) {
   }
 
   try {
-    const session = await database.getMovieSessionById(sessionId);
+    const session = await database.getSessionById(sessionId);
     if (!session || session.guild_id !== interaction.guild.id) {
       await interaction.reply({
         content: '❌ Session not found or not in this server.',
@@ -278,7 +278,7 @@ async function pickSessionWinner(interaction) {
   }
 
   try {
-    const session = await database.getMovieSessionById(sessionId);
+    const session = await database.getSessionById(sessionId);
     if (!session || session.guild_id !== interaction.guild.id) {
       await interaction.reply({
         content: '❌ Session not found or not in this server.',
@@ -347,7 +347,7 @@ async function addMovieToSession(interaction) {
   }
 
   try {
-    const session = await database.getMovieSessionById(sessionId);
+    const session = await database.getSessionById(sessionId);
     if (!session || session.guild_id !== interaction.guild.id) {
       await interaction.reply({
         content: '❌ Session not found or not in this server.',
@@ -400,7 +400,7 @@ async function joinSession(interaction) {
   }
 
   try {
-    const session = await database.getMovieSessionById(sessionId);
+    const session = await database.getSessionById(sessionId);
     if (!session || session.guild_id !== interaction.guild.id) {
       await interaction.reply({
         content: '❌ Session not found or not in this server.',

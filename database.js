@@ -760,20 +760,7 @@ class Database {
     }
   }
 
-  async getMovieSessionById(sessionId) {
-    if (!this.isConnected) return null;
 
-    try {
-      const [rows] = await this.pool.execute(
-        `SELECT * FROM movie_sessions WHERE id = ?`,
-        [sessionId]
-      );
-      return rows.length > 0 ? rows[0] : null;
-    } catch (error) {
-      console.error('Error getting session by ID:', error.message);
-      return null;
-    }
-  }
 
   async updateSessionStatus(sessionId, status) {
     if (!this.isConnected) return false;
@@ -1016,43 +1003,7 @@ class Database {
     }
   }
 
-  async updateSessionDiscordEvent(sessionId, discordEventId) {
-    if (!this.isConnected) return false;
 
-    try {
-      await this.pool.execute(
-        `UPDATE movie_sessions SET discord_event_id = ? WHERE id = ?`,
-        [discordEventId, sessionId]
-      );
-      return true;
-    } catch (error) {
-      console.error('Error updating session Discord event:', error.message);
-      return false;
-    }
-  }
-
-  async updateMovieStatus(messageId, status) {
-    if (!this.isConnected) return false;
-
-    try {
-      // If marking as watched, also set watched_at timestamp
-      if (status === 'watched') {
-        await this.pool.execute(
-          `UPDATE movies SET status = ?, watched_at = CURRENT_TIMESTAMP WHERE message_id = ?`,
-          [status, messageId]
-        );
-      } else {
-        await this.pool.execute(
-          `UPDATE movies SET status = ? WHERE message_id = ?`,
-          [status, messageId]
-        );
-      }
-      return true;
-    } catch (error) {
-      console.error('Error updating movie status:', error.message);
-      return false;
-    }
-  }
 
   async setNotificationRole(guildId, roleId) {
     if (!this.isConnected) return false;
