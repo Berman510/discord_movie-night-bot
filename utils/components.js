@@ -7,21 +7,6 @@ const { ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } 
 const { VOTE_EMOJIS } = require('./constants');
 const { TIMEZONE_OPTIONS } = require('../config/timezones');
 
-function createVoteButtons(messageId) {
-  return new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`mn:up:${messageId}`)
-      .setLabel('Vote Up')
-      .setStyle(ButtonStyle.Success)
-      .setEmoji(VOTE_EMOJIS.up),
-    new ButtonBuilder()
-      .setCustomId(`mn:down:${messageId}`)
-      .setLabel('Vote Down')
-      .setStyle(ButtonStyle.Danger)
-      .setEmoji(VOTE_EMOJIS.down)
-  );
-}
-
 function createVotingButtons(messageId, upCount = 0, downCount = 0) {
   return [new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -37,26 +22,27 @@ function createVotingButtons(messageId, upCount = 0, downCount = 0) {
   )];
 }
 
-function createStatusButtons(messageId, status = 'pending') {
-  const buttons = [];
+function createStatusButtons(messageId, status = 'pending', upCount = 0, downCount = 0) {
+  const rows = [];
 
-  // Always include vote buttons
-  buttons.push(
+  // Always include vote buttons as first row
+  const voteRow = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`mn:up:${messageId}`)
-      .setLabel('Vote Up')
+      .setLabel(`Vote Up (${upCount})`)
       .setStyle(ButtonStyle.Success)
       .setEmoji(VOTE_EMOJIS.up),
     new ButtonBuilder()
       .setCustomId(`mn:down:${messageId}`)
-      .setLabel('Vote Down')
+      .setLabel(`Vote Down (${downCount})`)
       .setStyle(ButtonStyle.Danger)
       .setEmoji(VOTE_EMOJIS.down)
   );
+  rows.push(voteRow);
 
   // Add status buttons for pending movies
   if (status === 'pending') {
-    buttons.push(
+    const statusRow = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`mn:watched:${messageId}`)
         .setLabel('Watched')
@@ -73,12 +59,7 @@ function createStatusButtons(messageId, status = 'pending') {
         .setStyle(ButtonStyle.Secondary)
         .setEmoji('⏭️')
     );
-  }
-
-  // Split into multiple rows if needed (max 5 buttons per row)
-  const rows = [];
-  for (let i = 0; i < buttons.length; i += 5) {
-    rows.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + 5)));
+    rows.push(statusRow);
   }
 
   // For planned movies, add session creation button
@@ -209,7 +190,6 @@ function createConfigurationButtons() {
 }
 
 module.exports = {
-  createVoteButtons,
   createVotingButtons,
   createStatusButtons,
   createTimezoneSelect,
