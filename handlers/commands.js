@@ -76,10 +76,22 @@ async function handleSlashCommand(interaction) {
 
 // Movie recommendation command handler
 async function handleMovieNight(interaction) {
+  // Check if there's an active voting session
+  const database = require('../database');
+  const activeSession = await database.getActiveVotingSession(interaction.guild.id);
+
+  if (!activeSession) {
+    await interaction.reply({
+      content: '❌ **No active voting session**\n\nMovie recommendations are only available during active voting sessions. An admin needs to use the "Plan Next Session" button in the admin channel to start a new voting session.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
   // Show the movie recommendation modal
   const modal = new ModalBuilder()
     .setCustomId('mn:modal')
-    .setTitle('New Movie Recommendation');
+    .setTitle(`Recommend Movie for ${activeSession.name}`);
 
   const titleInput = new TextInputBuilder()
     .setCustomId('mn:title')
@@ -97,7 +109,7 @@ async function handleMovieNight(interaction) {
 
   const titleRow = new ActionRowBuilder().addComponents(titleInput);
   const whereRow = new ActionRowBuilder().addComponents(whereInput);
-  
+
   modal.addComponents(titleRow, whereRow);
 
   await interaction.showModal(modal);
@@ -105,20 +117,46 @@ async function handleMovieNight(interaction) {
 
 async function handleMovieQueue(interaction) {
   try {
+    // Check for active voting session
+    const activeSession = await database.getActiveVotingSession(interaction.guild.id);
+
+    if (!activeSession) {
+      await interaction.reply({
+        content: '📋 **No active voting session**\n\nThere are currently no movies in the queue. An admin needs to use the "Plan Next Session" button in the admin channel to start a new voting session before movies can be recommended.',
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
     const movies = await database.getMoviesByStatus(interaction.guild.id, 'pending', 10);
 
     if (!movies || movies.length === 0) {
       await interaction.reply({
-        content: '📋 No movies in the queue yet! Use `/movie-night` to add some recommendations.',
+        content: `📋 **${activeSession.name}** - No movies yet!\n\nUse \`/movie-night\` to add some recommendations for this voting session.`,
         flags: MessageFlags.Ephemeral
       });
       return;
     }
 
     const embed = new EmbedBuilder()
-      .setTitle('🍿 Current Movie Queue')
-      .setDescription(`Showing ${movies.length} pending recommendations`)
+      .setTitle(`🍿 ${activeSession.name}`)
+      .setDescription(`Showing ${movies.length} movie recommendations for this voting session`)
       .setColor(0x5865f2);
+
+    if (activeSession.scheduled_date) {
+      embed.addFields({
+        name: '📅 Scheduled Date',
+        value: new Date(activeSession.scheduled_date).toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        }),
+        inline: false
+      });
+    }
 
     movies.forEach((movie, index) => {
       embed.addFields({
@@ -127,6 +165,8 @@ async function handleMovieQueue(interaction) {
         inline: false
       });
     });
+
+    embed.setFooter({ text: 'Vote on movies in the voting channel!' });
 
     await interaction.reply({
       embeds: [embed],

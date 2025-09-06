@@ -3,7 +3,7 @@
  * Manages session-based voting with movie tagging and winner selection
  */
 
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags } = require('discord.js');
 const database = require('../database');
 
 /**
@@ -46,13 +46,13 @@ async function showVotingSessionDateModal(interaction) {
     .setRequired(true)
     .setMaxLength(10);
 
-  const nameInput = new TextInputBuilder()
-    .setCustomId('session_name')
-    .setLabel('Session Name')
+  const timeInput = new TextInputBuilder()
+    .setCustomId('session_time')
+    .setLabel('Session Time (HH:MM)')
     .setStyle(TextInputStyle.Short)
-    .setPlaceholder('Holiday Movie Night')
+    .setPlaceholder('19:30')
     .setRequired(true)
-    .setMaxLength(100);
+    .setMaxLength(5);
 
   const descriptionInput = new TextInputBuilder()
     .setCustomId('session_description')
@@ -63,7 +63,7 @@ async function showVotingSessionDateModal(interaction) {
     .setMaxLength(500);
 
   const firstRow = new ActionRowBuilder().addComponents(dateInput);
-  const secondRow = new ActionRowBuilder().addComponents(nameInput);
+  const secondRow = new ActionRowBuilder().addComponents(timeInput);
   const thirdRow = new ActionRowBuilder().addComponents(descriptionInput);
 
   modal.addComponents(firstRow, secondRow, thirdRow);
@@ -87,8 +87,17 @@ async function handleVotingSessionDateModal(interaction) {
   }
 
   const sessionDate = interaction.fields.getTextInputValue('session_date');
-  const sessionName = interaction.fields.getTextInputValue('session_name');
+  const sessionTime = interaction.fields.getTextInputValue('session_time');
   const sessionDescription = interaction.fields.getTextInputValue('session_description') || null;
+
+  // Auto-generate session name from date
+  const dateObj = new Date(sessionDate + 'T00:00:00');
+  const sessionName = `Movie Night - ${dateObj.toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  })}`;
 
   // Validate date format
   const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
@@ -100,203 +109,124 @@ async function handleVotingSessionDateModal(interaction) {
     return;
   }
 
-  // Update state
-  state.selectedDate = sessionDate;
-  state.sessionName = sessionName;
-  state.sessionDescription = sessionDescription;
-  state.step = 'time';
-
-  global.votingSessionCreationState.set(userId, state);
-
-  // Show time selection modal
-  await showVotingSessionTimeModal(interaction);
-}
-
-/**
- * Show time selection modal for voting session
- */
-async function showVotingSessionTimeModal(interaction) {
-  const modal = new ModalBuilder()
-    .setCustomId('voting_session_time_modal')
-    .setTitle('Plan Next Voting Session - Time');
-
-  const timeInput = new TextInputBuilder()
-    .setCustomId('session_time')
-    .setLabel('Session Time (HH:MM in 24-hour format)')
-    .setStyle(TextInputStyle.Short)
-    .setPlaceholder('20:00')
-    .setRequired(true)
-    .setMaxLength(5);
-
-  const timezoneInput = new TextInputBuilder()
-    .setCustomId('session_timezone')
-    .setLabel('Timezone (e.g., America/New_York, UTC)')
-    .setStyle(TextInputStyle.Short)
-    .setPlaceholder('UTC')
-    .setRequired(false)
-    .setMaxLength(50);
-
-  const firstRow = new ActionRowBuilder().addComponents(timeInput);
-  const secondRow = new ActionRowBuilder().addComponents(timezoneInput);
-
-  modal.addComponents(firstRow, secondRow);
-
-  await interaction.reply({
-    content: '⏰ Please specify the time for your voting session...',
-    flags: MessageFlags.Ephemeral
-  });
-}
-
-/**
- * Handle voting session time modal submission
- */
-async function handleVotingSessionTimeModal(interaction) {
-  const userId = interaction.user.id;
-  const state = global.votingSessionCreationState?.get(userId);
-
-  if (!state) {
-    await interaction.reply({
-      content: '❌ Session creation state not found. Please try again.',
-      flags: MessageFlags.Ephemeral
-    });
-    return;
-  }
-
-  const sessionTime = interaction.fields.getTextInputValue('session_time');
-  const sessionTimezone = interaction.fields.getTextInputValue('session_timezone') || 'UTC';
-
   // Validate time format
   const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
   if (!timeRegex.test(sessionTime)) {
     await interaction.reply({
-      content: '❌ Invalid time format. Please use HH:MM format (e.g., 20:00).',
+      content: '❌ Invalid time format. Please use HH:MM format (24-hour).',
       flags: MessageFlags.Ephemeral
     });
     return;
   }
 
-  // Update state
+  // Parse the full datetime
+  const sessionDateTime = new Date(`${sessionDate}T${sessionTime}:00`);
+
+  // Validate that the date is in the future
+  if (sessionDateTime <= new Date()) {
+    await interaction.reply({
+      content: '❌ Session date and time must be in the future.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  // Update state with all information
+  state.selectedDate = sessionDate;
   state.selectedTime = sessionTime;
-  state.selectedTimezone = sessionTimezone;
+  state.sessionName = sessionName;
+  state.sessionDescription = sessionDescription;
+  state.sessionDateTime = sessionDateTime;
+  state.step = 'complete';
 
-  // Create the voting session
-  await finalizeVotingSession(interaction, state);
+  global.votingSessionCreationState.set(userId, state);
 
-  // Clean up state
-  global.votingSessionCreationState.delete(userId);
+  // Create the voting session directly
+  await createVotingSession(interaction, state);
 }
 
 /**
- * Finalize and create the voting session
+ * Create the voting session with all provided information
  */
-async function finalizeVotingSession(interaction, state) {
+async function createVotingSession(interaction, state) {
+  const database = require('../database');
+
   try {
-    // Combine date and time
-    const scheduledDateTime = new Date(`${state.selectedDate}T${state.selectedTime}:00`);
-    
-    // Check if there's already an active voting session
-    const existingSession = await database.getActiveVotingSession(interaction.guild.id);
-    if (existingSession) {
-      await interaction.editReply({
-        content: '❌ There is already an active voting session. Please finalize it before creating a new one.'
-      });
-      return;
-    }
-
-    // Create Discord event first with TBD title
-    const discordEvents = require('./discord-events');
-    const eventData = {
-      name: `${state.sessionName} - TBD (Voting in Progress)`,
-      description: state.sessionDescription || 'Movie will be decided by voting',
-      scheduledStartTime: scheduledDateTime,
-      entityType: 3, // External event
-      privacyLevel: 2 // Guild only
-    };
-
-    const discordEventId = await discordEvents.createDiscordEvent(interaction.guild, eventData);
-
-    // Create voting session in database
+    // Create the voting session in the database
     const sessionData = {
       guildId: interaction.guild.id,
-      channelId: interaction.channel.id,
       name: state.sessionName,
       description: state.sessionDescription,
-      scheduledDate: scheduledDateTime,
-      timezone: state.selectedTimezone,
+      scheduledDate: state.sessionDateTime,
       createdBy: interaction.user.id,
-      discordEventId: discordEventId
+      status: 'planned'
     };
 
     const sessionId = await database.createVotingSession(sessionData);
 
     if (!sessionId) {
-      await interaction.editReply({
-        content: '❌ Failed to create voting session.'
+      await interaction.reply({
+        content: '❌ Failed to create voting session.',
+        flags: MessageFlags.Ephemeral
       });
       return;
     }
 
-    // Move pending movies to this voting session
-    const pendingMovies = await database.getMoviesByStatus(interaction.guild.id, 'pending', 50);
-    let movedCount = 0;
+    // Create Discord event
+    try {
+      const discordEvents = require('./discord-events');
+      const eventData = {
+        name: state.sessionName,
+        description: state.sessionDescription || 'Join us for movie night voting and viewing!',
+        scheduledStartTime: state.sessionDateTime,
+        entityType: 3, // External event
+        privacyLevel: 2 // Guild only
+      };
 
-    for (const movie of pendingMovies) {
-      try {
-        await database.pool.execute(
-          `UPDATE movies SET session_id = ? WHERE message_id = ?`,
-          [sessionId, movie.message_id]
-        );
-        movedCount++;
-      } catch (error) {
-        console.warn(`Failed to move movie ${movie.title} to voting session:`, error.message);
+      const event = await discordEvents.createDiscordEvent(interaction.guild, eventData);
+
+      if (event) {
+        // Update session with Discord event ID
+        await database.updateVotingSessionEventId(sessionId, event.id);
       }
+    } catch (error) {
+      console.warn('Error creating Discord event for voting session:', error.message);
     }
 
-    const embed = new EmbedBuilder()
-      .setTitle('🗳️ New Voting Session Created!')
-      .setDescription(`**${state.sessionName}** is now open for voting`)
-      .setColor(0x57f287)
-      .addFields(
-        { name: '📅 Scheduled Date', value: scheduledDateTime.toLocaleDateString(), inline: true },
-        { name: '⏰ Time', value: `${state.selectedTime} ${state.selectedTimezone}`, inline: true },
-        { name: '🎬 Movies in Vote', value: `${movedCount} movies`, inline: true }
-      );
+    // Clear the creation state
+    global.votingSessionCreationState?.delete(interaction.user.id);
 
-    if (state.sessionDescription) {
-      embed.addFields({ name: '📝 Description', value: state.sessionDescription, inline: false });
-    }
-
-    if (discordEventId) {
-      embed.addFields({ name: '📅 Discord Event', value: 'Created with TBD title - will update when winner is chosen', inline: false });
-    }
-
-    embed.setFooter({ text: 'Movies are now tagged for this voting session. Use admin controls to choose the winner!' });
-
-    await interaction.editReply({
-      embeds: [embed]
+    // Success response
+    await interaction.reply({
+      content: `✅ **Voting session created successfully!**\n\n🎬 **${state.sessionName}**\n📅 ${state.sessionDateTime.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      })}\n⏰ ${state.sessionDateTime.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit'
+      })}\n\n🗳️ Users can now start recommending movies for this session!`,
+      flags: MessageFlags.Ephemeral
     });
 
-    // Sync both channels to show the new voting session movies
-    try {
-      const adminControls = require('./admin-controls');
-      await adminControls.handleSyncChannel(interaction);
-    } catch (error) {
-      console.warn('Error syncing channels after voting session creation:', error.message);
-    }
-
-    console.log(`🗳️ Created voting session ${sessionId} with ${movedCount} movies`);
+    console.log(`🎬 Voting session created: ${state.sessionName} by ${interaction.user.tag}`);
 
   } catch (error) {
-    console.error('Error finalizing voting session:', error);
-    await interaction.editReply({
-      content: '❌ An error occurred while creating the voting session.'
+    console.error('Error creating voting session:', error);
+    await interaction.reply({
+      content: '❌ An error occurred while creating the voting session.',
+      flags: MessageFlags.Ephemeral
     });
   }
 }
 
+
+
+
+
 module.exports = {
-  createVotingSession,
+  showVotingSessionDateModal,
   handleVotingSessionDateModal,
-  handleVotingSessionTimeModal,
-  showVotingSessionTimeModal
+  createVotingSession
 };
