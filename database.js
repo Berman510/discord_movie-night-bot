@@ -432,14 +432,19 @@ class Database {
     }
   }
 
-  async getMovieByMessageId(messageId) {
+  async getMovieByMessageId(messageId, guildId = null) {
     if (!this.isConnected) return null;
 
     try {
-      const [rows] = await this.pool.execute(
-        `SELECT * FROM movies WHERE message_id = ?`,
-        [messageId]
-      );
+      let query = `SELECT * FROM movies WHERE message_id = ?`;
+      let params = [messageId];
+
+      if (guildId) {
+        query += ` AND guild_id = ?`;
+        params.push(guildId);
+      }
+
+      const [rows] = await this.pool.execute(query, params);
       return rows.length > 0 ? rows[0] : null;
     } catch (error) {
       console.error('Error getting movie by message ID:', error.message);
@@ -895,14 +900,19 @@ class Database {
     }
   }
 
-  async getMovieById(messageId) {
+  async getMovieById(messageId, guildId = null) {
     if (!this.isConnected) return null;
 
     try {
-      const [rows] = await this.pool.execute(
-        `SELECT * FROM movies WHERE message_id = ?`,
-        [messageId]
-      );
+      let query = `SELECT * FROM movies WHERE message_id = ?`;
+      let params = [messageId];
+
+      if (guildId) {
+        query += ` AND guild_id = ?`;
+        params.push(guildId);
+      }
+
+      const [rows] = await this.pool.execute(query, params);
       return rows.length > 0 ? rows[0] : null;
     } catch (error) {
       console.error('Error getting movie by ID:', error.message);

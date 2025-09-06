@@ -16,7 +16,7 @@ async function createDiscordEvent(guild, sessionData, scheduledDate) {
     if (sessionData.associatedMovieId) {
       try {
         const database = require('../database');
-        const movie = await database.getMovieById(sessionData.associatedMovieId);
+        const movie = await database.getMovieById(sessionData.associatedMovieId, sessionData.guildId);
 
         if (movie && movie.imdb_id) {
           const imdb = require('./imdb');

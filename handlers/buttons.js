@@ -166,7 +166,7 @@ async function handleVoting(interaction, action, msgId, votes) {
 
       // Get updated vote counts and movie data
       const voteCounts = await database.getVoteCounts(msgId);
-      const movie = await database.getMovieById(msgId);
+      const movie = await database.getMovieById(msgId, interaction.guild.id);
 
       // Update message with new vote counts and preserve all buttons
       const { components, embeds } = require('../utils');
@@ -248,7 +248,7 @@ async function handleStatusChange(interaction, action, msgId) {
     }
 
     // Get updated movie data
-    const movie = await database.getMovieById(msgId);
+    const movie = await database.getMovieById(msgId, interaction.guild.id);
     if (!movie) {
       await interaction.followUp({
         content: '❌ Movie not found.',

@@ -480,7 +480,7 @@ async function joinSession(interaction) {
 async function handleCreateSessionFromMovie(interaction, messageId) {
   console.log(`Create session from movie: ${messageId}`);
   // Get the movie from the database
-  const movie = await database.getMovieById(messageId);
+  const movie = await database.getMovieById(messageId, interaction.guild.id);
   if (!movie) {
     await interaction.reply({
       content: '❌ Movie not found.',
@@ -706,6 +706,17 @@ async function showTimezoneSelection(interaction, state) {
   });
 }
 
+async function handleTimezoneSelection(interaction, customId, state) {
+  const timezone = customId.split(':')[1];
+  state.timezone = timezone;
+
+  // Update state
+  global.sessionCreationState.set(interaction.user.id, state);
+
+  // Show final creation step
+  await showFinalCreation(interaction, state);
+}
+
 // Helper function to get next occurrence of a weekday
 function getNextWeekday(dayName) {
   const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
@@ -821,7 +832,7 @@ async function generateSessionDescription(state) {
   // Add movie information if selected
   if (state.selectedMovie && state.selectedMovie !== 'no_movie') {
     try {
-      const movie = await database.getMovieById(state.selectedMovie);
+      const movie = await database.getMovieById(state.selectedMovie, interaction.guild.id);
       if (movie) {
         description += `**Featured Movie:** ${movie.title}\n`;
         description += `**Where to Watch:** ${movie.where_to_watch}\n`;
@@ -1061,7 +1072,7 @@ async function handleCancelConfirmation(interaction) {
 async function updateMoviePostForSession(interaction, movieMessageId, sessionId, sessionName, scheduledDate, discordEventId) {
   try {
     // Get movie details
-    const movie = await database.getMovieById(movieMessageId);
+    const movie = await database.getMovieById(movieMessageId, interaction.guild.id);
     if (!movie) {
       console.warn('Movie not found for post restoration');
       return;
@@ -1137,7 +1148,7 @@ async function updateMoviePostForSession(interaction, movieMessageId, sessionId,
     console.log(`🎬 Updating movie post ${movieMessageId} for session ${sessionId}`);
 
     // Get movie details from database
-    const movie = await database.getMovieById(movieMessageId);
+    const movie = await database.getMovieById(movieMessageId, interaction.guild.id);
     if (!movie) {
       console.warn('Movie not found for post update');
       return;

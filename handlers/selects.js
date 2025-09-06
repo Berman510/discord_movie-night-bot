@@ -92,7 +92,7 @@ async function handleSessionMovieSelection(interaction) {
 
     try {
       // Get movie details from database
-      const movie = await database.getMovieById(movieMessageId);
+      const movie = await database.getMovieById(movieMessageId, interaction.guild.id);
       if (movie) {
         state.selectedMovie = movieMessageId;
         state.movieTitle = movie.title; // Store title for templating
