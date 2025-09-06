@@ -2143,13 +2143,14 @@ class Database {
       const [moviesResult] = await this.pool.execute(`
         UPDATE movies
         SET
-          message_id = CONCAT('archived_', UNIX_TIMESTAMP(), '_', id),
+          message_id = CONCAT('purged_', id),
           channel_id = 'archived',
           status = CASE
             WHEN is_banned = TRUE THEN 'banned'
             WHEN status = 'watched' THEN 'watched'
             ELSE 'pending'
-          END
+          END,
+          session_id = NULL
         WHERE guild_id = ? AND status IN ('pending', 'planned', 'scheduled')
       `, [guildId]);
 

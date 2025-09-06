@@ -182,10 +182,45 @@ async function handleSyncChannel(interaction) {
       try {
         const votingChannel = await interaction.client.channels.fetch(config.movie_channel_id);
         if (votingChannel) {
-          const cleanup = require('./cleanup');
-          votingSynced = await cleanup.recreateMissingMoviePosts(votingChannel, interaction.guild.id);
+          // Clear existing movie messages in voting channel (preserve quick action)
+          const messages = await votingChannel.messages.fetch({ limit: 100 });
+          const botMessages = messages.filter(msg => msg.author.id === interaction.client.user.id);
+
+          for (const [messageId, message] of botMessages) {
+            try {
+              // Skip quick action messages
+              const isQuickAction = message.embeds.length > 0 &&
+                                   message.embeds[0].title &&
+                                   message.embeds[0].title.includes('Quick Actions');
+
+              if (!isQuickAction) {
+                await message.delete();
+              }
+            } catch (error) {
+              console.warn(`Failed to delete voting message ${messageId}:`, error.message);
+            }
+          }
+
+          // Get all active movies and recreate them
+          const database = require('../database');
+          const movies = await database.getMoviesByStatus(interaction.guild.id, 'pending', 50);
+          const plannedMovies = await database.getMoviesByStatus(interaction.guild.id, 'planned', 50);
+          const scheduledMovies = await database.getMoviesByStatus(interaction.guild.id, 'scheduled', 50);
+
+          const allMovies = [...movies, ...plannedMovies, ...scheduledMovies];
+
+          for (const movie of allMovies) {
+            try {
+              const cleanup = require('./cleanup');
+              await cleanup.recreateMoviePost(votingChannel, movie);
+              votingSynced++;
+            } catch (error) {
+              console.warn(`Failed to recreate voting post for ${movie.title}:`, error.message);
+            }
+          }
 
           // Also ensure quick action message at bottom
+          const cleanup = require('./cleanup');
           await cleanup.ensureQuickActionAtBottom(votingChannel);
         } else {
           errors.push('Voting channel not found');
