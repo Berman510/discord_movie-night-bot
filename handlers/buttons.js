@@ -54,8 +54,14 @@ async function handleButton(interaction) {
     }
 
     // Admin movie action buttons
-    if (customId.startsWith('admin_')) {
+    if (customId.startsWith('admin_') && !customId.startsWith('admin_ctrl_')) {
       await handleAdminMovieButtons(interaction, customId);
+      return;
+    }
+
+    // Admin control panel buttons
+    if (customId.startsWith('admin_ctrl_')) {
+      await handleAdminControlButtons(interaction, customId);
       return;
     }
 
@@ -1138,6 +1144,68 @@ async function updateAdminMessage(interaction, movie) {
   } catch (error) {
     console.error('Error updating admin message:', error);
   }
+}
+
+/**
+ * Handle admin control panel buttons
+ */
+async function handleAdminControlButtons(interaction, customId) {
+  const { permissions } = require('../services');
+  const adminControls = require('../services/admin-controls');
+
+  // Check admin permissions
+  const hasPermission = await permissions.checkMovieAdminPermission(interaction);
+  if (!hasPermission) {
+    await interaction.reply({
+      content: '❌ You need Administrator permissions or a configured admin role to use this action.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  try {
+    switch (customId) {
+      case 'admin_ctrl_sync':
+        await adminControls.handleSyncChannel(interaction);
+        break;
+      case 'admin_ctrl_purge':
+        await adminControls.handlePurgeQueue(interaction);
+        break;
+      case 'admin_ctrl_stats':
+        await adminControls.handleGuildStats(interaction);
+        break;
+      case 'admin_ctrl_deep_purge':
+        await handleDeepPurgeInitiation(interaction);
+        break;
+      case 'admin_ctrl_banned_list':
+        await adminControls.handleBannedMoviesList(interaction);
+        break;
+      case 'admin_ctrl_refresh':
+        await adminControls.handleRefreshPanel(interaction);
+        break;
+      default:
+        await interaction.reply({
+          content: '❌ Unknown admin control action.',
+          flags: MessageFlags.Ephemeral
+        });
+    }
+  } catch (error) {
+    console.error('Error handling admin control button:', error);
+    await interaction.reply({
+      content: '❌ An error occurred while processing the admin control action.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+/**
+ * Handle deep purge initiation (will be implemented in next task)
+ */
+async function handleDeepPurgeInitiation(interaction) {
+  await interaction.reply({
+    content: '🚧 Deep purge system coming soon! This will provide selective guild data removal with confirmations.',
+    flags: MessageFlags.Ephemeral
+  });
 }
 
 module.exports = {

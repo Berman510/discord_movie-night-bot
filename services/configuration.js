@@ -247,6 +247,14 @@ async function configureAdminChannel(interaction, guildId) {
 
   const success = await database.setAdminChannel(guildId, channel.id);
   if (success) {
+    // Create admin control panel in the new admin channel
+    try {
+      const adminControls = require('./admin-controls');
+      await adminControls.ensureAdminControlPanel(interaction.client, guildId);
+    } catch (error) {
+      console.error('Error creating admin control panel:', error);
+    }
+
     await interaction.reply({
       content: `✅ Admin channel set to ${channel}. This channel will display admin controls and movie management tools.`,
       flags: MessageFlags.Ephemeral
