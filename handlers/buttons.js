@@ -523,7 +523,7 @@ async function handlePurgeConfirmation(interaction) {
         flags: MessageFlags.Ephemeral
       });
 
-      console.log(`✅ Purge complete: ${deletedMovies} movies, ${deletedMessages} messages, ${preservedScheduled} preserved`);
+      console.log(`✅ Purge complete: ${deletedMovies} movies, ${deletedMessages} messages, ${deletedThreads} threads, ${preservedWatched} watched preserved`);
 
     } catch (error) {
       console.error('Error during purge:', error);

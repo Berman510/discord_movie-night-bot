@@ -2,6 +2,27 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.11.15] - 2025-09-06
+### Fixed
+- **Purge Error:** Fixed "preservedScheduled is not defined" error during purge operations
+- **Sync Completeness:** Sync now properly recreates missing movie posts from database
+- **Missing Posts:** Movies in database without Discord messages are now recreated during sync
+
+### Added
+- **recreateMissingMoviePosts:** Function to recreate Discord posts for movies that exist in database
+- **recreateMoviePost:** Comprehensive movie post recreation with proper embeds, buttons, and threads
+- **Post Recovery:** Sync operations now recover missing movie posts with full functionality
+
+### Enhanced
+- **Sync Reporting:** Added count of recreated posts to sync summary
+- **Thread Recreation:** Missing movie posts get their discussion threads recreated
+- **Button Restoration:** Recreated posts have proper voting or session management buttons
+
+### Technical
+- **Database Sync:** Improved synchronization between database records and Discord messages
+- **Message ID Updates:** Recreated posts get proper message ID updates in database
+- **Error Handling:** Better error handling for post recreation operations
+
 ## [1.11.14] - 2025-09-06
 ### Fixed
 - **Critical Startup Error:** Fixed "Identifier 'cleanup' has already been declared" syntax error

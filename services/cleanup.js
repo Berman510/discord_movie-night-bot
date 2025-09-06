@@ -211,6 +211,9 @@ async function handleCleanupSync(interaction, movieChannel) {
       console.warn('Error syncing Discord events:', error.message);
     }
 
+    // Step 6: Recreate missing movie posts
+    const recreatedCount = await recreateMissingMoviePosts(channel, interaction.guild.id);
+
     // Clean up orphaned threads
     const threadsCleanedCount = await cleanupOrphanedThreads(channel, dbMovieIds);
 
@@ -225,6 +228,7 @@ async function handleCleanupSync(interaction, movieChannel) {
       `🔗 Synced ${syncedCount} messages with database`,
       `🎪 Synced ${eventSyncResults.syncedCount} Discord events, deleted ${eventSyncResults.deletedCount} orphaned events`,
       `🗑️ Cleaned ${cleanedDbCount} orphaned database entries`,
+      `🎬 Recreated ${recreatedCount} missing movie posts`,
       `🧵 Cleaned ${threadsCleanedCount} orphaned threads`,
       `🍿 Added quick action message at bottom`
     ];
@@ -476,6 +480,105 @@ async function cleanupAllThreads(channel) {
   }
 }
 
+async function recreateMissingMoviePosts(channel, guildId) {
+  // Recreate Discord posts for movies that exist in database but not in channel
+  let recreatedCount = 0;
+
+  try {
+    const database = require('../database');
+
+    // Get all movies for this guild and channel
+    const allMovies = await database.getMoviesByChannel(guildId, channel.id);
+
+    // Get current messages in channel
+    const messages = await channel.messages.fetch({ limit: 100 });
+    const botMessages = messages.filter(msg => msg.author.id === channel.client.user.id);
+    const existingMessageIds = new Set(botMessages.keys());
+
+    for (const movie of allMovies) {
+      // Skip watched movies - they don't need posts
+      if (movie.status === 'watched') continue;
+
+      // Check if this movie's message exists in the channel
+      if (!existingMessageIds.has(movie.message_id)) {
+        try {
+          // Recreate the movie post
+          await recreateMoviePost(channel, movie);
+          recreatedCount++;
+          console.log(`🎬 Recreated missing post for: ${movie.title}`);
+        } catch (error) {
+          console.warn(`Failed to recreate post for ${movie.title}:`, error.message);
+        }
+      }
+    }
+
+    return recreatedCount;
+  } catch (error) {
+    console.warn('Error recreating missing movie posts:', error.message);
+    return 0;
+  }
+}
+
+async function recreateMoviePost(channel, movie) {
+  // Recreate a movie post with proper embed and buttons
+  try {
+    const { embeds, components } = require('../utils');
+    const database = require('../database');
+
+    // Get vote counts
+    const voteCounts = await database.getVoteCounts(movie.message_id);
+
+    // Create movie embed
+    const movieEmbed = embeds.createMovieEmbed({
+      title: movie.title,
+      description: movie.description,
+      platform: movie.platform,
+      imdbId: movie.imdb_id,
+      poster: movie.poster_url,
+      status: movie.status,
+      addedBy: movie.added_by,
+      addedAt: movie.created_at
+    });
+
+    // Create appropriate buttons based on status
+    let movieComponents;
+    if (movie.status === 'scheduled') {
+      // Check if there's an active session
+      const session = await database.getSessionByMovieId(movie.message_id);
+      if (session) {
+        movieComponents = components.createSessionManagementButtons(movie.message_id, session.id);
+      } else {
+        movieComponents = components.createStatusButtons(movie.message_id, movie.status, voteCounts.up, voteCounts.down);
+      }
+    } else {
+      movieComponents = components.createStatusButtons(movie.message_id, movie.status, voteCounts.up, voteCounts.down);
+    }
+
+    // Post the recreated message
+    const newMessage = await channel.send({
+      embeds: [movieEmbed],
+      components: movieComponents
+    });
+
+    // Update the message ID in database
+    await database.updateMovieMessageId(channel.guild.id, movie.title, newMessage.id);
+
+    // Create thread if the movie had one
+    if (movie.description && movie.description.includes('Discussion')) {
+      const thread = await newMessage.startThread({
+        name: `${movie.title} Discussion`,
+        autoArchiveDuration: 1440 // 24 hours
+      });
+
+      await thread.send(`💬 **Discussion thread for ${movie.title}**\n\nShare your thoughts, reviews, or questions about this movie!`);
+    }
+
+  } catch (error) {
+    console.error(`Error recreating movie post for ${movie.title}:`, error);
+    throw error;
+  }
+}
+
 module.exports = {
   handleMovieCleanup,
   handleCleanupSync,
@@ -483,5 +586,7 @@ module.exports = {
   ensureQuickActionAtBottom,
   cleanupOldGuideMessages,
   cleanupOrphanedThreads,
-  cleanupAllThreads
+  cleanupAllThreads,
+  recreateMissingMoviePosts,
+  recreateMoviePost
 };
