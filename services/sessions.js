@@ -489,10 +489,29 @@ async function handleCreateSessionFromMovie(interaction, messageId) {
     return;
   }
 
-  console.log(`Create session from movie: ${messageId}`);
+  console.log(`Create session from movie: ${messageId} - ${movie.title}`);
 
-  // Create session with movie pre-selected
-  await createMovieSession(interaction, movie.title, messageId);
+  // Initialize session state with pre-selected movie
+  if (!global.sessionCreationState) {
+    global.sessionCreationState = new Map();
+  }
+
+  const state = {
+    step: 'date',
+    selectedMovie: messageId,
+    movieTitle: movie.title,
+    movieDisplay: `**${movie.title}**\n📺 ${movie.where_to_watch}`,
+    selectedDate: null,
+    selectedTime: null,
+    selectedTimezone: null,
+    sessionName: null,
+    sessionDescription: null
+  };
+
+  global.sessionCreationState.set(interaction.user.id, state);
+
+  // Start session creation flow with movie pre-selected
+  await showSessionCreationModal(interaction);
 }
 
 async function handleSessionCreationButton(interaction) {
