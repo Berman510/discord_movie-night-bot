@@ -1225,6 +1225,21 @@ class Database {
     }
   }
 
+  async updateVotingSessionEventId(sessionId, eventId) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `UPDATE movie_sessions SET discord_event_id = ? WHERE id = ?`,
+        [eventId, sessionId]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error updating voting session event ID:', error.message);
+      return false;
+    }
+  }
+
   async getMoviesForVotingSession(sessionId) {
     if (!this.isConnected) return [];
 

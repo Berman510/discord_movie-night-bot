@@ -599,7 +599,7 @@ async function handleCreateRecommendation(interaction) {
 
   const modal = new ModalBuilder()
     .setCustomId('mn:modal')
-    .setTitle(`Recommend Movie for ${activeSession.name}`);
+    .setTitle('Recommend Movie');
 
   const titleInput = new TextInputBuilder()
     .setCustomId('mn:title')

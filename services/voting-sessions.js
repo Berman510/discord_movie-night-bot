@@ -54,6 +54,14 @@ async function showVotingSessionDateModal(interaction) {
     .setRequired(true)
     .setMaxLength(5);
 
+  const votingEndInput = new TextInputBuilder()
+    .setCustomId('voting_end_time')
+    .setLabel('Voting Ends (HH:MM, same day)')
+    .setStyle(TextInputStyle.Short)
+    .setPlaceholder('18:30 (1 hour before session)')
+    .setRequired(false)
+    .setMaxLength(5);
+
   const descriptionInput = new TextInputBuilder()
     .setCustomId('session_description')
     .setLabel('Session Description (Optional)')
@@ -64,9 +72,10 @@ async function showVotingSessionDateModal(interaction) {
 
   const firstRow = new ActionRowBuilder().addComponents(dateInput);
   const secondRow = new ActionRowBuilder().addComponents(timeInput);
-  const thirdRow = new ActionRowBuilder().addComponents(descriptionInput);
+  const thirdRow = new ActionRowBuilder().addComponents(votingEndInput);
+  const fourthRow = new ActionRowBuilder().addComponents(descriptionInput);
 
-  modal.addComponents(firstRow, secondRow, thirdRow);
+  modal.addComponents(firstRow, secondRow, thirdRow, fourthRow);
 
   await interaction.showModal(modal);
 }
@@ -88,6 +97,7 @@ async function handleVotingSessionDateModal(interaction) {
 
   const sessionDate = interaction.fields.getTextInputValue('session_date');
   const sessionTime = interaction.fields.getTextInputValue('session_time');
+  const votingEndTime = interaction.fields.getTextInputValue('voting_end_time') || null;
   const sessionDescription = interaction.fields.getTextInputValue('session_description') || null;
 
   // Auto-generate session name from date
@@ -113,7 +123,16 @@ async function handleVotingSessionDateModal(interaction) {
   const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
   if (!timeRegex.test(sessionTime)) {
     await interaction.reply({
-      content: '❌ Invalid time format. Please use HH:MM format (24-hour).',
+      content: '❌ Invalid session time format. Please use HH:MM format (24-hour).',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  // Validate voting end time format if provided
+  if (votingEndTime && !timeRegex.test(votingEndTime)) {
+    await interaction.reply({
+      content: '❌ Invalid voting end time format. Please use HH:MM format (24-hour).',
       flags: MessageFlags.Ephemeral
     });
     return;
@@ -122,7 +141,17 @@ async function handleVotingSessionDateModal(interaction) {
   // Parse the full datetime
   const sessionDateTime = new Date(`${sessionDate}T${sessionTime}:00`);
 
-  // Validate that the date is in the future
+  // Parse voting end time (default to 1 hour before session if not provided)
+  let votingEndDateTime = null;
+  if (votingEndTime) {
+    votingEndDateTime = new Date(`${sessionDate}T${votingEndTime}:00`);
+  } else {
+    // Default to 1 hour before session
+    votingEndDateTime = new Date(sessionDateTime);
+    votingEndDateTime.setHours(votingEndDateTime.getHours() - 1);
+  }
+
+  // Validate that the dates are in the future
   if (sessionDateTime <= new Date()) {
     await interaction.reply({
       content: '❌ Session date and time must be in the future.',
@@ -131,12 +160,30 @@ async function handleVotingSessionDateModal(interaction) {
     return;
   }
 
+  if (votingEndDateTime <= new Date()) {
+    await interaction.reply({
+      content: '❌ Voting end time must be in the future.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  if (votingEndDateTime >= sessionDateTime) {
+    await interaction.reply({
+      content: '❌ Voting must end before the session starts.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
   // Update state with all information
   state.selectedDate = sessionDate;
   state.selectedTime = sessionTime;
+  state.votingEndTime = votingEndTime;
   state.sessionName = sessionName;
   state.sessionDescription = sessionDescription;
   state.sessionDateTime = sessionDateTime;
+  state.votingEndDateTime = votingEndDateTime;
   state.step = 'complete';
 
   global.votingSessionCreationState.set(userId, state);

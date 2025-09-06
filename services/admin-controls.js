@@ -307,28 +307,117 @@ async function handlePurgeQueue(interaction) {
  * Execute the actual purge after confirmation
  */
 async function executePurgeQueue(interaction) {
-  await interaction.deferUpdate();
-
   try {
-    // Use the same cleanup function as /movie-cleanup purge
-    const cleanup = require('./cleanup');
-    await cleanup.handleCleanupPurge(interaction, false);
+    // Check if bot is configured
+    const config = await database.getGuildConfig(interaction.guild.id);
+    if (!config || !config.movie_channel_id) {
+      await interaction.update({
+        content: '❌ **Bot not configured**\n\nPlease use `/movie-configure` to set up the bot before using purge functions.',
+        embeds: [],
+        components: []
+      });
+      return;
+    }
 
-    await interaction.editReply({
-      content: '✅ Queue purged successfully! All movie posts and threads have been cleared from both channels.',
+    await interaction.update({
+      content: '🗑️ Purging queue...',
       embeds: [],
       components: []
+    });
+
+    // Use the same cleanup function as /movie-cleanup purge but don't let it reply
+    const cleanup = require('./cleanup');
+
+    // Get channels
+    const votingChannel = await interaction.client.channels.fetch(config.movie_channel_id);
+    const adminChannel = config.admin_channel_id ? await interaction.client.channels.fetch(config.admin_channel_id) : null;
+
+    // Perform the purge manually
+    let purgedCount = 0;
+    let threadsDeleted = 0;
+
+    if (votingChannel) {
+      const movies = await database.getMoviesByGuild(interaction.guild.id);
+
+      for (const movie of movies) {
+        try {
+          // Delete threads
+          const threads = await votingChannel.threads.fetchActive();
+          for (const [threadId, thread] of threads.threads) {
+            if (thread.name.includes(movie.title)) {
+              await thread.delete();
+              threadsDeleted++;
+            }
+          }
+
+          // Delete votes and movie from database
+          await database.pool.execute('DELETE FROM votes WHERE message_id = ?', [movie.message_id]);
+          await database.pool.execute('DELETE FROM movies WHERE message_id = ?', [movie.message_id]);
+          purgedCount++;
+        } catch (error) {
+          console.warn(`Error purging movie ${movie.title}:`, error.message);
+        }
+      }
+
+      // Clear channel messages
+      const messages = await votingChannel.messages.fetch({ limit: 100 });
+      const botMessages = messages.filter(msg => msg.author.id === interaction.client.user.id);
+
+      for (const [messageId, message] of botMessages) {
+        try {
+          await message.delete();
+        } catch (error) {
+          console.warn(`Failed to delete message ${messageId}:`, error.message);
+        }
+      }
+
+      // Add appropriate message based on session state
+      await cleanup.ensureQuickActionAtBottom(votingChannel);
+    }
+
+    if (adminChannel) {
+      // Clear admin channel messages
+      const messages = await adminChannel.messages.fetch({ limit: 100 });
+      const botMessages = messages.filter(msg => msg.author.id === interaction.client.user.id);
+
+      for (const [messageId, message] of botMessages) {
+        try {
+          const isControlPanel = message.embeds.length > 0 &&
+                                message.embeds[0].title &&
+                                message.embeds[0].title.includes('Admin Control Panel');
+
+          if (!isControlPanel) {
+            await message.delete();
+          }
+        } catch (error) {
+          console.warn(`Failed to delete admin message ${messageId}:`, error.message);
+        }
+      }
+
+      // Ensure admin control panel is at bottom
+      await ensureAdminControlPanel(interaction.client, interaction.guild.id);
+    }
+
+    await interaction.followUp({
+      content: `✅ **Queue purged successfully!**\n\n🗑️ Deleted: ${purgedCount} movies, ${threadsDeleted} threads\n📋 Channels cleared and reset`,
+      flags: MessageFlags.Ephemeral
     });
 
     console.log(`🗑️ Admin purge executed by ${interaction.user.tag} in guild ${interaction.guild.name}`);
 
   } catch (error) {
     console.error('Error executing purge:', error);
-    await interaction.editReply({
-      content: '❌ An error occurred while purging the queue.',
-      embeds: [],
-      components: []
-    });
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: '❌ An error occurred while purging the queue.',
+        flags: MessageFlags.Ephemeral
+      });
+    } else {
+      await interaction.followUp({
+        content: '❌ An error occurred while purging the queue.',
+        flags: MessageFlags.Ephemeral
+      });
+    }
   }
 }
 
