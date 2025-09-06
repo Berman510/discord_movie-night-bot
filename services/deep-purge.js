@@ -258,7 +258,7 @@ function createConfirmationModal(selectedCategories) {
 /**
  * Execute deep purge
  */
-async function executeDeepPurge(guildId, categories, reason = null) {
+async function executeDeepPurge(guildId, categories, reason = null, client = null) {
   const options = {};
   categories.forEach(category => {
     options[category] = true;
@@ -269,8 +269,75 @@ async function executeDeepPurge(guildId, categories, reason = null) {
     console.log(`📝 Purge reason: ${reason}`);
   }
 
+  // Clear Discord messages and threads if movies are being purged
+  if (options.movies && client) {
+    try {
+      const config = await database.getGuildConfig(guildId);
+
+      // Clear voting channel
+      if (config && config.movie_channel_id) {
+        try {
+          const votingChannel = await client.channels.fetch(config.movie_channel_id);
+          if (votingChannel) {
+            const messages = await votingChannel.messages.fetch({ limit: 100 });
+            const botMessages = messages.filter(msg => msg.author.id === client.user.id);
+
+            for (const [messageId, message] of botMessages) {
+              try {
+                await message.delete();
+              } catch (error) {
+                console.warn(`Failed to delete voting message ${messageId}:`, error.message);
+              }
+            }
+
+            // Clear threads
+            const threads = await votingChannel.threads.fetchActive();
+            for (const [threadId, thread] of threads.threads) {
+              try {
+                await thread.delete();
+              } catch (error) {
+                console.warn(`Failed to delete thread ${threadId}:`, error.message);
+              }
+            }
+          }
+        } catch (error) {
+          console.warn('Error clearing voting channel during deep purge:', error.message);
+        }
+      }
+
+      // Clear admin channel
+      if (config && config.admin_channel_id) {
+        try {
+          const adminChannel = await client.channels.fetch(config.admin_channel_id);
+          if (adminChannel) {
+            const messages = await adminChannel.messages.fetch({ limit: 100 });
+            const botMessages = messages.filter(msg => msg.author.id === client.user.id);
+
+            for (const [messageId, message] of botMessages) {
+              try {
+                const isControlPanel = message.embeds.length > 0 &&
+                                      message.embeds[0].title &&
+                                      message.embeds[0].title.includes('Admin Control Panel');
+
+                if (!isControlPanel) {
+                  await message.delete();
+                }
+              } catch (error) {
+                console.warn(`Failed to delete admin message ${messageId}:`, error.message);
+              }
+            }
+          }
+        } catch (error) {
+          console.warn('Error clearing admin channel during deep purge:', error.message);
+        }
+      }
+    } catch (error) {
+      console.warn('Error during Discord cleanup in deep purge:', error.message);
+    }
+  }
+
   const result = await database.deepPurgeGuildData(guildId, options);
-  
+
   console.log(`✅ Deep purge completed: ${result.deleted} items deleted`);
   if (result.errors.length > 0) {
     console.error('Deep purge errors:', result.errors);

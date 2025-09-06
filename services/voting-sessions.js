@@ -255,9 +255,26 @@ async function createVotingSession(interaction, state) {
       })}\n⏰ ${state.sessionDateTime.toLocaleTimeString('en-US', {
         hour: '2-digit',
         minute: '2-digit'
+      })}\n🗳️ Voting ends: ${state.votingEndDateTime.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit'
       })}\n\n🗳️ Users can now start recommending movies for this session!`,
       flags: MessageFlags.Ephemeral
     });
+
+    // Update voting channel to show the new session
+    try {
+      const config = await database.getGuildConfig(interaction.guild.id);
+      if (config && config.movie_channel_id) {
+        const votingChannel = await interaction.client.channels.fetch(config.movie_channel_id);
+        if (votingChannel) {
+          const cleanup = require('./cleanup');
+          await cleanup.ensureQuickActionAtBottom(votingChannel);
+        }
+      }
+    } catch (error) {
+      console.warn('Error updating voting channel after session creation:', error.message);
+    }
 
     console.log(`🎬 Voting session created: ${state.sessionName} by ${interaction.user.tag}`);
 

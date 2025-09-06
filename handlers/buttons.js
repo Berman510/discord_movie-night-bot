@@ -1279,13 +1279,32 @@ async function handlePickWinner(interaction, guildId, movieId) {
     // Clear all movie posts and threads from both channels
     const config = await database.getGuildConfig(guildId);
 
-    // Clear voting channel
+    // Clear voting channel manually (don't use handleCleanupPurge as it tries to reply)
     if (config.movie_channel_id) {
       try {
         const votingChannel = await interaction.client.channels.fetch(config.movie_channel_id);
         if (votingChannel) {
-          const cleanup = require('../services/cleanup');
-          await cleanup.handleCleanupPurge({ client: interaction.client, guild: interaction.guild }, false);
+          // Clear all movie messages and threads
+          const messages = await votingChannel.messages.fetch({ limit: 100 });
+          const botMessages = messages.filter(msg => msg.author.id === interaction.client.user.id);
+
+          for (const [messageId, message] of botMessages) {
+            try {
+              await message.delete();
+            } catch (error) {
+              console.warn(`Failed to delete voting message ${messageId}:`, error.message);
+            }
+          }
+
+          // Clear threads
+          const threads = await votingChannel.threads.fetchActive();
+          for (const [threadId, thread] of threads.threads) {
+            try {
+              await thread.delete();
+            } catch (error) {
+              console.warn(`Failed to delete thread ${threadId}:`, error.message);
+            }
+          }
         }
       } catch (error) {
         console.warn('Error clearing voting channel:', error.message);

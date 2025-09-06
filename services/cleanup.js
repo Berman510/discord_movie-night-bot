@@ -735,6 +735,34 @@ async function recreateMissingThreads(channel, botMessages) {
   }
 }
 
+async function removeMoviePost(channel, movieId) {
+  try {
+    // Find and delete the movie message
+    const messages = await channel.messages.fetch({ limit: 100 });
+    const movieMessage = messages.find(msg => msg.id === movieId);
+
+    if (movieMessage) {
+      await movieMessage.delete();
+      console.log(`🗑️ Deleted movie message: ${movieId}`);
+    }
+
+    // Find and delete associated thread
+    const threads = await channel.threads.fetchActive();
+    for (const [threadId, thread] of threads.threads) {
+      if (thread.name.includes('Discussion') && thread.parentId === movieId) {
+        await thread.delete();
+        console.log(`🧵 Deleted thread: ${thread.name} (${threadId})`);
+        break;
+      }
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error removing movie post:', error.message);
+    return false;
+  }
+}
+
 module.exports = {
   handleMovieCleanup,
   handleCleanupSync,
@@ -745,5 +773,6 @@ module.exports = {
   cleanupAllThreads,
   recreateMissingMoviePosts,
   recreateMoviePost,
+  removeMoviePost,
   recreateMissingThreads
 };

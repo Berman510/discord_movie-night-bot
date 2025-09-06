@@ -332,7 +332,7 @@ async function handleDeepPurgeConfirmation(interaction, customId) {
 
   try {
     // Execute deep purge
-    const result = await deepPurge.executeDeepPurge(interaction.guild.id, categories, reason);
+    const result = await deepPurge.executeDeepPurge(interaction.guild.id, categories, reason, interaction.client);
 
     // Create success embed
     const successEmbed = deepPurge.createSuccessEmbed(interaction.guild.name, result, categories);
