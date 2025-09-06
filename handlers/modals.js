@@ -162,10 +162,17 @@ async function createMovieWithoutImdb(interaction, title, where) {
     };
 
     const movieEmbed = embeds.createMovieEmbed(movieData);
-    const movieComponents = components.createStatusButtons(null, 'pending');
 
-    // Create the message first
+    // Create the message first without buttons
     const message = await interaction.channel.send({
+      embeds: [movieEmbed]
+    });
+
+    // Now create buttons with the actual message ID
+    const movieComponents = components.createStatusButtons(message.id, 'pending');
+
+    // Update the message with the correct buttons
+    await message.edit({
       embeds: [movieEmbed],
       components: movieComponents
     });
