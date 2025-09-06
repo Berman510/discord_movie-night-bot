@@ -2,6 +2,142 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.10.21] - 2025-09-06
+### Fixed
+- **Button Persistence:** Fixed buttons disappearing after status changes (Watched, Skip, Plan Later)
+- **Vote Count Preservation:** Fixed voting to preserve all buttons and embed data after voting
+- **IMDb Data Preservation:** Status changes now maintain vote counts and IMDb information in embeds
+- **Duplicate Movie Detection:** Added detection with status and watch date information
+
+### Enhanced
+- **Status Button Logic:** Improved button display for different movie statuses
+- **Database Functions:** Added `findMovieByTitle()` for duplicate detection
+- **User Experience:** Warns users before adding duplicate movies with current status info
+
+## [1.10.20] - 2025-09-06
+### Fixed
+- **Critical Voting Bug:** Fixed voting buttons having null message IDs causing foreign key constraint errors
+- **Message Creation Flow:** Changed to create message first, then add buttons with correct message ID
+- **Database Voting:** Resolved "Cannot add or update a child row" errors in voting system
+
+### Technical
+- **Button Custom IDs:** Fixed buttons to reference actual Discord message IDs instead of null
+- **Movie Creation:** Updated both IMDb and non-IMDb movie creation flows
+
+## [1.10.19] - 2025-09-06
+### Fixed
+- **Function Name Standardization:** Removed duplicate `createVoteButtons`, standardized on `createVotingButtons`
+- **Component Deduplication:** Fixed `createStatusButtons` to use consistent vote button logic
+- **Function Exports:** Cleaned up component exports to remove unused functions
+
+### Technical
+- **Vote Button Logic:** Eliminated duplicate vote button creation code across components
+- **Consistent Labeling:** All vote buttons now show current vote counts in format "Vote Up (5)"
+
+## [1.10.18] - 2025-09-06
+### Fixed
+- **Missing Functions:** Added missing `createVotingButtons` function and permissions import
+- **Session Management:** Fixed session cancel/reschedule permission checking
+- **Foreign Key Constraints:** Added debugging logs for movie database save operations
+
+### Enhanced
+- **Error Handling:** Improved debugging for database operations
+- **Function Organization:** Better component function exports and imports
+
+## [1.10.17] - 2025-09-06
+### Fixed
+- **Function Name Cleanup:** Comprehensive cleanup of duplicate and mismatched function names
+- **Database Functions:** Removed duplicate functions (`updateSessionDiscordEvent`, `updateMovieStatus`, `getMovieSessionById`)
+- **Function Call Consistency:** Fixed all function name mismatches in sessions service
+- **Modularization Issues:** Resolved function call inconsistencies from previous refactoring
+
+### Technical
+- **Database Standardization:** Consistent function naming across all modules
+- **Function Deduplication:** Removed conflicting duplicate function definitions
+
+## [1.10.16] - 2025-09-06
+### Fixed
+- **Session Management:** Fixed session creation, cancellation, and rescheduling functionality
+- **Discord Events:** Restored Discord event creation and management for movie sessions
+- **Database Integration:** Fixed session-related database operations and queries
+- **Button Interactions:** Resolved session management button functionality
+
+### Enhanced
+- **Event Scheduling:** Improved Discord event creation with proper timezone handling
+- **Session Workflow:** Complete session creation flow from planned movies to scheduled events
+
+## [1.10.15] - 2025-09-06
+### Fixed
+- **Database Connection:** Fixed MySQL connection and initialization issues
+- **Migration System:** Resolved database migration and table creation problems
+- **Service Dependencies:** Fixed circular dependency issues between services
+- **Error Handling:** Improved database error handling and connection management
+
+### Technical
+- **Database Architecture:** Streamlined database service initialization
+- **Connection Management:** Better MySQL connection handling and error recovery
+
+## [1.10.14] - 2025-09-06
+### Fixed
+- **Modular Architecture:** Completed transition to modular service-based architecture
+- **Handler Organization:** Organized all interaction handlers into dedicated modules
+- **Service Integration:** Fixed service imports and dependencies across modules
+- **Code Structure:** Clean separation of concerns between handlers, services, and utilities
+
+### Enhanced
+- **Maintainability:** Improved code organization for easier maintenance and debugging
+- **Scalability:** Better structure for adding new features and functionality
+
+## [1.10.13] - 2025-09-06
+### Fixed
+- **Command Registration:** Fixed slash command registration and handling
+- **Interaction Routing:** Resolved interaction handler routing issues
+- **Service Integration:** Fixed service module imports and dependencies
+
+### Technical
+- **Command System:** Improved slash command processing and error handling
+- **Module Structure:** Better organization of command handlers and services
+
+## [1.10.12] - 2025-09-06
+### Fixed
+- **Module Imports:** Fixed import paths and module dependencies
+- **Service Architecture:** Resolved service integration issues
+- **Handler Organization:** Fixed interaction handler routing and processing
+
+### Enhanced
+- **Code Organization:** Improved modular structure for better maintainability
+- **Error Handling:** Better error handling across all modules
+
+## [1.10.11] - 2025-09-06
+### Fixed
+- **Database Integration:** Fixed database service integration and method calls
+- **Service Dependencies:** Resolved service import and dependency issues
+- **Module Structure:** Fixed modular architecture implementation
+
+### Technical
+- **Service Layer:** Improved service layer organization and functionality
+- **Database Operations:** Better database operation handling and error management
+
+## [1.10.10] - 2025-09-06
+### Fixed
+- **Modular Refactoring:** Initial modular architecture implementation
+- **Service Separation:** Separated business logic into dedicated service modules
+- **Handler Organization:** Organized interaction handlers by type
+
+### Enhanced
+- **Code Structure:** Improved code organization for better maintainability
+- **Service Architecture:** Clean separation between handlers, services, and utilities
+
+## [1.10.9] - 2025-09-06
+### Fixed
+- **Database Methods:** Fixed database method calls and service integration
+- **Error Handling:** Improved error handling for database operations
+- **Service Integration:** Fixed service module imports and dependencies
+
+### Technical
+- **Method Consistency:** Standardized database method naming and usage
+- **Service Layer:** Better service layer organization and error handling
+
 ## [1.10.8] - 2025-09-05
 ### Fixed
 - **IMDb Service Method:** Fixed `imdb.searchMovies is not a function` error by using correct `searchMovie` method

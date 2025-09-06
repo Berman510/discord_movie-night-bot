@@ -2,9 +2,32 @@
 
 Discord bot to create in-channel movie recommendations with persistent voting, status tracking, queue management, and IMDb integration. Features MySQL database storage, movie night statistics, and smart suggestion management.
 
-**Version:** 1.10.8
+**Version:** 1.10.21
 
 > **🏗️ Modular Architecture**: The bot has been refactored into a clean modular structure for better maintainability. See [ARCHITECTURE.md](ARCHITECTURE.md) for details.
+
+## 🆕 Recent Major Updates (v1.10.17-1.10.21)
+
+### ✅ **Fully Functional Voting System**
+- **Fixed critical voting bugs** that prevented vote counting
+- **Button persistence** - buttons no longer disappear after interactions
+- **Real-time vote updates** with proper count display
+- **Preserved IMDb data** during all button interactions
+
+### 🔍 **Smart Duplicate Detection**
+- **Warns before adding duplicate movies** with current status information
+- **Shows watch dates** for previously watched movies
+- **Status-aware recommendations** (🍿 pending, ✅ watched, 📌 planned, ⏭️ skipped)
+
+### 🎯 **Complete Session Management**
+- **Working Cancel/Reschedule buttons** for scheduled movie sessions
+- **Discord event integration** for movie night scheduling
+- **Timezone-aware scheduling** with proper date/time handling
+
+### 🛠️ **Technical Improvements**
+- **Comprehensive function name cleanup** - resolved modularization conflicts
+- **Database consistency** - fixed foreign key constraint issues
+- **Improved error handling** and debugging throughout
 
 ---
 
