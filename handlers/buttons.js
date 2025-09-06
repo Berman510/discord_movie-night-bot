@@ -488,38 +488,44 @@ async function createMovieWithoutImdb(interaction, title, where) {
   const { embeds, components } = require('../utils');
 
   try {
-    // Create movie data
+    // Create movie embed first
     const movieData = {
-      guild_id: interaction.guild.id,
-      channel_id: interaction.channel.id,
       title: title,
       where_to_watch: where,
       recommended_by: interaction.user.id,
       status: 'pending'
     };
 
-    // Add to database
-    const movieId = await database.saveMovie(movieData);
+    const movieEmbed = embeds.createMovieEmbed(movieData);
+    const movieComponents = components.createStatusButtons(null, 'pending');
+
+    // Create the message first
+    const message = await interaction.channel.send({
+      embeds: [movieEmbed],
+      components: movieComponents
+    });
+
+    // Now save to database with the message ID
+    const movieId = await database.saveMovie({
+      messageId: message.id,
+      guildId: interaction.guild.id,
+      channelId: interaction.channel.id,
+      title: title,
+      whereToWatch: where,
+      recommendedBy: interaction.user.id,
+      imdbId: null,
+      imdbData: null
+    });
 
     if (movieId) {
-      // Create movie embed and post
-      const movieEmbed = embeds.createMovieEmbed(movieData);
-      const movieComponents = components.createStatusButtons(null, 'pending');
-
-      const message = await interaction.channel.send({
-        embeds: [movieEmbed],
-        components: movieComponents
-      });
-
-      // Update database with message ID
-      await database.updateMovieMessageId(interaction.guild.id, title, message.id);
-
       await interaction.update({
         content: `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added to the queue for voting.`,
         embeds: [],
         components: []
       });
     } else {
+      // If database save failed, delete the message
+      await message.delete().catch(console.error);
       await interaction.update({
         content: '❌ Failed to create movie recommendation.',
         embeds: [],
@@ -542,10 +548,8 @@ async function createMovieWithImdb(interaction, title, where, imdbData) {
   const { embeds, components } = require('../utils');
 
   try {
-    // Create movie data with IMDb info
+    // Create movie embed first
     const movieData = {
-      guild_id: interaction.guild.id,
-      channel_id: interaction.channel.id,
       title: title,
       where_to_watch: where,
       recommended_by: interaction.user.id,
@@ -554,28 +558,36 @@ async function createMovieWithImdb(interaction, title, where, imdbData) {
       imdb_data: imdbData
     };
 
-    // Add to database
-    const movieId = await database.saveMovie(movieData);
+    const movieEmbed = embeds.createMovieEmbed(movieData);
+    const movieComponents = components.createStatusButtons(null, 'pending');
+
+    // Create the message first
+    const message = await interaction.channel.send({
+      embeds: [movieEmbed],
+      components: movieComponents
+    });
+
+    // Now save to database with the message ID
+    const movieId = await database.saveMovie({
+      messageId: message.id,
+      guildId: interaction.guild.id,
+      channelId: interaction.channel.id,
+      title: title,
+      whereToWatch: where,
+      recommendedBy: interaction.user.id,
+      imdbId: imdbData.imdbID,
+      imdbData: imdbData
+    });
 
     if (movieId) {
-      // Create movie embed with IMDb data and post
-      const movieEmbed = embeds.createMovieEmbed(movieData);
-      const movieComponents = components.createStatusButtons(null, 'pending');
-
-      const message = await interaction.channel.send({
-        embeds: [movieEmbed],
-        components: movieComponents
-      });
-
-      // Update database with message ID
-      await database.updateMovieMessageId(interaction.guild.id, title, message.id);
-
       await interaction.update({
         content: `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added to the queue for voting.`,
         embeds: [],
         components: []
       });
     } else {
+      // If database save failed, delete the message
+      await message.delete().catch(console.error);
       await interaction.update({
         content: '❌ Failed to create movie recommendation.',
         embeds: [],
