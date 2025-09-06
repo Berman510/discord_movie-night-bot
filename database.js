@@ -121,15 +121,20 @@ class Database {
         guild_id VARCHAR(20) NOT NULL,
         channel_id VARCHAR(20) NOT NULL,
         title VARCHAR(255) NOT NULL,
+        movie_uid VARCHAR(64) NOT NULL,
         where_to_watch VARCHAR(255) NOT NULL,
         recommended_by VARCHAR(20) NOT NULL,
         imdb_id VARCHAR(20) NULL,
         imdb_data JSON NULL,
-        status ENUM('pending', 'watched', 'planned', 'skipped', 'scheduled') DEFAULT 'pending',
+        status ENUM('pending', 'watched', 'planned', 'skipped', 'scheduled', 'banned') DEFAULT 'pending',
+        is_banned BOOLEAN DEFAULT FALSE,
+        watch_count INT DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         watched_at TIMESTAMP NULL,
         INDEX idx_guild_status (guild_id, status),
-        INDEX idx_message_id (message_id)
+        INDEX idx_message_id (message_id),
+        INDEX idx_movie_uid (guild_id, movie_uid),
+        INDEX idx_banned (guild_id, is_banned)
       )`,
 
       // Votes table - stores all votes for movies
@@ -531,10 +536,93 @@ class Database {
         console.error('❌ Failed to add admin_channel_id column (Migration 12):', error.message);
       }
 
+      // Migration 13: Add movie UID system columns
+      try {
+        const [movieColumns] = await this.pool.execute(`
+          SELECT COLUMN_NAME
+          FROM INFORMATION_SCHEMA.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'movies'
+        `);
+        const movieColumnNames = movieColumns.map(row => row.COLUMN_NAME);
+
+        // Add movie_uid column
+        if (!movieColumnNames.includes('movie_uid')) {
+          await this.pool.execute(`
+            ALTER TABLE movies
+            ADD COLUMN movie_uid VARCHAR(64) NOT NULL DEFAULT ''
+          `);
+          console.log('✅ Added movie_uid column to movies');
+        }
+
+        // Add is_banned column
+        if (!movieColumnNames.includes('is_banned')) {
+          await this.pool.execute(`
+            ALTER TABLE movies
+            ADD COLUMN is_banned BOOLEAN DEFAULT FALSE
+          `);
+          console.log('✅ Added is_banned column to movies');
+        }
+
+        // Update status enum to include 'banned'
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movies
+            MODIFY COLUMN status ENUM('pending', 'watched', 'planned', 'skipped', 'scheduled', 'banned') DEFAULT 'pending'
+          `);
+          console.log('✅ Updated status enum to include banned');
+        } catch (error) {
+          console.warn('Migration 13 status enum warning:', error.message);
+        }
+
+        // Add indexes for new columns
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movies
+            ADD INDEX idx_movie_uid (guild_id, movie_uid)
+          `);
+          console.log('✅ Added movie_uid index');
+        } catch (error) {
+          if (!error.message.includes('Duplicate key name')) {
+            console.warn('Migration 13 movie_uid index warning:', error.message);
+          }
+        }
+
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movies
+            ADD INDEX idx_banned (guild_id, is_banned)
+          `);
+          console.log('✅ Added banned index');
+        } catch (error) {
+          if (!error.message.includes('Duplicate key name')) {
+            console.warn('Migration 13 banned index warning:', error.message);
+          }
+        }
+
+        // Populate movie_uid for existing movies
+        await this.pool.execute(`
+          UPDATE movies
+          SET movie_uid = SHA2(CONCAT(guild_id, ':', LOWER(TRIM(title))), 256)
+          WHERE movie_uid = '' OR movie_uid IS NULL
+        `);
+        console.log('✅ Populated movie_uid for existing movies');
+
+      } catch (error) {
+        console.error('❌ Failed to add movie UID system (Migration 13):', error.message);
+      }
+
       console.log('✅ Database migrations completed');
     } catch (error) {
       console.error('❌ Migration error:', error.message);
     }
+  }
+
+  // Movie UID generation
+  generateMovieUID(guildId, title) {
+    const crypto = require('crypto');
+    const normalizedTitle = title.toLowerCase().trim();
+    return crypto.createHash('sha256').update(`${guildId}:${normalizedTitle}`).digest('hex');
   }
 
   // Movie operations
@@ -543,17 +631,33 @@ class Database {
 
     if (this.useJsonFallback) {
       try {
+        const movieUID = this.generateMovieUID(movieData.guildId, movieData.title);
+
+        // Check if movie is banned in JSON data
+        const bannedMovie = this.data.movies.find(m =>
+          m.guild_id === movieData.guildId &&
+          m.movie_uid === movieUID &&
+          m.is_banned === true
+        );
+
+        if (bannedMovie) {
+          throw new Error('MOVIE_BANNED');
+        }
+
         const movie = {
           id: Date.now(), // Simple ID generation
           message_id: movieData.messageId,
           guild_id: movieData.guildId,
           channel_id: movieData.channelId,
           title: movieData.title,
+          movie_uid: movieUID,
           where_to_watch: movieData.whereToWatch,
           recommended_by: movieData.recommendedBy,
           imdb_id: movieData.imdbId || null,
           imdb_data: movieData.imdbData || null,
           status: 'pending',
+          is_banned: false,
+          watch_count: 0,
           created_at: new Date().toISOString(),
           watched_at: null
         };
@@ -568,14 +672,28 @@ class Database {
     }
 
     try {
+      // Generate movie UID
+      const movieUID = this.generateMovieUID(movieData.guildId, movieData.title);
+
+      // Check if this movie title is banned
+      const [bannedCheck] = await this.pool.execute(
+        `SELECT id FROM movies WHERE guild_id = ? AND movie_uid = ? AND is_banned = TRUE LIMIT 1`,
+        [movieData.guildId, movieUID]
+      );
+
+      if (bannedCheck.length > 0) {
+        throw new Error('MOVIE_BANNED');
+      }
+
       const [result] = await this.pool.execute(
-        `INSERT INTO movies (message_id, guild_id, channel_id, title, where_to_watch, recommended_by, imdb_id, imdb_data)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO movies (message_id, guild_id, channel_id, title, movie_uid, where_to_watch, recommended_by, imdb_id, imdb_data)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           movieData.messageId,
           movieData.guildId,
           movieData.channelId,
           movieData.title,
+          movieUID,
           movieData.whereToWatch,
           movieData.recommendedBy,
           movieData.imdbId || null,
@@ -1719,6 +1837,223 @@ class Database {
       console.error('Error getting session attendees:', error.message);
       return [];
     }
+  }
+
+  // Movie banning functions
+  async banMovie(guildId, movieTitle) {
+    if (!this.isConnected) return false;
+
+    try {
+      const movieUID = this.generateMovieUID(guildId, movieTitle);
+
+      // Create a banned movie record if it doesn't exist
+      await this.pool.execute(
+        `INSERT INTO movies (message_id, guild_id, channel_id, title, movie_uid, where_to_watch, recommended_by, status, is_banned)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE is_banned = TRUE, status = 'banned'`,
+        [
+          `banned_${Date.now()}`, // Unique message ID for banned movies
+          guildId,
+          'admin', // Admin channel
+          movieTitle,
+          movieUID,
+          'N/A',
+          'system',
+          'banned',
+          true
+        ]
+      );
+
+      // Also ban any existing instances of this movie
+      await this.pool.execute(
+        `UPDATE movies SET is_banned = TRUE, status = 'banned' WHERE guild_id = ? AND movie_uid = ?`,
+        [guildId, movieUID]
+      );
+
+      return true;
+    } catch (error) {
+      console.error('Error banning movie:', error.message);
+      return false;
+    }
+  }
+
+  async unbanMovie(guildId, movieTitle) {
+    if (!this.isConnected) return false;
+
+    try {
+      const movieUID = this.generateMovieUID(guildId, movieTitle);
+
+      await this.pool.execute(
+        `UPDATE movies SET is_banned = FALSE WHERE guild_id = ? AND movie_uid = ? AND is_banned = TRUE`,
+        [guildId, movieUID]
+      );
+
+      return true;
+    } catch (error) {
+      console.error('Error unbanning movie:', error.message);
+      return false;
+    }
+  }
+
+  async isMovieBanned(guildId, movieTitle) {
+    if (!this.isConnected) return false;
+
+    try {
+      const movieUID = this.generateMovieUID(guildId, movieTitle);
+
+      const [rows] = await this.pool.execute(
+        `SELECT id FROM movies WHERE guild_id = ? AND movie_uid = ? AND is_banned = TRUE LIMIT 1`,
+        [guildId, movieUID]
+      );
+
+      return rows.length > 0;
+    } catch (error) {
+      console.error('Error checking if movie is banned:', error.message);
+      return false;
+    }
+  }
+
+  async getBannedMovies(guildId) {
+    if (!this.isConnected) return [];
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT DISTINCT title, movie_uid, created_at
+         FROM movies
+         WHERE guild_id = ? AND is_banned = TRUE
+         ORDER BY title ASC`,
+        [guildId]
+      );
+
+      return rows;
+    } catch (error) {
+      console.error('Error getting banned movies:', error.message);
+      return [];
+    }
+  }
+
+  // Enhanced purge function that preserves movie records
+  async purgeGuildMovieQueue(guildId) {
+    if (!this.isConnected) return { purged: 0, preserved: 0, errors: [] };
+
+    const results = { purged: 0, preserved: 0, errors: [] };
+
+    try {
+      // Get count of movies that will be affected
+      const [movieCount] = await this.pool.execute(
+        `SELECT COUNT(*) as total FROM movies WHERE guild_id = ? AND status IN ('pending', 'planned', 'scheduled')`,
+        [guildId]
+      );
+
+      // Clear votes for all movies in this guild
+      const [votesResult] = await this.pool.execute(
+        `DELETE FROM votes WHERE guild_id = ?`,
+        [guildId]
+      );
+      results.purged += votesResult.affectedRows;
+
+      // Update movie records: preserve banned/watched movies, reset others to archived state
+      const [moviesResult] = await this.pool.execute(`
+        UPDATE movies
+        SET
+          message_id = CONCAT('archived_', UNIX_TIMESTAMP(), '_', id),
+          channel_id = 'archived',
+          status = CASE
+            WHEN is_banned = TRUE THEN 'banned'
+            WHEN status = 'watched' THEN 'watched'
+            ELSE 'pending'
+          END
+        WHERE guild_id = ? AND status IN ('pending', 'planned', 'scheduled')
+      `, [guildId]);
+
+      results.purged += moviesResult.affectedRows;
+      results.preserved = movieCount[0].total;
+
+      console.log(`🗑️ Purged ${results.purged} queue items, preserved ${results.preserved} movie records`);
+
+    } catch (error) {
+      console.error('Error during guild purge:', error.message);
+      results.errors.push(error.message);
+    }
+
+    return results;
+  }
+
+  // Deep purge function for complete guild data removal
+  async deepPurgeGuildData(guildId, options = {}) {
+    if (!this.isConnected) return { deleted: 0, errors: [] };
+
+    const results = { deleted: 0, errors: [] };
+    const {
+      movies = false,
+      sessions = false,
+      votes = false,
+      participants = false,
+      attendees = false,
+      config = false
+    } = options;
+
+    try {
+      if (votes) {
+        const [votesResult] = await this.pool.execute(
+          `DELETE FROM votes WHERE guild_id = ?`,
+          [guildId]
+        );
+        results.deleted += votesResult.affectedRows;
+        console.log(`🗑️ Deep purge: Deleted ${votesResult.affectedRows} votes`);
+      }
+
+      if (participants) {
+        const [participantsResult] = await this.pool.execute(
+          `DELETE FROM session_participants WHERE guild_id = ?`,
+          [guildId]
+        );
+        results.deleted += participantsResult.affectedRows;
+        console.log(`🗑️ Deep purge: Deleted ${participantsResult.affectedRows} session participants`);
+      }
+
+      if (attendees) {
+        const [attendeesResult] = await this.pool.execute(
+          `DELETE FROM session_attendees WHERE guild_id = ?`,
+          [guildId]
+        );
+        results.deleted += attendeesResult.affectedRows;
+        console.log(`🗑️ Deep purge: Deleted ${attendeesResult.affectedRows} session attendees`);
+      }
+
+      if (sessions) {
+        const [sessionsResult] = await this.pool.execute(
+          `DELETE FROM movie_sessions WHERE guild_id = ?`,
+          [guildId]
+        );
+        results.deleted += sessionsResult.affectedRows;
+        console.log(`🗑️ Deep purge: Deleted ${sessionsResult.affectedRows} movie sessions`);
+      }
+
+      if (movies) {
+        const [moviesResult] = await this.pool.execute(
+          `DELETE FROM movies WHERE guild_id = ?`,
+          [guildId]
+        );
+        results.deleted += moviesResult.affectedRows;
+        console.log(`🗑️ Deep purge: Deleted ${moviesResult.affectedRows} movies`);
+      }
+
+      if (config) {
+        const [configResult] = await this.pool.execute(
+          `DELETE FROM guild_config WHERE guild_id = ?`,
+          [guildId]
+        );
+        results.deleted += configResult.affectedRows;
+        console.log(`🗑️ Deep purge: Deleted ${configResult.affectedRows} guild config`);
+      }
+
+    } catch (error) {
+      console.error('Error during deep purge:', error.message);
+      results.errors.push(error.message);
+    }
+
+    return results;
   }
 
   async close() {
