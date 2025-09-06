@@ -176,13 +176,20 @@ async function syncAdminChannel(client, guildId) {
       return { synced: 0, error: 'Admin channel not found' };
     }
 
-    // Clear existing messages in admin channel
+    // Clear existing movie messages in admin channel (preserve admin control panel)
     const messages = await adminChannel.messages.fetch({ limit: 100 });
     const botMessages = messages.filter(msg => msg.author.id === client.user.id);
-    
+
     for (const [messageId, message] of botMessages) {
       try {
-        await message.delete();
+        // Skip admin control panel messages
+        const isControlPanel = message.embeds.length > 0 &&
+                              message.embeds[0].title &&
+                              message.embeds[0].title.includes('Admin Control Panel');
+
+        if (!isControlPanel) {
+          await message.delete();
+        }
       } catch (error) {
         console.warn(`Failed to delete admin message ${messageId}:`, error.message);
       }
@@ -219,6 +226,14 @@ async function syncAdminChannel(client, guildId) {
       
       // Small delay to avoid rate limits
       await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    // Ensure admin control panel is at the bottom
+    try {
+      const adminControls = require('./admin-controls');
+      await adminControls.ensureAdminControlPanel(client, guildId);
+    } catch (error) {
+      console.warn('Error ensuring admin control panel after sync:', error.message);
     }
 
     console.log(`📋 Synced ${syncedCount} movies to admin channel`);
