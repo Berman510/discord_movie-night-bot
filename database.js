@@ -433,7 +433,7 @@ class Database {
 
   async removeVote(messageId, userId) {
     if (!this.isConnected) return false;
-    
+
     try {
       await this.pool.execute(
         `DELETE FROM votes WHERE message_id = ? AND user_id = ?`,
@@ -443,6 +443,21 @@ class Database {
     } catch (error) {
       console.error('Error removing vote:', error.message);
       return false;
+    }
+  }
+
+  async getUserVote(messageId, userId) {
+    if (!this.isConnected) return null;
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT vote_type FROM votes WHERE message_id = ? AND user_id = ?`,
+        [messageId, userId]
+      );
+      return rows.length > 0 ? rows[0].vote_type : null;
+    } catch (error) {
+      console.error('Error getting user vote:', error.message);
+      return null;
     }
   }
 

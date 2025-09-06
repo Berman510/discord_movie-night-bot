@@ -117,7 +117,7 @@ async function showImdbSelection(interaction, title, where, imdbResults) {
   displayResults.forEach((movie, index) => {
     embed.addFields({
       name: `${index + 1}. ${movie.Title} (${movie.Year})`,
-      value: `Type: ${movie.Type} • IMDb ID: ${movie.imdbID}`,
+      value: '\u200B', // Invisible character for clean display
       inline: false
     });
   });
@@ -183,6 +183,9 @@ async function createMovieWithoutImdb(interaction, title, where) {
     });
 
     if (movieId) {
+      // Post Quick Guide at bottom of channel
+      await postQuickGuide(interaction.channel);
+
       await interaction.reply({
         content: `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added to the queue for voting.`,
         flags: MessageFlags.Ephemeral
@@ -202,6 +205,46 @@ async function createMovieWithoutImdb(interaction, title, where) {
       content: '❌ Error creating movie recommendation.',
       flags: MessageFlags.Ephemeral
     });
+  }
+}
+
+async function postQuickGuide(channel) {
+  try {
+    const { embeds } = require('../utils');
+    const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+    const { lastGuideMessages } = require('../utils/constants');
+
+    // Delete the previous guide message if it exists
+    const lastGuideId = lastGuideMessages.get(channel.id);
+    if (lastGuideId) {
+      try {
+        const lastGuide = await channel.messages.fetch(lastGuideId);
+        await lastGuide.delete();
+      } catch (e) {
+        // Message might already be deleted or not found, that's okay
+      }
+    }
+
+    // Create the guide embed and button
+    const guideEmbed = embeds.createHelpEmbed();
+    const recommendButton = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId('create_recommendation')
+          .setLabel('🍿 Recommend a Movie')
+          .setStyle(ButtonStyle.Primary)
+      );
+
+    // Post the new guide message
+    const guideMessage = await channel.send({
+      embeds: [guideEmbed],
+      components: [recommendButton]
+    });
+
+    // Track this as the latest guide message for this channel
+    lastGuideMessages.set(channel.id, guideMessage.id);
+  } catch (e) {
+    console.warn('Failed to post Quick Guide:', e?.message || e);
   }
 }
 
