@@ -244,7 +244,6 @@ async function syncDiscordEventsWithDatabase(guild) {
           }
         }
       }
-      }
     }
 
     console.log(`✅ Discord event sync complete: ${syncedCount} synced, ${deletedCount} orphaned events deleted`);

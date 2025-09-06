@@ -2,6 +2,26 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.11.10] - 2025-09-06
+### Fixed
+- **Critical Syntax Error:** Fixed missing catch/finally block in discord-events.js causing bot startup crash
+- **Extra Brace:** Removed duplicate closing brace that broke try-catch structure
+- **Bot Startup:** Resolved "SyntaxError: Missing catch or finally after try" preventing bot from starting
+
+### Technical
+- **Code Structure:** Fixed malformed try-catch block in Discord event sync function
+- **Startup Stability:** Bot now starts successfully without syntax errors
+
+## [1.11.9] - 2025-09-06
+### Documentation
+- **CHANGELOG Update:** Added comprehensive release notes for versions 1.11.0 through 1.11.8
+- **Release History:** Complete documentation of all features, fixes, and technical improvements
+- **Version Tracking:** Proper categorization of changes (Added, Fixed, Enhanced, Technical)
+
+### Technical
+- **Documentation Maintenance:** Established proper changelog maintenance workflow
+- **Release Notes:** Detailed documentation for all major features and bug fixes
+
 ## [1.11.8] - 2025-09-06
 ### Fixed
 - **Foreign Key Constraints:** Fixed "Cannot delete or update a parent row: foreign key constraint fails" error
