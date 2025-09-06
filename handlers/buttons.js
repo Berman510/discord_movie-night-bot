@@ -65,6 +65,22 @@ async function handleButton(interaction) {
       return;
     }
 
+    // Purge confirmation buttons
+    if (customId === 'confirm_purge_queue') {
+      const adminControls = require('../services/admin-controls');
+      await adminControls.executePurgeQueue(interaction);
+      return;
+    }
+
+    if (customId === 'cancel_purge_queue') {
+      await interaction.update({
+        content: '❌ Purge cancelled.',
+        embeds: [],
+        components: []
+      });
+      return;
+    }
+
     // Duplicate movie confirmation
     if (ns === 'mn' && action === 'duplicate_confirm') {
       await handleDuplicateConfirm(interaction, msgId);
@@ -897,6 +913,9 @@ async function handleAdminMovieButtons(interaction, customId) {
       case 'admin_details':
         await handleMovieDetails(interaction, guildId, movieId);
         break;
+      case 'admin_pick_winner':
+        await handlePickWinner(interaction, guildId, movieId);
+        break;
       case 'admin_choose_winner':
         await handleChooseWinner(interaction, guildId, movieId);
         break;
@@ -1169,6 +1188,199 @@ async function handleMovieDetails(interaction, guildId, movieId) {
     console.error('Error showing movie details:', error);
     await interaction.reply({
       content: '❌ Failed to load movie details.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+/**
+ * Handle picking a movie as winner (new workflow)
+ */
+async function handlePickWinner(interaction, guildId, movieId) {
+  const database = require('../database');
+  const { EmbedBuilder } = require('discord.js');
+
+  try {
+    // Get the movie
+    const movie = await database.getMovieByMessageId(movieId);
+    if (!movie) {
+      await interaction.reply({
+        content: '❌ Movie not found.',
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    // Get all movies in the guild for vote breakdown
+    const allMovies = await database.getMoviesByStatus(guildId, 'pending', 50);
+    const plannedMovies = await database.getMoviesByStatus(guildId, 'planned', 50);
+    const allVotingMovies = [...allMovies, ...plannedMovies];
+
+    // Get vote details for all movies
+    const voteBreakdown = [];
+    for (const votingMovie of allVotingMovies) {
+      const voteCounts = await database.getVoteCounts(votingMovie.message_id);
+      voteBreakdown.push({
+        title: votingMovie.title,
+        upVotes: voteCounts.up,
+        downVotes: voteCounts.down,
+        score: voteCounts.up - voteCounts.down,
+        isWinner: votingMovie.message_id === movieId
+      });
+    }
+
+    // Sort by score (highest first)
+    voteBreakdown.sort((a, b) => b.score - a.score);
+
+    // Update winner movie to scheduled
+    await database.updateMovieStatus(movieId, 'scheduled');
+
+    // Create Discord event for the winner
+    let eventCreated = false;
+    try {
+      const discordEvents = require('../services/discord-events');
+
+      // Parse IMDb data for event description
+      let imdbData = null;
+      if (movie.imdb_data) {
+        try {
+          imdbData = typeof movie.imdb_data === 'string' ? JSON.parse(movie.imdb_data) : movie.imdb_data;
+        } catch (error) {
+          console.warn('Error parsing IMDb data for event:', error);
+        }
+      }
+
+      const eventData = {
+        name: `Movie Night: ${movie.title}`,
+        description: `🏆 Winner: ${movie.title}\n📺 Platform: ${movie.where_to_watch || 'TBD'}\n👤 Recommended by: <@${movie.recommended_by}>\n\n${imdbData?.Plot || 'Join us for movie night!'}`,
+        scheduledStartTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Default to 1 week from now
+        entityType: 3, // External event
+        privacyLevel: 2 // Guild only
+      };
+
+      await discordEvents.createDiscordEvent(interaction.guild, eventData);
+      eventCreated = true;
+    } catch (error) {
+      console.warn('Error creating Discord event:', error.message);
+    }
+
+    // Clear all movie posts and threads from both channels
+    const config = await database.getGuildConfig(guildId);
+
+    // Clear voting channel
+    if (config.movie_channel_id) {
+      try {
+        const votingChannel = await interaction.client.channels.fetch(config.movie_channel_id);
+        if (votingChannel) {
+          const cleanup = require('../services/cleanup');
+          await cleanup.handleCleanupPurge({ client: interaction.client, guild: interaction.guild }, false);
+        }
+      } catch (error) {
+        console.warn('Error clearing voting channel:', error.message);
+      }
+    }
+
+    // Clear admin channel
+    if (config.admin_channel_id) {
+      try {
+        const adminChannel = await interaction.client.channels.fetch(config.admin_channel_id);
+        if (adminChannel) {
+          const messages = await adminChannel.messages.fetch({ limit: 100 });
+          const botMessages = messages.filter(msg => msg.author.id === interaction.client.user.id);
+
+          for (const [messageId, message] of botMessages) {
+            try {
+              const isControlPanel = message.embeds.length > 0 &&
+                                    message.embeds[0].title &&
+                                    message.embeds[0].title.includes('Admin Control Panel');
+
+              if (!isControlPanel) {
+                await message.delete();
+              }
+            } catch (error) {
+              console.warn(`Failed to delete admin message ${messageId}:`, error.message);
+            }
+          }
+        }
+      } catch (error) {
+        console.warn('Error clearing admin channel:', error.message);
+      }
+    }
+
+    // Create winner announcement in voting channel
+    if (config.movie_channel_id) {
+      try {
+        const votingChannel = await interaction.client.channels.fetch(config.movie_channel_id);
+        if (votingChannel) {
+          // Parse IMDb data for announcement
+          let imdbData = null;
+          if (movie.imdb_data) {
+            try {
+              imdbData = typeof movie.imdb_data === 'string' ? JSON.parse(movie.imdb_data) : movie.imdb_data;
+            } catch (error) {
+              console.warn('Error parsing IMDb data:', error);
+            }
+          }
+
+          const winnerEmbed = new EmbedBuilder()
+            .setTitle('🏆 Movie Night Winner Announced!')
+            .setDescription(`**${movie.title}** has been selected for our next movie night!`)
+            .setColor(0xffd700)
+            .addFields(
+              { name: '📺 Platform', value: movie.where_to_watch || 'TBD', inline: true },
+              { name: '👤 Recommended by', value: `<@${movie.recommended_by}>`, inline: true }
+            );
+
+          if (imdbData) {
+            if (imdbData.Year) winnerEmbed.addFields({ name: '📅 Year', value: imdbData.Year, inline: true });
+            if (imdbData.Runtime) winnerEmbed.addFields({ name: '⏱️ Runtime', value: imdbData.Runtime, inline: true });
+            if (imdbData.Genre) winnerEmbed.addFields({ name: '🎬 Genre', value: imdbData.Genre, inline: true });
+            if (imdbData.imdbRating) winnerEmbed.addFields({ name: '⭐ IMDb Rating', value: `${imdbData.imdbRating}/10`, inline: true });
+            if (imdbData.Plot) winnerEmbed.addFields({ name: '📖 Plot', value: imdbData.Plot.substring(0, 1024), inline: false });
+          }
+
+          // Add vote breakdown
+          const voteBreakdownText = voteBreakdown.map((movie, index) => {
+            const position = index + 1;
+            const trophy = movie.isWinner ? '🏆 ' : `${position}. `;
+            return `${trophy}**${movie.title}** - ${movie.upVotes}👍 ${movie.downVotes}👎 (Score: ${movie.score})`;
+          }).join('\n');
+
+          winnerEmbed.addFields({ name: '📊 Final Vote Results', value: voteBreakdownText, inline: false });
+
+          if (eventCreated) {
+            winnerEmbed.addFields({ name: '📅 Event', value: 'Discord event has been created! Check the server events.', inline: false });
+          }
+
+          winnerEmbed.setFooter({ text: 'Thanks to everyone who voted!' });
+
+          // Mention notification role if configured
+          let content = '';
+          if (config.notification_role_id) {
+            content = `<@&${config.notification_role_id}>`;
+          }
+
+          await votingChannel.send({
+            content: content,
+            embeds: [winnerEmbed]
+          });
+        }
+      } catch (error) {
+        console.warn('Error posting winner announcement:', error.message);
+      }
+    }
+
+    await interaction.reply({
+      content: `🏆 **${movie.title}** has been selected as the winner! Announcement posted and channels cleared.`,
+      flags: MessageFlags.Ephemeral
+    });
+
+    console.log(`🏆 Movie ${movie.title} picked as winner by ${interaction.user.tag}`);
+
+  } catch (error) {
+    console.error('Error picking winner:', error);
+    await interaction.reply({
+      content: '❌ Failed to pick winner.',
       flags: MessageFlags.Ephemeral
     });
   }

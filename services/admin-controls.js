@@ -268,60 +268,66 @@ async function handleSyncChannel(interaction) {
 }
 
 /**
- * Handle purge queue action
+ * Handle purge queue action with confirmation
  */
 async function handlePurgeQueue(interaction) {
-  await interaction.deferReply({ ephemeral: true });
+  // Create confirmation buttons
+  const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
+
+  const confirmEmbed = new EmbedBuilder()
+    .setTitle('⚠️ Confirm Queue Purge')
+    .setDescription('This will **permanently delete** all movie posts and threads from both channels while preserving movie records in the database.')
+    .setColor(0xed4245)
+    .addFields(
+      { name: '🗑️ What will be deleted', value: '• All movie posts in voting channel\n• All movie posts in admin channel\n• All discussion threads\n• All votes', inline: false },
+      { name: '💾 What will be preserved', value: '• Movie records in database\n• Watched movies\n• Banned movies', inline: false }
+    )
+    .setFooter({ text: 'This action cannot be undone!' });
+
+  const confirmRow = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('confirm_purge_queue')
+        .setLabel('✅ Confirm Purge')
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId('cancel_purge_queue')
+        .setLabel('❌ Cancel')
+        .setStyle(ButtonStyle.Secondary)
+    );
+
+  await interaction.reply({
+    embeds: [confirmEmbed],
+    components: [confirmRow],
+    flags: MessageFlags.Ephemeral
+  });
+}
+
+/**
+ * Execute the actual purge after confirmation
+ */
+async function executePurgeQueue(interaction) {
+  await interaction.deferUpdate();
 
   try {
-    const result = await database.purgeGuildMovieQueue(interaction.guild.id);
+    // Use the same cleanup function as /movie-cleanup purge
+    const cleanup = require('./cleanup');
+    await cleanup.handleCleanupPurge({ client: interaction.client, guild: interaction.guild }, false);
 
-    if (result.errors.length > 0) {
-      await interaction.editReply({
-        content: `⚠️ Purge completed with errors: ${result.errors.join(', ')}\nPurged: ${result.purged}, Preserved: ${result.preserved}`
-      });
-    } else {
-      await interaction.editReply({
-        content: `✅ Queue purged successfully!\nPurged: ${result.purged} items, Preserved: ${result.preserved} movie records`
-      });
-
-      // Clear admin channel after purge (since movies are now archived)
-      const config = await database.getGuildConfig(interaction.guild.id);
-      if (config && config.admin_channel_id) {
-        try {
-          const adminChannel = await interaction.client.channels.fetch(config.admin_channel_id);
-          if (adminChannel) {
-            // Clear all movie messages from admin channel
-            const messages = await adminChannel.messages.fetch({ limit: 100 });
-            const botMessages = messages.filter(msg => msg.author.id === interaction.client.user.id);
-
-            for (const [messageId, message] of botMessages) {
-              try {
-                // Skip admin control panel messages
-                const isControlPanel = message.embeds.length > 0 &&
-                                      message.embeds[0].title &&
-                                      message.embeds[0].title.includes('Admin Control Panel');
-
-                if (!isControlPanel) {
-                  await message.delete();
-                }
-              } catch (error) {
-                console.warn(`Failed to delete admin message ${messageId}:`, error.message);
-              }
-            }
-
-            // Ensure admin control panel is at bottom
-            await ensureAdminControlPanel(interaction.client, interaction.guild.id);
-          }
-        } catch (error) {
-          console.warn('Error clearing admin channel after purge:', error.message);
-        }
-      }
-    }
-  } catch (error) {
-    console.error('Error purging queue:', error);
     await interaction.editReply({
-      content: '❌ An error occurred while purging the queue.'
+      content: '✅ Queue purged successfully! All movie posts and threads have been cleared from both channels.',
+      embeds: [],
+      components: []
+    });
+
+    console.log(`🗑️ Admin purge executed by ${interaction.user.tag} in guild ${interaction.guild.name}`);
+
+  } catch (error) {
+    console.error('Error executing purge:', error);
+    await interaction.editReply({
+      content: '❌ An error occurred while purging the queue.',
+      embeds: [],
+      components: []
     });
   }
 }
@@ -330,16 +336,18 @@ async function handlePurgeQueue(interaction) {
  * Handle guild stats action
  */
 async function handleGuildStats(interaction) {
-  await interaction.deferReply({ ephemeral: true });
-
   try {
     const stats = require('./stats');
+    // The stats service handles its own interaction reply
     await stats.showOverviewStats(interaction);
   } catch (error) {
     console.error('Error showing guild stats:', error);
-    await interaction.editReply({
-      content: '❌ An error occurred while fetching guild statistics.'
-    });
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: '❌ An error occurred while fetching guild statistics.',
+        flags: MessageFlags.Ephemeral
+      });
+    }
   }
 }
 
@@ -412,6 +420,7 @@ module.exports = {
   ensureAdminControlPanel,
   handleSyncChannel,
   handlePurgeQueue,
+  executePurgeQueue,
   handleGuildStats,
   handleBannedMoviesList,
   handleRefreshPanel

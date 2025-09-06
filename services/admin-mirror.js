@@ -15,13 +15,13 @@ function createAdminMovieEmbed(movie, voteCounts = { up: 0, down: 0 }) {
     .setColor(getStatusColor(movie.status))
     .addFields(
       {
-        name: '📊 Votes',
-        value: `👍 ${voteCounts.up} • 👎 ${voteCounts.down} • Score: ${voteCounts.up - voteCounts.down}`,
+        name: '👤 Recommended by',
+        value: `<@${movie.recommended_by}>`,
         inline: true
       },
       {
-        name: '👤 Recommended by',
-        value: `<@${movie.recommended_by}>`,
+        name: '📺 Platform',
+        value: movie.where_to_watch || 'Unknown',
         inline: true
       },
       {
@@ -60,40 +60,34 @@ async function createAdminActionButtons(movieId, status, isBanned = false, guild
     }
   }
 
-  if (isInVotingSession) {
-    // Voting session buttons: Choose Winner and Skip
+  // Always show Pick Winner for pending/planned movies (new workflow)
+  if (['pending', 'planned'].includes(status) && !isBanned) {
     row.addComponents(
       new ButtonBuilder()
-        .setCustomId(`admin_choose_winner:${movieId}`)
-        .setLabel('🏆 Choose Winner')
-        .setStyle(ButtonStyle.Success),
+        .setCustomId(`admin_pick_winner:${movieId}`)
+        .setLabel('🏆 Pick Winner')
+        .setStyle(ButtonStyle.Success)
+    );
+  }
+
+  // Mark as watched button (for scheduled movies)
+  if (status === 'scheduled' && !isBanned) {
+    row.addComponents(
+      new ButtonBuilder()
+        .setCustomId(`admin_watched:${movieId}`)
+        .setLabel('✅ Mark Watched')
+        .setStyle(ButtonStyle.Success)
+    );
+  }
+
+  // Skip to Next button (for pending/planned movies)
+  if (['pending', 'planned'].includes(status) && !isBanned) {
+    row.addComponents(
       new ButtonBuilder()
         .setCustomId(`admin_skip_vote:${movieId}`)
         .setLabel('⏭️ Skip to Next')
         .setStyle(ButtonStyle.Secondary)
     );
-  } else {
-    // Regular session buttons
-
-    // Schedule button (only for pending/planned movies)
-    if (['pending', 'planned'].includes(status) && !isBanned) {
-      row.addComponents(
-        new ButtonBuilder()
-          .setCustomId(`admin_schedule:${movieId}`)
-          .setLabel('📅 Schedule')
-          .setStyle(ButtonStyle.Primary)
-      );
-    }
-
-    // Mark as watched button (for scheduled movies)
-    if (status === 'scheduled' && !isBanned) {
-      row.addComponents(
-        new ButtonBuilder()
-          .setCustomId(`admin_watched:${movieId}`)
-          .setLabel('✅ Mark Watched')
-          .setStyle(ButtonStyle.Success)
-      );
-    }
   }
 
   // Ban/Unban button (always available)
