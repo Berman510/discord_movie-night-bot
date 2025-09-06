@@ -136,12 +136,14 @@ class Database {
       `CREATE TABLE IF NOT EXISTS votes (
         id INT AUTO_INCREMENT PRIMARY KEY,
         message_id VARCHAR(20) NOT NULL,
+        guild_id VARCHAR(20) NOT NULL,
         user_id VARCHAR(20) NOT NULL,
         vote_type ENUM('up', 'down') NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE KEY unique_vote (message_id, user_id),
         FOREIGN KEY (message_id) REFERENCES movies(message_id) ON DELETE CASCADE,
-        INDEX idx_message_votes (message_id, vote_type)
+        INDEX idx_message_votes (message_id, vote_type),
+        INDEX idx_guild_votes (guild_id, vote_type)
       )`,
 
       // Movie sessions - organized movie nights
@@ -165,19 +167,6 @@ class Database {
         INDEX idx_discord_event (discord_event_id)
       )`,
 
-      // User preferences and stats
-      `CREATE TABLE IF NOT EXISTS user_stats (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id VARCHAR(20) NOT NULL,
-        guild_id VARCHAR(20) NOT NULL,
-        recommendations_count INT DEFAULT 0,
-        votes_cast INT DEFAULT 0,
-        movies_watched INT DEFAULT 0,
-        favorite_genres JSON NULL,
-        last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE KEY unique_user_guild (user_id, guild_id)
-      )`,
-
       // Guild configuration
       `CREATE TABLE IF NOT EXISTS guild_config (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -195,22 +184,26 @@ class Database {
       `CREATE TABLE IF NOT EXISTS session_participants (
         id INT AUTO_INCREMENT PRIMARY KEY,
         session_id INT NOT NULL,
+        guild_id VARCHAR(20) NOT NULL,
         user_id VARCHAR(20) NOT NULL,
         joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (session_id) REFERENCES movie_sessions(id) ON DELETE CASCADE,
-        UNIQUE KEY unique_participant (session_id, user_id)
+        UNIQUE KEY unique_participant (session_id, user_id),
+        INDEX idx_guild_participants (guild_id, user_id)
       )`,
 
       // Session attendees (actual attendance tracking)
       `CREATE TABLE IF NOT EXISTS session_attendees (
         id INT AUTO_INCREMENT PRIMARY KEY,
         session_id INT NOT NULL,
+        guild_id VARCHAR(20) NOT NULL,
         user_id VARCHAR(20) NOT NULL,
         joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         left_at TIMESTAMP NULL,
         duration_minutes INT DEFAULT 0,
         FOREIGN KEY (session_id) REFERENCES movie_sessions(id) ON DELETE CASCADE,
-        UNIQUE KEY unique_attendee (session_id, user_id)
+        UNIQUE KEY unique_attendee (session_id, user_id),
+        INDEX idx_guild_attendees (guild_id, user_id)
       )`
     ];
 
@@ -406,6 +399,114 @@ class Database {
         console.warn('Migration 10 warning:', error.message);
       }
 
+      // Migration 11: Add guild_id columns to votes, session_participants, and session_attendees tables
+      try {
+        // Add guild_id to votes table
+        const [voteColumns] = await this.pool.execute(`
+          SELECT COLUMN_NAME
+          FROM INFORMATION_SCHEMA.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'votes'
+        `);
+        const voteColumnNames = voteColumns.map(row => row.COLUMN_NAME);
+
+        if (!voteColumnNames.includes('guild_id')) {
+          // Add the column
+          await this.pool.execute(`
+            ALTER TABLE votes
+            ADD COLUMN guild_id VARCHAR(20) NOT NULL DEFAULT ''
+          `);
+
+          // Populate existing data by joining with movies table
+          await this.pool.execute(`
+            UPDATE votes v
+            JOIN movies m ON v.message_id = m.message_id
+            SET v.guild_id = m.guild_id
+          `);
+
+          // Add index for better performance
+          await this.pool.execute(`
+            ALTER TABLE votes
+            ADD INDEX idx_guild_votes (guild_id, vote_type)
+          `);
+
+          console.log('✅ Added guild_id column to votes table');
+        } else {
+          console.log('✅ guild_id column already exists in votes table');
+        }
+
+        // Add guild_id to session_participants table
+        const [participantColumns] = await this.pool.execute(`
+          SELECT COLUMN_NAME
+          FROM INFORMATION_SCHEMA.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'session_participants'
+        `);
+        const participantColumnNames = participantColumns.map(row => row.COLUMN_NAME);
+
+        if (!participantColumnNames.includes('guild_id')) {
+          // Add the column
+          await this.pool.execute(`
+            ALTER TABLE session_participants
+            ADD COLUMN guild_id VARCHAR(20) NOT NULL DEFAULT ''
+          `);
+
+          // Populate existing data by joining with movie_sessions table
+          await this.pool.execute(`
+            UPDATE session_participants sp
+            JOIN movie_sessions ms ON sp.session_id = ms.id
+            SET sp.guild_id = ms.guild_id
+          `);
+
+          // Add index for better performance
+          await this.pool.execute(`
+            ALTER TABLE session_participants
+            ADD INDEX idx_guild_participants (guild_id, user_id)
+          `);
+
+          console.log('✅ Added guild_id column to session_participants table');
+        } else {
+          console.log('✅ guild_id column already exists in session_participants table');
+        }
+
+        // Add guild_id to session_attendees table
+        const [attendeeColumns] = await this.pool.execute(`
+          SELECT COLUMN_NAME
+          FROM INFORMATION_SCHEMA.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'session_attendees'
+        `);
+        const attendeeColumnNames = attendeeColumns.map(row => row.COLUMN_NAME);
+
+        if (!attendeeColumnNames.includes('guild_id')) {
+          // Add the column
+          await this.pool.execute(`
+            ALTER TABLE session_attendees
+            ADD COLUMN guild_id VARCHAR(20) NOT NULL DEFAULT ''
+          `);
+
+          // Populate existing data by joining with movie_sessions table
+          await this.pool.execute(`
+            UPDATE session_attendees sa
+            JOIN movie_sessions ms ON sa.session_id = ms.id
+            SET sa.guild_id = ms.guild_id
+          `);
+
+          // Add index for better performance
+          await this.pool.execute(`
+            ALTER TABLE session_attendees
+            ADD INDEX idx_guild_attendees (guild_id, user_id)
+          `);
+
+          console.log('✅ Added guild_id column to session_attendees table');
+        } else {
+          console.log('✅ guild_id column already exists in session_attendees table');
+        }
+
+      } catch (error) {
+        console.error('❌ Failed to add guild_id columns (Migration 11):', error.message);
+      }
+
       console.log('✅ Database migrations completed');
     } catch (error) {
       console.error('❌ Migration error:', error.message);
@@ -500,14 +601,25 @@ class Database {
   }
 
   // Vote operations
-  async saveVote(messageId, userId, voteType) {
+  async saveVote(messageId, userId, voteType, guildId = null) {
     if (!this.isConnected) return false;
-    
+
     try {
+      // If guildId is not provided, try to get it from the movies table
+      if (!guildId) {
+        const [movieRows] = await this.pool.execute(
+          `SELECT guild_id FROM movies WHERE message_id = ?`,
+          [messageId]
+        );
+        if (movieRows.length > 0) {
+          guildId = movieRows[0].guild_id;
+        }
+      }
+
       await this.pool.execute(
-        `INSERT INTO votes (message_id, user_id, vote_type) VALUES (?, ?, ?)
+        `INSERT INTO votes (message_id, guild_id, user_id, vote_type) VALUES (?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE vote_type = VALUES(vote_type)`,
-        [messageId, userId, voteType]
+        [messageId, guildId || '', userId, voteType]
       );
       return true;
     } catch (error) {
@@ -1070,12 +1182,14 @@ class Database {
 
   async getUserStats(guildId, userId) {
     if (!this.isConnected) return {
-      recommended: 0, upvotesReceived: 0, downvotesReceived: 0,
-      watched: 0, planned: 0
+      moviesRecommended: 0, upvotesReceived: 0, downvotesReceived: 0,
+      moviesWatched: 0, moviesPlanned: 0, totalVotes: 0,
+      upvotesGiven: 0, downvotesGiven: 0, sessionsCreated: 0
     };
 
     try {
-      const [rows] = await this.pool.execute(
+      // Get user's movie recommendations and votes received
+      const [movieRows] = await this.pool.execute(
         `SELECT
           COUNT(DISTINCT m.message_id) as recommended,
           COALESCE(SUM(CASE WHEN v.vote_type = 'up' THEN 1 ELSE 0 END), 0) as upvotes_received,
@@ -1088,18 +1202,42 @@ class Database {
         [guildId, userId]
       );
 
+      // Get user's voting activity (votes given by this user)
+      const [voteRows] = await this.pool.execute(
+        `SELECT
+          COUNT(*) as total_votes,
+          SUM(CASE WHEN vote_type = 'up' THEN 1 ELSE 0 END) as upvotes_given,
+          SUM(CASE WHEN vote_type = 'down' THEN 1 ELSE 0 END) as downvotes_given
+         FROM votes
+         WHERE guild_id = ? AND user_id = ?`,
+        [guildId, userId]
+      );
+
+      // Get user's session creation count
+      const [sessionRows] = await this.pool.execute(
+        `SELECT COUNT(*) as sessions_created
+         FROM movie_sessions
+         WHERE guild_id = ? AND created_by = ?`,
+        [guildId, userId]
+      );
+
       return {
-        recommended: rows[0].recommended || 0,
-        upvotesReceived: rows[0].upvotes_received || 0,
-        downvotesReceived: rows[0].downvotes_received || 0,
-        watched: rows[0].watched || 0,
-        planned: rows[0].planned || 0
+        moviesRecommended: movieRows[0].recommended || 0,
+        upvotesReceived: movieRows[0].upvotes_received || 0,
+        downvotesReceived: movieRows[0].downvotes_received || 0,
+        moviesWatched: movieRows[0].watched || 0,
+        moviesPlanned: movieRows[0].planned || 0,
+        totalVotes: voteRows[0].total_votes || 0,
+        upvotesGiven: voteRows[0].upvotes_given || 0,
+        downvotesGiven: voteRows[0].downvotes_given || 0,
+        sessionsCreated: sessionRows[0].sessions_created || 0
       };
     } catch (error) {
       console.error('Error getting user stats:', error.message);
       return {
-        recommended: 0, upvotesReceived: 0, downvotesReceived: 0,
-        watched: 0, planned: 0
+        moviesRecommended: 0, upvotesReceived: 0, downvotesReceived: 0,
+        moviesWatched: 0, moviesPlanned: 0, totalVotes: 0,
+        upvotesGiven: 0, downvotesGiven: 0, sessionsCreated: 0
       };
     }
   }
@@ -1364,13 +1502,24 @@ class Database {
   }
 
   // Session participants functionality
-  async addSessionParticipant(sessionId, userId) {
+  async addSessionParticipant(sessionId, userId, guildId = null) {
     if (!this.isConnected) return false;
 
     try {
+      // If guildId is not provided, get it from the movie_sessions table
+      if (!guildId) {
+        const [sessionRows] = await this.pool.execute(
+          `SELECT guild_id FROM movie_sessions WHERE id = ?`,
+          [sessionId]
+        );
+        if (sessionRows.length > 0) {
+          guildId = sessionRows[0].guild_id;
+        }
+      }
+
       await this.pool.execute(
-        `INSERT IGNORE INTO session_participants (session_id, user_id) VALUES (?, ?)`,
-        [sessionId, userId]
+        `INSERT IGNORE INTO session_participants (session_id, guild_id, user_id) VALUES (?, ?, ?)`,
+        [sessionId, guildId || '', userId]
       );
       return true;
     } catch (error) {
@@ -1467,15 +1616,26 @@ class Database {
   }
 
   // Session attendance tracking functions
-  async addSessionAttendee(sessionId, userId) {
+  async addSessionAttendee(sessionId, userId, guildId = null) {
     if (!this.isConnected) return false;
 
     try {
+      // If guildId is not provided, get it from the movie_sessions table
+      if (!guildId) {
+        const [sessionRows] = await this.pool.execute(
+          `SELECT guild_id FROM movie_sessions WHERE id = ?`,
+          [sessionId]
+        );
+        if (sessionRows.length > 0) {
+          guildId = sessionRows[0].guild_id;
+        }
+      }
+
       await this.pool.execute(
-        `INSERT INTO session_attendees (session_id, user_id)
-         VALUES (?, ?)
+        `INSERT INTO session_attendees (session_id, guild_id, user_id)
+         VALUES (?, ?, ?)
          ON DUPLICATE KEY UPDATE joined_at = CURRENT_TIMESTAMP`,
-        [sessionId, userId]
+        [sessionId, guildId || '', userId]
       );
       return true;
     } catch (error) {
