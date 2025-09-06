@@ -130,7 +130,19 @@ async function startBot() {
     await database.connect();
     
     // Register commands
-    await registerCommands(DISCORD_TOKEN, CLIENT_ID, GUILD_ID);
+    if (GUILD_ID) {
+      // Support multiple guild IDs separated by commas
+      const guildIds = GUILD_ID.split(',').map(id => id.trim());
+
+      for (const guildId of guildIds) {
+        if (guildId) {
+          await registerCommands(DISCORD_TOKEN, CLIENT_ID, guildId);
+        }
+      }
+    } else {
+      // Register globally
+      await registerCommands(DISCORD_TOKEN, CLIENT_ID);
+    }
     
     // Login to Discord
     await client.login(DISCORD_TOKEN);
