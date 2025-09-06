@@ -130,17 +130,17 @@ async function startBot() {
     await database.connect();
     
     // Register commands
-    if (GUILD_ID) {
-      // Support multiple guild IDs separated by commas
-      const guildIds = GUILD_ID.split(',').map(id => id.trim());
+    if (GUILD_ID && GUILD_ID.trim()) {
+      // Development mode: Register to specific guilds for instant updates
+      const guildIds = GUILD_ID.split(',').map(id => id.trim()).filter(id => id);
 
+      console.log(`🧪 Development mode: Registering commands to ${guildIds.length} specific guild(s) for instant updates`);
       for (const guildId of guildIds) {
-        if (guildId) {
-          await registerCommands(DISCORD_TOKEN, CLIENT_ID, guildId);
-        }
+        await registerCommands(DISCORD_TOKEN, CLIENT_ID, guildId);
       }
     } else {
-      // Register globally
+      // Production mode: Register globally for all servers
+      console.log(`🌍 Production mode: Registering commands globally (up to 1 hour propagation)`);
       await registerCommands(DISCORD_TOKEN, CLIENT_ID);
     }
     
