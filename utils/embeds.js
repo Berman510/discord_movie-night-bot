@@ -14,8 +14,14 @@ function createMovieEmbed(movie, imdbData = null) {
     .addFields(
       { name: '📺 Where to Watch', value: movie.where_to_watch, inline: true },
       { name: '👤 Recommended by', value: `<@${movie.recommended_by}>`, inline: true }
-    )
-    .setTimestamp(new Date(movie.created_at));
+    );
+
+  // Set timestamp if created_at is available, otherwise use current time
+  if (movie.created_at) {
+    embed.setTimestamp(new Date(movie.created_at));
+  } else {
+    embed.setTimestamp();
+  }
 
   // Add IMDb data if available
   if (imdbData) {
