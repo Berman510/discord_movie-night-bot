@@ -582,12 +582,24 @@ async function handlePurgeConfirmation(interaction) {
 }
 
 async function handleCreateRecommendation(interaction) {
+  // Check if there's an active voting session
+  const database = require('../database');
+  const activeSession = await database.getActiveVotingSession(interaction.guild.id);
+
+  if (!activeSession) {
+    await interaction.reply({
+      content: '❌ **No active voting session**\n\nMovie recommendations are only available during active voting sessions. An admin needs to use the "Plan Next Session" button in the admin channel to start a new voting session.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
   // Show the movie recommendation modal
   const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
 
   const modal = new ModalBuilder()
     .setCustomId('mn:modal')
-    .setTitle('New Movie Recommendation');
+    .setTitle(`Recommend Movie for ${activeSession.name}`);
 
   const titleInput = new TextInputBuilder()
     .setCustomId('mn:title')

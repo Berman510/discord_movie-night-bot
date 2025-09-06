@@ -35,18 +35,18 @@ async function handleSelect(interaction) {
       return;
     }
 
+    // Deep purge selection menu
+    if (customId === 'deep_purge_select') {
+      await handleDeepPurgeSelection(interaction);
+      return;
+    }
+
     // Unknown select menu
     console.warn(`Unknown select menu interaction: ${customId}`);
     await interaction.reply({
       content: '❌ Unknown select menu interaction.',
       flags: MessageFlags.Ephemeral
     });
-
-    // Deep purge selection menu
-    if (customId === 'deep_purge_select') {
-      await handleDeepPurgeSelection(interaction);
-      return;
-    }
 
   } catch (error) {
     console.error('Error handling select interaction:', error);

@@ -312,7 +312,7 @@ async function executePurgeQueue(interaction) {
   try {
     // Use the same cleanup function as /movie-cleanup purge
     const cleanup = require('./cleanup');
-    await cleanup.handleCleanupPurge({ client: interaction.client, guild: interaction.guild }, false);
+    await cleanup.handleCleanupPurge(interaction, false);
 
     await interaction.editReply({
       content: '✅ Queue purged successfully! All movie posts and threads have been cleared from both channels.',

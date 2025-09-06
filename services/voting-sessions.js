@@ -178,18 +178,18 @@ async function createVotingSession(interaction, state) {
     try {
       const discordEvents = require('./discord-events');
       const eventData = {
+        id: sessionId,
+        guildId: interaction.guild.id,
         name: state.sessionName,
-        description: state.sessionDescription || 'Join us for movie night voting and viewing!',
-        scheduledStartTime: state.sessionDateTime,
-        entityType: 3, // External event
-        privacyLevel: 2 // Guild only
+        description: state.sessionDescription || 'Join us for movie night voting and viewing!'
       };
 
-      const event = await discordEvents.createDiscordEvent(interaction.guild, eventData);
+      const event = await discordEvents.createDiscordEvent(interaction.guild, eventData, state.sessionDateTime);
 
       if (event) {
         // Update session with Discord event ID
         await database.updateVotingSessionEventId(sessionId, event.id);
+        console.log(`📅 Created Discord event: ${event.name} (${event.id})`);
       }
     } catch (error) {
       console.warn('Error creating Discord event for voting session:', error.message);
