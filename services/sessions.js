@@ -1471,6 +1471,9 @@ async function createMovieSessionFromModal(interaction) {
       return;
     }
 
+    // Add the session ID to sessionData for Discord event creation
+    sessionData.id = sessionId;
+
     // Create Discord scheduled event if date is set
     let discordEventId = null;
     if (scheduledDate) {

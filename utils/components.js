@@ -189,6 +189,24 @@ function createConfigurationButtons() {
   ];
 }
 
+function createSessionManagementButtons(movieMessageId, sessionId) {
+  const sessionButtons = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId(`mn:session_reschedule:${sessionId}:${movieMessageId}`)
+        .setLabel('📅 Reschedule')
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('📅'),
+      new ButtonBuilder()
+        .setCustomId(`mn:session_cancel:${sessionId}:${movieMessageId}`)
+        .setLabel('❌ Cancel Session')
+        .setStyle(ButtonStyle.Danger)
+        .setEmoji('❌')
+    );
+
+  return [sessionButtons];
+}
+
 module.exports = {
   createVotingButtons,
   createStatusButtons,
@@ -196,5 +214,6 @@ module.exports = {
   createSessionDateButtons,
   createSessionTimeButtons,
   createSessionActionButtons,
-  createConfigurationButtons
+  createConfigurationButtons,
+  createSessionManagementButtons
 };

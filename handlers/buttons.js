@@ -484,7 +484,9 @@ async function handlePurgeConfirmation(interaction) {
       for (const [messageId, message] of botMessages) {
         // Check if this message is for a movie we're deleting
         const movieToDelete = moviesToDelete.find(m => m.message_id === messageId);
-        if (movieToDelete) {
+        const movieToPreserve = moviesToPreserve.find(m => m.message_id === messageId);
+
+        if (movieToDelete && !movieToPreserve) {
           try {
             await message.delete();
             deletedMessages++;
@@ -497,6 +499,7 @@ async function handlePurgeConfirmation(interaction) {
             console.warn(`Failed to delete message ${messageId}:`, error.message);
           }
         }
+        // If it's a preserved movie, leave the message alone
       }
 
       // Delete database records for movies to be deleted
@@ -518,6 +521,31 @@ async function handlePurgeConfirmation(interaction) {
 
         } catch (error) {
           console.error(`Error deleting movie ${movie.title}:`, error.message);
+        }
+      }
+
+      // Restore session management buttons for preserved scheduled movies
+      for (const movie of moviesToPreserve) {
+        if (movie.status === 'scheduled') {
+          try {
+            const session = await database.getSessionByMovieId(movie.message_id);
+            if (session && session.discord_event_id) {
+              // Find the movie message and update its buttons
+              const movieMessage = await channel.messages.fetch(movie.message_id).catch(() => null);
+              if (movieMessage) {
+                const { components } = require('../utils');
+                const sessionButtons = components.createSessionManagementButtons(movie.message_id, session.id);
+
+                await movieMessage.edit({
+                  embeds: movieMessage.embeds,
+                  components: sessionButtons
+                });
+                console.log(`🔧 Restored session buttons for preserved movie: ${movie.title}`);
+              }
+            }
+          } catch (error) {
+            console.warn(`Failed to restore session buttons for ${movie.title}:`, error.message);
+          }
         }
       }
 
