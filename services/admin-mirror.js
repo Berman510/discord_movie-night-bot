@@ -39,20 +39,61 @@ function createAdminMovieEmbed(movie, voteCounts = { up: 0, down: 0 }) {
 /**
  * Create admin action buttons for a movie
  */
-function createAdminActionButtons(movieId, status, isBanned = false) {
+async function createAdminActionButtons(movieId, status, isBanned = false, guildId = null) {
   const row = new ActionRowBuilder();
 
-  // Schedule button (only for pending/planned movies)
-  if (['pending', 'planned'].includes(status) && !isBanned) {
-    row.addComponents(
-      new ButtonBuilder()
-        .setCustomId(`admin_schedule:${movieId}`)
-        .setLabel('📅 Schedule')
-        .setStyle(ButtonStyle.Primary)
-    );
+  // Check if there's an active voting session
+  let isInVotingSession = false;
+  if (guildId) {
+    try {
+      const activeSession = await database.getActiveVotingSession(guildId);
+      if (activeSession) {
+        // Check if this movie is part of the voting session
+        const movie = await database.getMovieByMessageId(movieId);
+        isInVotingSession = movie && movie.session_id === activeSession.id;
+      }
+    } catch (error) {
+      console.warn('Error checking voting session status:', error.message);
+    }
   }
 
-  // Ban/Unban button
+  if (isInVotingSession) {
+    // Voting session buttons: Choose Winner and Skip
+    row.addComponents(
+      new ButtonBuilder()
+        .setCustomId(`admin_choose_winner:${movieId}`)
+        .setLabel('🏆 Choose Winner')
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId(`admin_skip_vote:${movieId}`)
+        .setLabel('⏭️ Skip to Next')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  } else {
+    // Regular session buttons
+
+    // Schedule button (only for pending/planned movies)
+    if (['pending', 'planned'].includes(status) && !isBanned) {
+      row.addComponents(
+        new ButtonBuilder()
+          .setCustomId(`admin_schedule:${movieId}`)
+          .setLabel('📅 Schedule')
+          .setStyle(ButtonStyle.Primary)
+      );
+    }
+
+    // Mark as watched button (for scheduled movies)
+    if (status === 'scheduled' && !isBanned) {
+      row.addComponents(
+        new ButtonBuilder()
+          .setCustomId(`admin_watched:${movieId}`)
+          .setLabel('✅ Mark Watched')
+          .setStyle(ButtonStyle.Success)
+      );
+    }
+  }
+
+  // Ban/Unban button (always available)
   if (!isBanned) {
     row.addComponents(
       new ButtonBuilder()
@@ -69,17 +110,7 @@ function createAdminActionButtons(movieId, status, isBanned = false) {
     );
   }
 
-  // Mark as watched button (for scheduled movies)
-  if (status === 'scheduled' && !isBanned) {
-    row.addComponents(
-      new ButtonBuilder()
-        .setCustomId(`admin_watched:${movieId}`)
-        .setLabel('✅ Mark Watched')
-        .setStyle(ButtonStyle.Success)
-    );
-  }
-
-  // View Details button (for all movies)
+  // View Details button (always available)
   row.addComponents(
     new ButtonBuilder()
       .setCustomId(`admin_details:${movieId}`)
@@ -142,7 +173,7 @@ async function postMovieToAdminChannel(client, guildId, movie) {
     
     // Create admin embed and buttons
     const embed = createAdminMovieEmbed(movie, voteCounts);
-    const components = createAdminActionButtons(movie.message_id, movie.status, movie.is_banned);
+    const components = await createAdminActionButtons(movie.message_id, movie.status, movie.is_banned, guildId);
 
     // Post to admin channel
     const adminMessage = await adminChannel.send({

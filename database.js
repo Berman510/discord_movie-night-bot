@@ -127,6 +127,7 @@ class Database {
         imdb_id VARCHAR(20) NULL,
         imdb_data JSON NULL,
         status ENUM('pending', 'watched', 'planned', 'skipped', 'scheduled', 'banned') DEFAULT 'pending',
+        session_id INT NULL,
         is_banned BOOLEAN DEFAULT FALSE,
         watch_count INT DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -612,6 +613,28 @@ class Database {
         console.error('❌ Failed to add movie UID system (Migration 13):', error.message);
       }
 
+      // Migration 14: Add session_id to movies table for voting session tracking
+      try {
+        const [sessionColumns] = await this.pool.execute(`
+          SELECT COLUMN_NAME
+          FROM INFORMATION_SCHEMA.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'movies'
+          AND COLUMN_NAME = 'session_id'
+        `);
+
+        if (sessionColumns.length === 0) {
+          await this.pool.execute(`
+            ALTER TABLE movies
+            ADD COLUMN session_id INT NULL,
+            ADD INDEX idx_session_movies (guild_id, session_id)
+          `);
+          console.log('✅ Added session_id to movies table for voting session tracking');
+        }
+      } catch (error) {
+        console.warn('Migration 14 warning:', error.message);
+      }
+
       console.log('✅ Database migrations completed');
     } catch (error) {
       console.error('❌ Migration error:', error.message);
@@ -685,9 +708,20 @@ class Database {
         throw new Error('MOVIE_BANNED');
       }
 
+      // Check for active voting session and tag movie if one exists
+      let sessionId = null;
+      try {
+        const activeSession = await this.getActiveVotingSession(movieData.guildId);
+        if (activeSession) {
+          sessionId = activeSession.id;
+        }
+      } catch (error) {
+        console.warn('Error checking for active voting session:', error.message);
+      }
+
       const [result] = await this.pool.execute(
-        `INSERT INTO movies (message_id, guild_id, channel_id, title, movie_uid, where_to_watch, recommended_by, imdb_id, imdb_data)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO movies (message_id, guild_id, channel_id, title, movie_uid, where_to_watch, recommended_by, imdb_id, imdb_data, session_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           movieData.messageId,
           movieData.guildId,
@@ -697,7 +731,8 @@ class Database {
           movieData.whereToWatch,
           movieData.recommendedBy,
           movieData.imdbId || null,
-          movieData.imdbData ? JSON.stringify(movieData.imdbData) : null
+          movieData.imdbData ? JSON.stringify(movieData.imdbData) : null,
+          sessionId
         ]
       );
       return result.insertId;
@@ -1142,6 +1177,123 @@ class Database {
       return true;
     } catch (error) {
       console.error('Error updating session winner:', error.message);
+      return false;
+    }
+  }
+
+  // Voting session management methods
+  async getActiveVotingSession(guildId) {
+    if (!this.isConnected) return null;
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT * FROM movie_sessions
+         WHERE guild_id = ? AND status = 'voting'
+         ORDER BY created_at DESC
+         LIMIT 1`,
+        [guildId]
+      );
+      return rows.length > 0 ? rows[0] : null;
+    } catch (error) {
+      console.error('Error getting active voting session:', error.message);
+      return null;
+    }
+  }
+
+  async createVotingSession(sessionData) {
+    if (!this.isConnected) return null;
+
+    try {
+      const [result] = await this.pool.execute(
+        `INSERT INTO movie_sessions (guild_id, channel_id, name, description, scheduled_date, timezone, status, discord_event_id, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, 'voting', ?, ?)`,
+        [
+          sessionData.guildId,
+          sessionData.channelId,
+          sessionData.name,
+          sessionData.description || null,
+          sessionData.scheduledDate || null,
+          sessionData.timezone || 'UTC',
+          sessionData.discordEventId || null,
+          sessionData.createdBy
+        ]
+      );
+      return result.insertId;
+    } catch (error) {
+      console.error('Error creating voting session:', error.message);
+      return null;
+    }
+  }
+
+  async getMoviesForVotingSession(sessionId) {
+    if (!this.isConnected) return [];
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT m.*,
+         (SELECT COUNT(*) FROM votes v WHERE v.message_id = m.message_id AND v.vote_type = 'up') as up_votes,
+         (SELECT COUNT(*) FROM votes v WHERE v.message_id = m.message_id AND v.vote_type = 'down') as down_votes
+         FROM movies m
+         WHERE m.session_id = ?
+         ORDER BY m.created_at ASC`,
+        [sessionId]
+      );
+      return rows;
+    } catch (error) {
+      console.error('Error getting movies for voting session:', error.message);
+      return [];
+    }
+  }
+
+  async moveMovieToNextSession(movieId) {
+    if (!this.isConnected) return false;
+
+    try {
+      // Clear the session_id to move it back to general queue
+      await this.pool.execute(
+        `UPDATE movies SET session_id = NULL, status = 'pending' WHERE message_id = ?`,
+        [movieId]
+      );
+
+      // Clear votes for this movie
+      await this.pool.execute(
+        `DELETE FROM votes WHERE message_id = ?`,
+        [movieId]
+      );
+
+      return true;
+    } catch (error) {
+      console.error('Error moving movie to next session:', error.message);
+      return false;
+    }
+  }
+
+  async finalizeVotingSession(sessionId, winnerMovieId) {
+    if (!this.isConnected) return false;
+
+    try {
+      // Update session status and winner
+      await this.pool.execute(
+        `UPDATE movie_sessions SET status = 'decided', winner_message_id = ? WHERE id = ?`,
+        [winnerMovieId, sessionId]
+      );
+
+      // Update winner movie status to scheduled
+      await this.pool.execute(
+        `UPDATE movies SET status = 'scheduled' WHERE message_id = ?`,
+        [winnerMovieId]
+      );
+
+      // Move non-winning movies back to general queue
+      await this.pool.execute(
+        `UPDATE movies SET session_id = NULL, status = 'pending'
+         WHERE session_id = ? AND message_id != ?`,
+        [sessionId, winnerMovieId]
+      );
+
+      return true;
+    } catch (error) {
+      console.error('Error finalizing voting session:', error.message);
       return false;
     }
   }

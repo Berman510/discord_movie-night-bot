@@ -58,20 +58,28 @@ function createAdminControlButtons() {
   const row2 = new ActionRowBuilder()
     .addComponents(
       new ButtonBuilder()
+        .setCustomId('admin_ctrl_plan_session')
+        .setLabel('🗳️ Plan Next Session')
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
         .setCustomId('admin_ctrl_deep_purge')
         .setLabel('💥 Deep Purge')
         .setStyle(ButtonStyle.Danger),
       new ButtonBuilder()
         .setCustomId('admin_ctrl_banned_list')
         .setLabel('🚫 Banned Movies')
-        .setStyle(ButtonStyle.Secondary),
+        .setStyle(ButtonStyle.Secondary)
+    );
+
+  const row3 = new ActionRowBuilder()
+    .addComponents(
       new ButtonBuilder()
         .setCustomId('admin_ctrl_refresh')
         .setLabel('🔄 Refresh Panel')
         .setStyle(ButtonStyle.Secondary)
     );
 
-  return [row1, row2];
+  return [row1, row2, row3];
 }
 
 /**

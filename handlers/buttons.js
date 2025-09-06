@@ -897,6 +897,12 @@ async function handleAdminMovieButtons(interaction, customId) {
       case 'admin_details':
         await handleMovieDetails(interaction, guildId, movieId);
         break;
+      case 'admin_choose_winner':
+        await handleChooseWinner(interaction, guildId, movieId);
+        break;
+      case 'admin_skip_vote':
+        await handleSkipToNext(interaction, guildId, movieId);
+        break;
       default:
         await interaction.reply({
           content: '❌ Unknown admin action.',
@@ -1158,6 +1164,140 @@ async function handleMovieDetails(interaction, guildId, movieId) {
 }
 
 /**
+ * Handle choosing a movie as winner of voting session
+ */
+async function handleChooseWinner(interaction, guildId, movieId) {
+  const database = require('../database');
+
+  try {
+    // Get the active voting session
+    const activeSession = await database.getActiveVotingSession(guildId);
+    if (!activeSession) {
+      await interaction.reply({
+        content: '❌ No active voting session found.',
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    // Get the movie
+    const movie = await database.getMovieByMessageId(movieId);
+    if (!movie) {
+      await interaction.reply({
+        content: '❌ Movie not found.',
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    // Finalize the voting session with this movie as winner
+    const success = await database.finalizeVotingSession(activeSession.id, movieId);
+    if (!success) {
+      await interaction.reply({
+        content: '❌ Failed to finalize voting session.',
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    // Update Discord event with winner
+    if (activeSession.discord_event_id) {
+      try {
+        const discordEvents = require('../services/discord-events');
+        const updatedName = activeSession.name.replace('TBD (Voting in Progress)', movie.title);
+        await discordEvents.updateDiscordEvent(interaction.guild, activeSession.discord_event_id, {
+          name: updatedName,
+          description: `Winner: ${movie.title}\n${activeSession.description || ''}`
+        });
+      } catch (error) {
+        console.warn('Error updating Discord event:', error.message);
+      }
+    }
+
+    await interaction.reply({
+      content: `🏆 **${movie.title}** has been chosen as the winner! The voting session is now complete.`,
+      flags: MessageFlags.Ephemeral
+    });
+
+    // Sync channels to update the display
+    try {
+      const adminControls = require('../services/admin-controls');
+      await adminControls.handleSyncChannel(interaction);
+    } catch (error) {
+      console.warn('Error syncing channels after choosing winner:', error.message);
+    }
+
+    console.log(`🏆 Movie ${movie.title} chosen as winner for session ${activeSession.id}`);
+
+  } catch (error) {
+    console.error('Error choosing winner:', error);
+    await interaction.reply({
+      content: '❌ Failed to choose winner.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+/**
+ * Handle skipping a movie to next session
+ */
+async function handleSkipToNext(interaction, guildId, movieId) {
+  const database = require('../database');
+
+  try {
+    // Get the movie
+    const movie = await database.getMovieByMessageId(movieId);
+    if (!movie) {
+      await interaction.reply({
+        content: '❌ Movie not found.',
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    // Move movie to next session (removes from current voting)
+    const success = await database.moveMovieToNextSession(movieId);
+    if (!success) {
+      await interaction.reply({
+        content: '❌ Failed to skip movie to next session.',
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    await interaction.reply({
+      content: `⏭️ **${movie.title}** has been skipped to the next session. Votes have been reset.`,
+      flags: MessageFlags.Ephemeral
+    });
+
+    // Remove from admin channel
+    try {
+      const adminMirror = require('../services/admin-mirror');
+      await adminMirror.removeMovieFromAdminChannel(interaction.client, guildId, movieId);
+    } catch (error) {
+      console.warn('Error removing movie from admin channel:', error.message);
+    }
+
+    // Remove from voting channel
+    try {
+      const cleanup = require('../services/cleanup');
+      await cleanup.removeMoviePost(interaction.client, guildId, movieId);
+    } catch (error) {
+      console.warn('Error removing movie from voting channel:', error.message);
+    }
+
+    console.log(`⏭️ Movie ${movie.title} skipped to next session`);
+
+  } catch (error) {
+    console.error('Error skipping movie to next session:', error);
+    await interaction.reply({
+      content: '❌ Failed to skip movie to next session.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+/**
  * Update the admin message with new movie status
  */
 async function updateAdminMessage(interaction, movie) {
@@ -1214,6 +1354,9 @@ async function handleAdminControlButtons(interaction, customId) {
       case 'admin_ctrl_deep_purge':
         await handleDeepPurgeInitiation(interaction);
         break;
+      case 'admin_ctrl_plan_session':
+        await handlePlanVotingSession(interaction);
+        break;
       case 'admin_ctrl_banned_list':
         await adminControls.handleBannedMoviesList(interaction);
         break;
@@ -1230,6 +1373,23 @@ async function handleAdminControlButtons(interaction, customId) {
     console.error('Error handling admin control button:', error);
     await interaction.reply({
       content: '❌ An error occurred while processing the admin control action.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+/**
+ * Handle planning a new voting session
+ */
+async function handlePlanVotingSession(interaction) {
+  const votingSessions = require('../services/voting-sessions');
+
+  try {
+    await votingSessions.createVotingSession(interaction);
+  } catch (error) {
+    console.error('Error planning voting session:', error);
+    await interaction.reply({
+      content: '❌ An error occurred while planning the voting session.',
       flags: MessageFlags.Ephemeral
     });
   }
