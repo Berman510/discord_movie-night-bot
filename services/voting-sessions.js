@@ -7,9 +7,9 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder
 const database = require('../database');
 
 /**
- * Create a new voting session with date/time selection
+ * Start the voting session creation process with date/time selection
  */
-async function createVotingSession(interaction) {
+async function startVotingSessionCreation(interaction) {
   // Initialize session state if needed
   if (!global.votingSessionCreationState) {
     global.votingSessionCreationState = new Map();
@@ -226,6 +226,7 @@ async function createVotingSession(interaction, state) {
 
 
 module.exports = {
+  startVotingSessionCreation,
   showVotingSessionDateModal,
   handleVotingSessionDateModal,
   createVotingSession

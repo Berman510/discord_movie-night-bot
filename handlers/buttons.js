@@ -1608,7 +1608,7 @@ async function handlePlanVotingSession(interaction) {
   const votingSessions = require('../services/voting-sessions');
 
   try {
-    await votingSessions.createVotingSession(interaction);
+    await votingSessions.startVotingSessionCreation(interaction);
   } catch (error) {
     console.error('Error planning voting session:', error);
     await interaction.reply({
