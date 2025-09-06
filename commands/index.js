@@ -9,6 +9,7 @@ const movieSessionCommands = require('./movie-session');
 const movieConfigureCommands = require('./movie-configure');
 const movieCleanupCommands = require('./movie-cleanup');
 const movieStatsCommands = require('./movie-stats');
+const movieSetupCommands = require('./movie-setup');
 const movieWatchedCommand = require('./movie-watched');
 const movieSkipCommand = require('./movie-skip');
 const moviePlanCommand = require('./movie-plan');
@@ -20,6 +21,7 @@ const commands = [
   ...movieConfigureCommands,
   ...movieCleanupCommands,
   ...movieStatsCommands,
+  ...movieSetupCommands,
   movieWatchedCommand.data.toJSON(),
   movieSkipCommand.data.toJSON(),
   moviePlanCommand.data.toJSON()

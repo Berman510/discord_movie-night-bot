@@ -47,6 +47,12 @@ async function handleButton(interaction) {
       return;
     }
 
+    // Setup guide navigation buttons
+    if (customId.startsWith('setup_')) {
+      await handleSetupGuideButtons(interaction, customId);
+      return;
+    }
+
     // Duplicate movie confirmation
     if (ns === 'mn' && action === 'duplicate_confirm') {
       await handleDuplicateConfirm(interaction, msgId);
@@ -789,7 +795,35 @@ async function createMovieWithImdb(interaction, title, where, imdbData) {
   }
 }
 
+/**
+ * Handle setup guide navigation buttons
+ */
+async function handleSetupGuideButtons(interaction, customId) {
+  const setupGuide = require('../services/setup-guide');
 
+  switch (customId) {
+    case 'setup_channels':
+      await setupGuide.showChannelSetup(interaction);
+      break;
+    case 'setup_roles':
+      await setupGuide.showRoleSetup(interaction);
+      break;
+    case 'setup_permissions':
+      await setupGuide.showPermissionSetup(interaction);
+      break;
+    case 'setup_configuration':
+      await setupGuide.showConfigurationSetup(interaction);
+      break;
+    case 'setup_guide_back':
+      await setupGuide.showSetupGuide(interaction);
+      break;
+    default:
+      await interaction.reply({
+        content: '❌ Unknown setup guide action.',
+        flags: MessageFlags.Ephemeral
+      });
+  }
+}
 
 module.exports = {
   handleButton

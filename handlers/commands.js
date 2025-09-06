@@ -40,6 +40,10 @@ async function handleSlashCommand(interaction) {
         await handleMovieStats(interaction);
         break;
 
+      case 'movie-setup':
+        await handleMovieSetup(interaction);
+        break;
+
       case 'movie-watched':
         await handleMovieWatched(interaction);
         break;
@@ -225,6 +229,23 @@ async function handleMovieStats(interaction) {
   await stats.handleMovieStats(interaction);
 }
 
+async function handleMovieSetup(interaction) {
+  const { permissions } = require('../services');
+
+  // Check admin permissions
+  const hasPermission = await permissions.checkMovieAdminPermission(interaction);
+  if (!hasPermission) {
+    await interaction.reply({
+      content: '❌ You need Administrator permissions or a configured admin role to use this command.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  const setupGuide = require('../services/setup-guide');
+  await setupGuide.showSetupGuide(interaction);
+}
+
 async function handleMovieWatched(interaction) {
   const { permissions } = require('../services');
 
@@ -365,6 +386,7 @@ module.exports = {
   handleMovieConfigure,
   handleMovieCleanup,
   handleMovieStats,
+  handleMovieSetup,
   handleMovieWatched,
   handleMovieSkip,
   handleMoviePlan
