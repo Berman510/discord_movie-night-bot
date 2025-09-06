@@ -395,6 +395,17 @@ class Database {
         console.error('❌ Failed to add session_viewing_channel_id column:', error.message);
       }
 
+      // Migration 10: Add 'active' status to movie_sessions enum
+      try {
+        await this.pool.execute(`
+          ALTER TABLE movie_sessions
+          MODIFY COLUMN status ENUM('planning', 'voting', 'decided', 'active', 'completed', 'cancelled') DEFAULT 'planning'
+        `);
+        console.log('✅ Added active status to movie_sessions enum');
+      } catch (error) {
+        console.warn('Migration 10 warning:', error.message);
+      }
+
       console.log('✅ Database migrations completed');
     } catch (error) {
       console.error('❌ Migration error:', error.message);

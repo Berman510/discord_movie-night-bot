@@ -2,6 +2,27 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.11.27] - 2025-09-06
+### Fixed
+- **Database Schema:** Added 'active' status to movie_sessions ENUM to fix status update errors
+- **Session Status Updates:** Fixed "Data truncated for column 'status'" error when updating sessions
+- **ENUM Compatibility:** Enhanced session status ENUM to include all required status values
+
+### Added
+- **Migration 10:** Database migration to add 'active' status to movie_sessions status ENUM
+- **Status Support:** Full support for session status progression: planning → active → completed
+- **Error Prevention:** Prevents database truncation errors during session status updates
+
+### Enhanced
+- **Session Lifecycle:** Complete session status lifecycle support with proper database schema
+- **Status Management:** Proper ENUM values for all session states and transitions
+- **Database Integrity:** Enhanced database schema to support all session tracking features
+
+### Technical
+- **ENUM Update:** Modified movie_sessions status column to include 'active' status
+- **Migration System:** Added Migration 10 for session status ENUM enhancement
+- **Schema Validation:** Better database schema validation for session status values
+
 ## [1.11.26] - 2025-09-06
 ### Fixed
 - **CRITICAL BUG:** Fixed variable name conflict causing session monitoring to never start
