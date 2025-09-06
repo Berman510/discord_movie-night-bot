@@ -6,7 +6,6 @@
 const buttonHandlers = require('./buttons');
 const modalHandlers = require('./modals');
 const selectHandlers = require('./selects');
-const voteHandlers = require('./votes');
 
 module.exports = {
   handleInteraction: async (interaction) => {
@@ -29,11 +28,7 @@ module.exports = {
         return;
       }
 
-      // Handle voting interactions (special case of buttons)
-      if (interaction.isButton() && interaction.customId.includes('vote')) {
-        await voteHandlers.handleVote(interaction);
-        return;
-      }
+
 
     } catch (error) {
       console.error('Error handling interaction:', error);
