@@ -112,8 +112,8 @@ async function showImdbSelection(interaction, title, where, imdbResults) {
     .setDescription(`Found ${imdbResults.length} matches for **${title}**`)
     .setColor(0x5865f2);
 
-  // Add up to 5 results
-  const displayResults = imdbResults.slice(0, 5);
+  // Add up to 4 results (to leave room for "None of these" button)
+  const displayResults = imdbResults.slice(0, 4);
   displayResults.forEach((movie, index) => {
     embed.addFields({
       name: `${index + 1}. ${movie.Title} (${movie.Year})`,
