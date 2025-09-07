@@ -173,12 +173,24 @@ async function createForumMovieRecommendation(interaction, movieData, channel) {
 
   // Create buttons with the actual message ID
   const movieComponents = components.createVotingButtons(message.id);
+  console.log(`🔍 DEBUG: Created voting buttons for forum post: ${message.id}`);
 
-  // Update the starter message with buttons
+  // Recreate the embed with IMDb data to ensure it's included in the update
+  const updatedMovieEmbed = embeds.createMovieEmbed({
+    title: title,
+    where_to_watch: where,
+    recommended_by: interaction.user.id,
+    status: 'pending',
+    imdb_id: imdbId,
+    imdb_data: imdbData
+  }, imdbData);
+
+  // Update the starter message with buttons and proper embed
   await message.edit({
-    embeds: [movieEmbed],
+    embeds: [updatedMovieEmbed],
     components: movieComponents
   });
+  console.log(`🔍 DEBUG: Updated forum post with voting buttons and IMDb data`);
 
   // Save to database with both message ID and thread ID
   console.log(`💾 Saving forum movie to database: ${title} (Message: ${message.id}, Thread: ${thread.id})`);
