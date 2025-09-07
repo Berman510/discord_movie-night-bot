@@ -2,7 +2,7 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
-## [1.13.0-rc46] - 2025-09-07
+## [1.13.0-rc47] - 2025-09-07
 ### 🎯 Major Release: Forum Channels, Safety Features & Professional Logging
 
 ### Added
@@ -43,6 +43,10 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **💥 Deep Purge Selection**: Fixed issue where selections were lost when clicking away from dropdown
 - **📌 Pinned Message Errors**: Fixed "pinnedMessages.find is not a function" error in admin controls
 - **🧹 Ephemeral Message Cleanup**: Improved ephemeral message management to prevent accumulation
+- **🔧 Discord.js Collection Methods**: Fixed "pinnedMessages.values is not a function" by using Collection.find() directly
+- **💥 Deep Purge setDefaultValues**: Fixed "setDefaultValues is not a function" by using placeholder text instead
+- **🧵 Thread Recreation**: Fixed missing threads after sync by properly recreating movie records and threads
+- **🗃️ Database Foreign Keys**: Fixed foreign key constraint errors during movie record updates
 
 ### Technical
 - **� Forum Channel Architecture**: Complete forum post creation, voting, and discussion system

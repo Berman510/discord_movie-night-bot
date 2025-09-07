@@ -361,9 +361,8 @@ async function ensureQuickActionPinned(channel) {
     // First try to find in pinned messages
     try {
       const pinnedMessages = await channel.messages.fetchPins();
-      // Convert Collection to array for safer .find() usage
-      const pinnedArray = Array.from(pinnedMessages.values());
-      existingQuickAction = pinnedArray.find(msg =>
+      // Use Collection.find() method directly
+      existingQuickAction = pinnedMessages.find(msg =>
         msg.author.id === channel.client.user.id &&
         msg.embeds.length > 0 &&
         (msg.embeds[0].title?.includes('Ready to recommend') ||
@@ -751,30 +750,53 @@ async function recreateMoviePost(channel, movie) {
       components: movieComponents
     });
 
-    // Create new movie record with new message ID and delete old one
+    // Create new movie record with new message ID and preserve vote data
     try {
-      // Use the database's built-in method to properly update message ID and transfer votes
-      const success = await database.updateMovieMessageId(channel.guild.id, movie.title, newMessage.id);
+      // Get the old vote counts to preserve them
+      const oldVoteCounts = await database.getVoteCounts(movie.message_id);
 
-      if (success) {
-        console.log(`🔄 Updated movie record: ${movie.title} (${movie.message_id} → ${newMessage.id})`);
+      // Delete the old movie record (this will cascade delete votes due to foreign key)
+      await database.deleteMovie(movie.message_id);
+
+      // Create new movie record with the new message ID
+      const movieId = await database.saveMovie({
+        messageId: newMessage.id,
+        guildId: channel.guild.id,
+        channelId: channel.id,
+        title: movie.title,
+        whereToWatch: movie.where_to_watch,
+        recommendedBy: movie.recommended_by,
+        imdbId: movie.imdb_id,
+        imdbData: movie.imdb_data,
+        status: movie.status
+      });
+
+      if (movieId) {
+        console.log(`🔄 Recreated movie record: ${movie.title} (${movie.message_id} → ${newMessage.id})`);
       } else {
-        console.warn(`Failed to update movie record for ${movie.title}`);
+        console.warn(`Failed to recreate movie record for ${movie.title}`);
         return false;
       }
     } catch (dbError) {
-      console.warn(`Failed to update movie record for ${movie.title}:`, dbError.message);
+      console.warn(`Failed to recreate movie record for ${movie.title}:`, dbError.message);
       return false;
     }
 
     // Create discussion thread for the movie
     try {
       const thread = await newMessage.startThread({
-        name: `${movie.title} — Discussion`,
-        autoArchiveDuration: 1440 // 24 hours
+        name: `💬 ${movie.title}`,
+        autoArchiveDuration: 10080 // 7 days
       });
 
-      await thread.send(`💬 **Discussion thread for ${movie.title}**\n\nShare your thoughts, reviews, or questions about this movie!`);
+      // Add detailed information to the thread
+      const movieCreation = require('./movie-creation');
+      await movieCreation.addDetailedMovieInfoToThread(thread, {
+        title: movie.title,
+        where: movie.where_to_watch,
+        imdbData: imdbData
+      });
+
       console.log(`🧵 Created discussion thread for recreated post: ${movie.title}`);
     } catch (threadError) {
       console.warn(`Failed to create thread for ${movie.title}:`, threadError.message);

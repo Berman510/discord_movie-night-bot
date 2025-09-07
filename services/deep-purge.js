@@ -89,9 +89,18 @@ function createDeepPurgeSelectionMenu(selectedCategories = []) {
       }
     ]);
 
-  // Set default values if categories are selected
+  // Update placeholder to show selected categories
   if (selectedCategories && selectedCategories.length > 0) {
-    selectMenu.setDefaultValues(...selectedCategories);
+    const categoryNames = {
+      movies: 'Movies',
+      sessions: 'Sessions',
+      votes: 'Votes',
+      participants: 'Participants',
+      attendees: 'Attendees',
+      config: 'Configuration'
+    };
+    const selectedNames = selectedCategories.map(cat => categoryNames[cat]).join(', ');
+    selectMenu.setPlaceholder(`Selected: ${selectedNames} (click to change)`);
   }
 
   const submitButton = new ButtonBuilder()
