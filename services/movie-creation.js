@@ -12,19 +12,37 @@ const database = require('../database');
  */
 async function createMovieRecommendation(interaction, movieData) {
   const { title, where, imdbId = null, imdbData = null } = movieData;
-  const channel = interaction.channel;
-  
+
   try {
-    console.log(`🎬 Creating movie recommendation: ${title} in ${forumChannels.getChannelTypeString(channel)} channel`);
-    
+    // Get the configured movie channel for this guild
+    const database = require('../database');
+    const config = await database.getGuildConfig(interaction.guild.id);
+
+    if (!config || !config.movie_channel_id) {
+      throw new Error('No movie channel configured for this guild. Use /movie-configure set-channel to set one.');
+    }
+
+    // Fetch the configured movie channel
+    const client = interaction.client || global.discordClient;
+    if (!client) {
+      throw new Error('Discord client not available');
+    }
+
+    const channel = await client.channels.fetch(config.movie_channel_id);
+    if (!channel) {
+      throw new Error('Configured movie channel not found');
+    }
+
+    console.log(`🎬 Creating movie recommendation: ${title} in ${forumChannels.getChannelTypeString(channel)} channel (${channel.name})`);
+
     if (forumChannels.isForumChannel(channel)) {
-      return await createForumMovieRecommendation(interaction, movieData);
+      return await createForumMovieRecommendation(interaction, movieData, channel);
     } else if (forumChannels.isTextChannel(channel)) {
-      return await createTextMovieRecommendation(interaction, movieData);
+      return await createTextMovieRecommendation(interaction, movieData, channel);
     } else {
       throw new Error(`Unsupported channel type: ${channel.type}`);
     }
-    
+
   } catch (error) {
     console.error('Error creating movie recommendation:', error);
     throw error;
@@ -34,7 +52,7 @@ async function createMovieRecommendation(interaction, movieData) {
 /**
  * Create movie recommendation in a text channel (existing logic)
  */
-async function createTextMovieRecommendation(interaction, movieData) {
+async function createTextMovieRecommendation(interaction, movieData, channel) {
   const { title, where, imdbId = null, imdbData = null } = movieData;
   
   // Create movie embed
@@ -50,7 +68,7 @@ async function createTextMovieRecommendation(interaction, movieData) {
   const movieEmbed = embeds.createMovieEmbed(movieEmbedData);
 
   // Create the message first without buttons
-  const message = await interaction.channel.send({
+  const message = await channel.send({
     embeds: [movieEmbed]
   });
 
@@ -68,7 +86,7 @@ async function createTextMovieRecommendation(interaction, movieData) {
   const movieId = await database.saveMovie({
     messageId: message.id,
     guildId: interaction.guild.id,
-    channelId: interaction.channel.id,
+    channelId: channel.id,
     title: title,
     whereToWatch: where,
     recommendedBy: interaction.user.id,
@@ -99,7 +117,7 @@ async function createTextMovieRecommendation(interaction, movieData) {
 /**
  * Create movie recommendation in a forum channel (new logic)
  */
-async function createForumMovieRecommendation(interaction, movieData) {
+async function createForumMovieRecommendation(interaction, movieData, channel) {
   const { title, where, imdbId = null, imdbData = null } = movieData;
   
   // Create movie embed
@@ -116,7 +134,7 @@ async function createForumMovieRecommendation(interaction, movieData) {
 
   // Create forum post
   const result = await forumChannels.createForumMoviePost(
-    interaction.channel,
+    channel,
     { title, embed: movieEmbed },
     [] // We'll add components after getting the message ID
   );
