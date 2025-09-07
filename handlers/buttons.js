@@ -238,9 +238,8 @@ async function handleVoting(interaction, action, msgId, votes) {
         }
       }
 
-      // Get updated vote counts and movie data
+      // Get updated vote counts (movie data already retrieved above)
       const voteCounts = await database.getVoteCounts(msgId);
-      const movie = await database.getMovieById(msgId, interaction.guild.id);
 
       // Update message with new vote counts and preserve all buttons
       const { components, embeds } = require('../utils');
