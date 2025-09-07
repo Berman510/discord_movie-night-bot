@@ -13,7 +13,7 @@ const database = require('../database');
 async function startGuidedSetup(interaction) {
   const embed = new EmbedBuilder()
     .setTitle('🎬 Movie Night Bot - Quick Setup')
-    .setDescription('Welcome! Let\'s get your Movie Night Bot configured in just a few steps.\n\n**What we\'ll set up:**\n• 📺 Voting channel (where movies are recommended)\n• 🔧 Admin channel (for bot management)\n• 🎤 Viewing channel (where you watch movies)\n• 👑 Admin roles (who can manage the bot)\n• 🔔 Notification role (gets pinged for events)')
+    .setDescription('Welcome! Let\'s get your Movie Night Bot configured in just a few steps.\n\n**What we\'ll set up:**\n• 📺 Voting channel (where movies are recommended)\n• 🔧 Admin channel (for bot management)\n• 🎤 Viewing channel (where you watch movies)\n• 👑 Admin roles (who can manage the bot)\n• 🔔 Viewer role (gets pinged for events)\n\n**Note:** The bot already has its own "Movie Night Bot" role with required permissions.')
     .setColor(0x5865f2)
     .setFooter({ text: 'This setup takes about 2 minutes' });
 
@@ -69,7 +69,7 @@ async function showSetupMenu(interaction, currentConfig = null) {
         inline: true
       },
       {
-        name: `${currentConfig.notification_role_id ? '✅' : '❌'} Notification Role`,
+        name: `${currentConfig.notification_role_id ? '✅' : '❌'} Viewer Role`,
         value: currentConfig.notification_role_id ? `<@&${currentConfig.notification_role_id}>` : 'Not configured',
         inline: true
       }
@@ -99,7 +99,7 @@ async function showSetupMenu(interaction, currentConfig = null) {
         .setStyle(currentConfig.admin_roles?.length > 0 ? ButtonStyle.Success : ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId('setup_notification_role')
-        .setLabel('🔔 Notification Role')
+        .setLabel('🔔 Viewer Role')
         .setStyle(currentConfig.notification_role_id ? ButtonStyle.Success : ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId('setup_finish')
@@ -119,7 +119,7 @@ async function showSetupMenu(interaction, currentConfig = null) {
 async function showVotingChannelSetup(interaction) {
   const embed = new EmbedBuilder()
     .setTitle('📺 Set Voting Channel')
-    .setDescription('Choose the channel where users will recommend movies and vote.\n\n**Recommended:** A dedicated text channel like #movie-voting')
+    .setDescription('Choose the channel where users will recommend movies and vote.\n\n**Recommended:** A dedicated text channel like #movie-voting\n\n**Required Bot Permissions:**\n• View Channel\n• Send Messages\n• Embed Links\n• Add Reactions\n• Create Public Threads\n• Send Messages in Threads')
     .setColor(0x5865f2);
 
   const channelSelect = new ActionRowBuilder()
@@ -150,7 +150,7 @@ async function showVotingChannelSetup(interaction) {
 async function showAdminChannelSetup(interaction) {
   const embed = new EmbedBuilder()
     .setTitle('🔧 Set Admin Channel')
-    .setDescription('Choose the channel for bot administration and session management.\n\n**Recommended:** A private admin channel like #movie-admin')
+    .setDescription('Choose the channel for bot administration and session management.\n\n**Recommended:** A private admin channel like #movie-admin\n\n**Required Bot Permissions:**\n• View Channel\n• Send Messages\n• Embed Links\n• Manage Messages (for admin controls)')
     .setColor(0x5865f2);
 
   const channelSelect = new ActionRowBuilder()
@@ -181,7 +181,7 @@ async function showAdminChannelSetup(interaction) {
 async function showViewingChannelSetup(interaction) {
   const embed = new EmbedBuilder()
     .setTitle('🎤 Set Viewing Channel')
-    .setDescription('Choose the voice channel where you watch movies together.\n\n**Recommended:** A voice channel like #movie-night-vc')
+    .setDescription('Choose the voice channel where you watch movies together.\n\n**Recommended:** A voice channel like #movie-night-vc\n\n**Required Bot Permissions:**\n• View Channel\n• Connect (to track attendance)\n• Create Events (for scheduled sessions)')
     .setColor(0x5865f2);
 
   const channelSelect = new ActionRowBuilder()
@@ -212,7 +212,7 @@ async function showViewingChannelSetup(interaction) {
 async function showAdminRolesSetup(interaction) {
   const embed = new EmbedBuilder()
     .setTitle('👑 Set Admin Roles')
-    .setDescription('Choose roles that can manage the bot (in addition to Discord Administrators).\n\n**Optional:** You can skip this if only Discord Admins should manage the bot.')
+    .setDescription('Choose roles that can manage the bot (in addition to Discord Administrators).\n\n**What Admin Roles Can Do:**\n• Create and manage movie sessions\n• Use admin control panel\n• Schedule and manage movies\n• Access cleanup and maintenance tools\n\n**Optional:** You can skip this if only Discord Admins should manage the bot.')
     .setColor(0x5865f2);
 
   const roleSelect = new ActionRowBuilder()
@@ -246,8 +246,8 @@ async function showAdminRolesSetup(interaction) {
  */
 async function showNotificationRoleSetup(interaction) {
   const embed = new EmbedBuilder()
-    .setTitle('🔔 Set Notification Role')
-    .setDescription('Choose a role to ping when movie sessions are scheduled.\n\n**Optional:** You can skip this if you don\'t want role notifications.')
+    .setTitle('🔔 Set Viewer Role')
+    .setDescription('Choose a role to ping when movie sessions are scheduled.\n\n**What This Role Gets:**\n• Notifications when new movie sessions are created\n• Pings for upcoming movie nights\n• Access to participate in voting and sessions\n\n**Suggested Names:** @Movie Viewers, @Movie Night, @Cinema Club\n\n**Optional:** You can skip this if you don\'t want role notifications.')
     .setColor(0x5865f2);
 
   const roleSelect = new ActionRowBuilder()

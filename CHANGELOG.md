@@ -2,6 +2,37 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.13.0] - 2025-09-07
+### 🎯 Major Release: Interactive Setup & Global Command Registration
+
+### Added
+- **🎬 Interactive Guided Setup**: New `/movie-setup` command with ephemeral-based configuration flow
+- **🌍 Global Command Registration**: Commands now register globally for all servers automatically
+- **⚡ Instant Guild Setup**: Commands register immediately when bot joins new servers
+- **🧹 Automatic Ephemeral Cleanup**: Smart ephemeral message management prevents accumulation
+- **🔧 Configuration Validation**: Commands check configuration before execution with helpful guidance
+- **📋 Permission Guidance**: Setup process includes detailed permission requirements for each channel/role
+- **🎯 Bot Discovery Ready**: Streamlined setup perfect for bot discovery website reviews
+
+### Enhanced
+- **⚙️ Setup Experience**: Visual progress indicators, navigation buttons, and clear instructions
+- **🔄 Role Naming**: Clarified "Viewer Role" vs "Admin Roles" vs "Movie Night Bot Role"
+- **📝 Command Structure**: Consolidated setup commands into single intuitive interface
+- **🎪 Voice Monitoring**: Only logs activity in configured session viewing channels
+- **🔧 Configuration Labels**: "set-voting-channel" instead of generic "set-channel"
+
+### Fixed
+- **🧹 Ephemeral Message Persistence**: All ephemeral messages now auto-cleanup properly
+- **⚡ Command Registration**: No more GUILD_ID requirement for production deployments
+- **🎯 Setup Button Conflicts**: Removed old setup guide handlers causing button failures
+- **📋 Voice Channel Logging**: Eliminated irrelevant voice state change logs
+
+### Technical
+- **🔄 Hybrid Registration**: Global + guild-specific registration for best user experience
+- **💾 Memory Management**: Ephemeral messages tracked in memory only (no database bloat)
+- **🎪 Event Handlers**: Added guildCreate/guildDelete handlers for automatic setup
+- **📋 Documentation**: Updated README and .env.example for new registration system
+
 ## [1.12.1] - 2025-09-07
 ### 🎉 Major Release: Enhanced Administration & Automatic Voting System
 
