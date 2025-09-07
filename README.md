@@ -125,7 +125,7 @@ Create a `.env` in the project root (copy from `.env.example`):
 ```
 DISCORD_TOKEN=YOUR_BOT_TOKEN
 CLIENT_ID=YOUR_APPLICATION_ID
-# Optional: set for instant (guild) command registration; omit for global
+# Optional: set for additional instant command registration to development servers
 GUILD_ID=YOUR_SERVER_ID
 # Optional: OMDb API key
 OMDB_API_KEY=YOUR_OMDB_API_KEY
@@ -311,11 +311,11 @@ pm2 startup  # follow the printed instructions
 ---
 
 ## Troubleshooting
-- **Slash command not appearing**: set `GUILD_ID` in `.env` for instant registration; restart the bot.
+- **Slash command not appearing**: Commands are registered globally and to new guilds automatically. Wait up to 1 hour for global propagation or restart the bot.
 - **“Invalid Form Body … SELECT_COMPONENT_OPTION_VALUE_DUPLICATED”**: fixed by deduping `imdbID` in v1.3.0.
 - **Threads not created**: ensure bot has *Create Public Threads* and *Send Messages in Threads*.
 - **Missing discussion threads**: run `/movie-cleanup` to automatically create threads for movies that are missing them.
-- **Global vs Guild**: remove `GUILD_ID` for public/global; keep it set for instant updates in a test server.
+- **Global vs Guild**: Commands are now registered globally for all servers. `GUILD_ID` is optional for additional development server registration.
 
 ---
 

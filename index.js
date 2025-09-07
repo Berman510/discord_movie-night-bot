@@ -85,6 +85,36 @@ client.once('clientReady', async () => {
   }
 });
 
+// Bot joins a new guild
+client.on('guildCreate', async (guild) => {
+  console.log(`🎉 Joined new guild: ${guild.name} (${guild.id})`);
+  console.log(`📊 Now serving ${client.guilds.cache.size} guilds`);
+
+  try {
+    // Register commands to this specific guild for instant availability
+    console.log(`⚡ Registering commands to ${guild.name} for instant availability`);
+    await registerCommands(DISCORD_TOKEN, CLIENT_ID, guild.id);
+    console.log(`✅ Commands registered to ${guild.name}`);
+
+    // Initialize admin control panel for this guild if it has an admin channel configured
+    const config = await database.getGuildConfig(guild.id);
+    if (config && config.admin_channel_id) {
+      const adminControls = require('./services/admin-controls');
+      await adminControls.ensureAdminControlPanel(client, guild.id);
+      console.log(`🔧 Admin control panel initialized for ${guild.name}`);
+    }
+
+  } catch (error) {
+    console.error(`❌ Error setting up new guild ${guild.name}:`, error);
+  }
+});
+
+// Bot leaves a guild
+client.on('guildDelete', (guild) => {
+  console.log(`👋 Left guild: ${guild.name} (${guild.id})`);
+  console.log(`📊 Now serving ${client.guilds.cache.size} guilds`);
+});
+
 // Handle all interactions
 client.on('interactionCreate', async (interaction) => {
   try {
@@ -164,19 +194,17 @@ async function startBot() {
     // Initialize database
     await database.connect();
     
-    // Register commands
-    if (GUILD_ID && GUILD_ID.trim()) {
-      // Development mode: Register to specific guilds for instant updates
-      const guildIds = GUILD_ID.split(',').map(id => id.trim()).filter(id => id);
+    // Register commands globally for all servers
+    console.log(`🌍 Registering commands globally for all servers`);
+    await registerCommands(DISCORD_TOKEN, CLIENT_ID);
 
-      console.log(`🧪 Development mode: Registering commands to ${guildIds.length} specific guild(s) for instant updates`);
+    // Also register to specific development guilds if specified for instant testing
+    if (GUILD_ID && GUILD_ID.trim()) {
+      const guildIds = GUILD_ID.split(',').map(id => id.trim()).filter(id => id);
+      console.log(`🧪 Also registering to ${guildIds.length} development guild(s) for instant testing`);
       for (const guildId of guildIds) {
         await registerCommands(DISCORD_TOKEN, CLIENT_ID, guildId);
       }
-    } else {
-      // Production mode: Register globally for all servers
-      console.log(`🌍 Production mode: Registering commands globally (up to 1 hour propagation)`);
-      await registerCommands(DISCORD_TOKEN, CLIENT_ID);
     }
     
     // Login to Discord
