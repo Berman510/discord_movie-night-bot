@@ -264,14 +264,6 @@ async function createMovieWithoutImdb(interaction, title, where) {
       flags: MessageFlags.Ephemeral
     });
   }
-
-  } catch (error) {
-    console.error('Error creating movie without IMDb:', error);
-    await interaction.reply({
-      content: '❌ Error creating movie recommendation.',
-      flags: MessageFlags.Ephemeral
-    });
-  }
 }
 
 /**
