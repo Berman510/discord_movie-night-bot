@@ -148,21 +148,75 @@ async function updateForumPostTags(thread, status) {
   try {
     const channel = thread.parent;
     if (!channel || !isForumChannel(channel)) return;
-    
+
     const newTags = await getMovieStatusTags(channel, status);
-    
+
     // Only update if tags have changed
     const currentTagIds = thread.appliedTags || [];
-    const tagsChanged = newTags.length !== currentTagIds.length || 
+    const tagsChanged = newTags.length !== currentTagIds.length ||
                        !newTags.every(tagId => currentTagIds.includes(tagId));
-    
+
     if (tagsChanged) {
       await thread.setAppliedTags(newTags);
       console.log(`🏷️ Updated forum post tags for status: ${status}`);
     }
-    
+
   } catch (error) {
     console.warn('Error updating forum post tags:', error.message);
+  }
+}
+
+/**
+ * Update forum post content when movie status changes (e.g., becomes winner)
+ */
+async function updateForumPostContent(thread, movie, newStatus) {
+  try {
+    const starterMessage = await thread.fetchStarterMessage();
+    if (!starterMessage) return;
+
+    const { embeds, components } = require('../utils');
+    const database = require('../database');
+
+    // Get current vote counts
+    const voteCounts = await database.getVoteCounts(movie.message_id);
+
+    // Create updated embed
+    const movieEmbed = embeds.createMovieEmbed(movie, null, voteCounts);
+
+    // Determine components based on status
+    let movieComponents = [];
+
+    if (newStatus === 'scheduled') {
+      // Winner - show winner status instead of voting buttons
+      const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+      movieComponents = [
+        new ActionRowBuilder()
+          .addComponents(
+            new ButtonBuilder()
+              .setCustomId('winner_selected')
+              .setLabel('🏆 Selected as Winner!')
+              .setStyle(ButtonStyle.Success)
+              .setDisabled(true)
+          )
+      ];
+    } else if (['watched', 'skipped', 'banned'].includes(newStatus)) {
+      // Completed movies - no buttons
+      movieComponents = [];
+    } else {
+      // Still active - keep voting buttons
+      movieComponents = components.createVotingButtons(movie.message_id);
+    }
+
+    // Update the starter message
+    await starterMessage.edit({
+      embeds: [movieEmbed],
+      components: movieComponents
+    });
+
+    console.log(`📝 Updated forum post content for ${movie.title} (status: ${newStatus})`);
+
+  } catch (error) {
+    console.warn('Error updating forum post content:', error.message);
   }
 }
 
@@ -354,6 +408,7 @@ module.exports = {
   createForumMoviePost,
   updateForumPostTitle,
   updateForumPostTags,
+  updateForumPostContent,
   archiveForumPost,
   getForumMoviePosts,
   cleanupForumPosts,

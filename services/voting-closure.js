@@ -104,6 +104,19 @@ async function selectWinner(client, session, winner, config) {
     
     // Update movie status to scheduled
     await database.updateMovieStatus(winner.movie.message_id, 'scheduled');
+
+    // Update forum post if this is a forum channel movie
+    if (winner.movie.channel_type === 'forum' && winner.movie.thread_id) {
+      try {
+        const forumChannels = require('./forum-channels');
+        const thread = await client.channels.fetch(winner.movie.thread_id).catch(() => null);
+        if (thread) {
+          await forumChannels.updateForumPostContent(thread, winner.movie, 'scheduled');
+        }
+      } catch (error) {
+        console.warn('Error updating forum post for automatic winner:', error.message);
+      }
+    }
     
     // Clear voting channel
     if (config && config.movie_channel_id) {

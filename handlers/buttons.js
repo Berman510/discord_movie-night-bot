@@ -961,6 +961,32 @@ async function handleScheduleMovie(interaction, guildId, movieId) {
     // Update movie status to scheduled
     await database.updateMovieStatus(movieId, 'scheduled');
 
+    // Update forum post if this is a forum channel movie
+    if (movie.channel_type === 'forum' && movie.thread_id) {
+      try {
+        const forumChannels = require('../services/forum-channels');
+        const thread = await interaction.client.channels.fetch(movie.thread_id).catch(() => null);
+        if (thread) {
+          await forumChannels.updateForumPostContent(thread, movie, 'scheduled');
+        }
+      } catch (error) {
+        console.warn('Error updating forum post for winner:', error.message);
+      }
+    }
+
+    // Update forum post if this is a forum channel movie
+    if (movie.channel_type === 'forum' && movie.thread_id) {
+      try {
+        const forumChannels = require('../services/forum-channels');
+        const thread = await interaction.client.channels.fetch(movie.thread_id).catch(() => null);
+        if (thread) {
+          await forumChannels.updateForumPostContent(thread, movie, 'scheduled');
+        }
+      } catch (error) {
+        console.warn('Error updating forum post for winner:', error.message);
+      }
+    }
+
     // Create a movie session
     const sessionData = {
       guildId: guildId,
