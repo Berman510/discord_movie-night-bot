@@ -1,12 +1,12 @@
 /**
  * Movie Setup Commands
- * Slash command definitions for bot setup guide
+ * Interactive guided configuration for easy bot setup
  */
 
 const commands = [
   {
     name: 'movie-setup',
-    description: 'Show comprehensive setup guide for Movie Night Bot (Admin only)'
+    description: '🎬 Interactive bot setup - configure your Movie Night Bot easily!'
   }
 ];
 

@@ -45,10 +45,6 @@ async function handleSlashCommand(interaction) {
         await handleMovieSetup(interaction);
         break;
 
-      case 'movie-setup-simple':
-        await handleMovieSetupSimple(interaction);
-        break;
-
       case 'movie-watched':
         await handleMovieWatched(interaction);
         break;
@@ -100,7 +96,7 @@ async function handleMovieNight(interaction) {
 
   if (!activeSession) {
     await interaction.reply({
-      content: '❌ **No active voting session**\n\nMovie recommendations are only available during active voting sessions. An admin needs to use the "Plan Next Session" button in the admin channel to start a new voting session.\n\n💡 **Tip:** Use `/movie-setup-simple` for easy bot configuration.',
+      content: '❌ **No active voting session**\n\nMovie recommendations are only available during active voting sessions. An admin needs to use the "Plan Next Session" button in the admin channel to start a new voting session.\n\n💡 **Tip:** Use `/movie-setup` for easy bot configuration.',
       flags: MessageFlags.Ephemeral
     });
     return;
@@ -324,20 +320,19 @@ async function handleMovieStats(interaction) {
 }
 
 async function handleMovieSetup(interaction) {
-  const { permissions } = require('../services');
+  // Check if user has permission to configure
+  const { PermissionFlagsBits } = require('discord.js');
 
-  // Check admin permissions
-  const hasPermission = await permissions.checkMovieAdminPermission(interaction);
-  if (!hasPermission) {
+  if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator) &&
+      !interaction.member.permissions.has(PermissionFlagsBits.ManageGuild)) {
     await interaction.reply({
-      content: '❌ You need Administrator permissions or a configured admin role to use this command.',
+      content: '❌ **Permission denied**\n\nYou need Administrator or Manage Server permissions to configure the bot.',
       flags: MessageFlags.Ephemeral
     });
     return;
   }
 
-  const setupGuide = require('../services/setup-guide');
-  await setupGuide.showSetupGuide(interaction);
+  await guidedSetup.startGuidedSetup(interaction);
 }
 
 async function handleMovieWatched(interaction) {
@@ -568,28 +563,10 @@ module.exports = {
   handleMovieCleanup,
   handleMovieStats,
   handleMovieSetup,
-  handleMovieSetupSimple,
   handleMovieWatched,
   handleMovieSkip,
   handleMoviePlan,
   handleDebugConfig
 };
 
-/**
- * Handle movie-setup-simple command
- */
-async function handleMovieSetupSimple(interaction) {
-  // Check if user has permission to configure
-  const { PermissionFlagsBits } = require('discord.js');
 
-  if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator) &&
-      !interaction.member.permissions.has(PermissionFlagsBits.ManageGuild)) {
-    await interaction.reply({
-      content: '❌ **Permission denied**\n\nYou need Administrator or Manage Server permissions to configure the bot.',
-      flags: MessageFlags.Ephemeral
-    });
-    return;
-  }
-
-  await guidedSetup.startGuidedSetup(interaction);
-}
