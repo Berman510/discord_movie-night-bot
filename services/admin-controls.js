@@ -213,22 +213,31 @@ async function handleSyncChannel(interaction) {
       try {
         const votingChannel = await interaction.client.channels.fetch(config.movie_channel_id);
         if (votingChannel) {
-          // Clear existing movie messages in voting channel (preserve quick action)
-          const messages = await votingChannel.messages.fetch({ limit: 100 });
-          const botMessages = messages.filter(msg => msg.author.id === interaction.client.user.id);
+          const forumChannels = require('./forum-channels');
 
-          for (const [messageId, message] of botMessages) {
-            try {
-              // Skip quick action messages
-              const isQuickAction = message.embeds.length > 0 &&
-                                   message.embeds[0].title &&
-                                   message.embeds[0].title.includes('Quick Actions');
+          if (forumChannels.isForumChannel(votingChannel)) {
+            // For forum channels, we don't clear messages - each movie has its own post
+            console.log(`📋 Syncing forum channel: ${votingChannel.name}`);
+            // Forum sync will be handled by recreating/updating forum posts below
+          } else {
+            // Clear existing movie messages in text voting channel (preserve quick action)
+            console.log(`📋 Clearing messages in text channel: ${votingChannel.name}`);
+            const messages = await votingChannel.messages.fetch({ limit: 100 });
+            const botMessages = messages.filter(msg => msg.author.id === interaction.client.user.id);
 
-              if (!isQuickAction) {
-                await message.delete();
+            for (const [messageId, message] of botMessages) {
+              try {
+                // Skip quick action messages
+                const isQuickAction = message.embeds.length > 0 &&
+                                     message.embeds[0].title &&
+                                     message.embeds[0].title.includes('Quick Actions');
+
+                if (!isQuickAction) {
+                  await message.delete();
+                }
+              } catch (error) {
+                console.warn(`Failed to delete voting message ${messageId}:`, error.message);
               }
-            } catch (error) {
-              console.warn(`Failed to delete voting message ${messageId}:`, error.message);
             }
           }
 
@@ -248,17 +257,25 @@ async function handleSyncChannel(interaction) {
                 continue;
               }
 
-              const cleanup = require('./cleanup');
-              await cleanup.recreateMoviePost(votingChannel, movie);
+              if (forumChannels.isForumChannel(votingChannel)) {
+                // For forum channels, create/update forum posts
+                await syncForumMoviePost(votingChannel, movie);
+              } else {
+                // For text channels, use existing cleanup logic
+                const cleanup = require('./cleanup');
+                await cleanup.recreateMoviePost(votingChannel, movie);
+              }
               votingSynced++;
             } catch (error) {
               console.warn(`Failed to recreate voting post for ${movie.title}:`, error.message);
             }
           }
 
-          // Also ensure quick action message at bottom
-          const cleanup = require('./cleanup');
-          await cleanup.ensureQuickActionAtBottom(votingChannel);
+          // Also ensure quick action message at bottom (text channels only)
+          if (!forumChannels.isForumChannel(votingChannel)) {
+            const cleanup = require('./cleanup');
+            await cleanup.ensureQuickActionAtBottom(votingChannel);
+          }
         } else {
           errors.push('Voting channel not found');
         }
@@ -534,6 +551,70 @@ async function handleRefreshPanel(interaction) {
   }
 }
 
+/**
+ * Sync a movie post in a forum channel
+ */
+async function syncForumMoviePost(forumChannel, movie) {
+  try {
+    const forumChannels = require('./forum-channels');
+    const { embeds, components } = require('../utils');
+
+    // Check if forum post already exists
+    let existingThread = null;
+    if (movie.thread_id) {
+      try {
+        existingThread = await forumChannel.threads.fetch(movie.thread_id);
+      } catch (error) {
+        console.log(`Forum thread ${movie.thread_id} not found, will create new one`);
+      }
+    }
+
+    if (existingThread) {
+      // Update existing forum post
+      const movieEmbed = embeds.createMovieEmbed(movie);
+      const movieComponents = components.createVotingButtons(movie.message_id);
+
+      // Update the starter message
+      const starterMessage = await existingThread.fetchStarterMessage();
+      if (starterMessage) {
+        await starterMessage.edit({
+          embeds: [movieEmbed],
+          components: movieComponents
+        });
+
+        // Update forum post title with vote counts
+        const database = require('../database');
+        const voteCounts = await database.getVoteCounts(movie.message_id);
+        await forumChannels.updateForumPostTitle(existingThread, movie.title, movie.status, voteCounts.up, voteCounts.down);
+
+        console.log(`📝 Updated existing forum post: ${movie.title}`);
+      }
+    } else {
+      // Create new forum post
+      const movieEmbed = embeds.createMovieEmbed(movie);
+      const movieComponents = components.createVotingButtons(movie.message_id);
+
+      const result = await forumChannels.createForumMoviePost(
+        forumChannel,
+        { title: movie.title, embed: movieEmbed },
+        movieComponents
+      );
+
+      const { thread, message } = result;
+
+      // Update database with new thread ID
+      const database = require('../database');
+      await database.updateMovieThreadId(movie.message_id, thread.id);
+
+      console.log(`📝 Created new forum post: ${movie.title} (Thread: ${thread.id})`);
+    }
+
+  } catch (error) {
+    console.error(`Error syncing forum movie post for ${movie.title}:`, error);
+    throw error;
+  }
+}
+
 module.exports = {
   createAdminControlEmbed,
   createAdminControlButtons,
@@ -543,5 +624,6 @@ module.exports = {
   executePurgeQueue,
   handleGuildStats,
   handleBannedMoviesList,
-  handleRefreshPanel
+  handleRefreshPanel,
+  syncForumMoviePost
 };
