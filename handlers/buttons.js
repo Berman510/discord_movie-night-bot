@@ -1545,6 +1545,10 @@ async function handleChooseWinner(interaction, guildId, movieId) {
       return;
     }
 
+    // Mark non-winning movies for next session
+    const winnerMovieId = movie.id;
+    await database.markMoviesForNextSession(guildId, winnerMovieId);
+
     // Update Discord event with winner
     if (activeSession.discord_event_id) {
       try {
@@ -1969,6 +1973,9 @@ async function handleCancelSessionConfirmation(interaction) {
         // Try to delete it anyway from the database
       }
     }
+
+    // Mark non-winning movies for next session before deleting session
+    await database.markMoviesForNextSession(interaction.guild.id);
 
     // Delete the session and all associated data
     await database.deleteVotingSession(sessionId);

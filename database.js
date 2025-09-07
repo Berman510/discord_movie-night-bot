@@ -658,6 +658,29 @@ class Database {
         console.error('Migration 15 error:', error.message);
       }
 
+      // Migration 16: Add next_session flag to movies table
+      try {
+        const [nextSessionColumns] = await this.pool.execute(`
+          SELECT COLUMN_NAME
+          FROM INFORMATION_SCHEMA.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'movies'
+          AND COLUMN_NAME = 'next_session'
+        `);
+
+        if (nextSessionColumns.length === 0) {
+          await this.pool.execute(`
+            ALTER TABLE movies
+            ADD COLUMN next_session BOOLEAN DEFAULT FALSE AFTER session_id
+          `);
+          console.log('✅ Added next_session column to movies');
+        } else {
+          console.log('✅ next_session column already exists in movies');
+        }
+      } catch (error) {
+        console.error('Migration 16 error:', error.message);
+      }
+
       console.log('✅ Database migrations completed');
     } catch (error) {
       console.error('❌ Migration error:', error.message);
@@ -1403,6 +1426,93 @@ class Database {
       return true;
     } catch (error) {
       console.error('Error deleting movie:', error.message);
+      return false;
+    }
+  }
+
+  async markMoviesForNextSession(guildId, excludeWinnerId = null) {
+    if (!this.isConnected) return false;
+
+    try {
+      // Mark all non-winning movies from current session for next session
+      let query = `
+        UPDATE movies
+        SET next_session = TRUE, session_id = NULL, status = 'pending'
+        WHERE guild_id = ? AND status IN ('pending', 'planned')
+      `;
+      let params = [guildId];
+
+      if (excludeWinnerId) {
+        query += ` AND id != ?`;
+        params.push(excludeWinnerId);
+      }
+
+      await this.pool.execute(query, params);
+      console.log('✅ Marked non-winning movies for next session');
+      return true;
+    } catch (error) {
+      console.error('Error marking movies for next session:', error.message);
+      return false;
+    }
+  }
+
+  async getNextSessionMovies(guildId) {
+    if (!this.isConnected) return [];
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT * FROM movies WHERE guild_id = ? AND next_session = TRUE ORDER BY created_at ASC`,
+        [guildId]
+      );
+      return rows;
+    } catch (error) {
+      console.error('Error getting next session movies:', error.message);
+      return [];
+    }
+  }
+
+  async clearNextSessionFlag(guildId) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `UPDATE movies SET next_session = FALSE WHERE guild_id = ? AND next_session = TRUE`,
+        [guildId]
+      );
+      console.log('✅ Cleared next_session flags');
+      return true;
+    } catch (error) {
+      console.error('Error clearing next_session flags:', error.message);
+      return false;
+    }
+  }
+
+  async resetMovieVotes(movieId) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `DELETE FROM votes WHERE message_id = ?`,
+        [movieId]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error resetting movie votes:', error.message);
+      return false;
+    }
+  }
+
+  async updateMovieSessionId(messageId, sessionId) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `UPDATE movies SET session_id = ? WHERE message_id = ?`,
+        [sessionId, messageId]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error updating movie session ID:', error.message);
       return false;
     }
   }

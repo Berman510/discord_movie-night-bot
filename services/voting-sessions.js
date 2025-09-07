@@ -315,6 +315,26 @@ async function createVotingSession(interaction, state) {
       flags: MessageFlags.Ephemeral
     });
 
+    // Handle carryover movies from previous session
+    try {
+      const carryoverMovies = await database.getNextSessionMovies(interaction.guild.id);
+      if (carryoverMovies.length > 0) {
+        console.log(`🔄 Found ${carryoverMovies.length} carryover movies from previous session`);
+
+        // Update carryover movies with new session ID and reset votes
+        for (const movie of carryoverMovies) {
+          await database.updateMovieSessionId(movie.message_id, sessionId);
+          await database.resetMovieVotes(movie.message_id);
+          console.log(`🔄 Added carryover movie: ${movie.title}`);
+        }
+
+        // Clear the next_session flags
+        await database.clearNextSessionFlag(interaction.guild.id);
+      }
+    } catch (error) {
+      console.warn('Error handling carryover movies:', error.message);
+    }
+
     // Update voting channel to show the new session
     try {
       const config = await database.getGuildConfig(interaction.guild.id);
@@ -330,6 +350,39 @@ async function createVotingSession(interaction, state) {
               await message.delete();
             } catch (error) {
               console.warn(`Failed to delete message ${messageId}:`, error.message);
+            }
+          }
+
+          // Add carryover movies to the voting channel
+          const carryoverMovies = await database.getMoviesBySession(sessionId);
+          if (carryoverMovies.length > 0) {
+            console.log(`📝 Creating posts for ${carryoverMovies.length} carryover movies`);
+
+            for (const movie of carryoverMovies) {
+              try {
+                const { embeds, components } = require('../utils');
+                const movieEmbed = embeds.createMovieEmbed(movie);
+                const movieComponents = components.createStatusButtons(movie.message_id, movie.status);
+
+                // Create new message for carryover movie
+                const newMessage = await votingChannel.send({
+                  embeds: [movieEmbed],
+                  components: movieComponents
+                });
+
+                // Update database with new message ID
+                await database.updateMovieMessageId(movie.guild_id, movie.title, newMessage.id);
+
+                // Create thread for the movie
+                const thread = await newMessage.startThread({
+                  name: `💬 ${movie.title}`,
+                  autoArchiveDuration: 10080 // 7 days
+                });
+
+                console.log(`📝 Created post and thread for carryover movie: ${movie.title}`);
+              } catch (error) {
+                console.warn(`Error creating post for carryover movie ${movie.title}:`, error.message);
+              }
             }
           }
 

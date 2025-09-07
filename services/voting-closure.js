@@ -303,7 +303,11 @@ async function selectWinner(client, session, winner, config) {
     
     // Update session status
     await database.updateVotingSessionStatus(session.id, 'completed');
-    
+
+    // Mark non-winning movies for next session
+    const winnerMovieId = winner.movie.id;
+    await database.markMoviesForNextSession(session.guild_id, winnerMovieId);
+
     console.log(`🏆 Automatically selected winner: ${winner.movie.title} for session ${session.name}`);
     
   } catch (error) {
