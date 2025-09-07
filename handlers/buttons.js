@@ -808,12 +808,17 @@ async function createMovieWithImdb(interaction, title, where, imdbData) {
       components: movieComponents
     });
 
+    // Get the configured movie channel for database record
+    const database = require('../database');
+    const config = await database.getGuildConfig(interaction.guild.id);
+    const movieChannelId = config?.movie_channel_id || interaction.channel.id;
+
     // Now save to database with the message ID
     console.log(`💾 Saving movie to database: ${title} (${message.id})`);
     const movieId = await database.saveMovie({
       messageId: message.id,
       guildId: interaction.guild.id,
-      channelId: interaction.channel.id,
+      channelId: movieChannelId, // Use configured movie channel, not interaction channel
       title: title,
       whereToWatch: where,
       recommendedBy: interaction.user.id,

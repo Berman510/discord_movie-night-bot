@@ -77,6 +77,7 @@ async function handleMovieRecommendationModal(interaction) {
   const title = interaction.fields.getTextInputValue('mn:title');
   const where = interaction.fields.getTextInputValue('mn:where');
 
+  console.log(`🔍 DEBUG: handleMovieRecommendationModal called with title: ${title}, where: ${where}`);
   console.log(`Movie recommendation: ${title} on ${where}`);
 
   try {
