@@ -38,29 +38,32 @@ async function showVotingSessionDateModal(interaction) {
     .setCustomId('voting_session_date_modal')
     .setTitle('Plan Next Voting Session - Date');
 
+  // TODO: Make date/time formats configurable per guild
+  // For now, using US standard formats: MM-DD-YYYY and 12-hour time
+
   const dateInput = new TextInputBuilder()
     .setCustomId('session_date')
-    .setLabel('Session Date (YYYY-MM-DD)')
+    .setLabel('Session Date (MM-DD-YYYY)')
     .setStyle(TextInputStyle.Short)
-    .setPlaceholder('2024-12-25')
+    .setPlaceholder('12-25-2024')
     .setRequired(true)
     .setMaxLength(10);
 
   const timeInput = new TextInputBuilder()
     .setCustomId('session_time')
-    .setLabel('Session Time (HH:MM)')
+    .setLabel('Session Time (12-hour format)')
     .setStyle(TextInputStyle.Short)
-    .setPlaceholder('19:30')
+    .setPlaceholder('7:30 PM or 07:30 PM')
     .setRequired(true)
-    .setMaxLength(5);
+    .setMaxLength(8);
 
   const votingEndInput = new TextInputBuilder()
     .setCustomId('voting_end_time')
-    .setLabel('Voting Ends (HH:MM, same day)')
+    .setLabel('Voting Ends (12-hour format, same day)')
     .setStyle(TextInputStyle.Short)
-    .setPlaceholder('18:30 (1 hour before session)')
+    .setPlaceholder('6:30 PM (1 hour before session)')
     .setRequired(false)
-    .setMaxLength(5);
+    .setMaxLength(8);
 
   const descriptionInput = new TextInputBuilder()
     .setCustomId('session_description')
@@ -100,60 +103,89 @@ async function handleVotingSessionDateModal(interaction) {
   const votingEndTime = interaction.fields.getTextInputValue('voting_end_time') || null;
   const sessionDescription = interaction.fields.getTextInputValue('session_description') || null;
 
-  // Auto-generate session name from date
-  const dateObj = new Date(sessionDate + 'T00:00:00');
-  const sessionName = `Movie Night - ${dateObj.toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  })}`;
-
-  // Validate date format
-  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  // Validate date format (MM-DD-YYYY)
+  const dateRegex = /^(0?[1-9]|1[0-2])-(0?[1-9]|[12][0-9]|3[01])-\d{4}$/;
   if (!dateRegex.test(sessionDate)) {
     await interaction.reply({
-      content: '❌ Invalid date format. Please use YYYY-MM-DD format.',
+      content: '❌ Invalid date format. Please use MM-DD-YYYY format (e.g., 12-25-2024).',
       flags: MessageFlags.Ephemeral
     });
     return;
   }
 
-  // Validate time format
-  const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
-  if (!timeRegex.test(sessionTime)) {
+  // Parse and validate 12-hour time format
+  function parseTime12Hour(timeStr) {
+    // Match formats like: 7:30 PM, 07:30 PM, 7:30PM, 07:30PM
+    const timeRegex = /^(0?[1-9]|1[0-2]):([0-5][0-9])\s*(AM|PM)$/i;
+    const match = timeStr.trim().match(timeRegex);
+
+    if (!match) {
+      return null;
+    }
+
+    let hours = parseInt(match[1]);
+    const minutes = parseInt(match[2]);
+    const ampm = match[3].toUpperCase();
+
+    // Convert to 24-hour format
+    if (ampm === 'PM' && hours !== 12) {
+      hours += 12;
+    } else if (ampm === 'AM' && hours === 12) {
+      hours = 0;
+    }
+
+    return { hours, minutes };
+  }
+
+  const parsedSessionTime = parseTime12Hour(sessionTime);
+  if (!parsedSessionTime) {
     await interaction.reply({
-      content: '❌ Invalid session time format. Please use HH:MM format (24-hour).',
+      content: '❌ Invalid session time format. Please use 12-hour format (e.g., 7:30 PM or 07:30 PM).',
       flags: MessageFlags.Ephemeral
     });
     return;
   }
 
-  // Validate voting end time format if provided
-  if (votingEndTime && !timeRegex.test(votingEndTime)) {
-    await interaction.reply({
-      content: '❌ Invalid voting end time format. Please use HH:MM format (24-hour).',
-      flags: MessageFlags.Ephemeral
-    });
-    return;
+  let parsedVotingEndTime = null;
+  if (votingEndTime) {
+    parsedVotingEndTime = parseTime12Hour(votingEndTime);
+    if (!parsedVotingEndTime) {
+      await interaction.reply({
+        content: '❌ Invalid voting end time format. Please use 12-hour format (e.g., 6:30 PM or 06:30 PM).',
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
   }
 
   // Get guild timezone for proper conversion
   const config = await database.getGuildConfig(interaction.guild.id);
   const guildTimezone = config?.timezone || 'America/Los_Angeles';
 
-  // Parse the full datetime in guild timezone
-  const sessionDateTime = new Date(`${sessionDate}T${sessionTime}:00`);
+  // Convert MM-DD-YYYY to YYYY-MM-DD for Date constructor
+  const [month, day, year] = sessionDate.split('-');
+  const isoDateString = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+
+  // Create datetime objects with parsed 24-hour times
+  const sessionDateTime = new Date(`${isoDateString}T${parsedSessionTime.hours.toString().padStart(2, '0')}:${parsedSessionTime.minutes.toString().padStart(2, '0')}:00`);
 
   // Parse voting end time (default to 1 hour before session if not provided)
   let votingEndDateTime = null;
-  if (votingEndTime) {
-    votingEndDateTime = new Date(`${sessionDate}T${votingEndTime}:00`);
+  if (parsedVotingEndTime) {
+    votingEndDateTime = new Date(`${isoDateString}T${parsedVotingEndTime.hours.toString().padStart(2, '0')}:${parsedVotingEndTime.minutes.toString().padStart(2, '0')}:00`);
   } else {
     // Default to 1 hour before session
     votingEndDateTime = new Date(sessionDateTime);
     votingEndDateTime.setHours(votingEndDateTime.getHours() - 1);
   }
+
+  // Auto-generate session name from parsed date
+  const sessionName = `Movie Night - ${sessionDateTime.toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  })}`;
 
   console.log(`🕐 Session times (${guildTimezone}):`);
   console.log(`   Session: ${sessionDateTime.toLocaleString()} (${sessionDateTime.toISOString()})`);

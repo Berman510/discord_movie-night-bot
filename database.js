@@ -635,6 +635,29 @@ class Database {
         console.warn('Migration 14 warning:', error.message);
       }
 
+      // Migration 15: Add voting_end_time to movie_sessions
+      try {
+        const [votingEndColumns] = await this.pool.execute(`
+          SELECT COLUMN_NAME
+          FROM INFORMATION_SCHEMA.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'movie_sessions'
+          AND COLUMN_NAME = 'voting_end_time'
+        `);
+
+        if (votingEndColumns.length === 0) {
+          await this.pool.execute(`
+            ALTER TABLE movie_sessions
+            ADD COLUMN voting_end_time DATETIME NULL AFTER scheduled_date
+          `);
+          console.log('✅ Added voting_end_time column to movie_sessions');
+        } else {
+          console.log('✅ voting_end_time column already exists in movie_sessions');
+        }
+      } catch (error) {
+        console.error('Migration 15 error:', error.message);
+      }
+
       console.log('✅ Database migrations completed');
     } catch (error) {
       console.error('❌ Migration error:', error.message);
