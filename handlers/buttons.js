@@ -985,7 +985,7 @@ async function handleScheduleMovie(interaction, guildId, movieId) {
       movieMessageId: movieId
     };
 
-    const sessionId = await sessions.createMovieSession(sessionData);
+    const sessionId = await database.createMovieSession(sessionData);
 
     await interaction.reply({
       content: `✅ **${movie.title}** has been scheduled! Session ID: ${sessionId}`,
@@ -2189,9 +2189,9 @@ async function handleGuidedSetupButton(interaction, customId) {
       break;
 
     case 'setup_create_first_session':
-      // Redirect to session creation
-      const { sessions } = require('../services');
-      await sessions.startVotingSessionCreation(interaction);
+      // Redirect to voting session creation
+      const votingSessions = require('../services/voting-sessions');
+      await votingSessions.startVotingSessionCreation(interaction);
       break;
 
     default:

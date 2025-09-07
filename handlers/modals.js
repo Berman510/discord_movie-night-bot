@@ -44,11 +44,7 @@ async function handleModal(interaction) {
       return;
     }
 
-    if (customId === 'voting_session_time_modal') {
-      const votingSessions = require('../services/voting-sessions');
-      await votingSessions.handleVotingSessionTimeModal(interaction);
-      return;
-    }
+    // Note: voting_session_time_modal doesn't exist - time is handled in date modal
 
     // Deep purge confirmation modal
     if (customId.startsWith('deep_purge_confirm:')) {
