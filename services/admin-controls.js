@@ -38,7 +38,7 @@ function createAdminControlEmbed(guildName) {
 /**
  * Create admin control action buttons
  */
-function createAdminControlButtons() {
+async function createAdminControlButtons(guildId = null) {
   const row1 = new ActionRowBuilder()
     .addComponents(
       new ButtonBuilder()
@@ -55,8 +55,38 @@ function createAdminControlButtons() {
         .setStyle(ButtonStyle.Success)
     );
 
-  const row2 = new ActionRowBuilder()
-    .addComponents(
+  const row2 = new ActionRowBuilder();
+
+  // Check for active session to determine which buttons to show
+  let hasActiveSession = false;
+  if (guildId) {
+    try {
+      const activeSession = await database.getActiveVotingSession(guildId);
+      hasActiveSession = !!activeSession;
+    } catch (error) {
+      console.warn('Error checking active session for admin buttons:', error.message);
+    }
+  }
+
+  if (hasActiveSession) {
+    // Session management buttons
+    row2.addComponents(
+      new ButtonBuilder()
+        .setCustomId('admin_ctrl_cancel_session')
+        .setLabel('❌ Cancel Session')
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId('admin_ctrl_reschedule_session')
+        .setLabel('📅 Reschedule Session')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId('admin_ctrl_deep_purge')
+        .setLabel('💥 Deep Purge')
+        .setStyle(ButtonStyle.Danger)
+    );
+  } else {
+    // Default buttons when no session
+    row2.addComponents(
       new ButtonBuilder()
         .setCustomId('admin_ctrl_plan_session')
         .setLabel('🗳️ Plan Next Session')
@@ -70,6 +100,7 @@ function createAdminControlButtons() {
         .setLabel('🚫 Banned Movies')
         .setStyle(ButtonStyle.Secondary)
     );
+  }
 
   const row3 = new ActionRowBuilder()
     .addComponents(
@@ -115,7 +146,7 @@ async function ensureAdminControlPanel(client, guildId) {
     );
 
     const embed = createAdminControlEmbed(guild.name);
-    const components = createAdminControlButtons();
+    const components = await createAdminControlButtons(guildId);
 
     if (existingPanel) {
       // Delete existing panel to move it to bottom
@@ -486,7 +517,7 @@ async function handleRefreshPanel(interaction) {
   try {
     const guild = interaction.guild;
     const embed = createAdminControlEmbed(guild.name);
-    const components = createAdminControlButtons();
+    const components = await createAdminControlButtons(guild.id);
 
     await interaction.update({
       embeds: [embed],

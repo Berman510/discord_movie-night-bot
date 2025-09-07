@@ -628,12 +628,15 @@ async function handleImdbSelection(interaction) {
   const [, indexStr, dataKey] = customId.split(':');
 
   try {
+    // Defer the interaction immediately to prevent timeout
+    await interaction.deferUpdate();
+
     const { pendingPayloads } = require('../utils/constants');
 
     // Retrieve the stored data
     const data = pendingPayloads.get(dataKey);
     if (!data) {
-      await interaction.reply({
+      await interaction.followUp({
         content: '❌ Selection expired. Please try creating the recommendation again.',
         flags: MessageFlags.Ephemeral
       });
@@ -657,10 +660,17 @@ async function handleImdbSelection(interaction) {
 
   } catch (error) {
     console.error('Error handling IMDb selection:', error);
-    await interaction.reply({
-      content: '❌ Error processing movie selection.',
-      flags: MessageFlags.Ephemeral
-    });
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: '❌ Error processing movie selection.',
+        flags: MessageFlags.Ephemeral
+      });
+    } else {
+      await interaction.followUp({
+        content: '❌ Error processing movie selection.',
+        flags: MessageFlags.Ephemeral
+      });
+    }
   }
 }
 
@@ -832,7 +842,7 @@ async function createMovieWithImdb(interaction, title, where, imdbData) {
       // Post Quick Action at bottom of channel
       await cleanup.ensureQuickActionAtBottom(interaction.channel);
 
-      await interaction.update({
+      await interaction.editReply({
         content: `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added to the queue for voting.`,
         embeds: [],
         components: []
@@ -840,7 +850,7 @@ async function createMovieWithImdb(interaction, title, where, imdbData) {
     } else {
       // If database save failed, delete the message
       await message.delete().catch(console.error);
-      await interaction.update({
+      await interaction.editReply({
         content: '❌ Failed to create movie recommendation.',
         embeds: [],
         components: []
@@ -1213,11 +1223,25 @@ async function handlePickWinner(interaction, guildId, movieId) {
   const { EmbedBuilder } = require('discord.js');
 
   try {
-    // Get the movie
-    const movie = await database.getMovieByMessageId(movieId);
+    // Get the movie - first try by message ID, then by finding from the interaction message
+    let movie = await database.getMovieByMessageId(movieId);
+
+    if (!movie) {
+      // Try to get movie info from the admin message embed
+      const adminMessage = interaction.message;
+      if (adminMessage && adminMessage.embeds.length > 0) {
+        const movieTitle = adminMessage.embeds[0].title?.replace('🎬 ', '');
+        if (movieTitle) {
+          // Find movie by title in the guild
+          const allMovies = await database.getMoviesByGuild(guildId);
+          movie = allMovies.find(m => m.title === movieTitle && ['pending', 'planned'].includes(m.status));
+        }
+      }
+    }
+
     if (!movie) {
       await interaction.reply({
-        content: '❌ Movie not found.',
+        content: '❌ Movie not found. Please try syncing the channels first.',
         flags: MessageFlags.Ephemeral
       });
       return;
@@ -1617,6 +1641,12 @@ async function handleAdminControlButtons(interaction, customId) {
       case 'admin_ctrl_refresh':
         await adminControls.handleRefreshPanel(interaction);
         break;
+      case 'admin_ctrl_cancel_session':
+        await handleCancelSession(interaction);
+        break;
+      case 'admin_ctrl_reschedule_session':
+        await handleRescheduleSession(interaction);
+        break;
       default:
         await interaction.reply({
           content: '❌ Unknown admin control action.',
@@ -1663,6 +1693,87 @@ async function handleDeepPurgeInitiation(interaction) {
     components: components,
     flags: MessageFlags.Ephemeral
   });
+}
+
+/**
+ * Handle canceling an active session
+ */
+async function handleCancelSession(interaction) {
+  const database = require('../database');
+  const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+
+  try {
+    const activeSession = await database.getActiveVotingSession(interaction.guild.id);
+    if (!activeSession) {
+      await interaction.reply({
+        content: '❌ No active voting session to cancel.',
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    // Show confirmation dialog
+    const embed = new EmbedBuilder()
+      .setTitle('⚠️ Cancel Voting Session')
+      .setDescription(`Are you sure you want to cancel **${activeSession.name}**?\n\nThis will:\n• Delete the Discord event\n• Clear all movie recommendations\n• Reset the voting channel\n\n**This action cannot be undone.**`)
+      .setColor(0xed4245);
+
+    const row = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId(`confirm_cancel_session:${activeSession.id}`)
+          .setLabel('✅ Yes, Cancel Session')
+          .setStyle(ButtonStyle.Danger),
+        new ButtonBuilder()
+          .setCustomId('cancel_cancel_session')
+          .setLabel('❌ No, Keep Session')
+          .setStyle(ButtonStyle.Secondary)
+      );
+
+    await interaction.reply({
+      embeds: [embed],
+      components: [row],
+      flags: MessageFlags.Ephemeral
+    });
+
+  } catch (error) {
+    console.error('Error handling cancel session:', error);
+    await interaction.reply({
+      content: '❌ An error occurred while processing the cancel request.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+/**
+ * Handle rescheduling an active session
+ */
+async function handleRescheduleSession(interaction) {
+  const database = require('../database');
+
+  try {
+    const activeSession = await database.getActiveVotingSession(interaction.guild.id);
+    if (!activeSession) {
+      await interaction.reply({
+        content: '❌ No active voting session to reschedule.',
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    // For now, show a simple message - this can be enhanced later with a modal
+    await interaction.reply({
+      content: '🚧 **Reschedule Session**\n\nThis feature is coming soon! For now, you can:\n1. Cancel the current session\n2. Plan a new session with the desired date/time',
+      flags: MessageFlags.Ephemeral
+    });
+
+  } catch (error) {
+    console.error('Error handling reschedule session:', error);
+    await interaction.reply({
+      content: '❌ An error occurred while processing the reschedule request.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
 }
 
 module.exports = {

@@ -269,10 +269,31 @@ async function executeDeepPurge(guildId, categories, reason = null, client = nul
     console.log(`📝 Purge reason: ${reason}`);
   }
 
-  // Clear Discord messages and threads if movies are being purged
-  if (options.movies && client) {
+  // Clear Discord content if movies/sessions are being purged
+  if ((options.movies || options.sessions) && client) {
     try {
       const config = await database.getGuildConfig(guildId);
+
+      // Delete Discord events if sessions are being purged
+      if (options.sessions) {
+        try {
+          const guild = await client.guilds.fetch(guildId);
+          const events = await guild.scheduledEvents.fetch();
+
+          for (const [eventId, event] of events) {
+            try {
+              if (event.name.includes('Movie Night')) {
+                await event.delete();
+                console.log(`🗑️ Deleted Discord event: ${event.name} (${eventId})`);
+              }
+            } catch (error) {
+              console.warn(`Failed to delete Discord event ${eventId}:`, error.message);
+            }
+          }
+        } catch (error) {
+          console.warn('Error deleting Discord events during deep purge:', error.message);
+        }
+      }
 
       // Clear voting channel
       if (config && config.movie_channel_id) {
@@ -299,6 +320,10 @@ async function executeDeepPurge(guildId, categories, reason = null, client = nul
                 console.warn(`Failed to delete thread ${threadId}:`, error.message);
               }
             }
+
+            // Add appropriate message based on remaining session state
+            const cleanup = require('./cleanup');
+            await cleanup.ensureQuickActionAtBottom(votingChannel);
           }
         } catch (error) {
           console.warn('Error clearing voting channel during deep purge:', error.message);
@@ -326,6 +351,10 @@ async function executeDeepPurge(guildId, categories, reason = null, client = nul
                 console.warn(`Failed to delete admin message ${messageId}:`, error.message);
               }
             }
+
+            // Ensure admin control panel is at bottom
+            const adminControls = require('./admin-controls');
+            await adminControls.ensureAdminControlPanel(client, guildId);
           }
         } catch (error) {
           console.warn('Error clearing admin channel during deep purge:', error.message);

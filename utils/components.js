@@ -162,7 +162,7 @@ function createConfigurationButtons() {
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId('config:set-channel')
-        .setLabel('Set Movie Channel')
+        .setLabel('Set Movie Voting Channel')
         .setStyle(ButtonStyle.Primary)
         .setEmoji('📺'),
       new ButtonBuilder()

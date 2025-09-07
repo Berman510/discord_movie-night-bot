@@ -324,7 +324,7 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ### Added
 - **cleanupOrphanedThreads:** Intelligent cleanup of threads that no longer have corresponding movie posts
 - **cleanupAllThreads:** Complete thread removal for purge operations
-- **Movie Channel Validation:** Ensures cleanup operations target the correct configured channel
+- **Movie Voting Channel Validation:** Ensures cleanup operations target the correct configured channel
 
 ### Enhanced
 - **Purge Operations:** Now completely clear the movie channel including all threads and messages

@@ -268,6 +268,19 @@ async function createVotingSession(interaction, state) {
       if (config && config.movie_channel_id) {
         const votingChannel = await interaction.client.channels.fetch(config.movie_channel_id);
         if (votingChannel) {
+          // Clear existing messages first
+          const messages = await votingChannel.messages.fetch({ limit: 100 });
+          const botMessages = messages.filter(msg => msg.author.id === interaction.client.user.id);
+
+          for (const [messageId, message] of botMessages) {
+            try {
+              await message.delete();
+            } catch (error) {
+              console.warn(`Failed to delete message ${messageId}:`, error.message);
+            }
+          }
+
+          // Add the new session message
           const cleanup = require('./cleanup');
           await cleanup.ensureQuickActionAtBottom(votingChannel);
         }

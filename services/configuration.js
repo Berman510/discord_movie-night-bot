@@ -123,7 +123,7 @@ async function viewSettings(interaction, guildId) {
       .setColor(0x5865f2)
       .addFields(
         {
-          name: '📺 Movie Channel',
+          name: '📺 Movie Voting Channel',
           value: config.movie_channel_id ?
             `<#${config.movie_channel_id}>\n*Movies and cleanup restricted to this channel*` :
             'Not set\n*Bot works in any channel*',

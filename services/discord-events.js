@@ -52,7 +52,7 @@ async function createDiscordEvent(guild, sessionData, scheduledDate) {
       privacyLevel: GuildScheduledEventPrivacyLevel.GuildOnly,
       entityType: GuildScheduledEventEntityType.External,
       entityMetadata: {
-        location: sessionData.associatedMovieId ? 'Movie Channel - Featured Movie Session' : 'Movie Channel'
+        location: sessionData.associatedMovieId ? 'Movie Voting Channel - Featured Movie Session' : 'Movie Voting Channel'
       }
     });
 
