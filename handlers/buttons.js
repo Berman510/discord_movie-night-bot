@@ -1233,7 +1233,7 @@ async function handlePickWinner(interaction, guildId, movieId) {
 
   try {
     // Defer the interaction immediately to prevent timeout
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     // Get the movie - first try by message ID, then by finding from the interaction message
     let movie = await database.getMovieByMessageId(movieId);
 
@@ -1844,7 +1844,7 @@ async function handleRemoveSuggestion(interaction, guildId, movieId) {
   const database = require('../database');
 
   try {
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     // Get the movie
     let movie = await database.getMovieByMessageId(movieId);

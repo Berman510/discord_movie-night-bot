@@ -328,7 +328,7 @@ async function handleDeepPurgeConfirmation(interaction, customId) {
     return;
   }
 
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   try {
     // Execute deep purge

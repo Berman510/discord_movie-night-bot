@@ -175,7 +175,7 @@ async function ensureAdminControlPanel(client, guildId) {
  * Handle sync channel action - syncs both admin and voting channels
  */
 async function handleSyncChannel(interaction) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   try {
     const database = require('../database');
@@ -475,7 +475,7 @@ async function handleGuildStats(interaction) {
  * Handle banned movies list action
  */
 async function handleBannedMoviesList(interaction) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   try {
     const bannedMovies = await database.getBannedMovies(interaction.guild.id);
@@ -529,7 +529,7 @@ async function handleRefreshPanel(interaction) {
     console.error('Error refreshing admin panel:', error);
     await interaction.reply({
       content: '❌ An error occurred while refreshing the control panel.',
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
   }
 }

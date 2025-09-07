@@ -58,9 +58,41 @@ async function createDiscordEvent(guild, sessionData, scheduledDate) {
 
     // Use session viewing channel if configured, otherwise external event
     if (config && config.session_viewing_channel_id) {
-      eventConfig.entityType = GuildScheduledEventEntityType.Voice;
-      eventConfig.channel = config.session_viewing_channel_id;
-      console.log(`📍 Setting event location to session viewing channel: ${config.session_viewing_channel_id}`);
+      try {
+        // Fetch the channel to verify it exists and get its type
+        const channel = await guild.channels.fetch(config.session_viewing_channel_id);
+        if (channel) {
+          console.log(`📍 Found session viewing channel: ${channel.name} (${channel.type})`);
+
+          // Use appropriate event type based on channel type
+          if (channel.type === 2) { // Voice channel
+            eventConfig.entityType = GuildScheduledEventEntityType.Voice;
+            eventConfig.channel = config.session_viewing_channel_id;
+            console.log(`📍 Setting voice event in channel: #${channel.name}`);
+          } else if (channel.type === 13) { // Stage channel
+            eventConfig.entityType = GuildScheduledEventEntityType.StageInstance;
+            eventConfig.channel = config.session_viewing_channel_id;
+            console.log(`📍 Setting stage event in channel: #${channel.name}`);
+          } else {
+            // For text channels or other types, use external event with channel mention
+            eventConfig.entityType = GuildScheduledEventEntityType.External;
+            eventConfig.entityMetadata = {
+              location: `#${channel.name} - Movie Night Session`
+            };
+            console.log(`📍 Setting external event with location: #${channel.name}`);
+          }
+        } else {
+          throw new Error('Channel not found');
+        }
+      } catch (error) {
+        console.warn(`📍 Error fetching session viewing channel ${config.session_viewing_channel_id}:`, error.message);
+        // Fallback to external event
+        eventConfig.entityType = GuildScheduledEventEntityType.External;
+        eventConfig.entityMetadata = {
+          location: 'Movie Night Session - Check voting channel for details'
+        };
+        console.log(`📍 Using external event fallback`);
+      }
     } else {
       eventConfig.entityType = GuildScheduledEventEntityType.External;
       eventConfig.entityMetadata = {
