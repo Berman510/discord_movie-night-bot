@@ -24,6 +24,7 @@ const commands = [
           { name: 'set-notification-role', value: 'set-notification-role' },
           { name: 'view-settings', value: 'view-settings' },
           { name: 'debug', value: 'debug' },
+          { name: 'debug-session', value: 'debug-session' },
           { name: 'reset', value: 'reset' }
         ]
       },

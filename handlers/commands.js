@@ -278,6 +278,9 @@ async function handleMovieConfigure(interaction) {
       case 'debug':
         await handleDebugConfig(interaction);
         break;
+      case 'debug-session':
+        await handleDebugSession(interaction);
+        break;
       case 'reset':
         await configuration.resetConfiguration(interaction, guildId);
         break;
@@ -494,6 +497,49 @@ async function handleDebugConfig(interaction) {
     console.error('Error in debug config:', error);
     await interaction.reply({
       content: `❌ Error getting debug info: ${error.message}`,
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+/**
+ * Handle debug session command
+ */
+async function handleDebugSession(interaction) {
+  try {
+    const database = require('../database');
+    const activeSession = await database.getActiveVotingSession(interaction.guild.id);
+
+    let sessionInfo = `**Guild ID**: ${interaction.guild.id}\n`;
+
+    if (!activeSession) {
+      sessionInfo += `**Active Session**: ❌ No active voting session found\n`;
+      sessionInfo += `**Status**: Movie recommendations require an active voting session\n`;
+      sessionInfo += `**Solution**: Use "Plan Next Session" button in admin channel\n`;
+    } else {
+      sessionInfo += `**Active Session**: ✅ Session ${activeSession.id}\n`;
+      sessionInfo += `**Session Name**: ${activeSession.name || 'Unnamed'}\n`;
+      sessionInfo += `**Status**: ${activeSession.status}\n`;
+      sessionInfo += `**Created**: ${new Date(activeSession.created_at).toLocaleString()}\n`;
+
+      if (activeSession.scheduled_date) {
+        sessionInfo += `**Scheduled**: ${new Date(activeSession.scheduled_date).toLocaleString()}\n`;
+      }
+
+      if (activeSession.voting_end_time) {
+        sessionInfo += `**Voting Ends**: ${new Date(activeSession.voting_end_time).toLocaleString()}\n`;
+      }
+    }
+
+    await interaction.reply({
+      content: `🔍 **Debug Session Information**\n\n${sessionInfo}`,
+      flags: MessageFlags.Ephemeral
+    });
+
+  } catch (error) {
+    console.error('Error in debug session:', error);
+    await interaction.reply({
+      content: `❌ Error getting session debug info: ${error.message}`,
       flags: MessageFlags.Ephemeral
     });
   }
