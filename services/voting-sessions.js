@@ -440,9 +440,9 @@ async function createVotingSession(interaction, state) {
 
           // Add the new session message/post
           if (forumChannels.isTextChannel(votingChannel)) {
-            // Text channels get quick action at bottom
+            // Text channels get quick action pinned
             const cleanup = require('./cleanup');
-            await cleanup.ensureQuickActionAtBottom(votingChannel);
+            await cleanup.ensureQuickActionPinned(votingChannel);
           } else if (forumChannels.isForumChannel(votingChannel)) {
             // Forum channels get recommendation post
             const activeSession = await database.getActiveVotingSession(interaction.guild.id);

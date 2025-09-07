@@ -340,8 +340,84 @@ async function recreateScheduledMovieAtBottom(message, movie, channel) {
   }
 }
 
+async function ensureQuickActionPinned(channel) {
+  // Ensure there's a pinned quick action message for movie recommendations
+  try {
+    // Check if there's an active voting session
+    const database = require('../database');
+    const activeSession = await database.getActiveVotingSession(channel.guild.id);
+
+    // Find existing pinned quick action message
+    const pinnedMessages = await channel.messages.fetchPinned();
+    const existingQuickAction = pinnedMessages.find(msg =>
+      msg.author.id === channel.client.user.id &&
+      msg.embeds.length > 0 &&
+      (msg.embeds[0].title?.includes('Ready to recommend') ||
+       msg.embeds[0].title?.includes('No Active Voting Session'))
+    );
+
+    if (!activeSession) {
+      // No active session
+      const { embeds } = require('../utils');
+      const noSessionEmbed = embeds.createNoSessionEmbed();
+
+      if (existingQuickAction) {
+        // Update existing pinned message
+        await existingQuickAction.edit({
+          embeds: [noSessionEmbed],
+          components: []
+        });
+        console.log('✅ Updated pinned no session message');
+      } else {
+        // Create new pinned message
+        const message = await channel.send({
+          embeds: [noSessionEmbed]
+        });
+        await message.pin();
+        console.log('✅ Created and pinned no session message');
+      }
+      return;
+    }
+
+    // Active session exists - ensure recommend button is pinned
+    const { embeds } = require('../utils');
+    const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+
+    const quickActionEmbed = embeds.createQuickActionEmbed(activeSession);
+    const recommendButton = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId('create_recommendation')
+          .setLabel('🍿 Recommend a Movie')
+          .setStyle(ButtonStyle.Primary)
+      );
+
+    if (existingQuickAction) {
+      // Update existing pinned message
+      await existingQuickAction.edit({
+        embeds: [quickActionEmbed],
+        components: [recommendButton]
+      });
+      console.log('✅ Updated pinned quick action message');
+    } else {
+      // Create new pinned message
+      const message = await channel.send({
+        embeds: [quickActionEmbed],
+        components: [recommendButton]
+      });
+      await message.pin();
+      console.log('✅ Created and pinned quick action message');
+    }
+
+  } catch (error) {
+    console.warn('Error ensuring quick action pinned:', error.message);
+    // Fallback to old behavior if pinning fails
+    await ensureQuickActionAtBottom(channel);
+  }
+}
+
 async function ensureQuickActionAtBottom(channel) {
-  // Clean up old guide/action messages and ensure only one quick action message at bottom
+  // Fallback method: Clean up old guide/action messages and ensure only one quick action message at bottom
   try {
     await cleanupOldGuideMessages(channel);
 
@@ -796,6 +872,7 @@ module.exports = {
   handleCleanupSync,
   handleCleanupPurge,
   ensureQuickActionAtBottom,
+  ensureQuickActionPinned,
   cleanupOldGuideMessages,
   cleanupOrphanedThreads,
   cleanupAllThreads,

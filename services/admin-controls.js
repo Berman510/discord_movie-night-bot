@@ -206,12 +206,12 @@ async function ensureAdminControlPanel(client, guildId) {
       return null;
     }
 
-    // Check if control panel already exists
-    const messages = await adminChannel.messages.fetch({ limit: 50 });
-    const existingPanel = messages.find(msg => 
-      msg.author.id === client.user.id && 
-      msg.embeds.length > 0 && 
-      msg.embeds[0].title && 
+    // Check if pinned control panel already exists
+    const pinnedMessages = await adminChannel.messages.fetchPinned();
+    const existingPanel = pinnedMessages.find(msg =>
+      msg.author.id === client.user.id &&
+      msg.embeds.length > 0 &&
+      msg.embeds[0].title &&
       msg.embeds[0].title.includes('Admin Control Panel')
     );
 
@@ -219,20 +219,39 @@ async function ensureAdminControlPanel(client, guildId) {
     const components = await createAdminControlButtons(guildId);
 
     if (existingPanel) {
-      // Delete existing panel to move it to bottom
+      // Update existing pinned panel
       try {
-        await existingPanel.delete();
+        await existingPanel.edit({
+          embeds: [embed],
+          components: components
+        });
+        console.log('🔧 Updated pinned admin control panel');
+        return existingPanel;
       } catch (error) {
-        console.warn('Could not delete existing admin panel:', error.message);
+        console.warn('Could not update existing admin panel:', error.message);
+        // Try to delete and recreate
+        try {
+          await existingPanel.delete();
+        } catch (deleteError) {
+          console.warn('Could not delete existing admin panel:', deleteError.message);
+        }
       }
     }
 
-    // Always create new panel at bottom
+    // Create new pinned panel
     const controlPanel = await adminChannel.send({
       embeds: [embed],
       components: components
     });
-    console.log('🔧 Created admin control panel at bottom');
+
+    try {
+      await controlPanel.pin();
+      console.log('🔧 Created and pinned admin control panel');
+    } catch (pinError) {
+      console.warn('Could not pin admin control panel:', pinError.message);
+      console.log('🔧 Created admin control panel (not pinned)');
+    }
+
     return controlPanel;
 
   } catch (error) {

@@ -268,8 +268,8 @@ async function createMovieWithoutImdb(interaction, title, where) {
       const movieChannel = await interaction.client.channels.fetch(config.movie_channel_id);
       if (movieChannel) {
         if (forumChannels.isTextChannel(movieChannel)) {
-          // Text channels get quick action at bottom
-          await cleanup.ensureQuickActionAtBottom(movieChannel);
+          // Text channels get quick action pinned
+          await cleanup.ensureQuickActionPinned(movieChannel);
         } else if (forumChannels.isForumChannel(movieChannel)) {
           // Forum channels get recommendation post
           const activeSession = await database.getActiveVotingSession(interaction.guild.id);
