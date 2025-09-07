@@ -356,13 +356,18 @@ async function ensureQuickActionPinned(channel) {
     const activeSession = await database.getActiveVotingSession(channel.guild.id);
 
     // Find existing pinned quick action message
-    const pinnedMessages = await channel.messages.fetchPins();
-    const existingQuickAction = pinnedMessages.find(msg =>
-      msg.author.id === channel.client.user.id &&
-      msg.embeds.length > 0 &&
-      (msg.embeds[0].title?.includes('Ready to recommend') ||
-       msg.embeds[0].title?.includes('No Active Voting Session'))
-    );
+    let existingQuickAction = null;
+    try {
+      const pinnedMessages = await channel.messages.fetchPins();
+      existingQuickAction = pinnedMessages.find(msg =>
+        msg.author.id === channel.client.user.id &&
+        msg.embeds.length > 0 &&
+        (msg.embeds[0].title?.includes('Ready to recommend') ||
+         msg.embeds[0].title?.includes('No Active Voting Session'))
+      );
+    } catch (error) {
+      console.warn('Error fetching pinned messages:', error.message);
+    }
 
     if (!activeSession) {
       // No active session

@@ -314,13 +314,18 @@ async function ensureAdminControlPanel(client, guildId) {
     }
 
     // Check if pinned control panel already exists
-    const pinnedMessages = await adminChannel.messages.fetchPins();
-    const existingPanel = pinnedMessages.find(msg =>
-      msg.author.id === client.user.id &&
-      msg.embeds.length > 0 &&
-      msg.embeds[0].title &&
-      msg.embeds[0].title.includes('Admin Control Panel')
-    );
+    let existingPanel = null;
+    try {
+      const pinnedMessages = await adminChannel.messages.fetchPins();
+      existingPanel = pinnedMessages.find(msg =>
+        msg.author.id === client.user.id &&
+        msg.embeds.length > 0 &&
+        msg.embeds[0].title &&
+        msg.embeds[0].title.includes('Admin Control Panel')
+      );
+    } catch (error) {
+      console.warn('Error fetching pinned messages:', error.message);
+    }
 
     const embed = await createAdminControlEmbed(guild.name, guildId);
     const components = await createAdminControlButtons(guildId);
