@@ -132,9 +132,43 @@ async function selectWinner(client, session, winner, config) {
         }
         
         // Post winner announcement
+        let winnerDescription = `**${winner.movie.title}** has been automatically selected as the winner!`;
+
+        // Add event link if available
+        if (session.discord_event_id) {
+          winnerDescription += `\n\n📅 [**Join the Discord Event**](https://discord.com/events/${session.guild_id}/${session.discord_event_id}) to RSVP for movie night!`;
+        }
+
+        // Add IMDB info if available
+        if (winner.movie.imdb_id) {
+          try {
+            const imdb = require('./imdb');
+            const imdbData = await imdb.getMovieDetails(winner.movie.imdb_id);
+            if (imdbData) {
+              if (imdbData.Plot && imdbData.Plot !== 'N/A') {
+                winnerDescription += `\n\n📖 **Plot:** ${imdbData.Plot}`;
+              }
+              if (imdbData.Year && imdbData.Year !== 'N/A') {
+                winnerDescription += `\n📅 **Year:** ${imdbData.Year}`;
+              }
+              if (imdbData.Runtime && imdbData.Runtime !== 'N/A') {
+                winnerDescription += `\n⏱️ **Runtime:** ${imdbData.Runtime}`;
+              }
+              if (imdbData.Genre && imdbData.Genre !== 'N/A') {
+                winnerDescription += `\n🎭 **Genre:** ${imdbData.Genre}`;
+              }
+              if (imdbData.imdbRating && imdbData.imdbRating !== 'N/A') {
+                winnerDescription += `\n⭐ **IMDB Rating:** ${imdbData.imdbRating}/10`;
+              }
+            }
+          } catch (error) {
+            console.warn('Error fetching IMDB data for winner announcement:', error.message);
+          }
+        }
+
         const winnerEmbed = new EmbedBuilder()
           .setTitle('🏆 Voting Closed - Winner Selected!')
-          .setDescription(`**${winner.movie.title}** has been automatically selected as the winner!`)
+          .setDescription(winnerDescription)
           .addFields(
             { name: '📊 Final Results', value: `👍 ${winner.upVotes} votes | 👎 ${winner.downVotes} votes | **Score: ${winner.totalScore}**`, inline: false },
             { name: '📅 Session', value: session.name, inline: true },
@@ -218,11 +252,45 @@ async function selectWinner(client, session, winner, config) {
         const event = await guild.scheduledEvents.fetch(session.discord_event_id);
         if (event) {
           console.log(`📅 Found event: ${event.name}, updating...`);
+
+          // Get IMDB info for enhanced event description
+          let eventDescription = `🏆 **WINNER: ${winner.movie.title}**\n\n`;
+
+          if (winner.movie.imdb_id) {
+            try {
+              const imdb = require('./imdb');
+              const imdbData = await imdb.getMovieDetails(winner.movie.imdb_id);
+              if (imdbData) {
+                if (imdbData.Plot && imdbData.Plot !== 'N/A') {
+                  eventDescription += `📖 ${imdbData.Plot}\n\n`;
+                }
+                if (imdbData.Year && imdbData.Year !== 'N/A') {
+                  eventDescription += `📅 Released: ${imdbData.Year}\n`;
+                }
+                if (imdbData.Runtime && imdbData.Runtime !== 'N/A') {
+                  eventDescription += `⏱️ Runtime: ${imdbData.Runtime}\n`;
+                }
+                if (imdbData.Genre && imdbData.Genre !== 'N/A') {
+                  eventDescription += `🎭 Genre: ${imdbData.Genre}\n`;
+                }
+                if (imdbData.imdbRating && imdbData.imdbRating !== 'N/A') {
+                  eventDescription += `⭐ IMDB Rating: ${imdbData.imdbRating}/10\n`;
+                }
+                eventDescription += `\n`;
+              }
+            } catch (error) {
+              console.warn('Error fetching IMDB data for event update:', error.message);
+            }
+          }
+
+          eventDescription += `📊 Final Score: ${winner.totalScore} (${winner.upVotes} 👍 - ${winner.downVotes} 👎)\n\n`;
+          eventDescription += `📅 Join us for movie night!\n\n🔗 SESSION_UID:${session.id}`;
+
           await event.edit({
             name: `🎬 ${session.name} - ${winner.movie.title}`,
-            description: `🏆 **WINNER: ${winner.movie.title}**\n\n📊 Final Score: ${winner.totalScore} (${winner.upVotes} 👍 - ${winner.downVotes} 👎)\n\n📅 Join us for movie night!\n\n🔗 SESSION_UID:${session.id}`
+            description: eventDescription
           });
-          console.log(`📅 Successfully updated Discord event with winner: ${winner.movie.title}`);
+          console.log(`📅 Successfully updated Discord event with winner and IMDB info: ${winner.movie.title}`);
         } else {
           console.warn(`📅 Discord event not found: ${session.discord_event_id}`);
         }

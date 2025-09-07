@@ -1387,9 +1387,18 @@ async function handlePickWinner(interaction, guildId, movieId) {
             }
           }
 
+          // Build description with event link if available
+          let winnerDescription = `**${movie.title}** has been selected for our next movie night!`;
+
+          // Add event link if available
+          const activeSession = await database.getActiveVotingSession(guildId);
+          if (activeSession && activeSession.discord_event_id) {
+            winnerDescription += `\n\n📅 [**Join the Discord Event**](https://discord.com/events/${guildId}/${activeSession.discord_event_id}) to RSVP for movie night!`;
+          }
+
           const winnerEmbed = new EmbedBuilder()
             .setTitle('🏆 Movie Night Winner Announced!')
-            .setDescription(`**${movie.title}** has been selected for our next movie night!`)
+            .setDescription(winnerDescription)
             .setColor(0xffd700)
             .addFields(
               { name: '📺 Platform', value: movie.where_to_watch || 'TBD', inline: true },
