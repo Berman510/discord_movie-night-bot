@@ -356,7 +356,7 @@ async function ensureQuickActionPinned(channel) {
     const activeSession = await database.getActiveVotingSession(channel.guild.id);
 
     // Find existing pinned quick action message
-    const pinnedMessages = await channel.messages.fetchPinned();
+    const pinnedMessages = await channel.messages.fetchPins();
     const existingQuickAction = pinnedMessages.find(msg =>
       msg.author.id === channel.client.user.id &&
       msg.embeds.length > 0 &&

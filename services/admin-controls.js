@@ -23,7 +23,8 @@ async function createAdminControlEmbed(guildName, guildId) {
       const client = global.discordClient;
       const channel = await client.channels.fetch(config.movie_channel_id).catch(() => null);
       if (channel) {
-        const channelType = channel.isForumChannel() ? '📋 Forum Channel' : '💬 Text Channel';
+        const { ChannelType } = require('discord.js');
+        const channelType = channel.type === ChannelType.GuildForum ? '📋 Forum Channel' : '💬 Text Channel';
         channelInfo = `**Voting Channel:** ${channelType} <#${channel.id}>`;
       } else {
         channelInfo = '**Voting Channel:** ❌ Channel not found';
@@ -275,7 +276,7 @@ async function checkIfVotingChannelIsForum(guildId) {
     }
 
     const channel = await client.channels.fetch(config.movie_channel_id).catch(() => null);
-    return channel && channel.isForumChannel();
+    return channel && channel.type === require('discord.js').ChannelType.GuildForum;
   } catch (error) {
     console.warn('Error checking voting channel type:', error.message);
     return false;
@@ -313,7 +314,7 @@ async function ensureAdminControlPanel(client, guildId) {
     }
 
     // Check if pinned control panel already exists
-    const pinnedMessages = await adminChannel.messages.fetchPinned();
+    const pinnedMessages = await adminChannel.messages.fetchPins();
     const existingPanel = pinnedMessages.find(msg =>
       msg.author.id === client.user.id &&
       msg.embeds.length > 0 &&

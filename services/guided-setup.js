@@ -13,7 +13,7 @@ const database = require('../database');
 async function startGuidedSetup(interaction) {
   const embed = new EmbedBuilder()
     .setTitle('🎬 Movie Night Bot - Quick Setup')
-    .setDescription('Welcome! Let\'s get your Movie Night Bot configured in just a few steps.\n\n**What we\'ll set up:**\n• 📺 Voting channel (where movies are recommended)\n• 🔧 Admin channel (for bot management)\n• 🎤 Viewing channel (where you watch movies)\n• 👑 Admin roles (who can manage the bot)\n• 🔔 Viewer role (gets pinged for events)\n\n**Note:** The bot already has its own "Movie Night Bot" role with required permissions.')
+    .setDescription(`Welcome! Let's get your Movie Night Bot configured in just a few steps.\n\n**What we'll set up:**\n• 📺 Voting channel (where movies are recommended)\n• 🔧 Admin channel (for bot management)\n• 🎤 Viewing channel (where you watch movies)\n• 👑 Admin roles (who can manage the bot)\n• 🔔 Viewer role (gets pinged for events)\n\n**Note:** The bot already has its own "${interaction.client.user.displayName}" role with required permissions.`)
     .setColor(0x5865f2)
     .setFooter({ text: 'This setup takes about 2 minutes' });
 
@@ -138,8 +138,8 @@ async function showVotingChannelSetup(interaction) {
     .addComponents(
       new ChannelSelectMenuBuilder()
         .setCustomId('setup_select_voting_channel')
-        .setPlaceholder('Select a text channel for voting')
-        .setChannelTypes(ChannelType.GuildText)
+        .setPlaceholder('Select a text or forum channel for voting')
+        .setChannelTypes(ChannelType.GuildText, ChannelType.GuildForum)
     );
 
   const backButton = new ActionRowBuilder()

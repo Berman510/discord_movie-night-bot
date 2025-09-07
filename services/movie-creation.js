@@ -80,7 +80,7 @@ async function createTextMovieRecommendation(interaction, movieData, channel) {
     imdb_data: imdbData
   };
 
-  const movieEmbed = embeds.createMovieEmbed(movieEmbedData);
+  const movieEmbed = embeds.createMovieEmbed(movieEmbedData, imdbData);
 
   // Create the message first without buttons
   const message = await channel.send({
@@ -153,7 +153,7 @@ async function createForumMovieRecommendation(interaction, movieData, channel) {
     imdb_data: imdbData
   };
 
-  const movieEmbed = embeds.createMovieEmbed(movieEmbedData);
+  const movieEmbed = embeds.createMovieEmbed(movieEmbedData, imdbData);
   console.log(`🔍 DEBUG: Created movie embed for: ${title}`);
 
   // Create forum post
