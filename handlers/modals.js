@@ -241,16 +241,26 @@ async function createMovieWithoutImdb(interaction, title, where) {
     }
 
     // Post Quick Action at bottom of channel (only for text channels)
+    // Note: We need to get the actual movie channel, not the interaction channel
     const forumChannels = require('../services/forum-channels');
-    if (forumChannels.isTextChannel(interaction.channel)) {
-      await cleanup.ensureQuickActionAtBottom(interaction.channel);
+    const database = require('../database');
+    const config = await database.getGuildConfig(interaction.guild.id);
+
+    if (config && config.movie_channel_id) {
+      const movieChannel = await interaction.client.channels.fetch(config.movie_channel_id);
+      if (movieChannel && forumChannels.isTextChannel(movieChannel)) {
+        await cleanup.ensureQuickActionAtBottom(movieChannel);
+      }
     }
 
-    // Success message varies by channel type
-    const channelType = forumChannels.getChannelTypeString(interaction.channel);
+    // Success message varies by channel type (use the actual movie channel)
+    const movieChannel = config && config.movie_channel_id ?
+      await interaction.client.channels.fetch(config.movie_channel_id) : null;
+    const channelType = movieChannel ? forumChannels.getChannelTypeString(movieChannel) : 'Unknown';
+
     const successMessage = thread
-      ? `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added as a new forum post for voting and discussion.`
-      : `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added to the queue for voting.`;
+      ? `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added as a new forum post in ${movieChannel} for voting and discussion.`
+      : `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added to the queue in ${movieChannel} for voting.`;
 
     await interaction.reply({
       content: successMessage,

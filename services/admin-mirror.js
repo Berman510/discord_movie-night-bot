@@ -188,6 +188,14 @@ async function postMovieToAdminChannel(client, guildId, movie) {
       components: components
     });
 
+    // Ensure admin control panel stays at the bottom
+    try {
+      const adminControls = require('./admin-controls');
+      await adminControls.ensureAdminControlPanel(client, guildId);
+    } catch (error) {
+      console.warn('Error ensuring admin control panel after movie post:', error.message);
+    }
+
     console.log(`📋 Posted movie to admin channel: ${movie.title}`);
     return adminMessage;
 
