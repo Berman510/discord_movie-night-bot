@@ -338,18 +338,31 @@ async function createVotingSession(interaction, state) {
     // Update voting channel to show the new session
     try {
       const config = await database.getGuildConfig(interaction.guild.id);
-      if (config && config.movie_channel_id && interaction.client) {
-        const votingChannel = await interaction.client.channels.fetch(config.movie_channel_id);
-        if (votingChannel) {
-          // Clear existing messages first
-          const messages = await votingChannel.messages.fetch({ limit: 100 });
-          const botMessages = messages.filter(msg => msg.author.id === interaction.client.user.id);
+      const client = interaction.client || global.discordClient;
 
-          for (const [messageId, message] of botMessages) {
-            try {
-              await message.delete();
-            } catch (error) {
-              console.warn(`Failed to delete message ${messageId}:`, error.message);
+      if (config && config.movie_channel_id && client) {
+        console.log(`📋 Fetching voting channel: ${config.movie_channel_id}`);
+        const votingChannel = await client.channels.fetch(config.movie_channel_id);
+        if (votingChannel) {
+          const forumChannels = require('./forum-channels');
+
+          // Handle forum channels differently than text channels
+          if (forumChannels.isForumChannel(votingChannel)) {
+            console.log(`📋 Voting channel is a forum channel: ${votingChannel.name}`);
+            // For forum channels, we don't clear messages - each movie gets its own post
+            // The carryover movies will be handled below by creating new forum posts
+          } else {
+            // Clear existing messages first (text channels only)
+            console.log(`📋 Clearing existing messages in text channel: ${votingChannel.name}`);
+            const messages = await votingChannel.messages.fetch({ limit: 100 });
+            const botMessages = messages.filter(msg => msg.author.id === client.user.id);
+
+            for (const [messageId, message] of botMessages) {
+              try {
+                await message.delete();
+              } catch (error) {
+                console.warn(`Failed to delete message ${messageId}:`, error.message);
+              }
             }
           }
 
@@ -377,43 +390,68 @@ async function createVotingSession(interaction, state) {
                   }
                 }
 
-                const { embeds, components } = require('../utils');
-                const movieEmbed = embeds.createMovieEmbed(updatedMovie);
-                const movieComponents = components.createStatusButtons(updatedMovie.message_id, updatedMovie.status);
+                if (forumChannels.isForumChannel(votingChannel)) {
+                  // Create forum post for carryover movie
+                  const { embeds, components } = require('../utils');
+                  const movieEmbed = embeds.createMovieEmbed(updatedMovie);
+                  const movieComponents = components.createVotingButtons(updatedMovie.message_id);
 
-                // Create new message for carryover movie
-                const newMessage = await votingChannel.send({
-                  embeds: [movieEmbed],
-                  components: movieComponents
-                });
+                  const result = await forumChannels.createForumMoviePost(
+                    votingChannel,
+                    { title: updatedMovie.title, embed: movieEmbed },
+                    movieComponents
+                  );
 
-                // Update database with new message ID
-                await database.updateMovieMessageId(updatedMovie.guild_id, updatedMovie.title, newMessage.id);
+                  const { thread, message } = result;
 
-                // Create thread for the movie
-                const thread = await newMessage.startThread({
-                  name: `💬 ${updatedMovie.title}`,
-                  autoArchiveDuration: 10080 // 7 days
-                });
+                  // Update database with new message and thread IDs
+                  await database.updateMovieMessageId(updatedMovie.guild_id, updatedMovie.title, message.id);
+                  await database.updateMovieThreadId(message.id, thread.id);
 
-                console.log(`📝 Created post and thread for carryover movie: ${updatedMovie.title}`);
+                  console.log(`📝 Created forum post for carryover movie: ${updatedMovie.title} (Thread: ${thread.id})`);
+                } else {
+                  // Create text channel message for carryover movie
+                  const { embeds, components } = require('../utils');
+                  const movieEmbed = embeds.createMovieEmbed(updatedMovie);
+                  const movieComponents = components.createVotingButtons(updatedMovie.message_id);
+
+                  const newMessage = await votingChannel.send({
+                    embeds: [movieEmbed],
+                    components: movieComponents
+                  });
+
+                  // Update database with new message ID
+                  await database.updateMovieMessageId(updatedMovie.guild_id, updatedMovie.title, newMessage.id);
+
+                  // Create thread for the movie
+                  const thread = await newMessage.startThread({
+                    name: `💬 ${updatedMovie.title}`,
+                    autoArchiveDuration: 10080 // 7 days
+                  });
+
+                  console.log(`📝 Created post and thread for carryover movie: ${updatedMovie.title}`);
+                }
               } catch (error) {
                 console.warn(`Error creating post for carryover movie ${movie.title}:`, error.message);
               }
             }
           }
 
-          // Add the new session message
-          const cleanup = require('./cleanup');
-          await cleanup.ensureQuickActionAtBottom(votingChannel);
+          // Add the new session message (text channels only)
+          if (!forumChannels.isForumChannel(votingChannel)) {
+            const cleanup = require('./cleanup');
+            await cleanup.ensureQuickActionAtBottom(votingChannel);
+          } else {
+            console.log(`📋 Forum channel setup complete - movies will appear as individual posts`);
+          }
         }
       }
 
       // Refresh admin control panel to show session management buttons
-      if (config && config.admin_channel_id && interaction.client) {
+      if (config && config.admin_channel_id && client) {
         try {
           const adminControls = require('./admin-controls');
-          await adminControls.ensureAdminControlPanel(interaction.client, interaction.guild.id);
+          await adminControls.ensureAdminControlPanel(client, interaction.guild.id);
         } catch (error) {
           console.warn('Error refreshing admin control panel:', error.message);
         }
