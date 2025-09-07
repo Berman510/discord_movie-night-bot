@@ -313,8 +313,10 @@ async function ensureAdminControlPanel(client, guildId) {
       return null;
     }
 
-    // Check if pinned control panel already exists
+    // Check if control panel already exists (try pinned first, then recent messages)
     let existingPanel = null;
+
+    // First try to find in pinned messages
     try {
       const pinnedMessages = await adminChannel.messages.fetchPins();
       existingPanel = pinnedMessages.find(msg =>
@@ -325,6 +327,21 @@ async function ensureAdminControlPanel(client, guildId) {
       );
     } catch (error) {
       console.warn('Error fetching pinned messages:', error.message);
+    }
+
+    // If not found in pinned messages, search recent messages as fallback
+    if (!existingPanel) {
+      try {
+        const recentMessages = await adminChannel.messages.fetch({ limit: 50 });
+        existingPanel = recentMessages.find(msg =>
+          msg.author.id === client.user.id &&
+          msg.embeds.length > 0 &&
+          msg.embeds[0].title &&
+          msg.embeds[0].title.includes('Admin Control Panel')
+        );
+      } catch (error) {
+        console.warn('Error fetching recent messages for admin panel search:', error.message);
+      }
     }
 
     const embed = await createAdminControlEmbed(guild.name, guildId);

@@ -355,8 +355,10 @@ async function ensureQuickActionPinned(channel) {
     // Check if there's an active voting session
     const activeSession = await database.getActiveVotingSession(channel.guild.id);
 
-    // Find existing pinned quick action message
+    // Find existing quick action message (try pinned first, then recent messages)
     let existingQuickAction = null;
+
+    // First try to find in pinned messages
     try {
       const pinnedMessages = await channel.messages.fetchPins();
       existingQuickAction = pinnedMessages.find(msg =>
@@ -367,6 +369,21 @@ async function ensureQuickActionPinned(channel) {
       );
     } catch (error) {
       console.warn('Error fetching pinned messages:', error.message);
+    }
+
+    // If not found in pinned messages, search recent messages as fallback
+    if (!existingQuickAction) {
+      try {
+        const recentMessages = await channel.messages.fetch({ limit: 20 });
+        existingQuickAction = recentMessages.find(msg =>
+          msg.author.id === channel.client.user.id &&
+          msg.embeds.length > 0 &&
+          (msg.embeds[0].title?.includes('Ready to recommend') ||
+           msg.embeds[0].title?.includes('No Active Voting Session'))
+        );
+      } catch (error) {
+        console.warn('Error fetching recent messages for quick action search:', error.message);
+      }
     }
 
     if (!activeSession) {
