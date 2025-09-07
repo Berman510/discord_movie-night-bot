@@ -1436,9 +1436,12 @@ async function handlePickWinner(interaction, guildId, movieId) {
     try {
       const activeSession = await database.getActiveVotingSession(guildId);
       if (activeSession && activeSession.discord_event_id) {
+        console.log(`📅 Manual Pick Winner: Updating Discord event ${activeSession.discord_event_id} with winner: ${movie.title}`);
         const guild = interaction.guild;
         const event = await guild.scheduledEvents.fetch(activeSession.discord_event_id);
         if (event) {
+          console.log(`📅 Found event: ${event.name}, updating with manual winner...`);
+
           // Get vote count for this movie
           const votes = await database.getVotesByMessageId(movie.message_id);
           const upVotes = votes.filter(v => v.vote_type === 'up').length;
@@ -1453,6 +1456,7 @@ async function handlePickWinner(interaction, guildId, movieId) {
             updatedDescription += `📖 ${imdbData.Plot}\n\n`;
           }
           updatedDescription += `🗳️ Final Score: ${totalScore} (${upVotes} 👍 - ${downVotes} 👎)\n`;
+          updatedDescription += `👤 Selected by admin\n`;
           updatedDescription += `📅 Join us for movie night!\n\n🔗 SESSION_UID:${activeSession.id}`;
 
           await event.edit({
@@ -1460,12 +1464,12 @@ async function handlePickWinner(interaction, guildId, movieId) {
             description: updatedDescription
           });
 
-          console.log(`📅 Updated Discord event with winner: ${movie.title} (Score: ${totalScore})`);
+          console.log(`📅 Successfully updated Discord event with manual winner: ${movie.title} (Score: ${totalScore})`);
         } else {
-          console.warn(`Discord event not found: ${activeSession.discord_event_id}`);
+          console.warn(`📅 Discord event not found: ${activeSession.discord_event_id}`);
         }
       } else {
-        console.warn('No active session or Discord event ID found for event update');
+        console.warn('📅 No active session or Discord event ID found for manual winner event update');
       }
     } catch (error) {
       console.warn('Error updating Discord event with winner:', error.message);

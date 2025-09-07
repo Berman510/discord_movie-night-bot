@@ -161,21 +161,76 @@ async function selectWinner(client, session, winner, config) {
         });
       }
     }
-    
+
+    // Clear and update admin channel
+    if (config && config.admin_channel_id) {
+      try {
+        const adminChannel = await client.channels.fetch(config.admin_channel_id);
+        if (adminChannel) {
+          console.log('🔧 Clearing admin channel after automatic winner selection');
+
+          // Clear all bot messages except control panel
+          const messages = await adminChannel.messages.fetch({ limit: 100 });
+          const botMessages = messages.filter(msg => msg.author.id === client.user.id);
+
+          for (const [messageId, message] of botMessages) {
+            try {
+              const isControlPanel = message.embeds.length > 0 &&
+                                    message.embeds[0].title &&
+                                    message.embeds[0].title.includes('Admin Control Panel');
+
+              if (!isControlPanel) {
+                await message.delete();
+              }
+            } catch (error) {
+              console.warn(`Failed to delete admin message ${messageId}:`, error.message);
+            }
+          }
+
+          // Post winner announcement in admin channel
+          const adminWinnerEmbed = new EmbedBuilder()
+            .setTitle('🏆 Winner Selected Automatically')
+            .setDescription(`**${winner.movie.title}** was automatically selected as the winner!`)
+            .addFields(
+              { name: '📊 Final Score', value: `${winner.totalScore} (${winner.upVotes} 👍 - ${winner.downVotes} 👎)`, inline: false },
+              { name: '📅 Session', value: session.name, inline: true },
+              { name: '⏰ Selected At', value: new Date().toLocaleString(), inline: true }
+            )
+            .setColor(0x57f287)
+            .setTimestamp();
+
+          await adminChannel.send({ embeds: [adminWinnerEmbed] });
+
+          // Refresh admin control panel to show updated state
+          const adminControls = require('./admin-controls');
+          await adminControls.ensureAdminControlPanel(client, session.guild_id);
+        }
+      } catch (error) {
+        console.warn('Error updating admin channel:', error.message);
+      }
+    }
+
     // Update Discord event
     if (session.discord_event_id) {
       try {
+        console.log(`📅 Updating Discord event ${session.discord_event_id} with winner: ${winner.movie.title}`);
         const guild = await client.guilds.fetch(session.guild_id);
         const event = await guild.scheduledEvents.fetch(session.discord_event_id);
         if (event) {
+          console.log(`📅 Found event: ${event.name}, updating...`);
           await event.edit({
             name: `🎬 ${session.name} - ${winner.movie.title}`,
             description: `🏆 **WINNER: ${winner.movie.title}**\n\n📊 Final Score: ${winner.totalScore} (${winner.upVotes} 👍 - ${winner.downVotes} 👎)\n\n📅 Join us for movie night!\n\n🔗 SESSION_UID:${session.id}`
           });
+          console.log(`📅 Successfully updated Discord event with winner: ${winner.movie.title}`);
+        } else {
+          console.warn(`📅 Discord event not found: ${session.discord_event_id}`);
         }
       } catch (error) {
         console.warn('Error updating Discord event:', error.message);
       }
+    } else {
+      console.warn('📅 No Discord event ID found for session');
     }
     
     // Update session status
