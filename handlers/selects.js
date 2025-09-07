@@ -134,7 +134,7 @@ async function handleDeepPurgeCategorySelection(interaction) {
   try {
     // Update the display with selected categories
     const embed = deepPurge.updateSelectionDisplay(selectedCategories);
-    const components = deepPurge.createDeepPurgeSelectionMenu();
+    const components = deepPurge.createDeepPurgeSelectionMenu(selectedCategories);
 
     // Store selected categories in the interaction for later use
     global.deepPurgeSelections = global.deepPurgeSelections || new Map();

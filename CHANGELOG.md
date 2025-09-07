@@ -2,7 +2,7 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
-## [1.13.0] - 2025-09-07
+## [1.13.0-rc46] - 2025-09-07
 ### 🎯 Major Release: Forum Channels, Safety Features & Professional Logging
 
 ### Added
@@ -16,6 +16,9 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **🔧 Configuration Validation**: Commands check configuration before execution with helpful guidance
 - **📋 Permission Guidance**: Setup process includes detailed permission requirements for each channel/role
 - **🎯 Bot Discovery Ready**: Streamlined setup perfect for bot discovery website reviews
+- **👥 Moderation System**: Role-based permission system with moderator and administrator levels
+- **🎬 Enhanced Movie Posts**: Comprehensive movie information with detailed discussion threads
+- **📝 Thread Discussions**: First message in threads contains synopsis, cast, awards, and viewing info
 
 ### Enhanced
 - **📋 Forum Integration**: Movies post as forum threads with voting buttons and discussion
@@ -37,6 +40,9 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **🎯 Setup Button Conflicts**: Removed old setup guide handlers causing button failures
 - **📋 Voice Channel Logging**: Eliminated irrelevant voice state change logs
 - **🔧 Function Import Errors**: Fixed multiple "function is not a function" errors in button handlers
+- **💥 Deep Purge Selection**: Fixed issue where selections were lost when clicking away from dropdown
+- **📌 Pinned Message Errors**: Fixed "pinnedMessages.find is not a function" error in admin controls
+- **🧹 Ephemeral Message Cleanup**: Improved ephemeral message management to prevent accumulation
 
 ### Technical
 - **� Forum Channel Architecture**: Complete forum post creation, voting, and discussion system

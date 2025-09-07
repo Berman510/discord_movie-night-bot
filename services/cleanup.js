@@ -361,7 +361,9 @@ async function ensureQuickActionPinned(channel) {
     // First try to find in pinned messages
     try {
       const pinnedMessages = await channel.messages.fetchPins();
-      existingQuickAction = pinnedMessages.find(msg =>
+      // Convert Collection to array for safer .find() usage
+      const pinnedArray = Array.from(pinnedMessages.values());
+      existingQuickAction = pinnedArray.find(msg =>
         msg.author.id === channel.client.user.id &&
         msg.embeds.length > 0 &&
         (msg.embeds[0].title?.includes('Ready to recommend') ||

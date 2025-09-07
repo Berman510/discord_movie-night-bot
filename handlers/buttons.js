@@ -26,9 +26,6 @@ const cleanup = require('../services/cleanup');
 async function handleButton(interaction) {
   const customId = interaction.customId;
 
-  // Clean up any previous ephemeral messages for this user
-  await ephemeralManager.forceCleanupUser(interaction.user.id);
-
   // Parse button ID format: namespace:action:data
   const [ns, action, ...rest] = customId.split(':');
   const msgId = rest[0];
@@ -1737,6 +1734,9 @@ async function handleAdminControlButtons(interaction, customId) {
       case 'admin_ctrl_reschedule_session':
         await handleRescheduleSession(interaction);
         break;
+      case 'admin_ctrl_administration':
+        await handleAdministrationPanel(interaction);
+        break;
       default:
         await interaction.reply({
           content: '❌ Unknown admin control action.',
@@ -1834,7 +1834,7 @@ async function handleDeepPurgeInitiation(interaction) {
   const deepPurge = require('../services/deep-purge');
 
   const embed = deepPurge.updateSelectionDisplay([]);
-  const components = deepPurge.createDeepPurgeSelectionMenu();
+  const components = deepPurge.createDeepPurgeSelectionMenu([]);
 
   await interaction.reply({
     embeds: [embed],
@@ -2269,6 +2269,64 @@ async function handleDeepPurgeCancel(interaction) {
     content: '❌ **Deep Purge Cancelled**\n\nNo data was deleted.',
     embeds: [],
     components: []
+  });
+}
+
+/**
+ * Handle administration panel button - shows admin-only controls
+ */
+async function handleAdministrationPanel(interaction) {
+  const permissions = require('../services/permissions');
+
+  // Check if user has admin permission
+  const isAdmin = await permissions.checkMovieAdminPermission(interaction);
+
+  if (!isAdmin) {
+    await ephemeralManager.sendEphemeral(interaction,
+      '❌ **Access Denied**\n\nYou need administrator permissions to access the administration panel.'
+    );
+    return;
+  }
+
+  const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+
+  const adminEmbed = new EmbedBuilder()
+    .setTitle('🔧 Administration Panel')
+    .setDescription('**Administrator-only controls**\n\nThese controls are only available to users with administrator permissions.')
+    .setColor(0xed4245)
+    .addFields(
+      {
+        name: '⚙️ Configuration',
+        value: '• **Configure Bot** - Set up channels, roles, and settings\n• **Deep Purge** - Complete guild data removal with confirmations',
+        inline: false
+      },
+      {
+        name: '📊 Advanced Features',
+        value: '• **Guild Statistics** - Detailed analytics and reports\n• **Role Management** - Configure admin and moderator roles',
+        inline: false
+      }
+    )
+    .setFooter({ text: 'These actions require administrator permissions' });
+
+  const adminButtons = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('open_configuration')
+        .setLabel('⚙️ Configure Bot')
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId('admin_ctrl_deep_purge')
+        .setLabel('💥 Deep Purge')
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId('admin_role_management')
+        .setLabel('👥 Role Management')
+        .setStyle(ButtonStyle.Secondary)
+    );
+
+  await ephemeralManager.sendEphemeral(interaction, '', {
+    embeds: [adminEmbed],
+    components: [adminButtons]
   });
 }
 

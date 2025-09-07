@@ -162,14 +162,33 @@ async function tryShowSetupPanelInAdminChannels(client, guildId) {
 }
 
 /**
- * Create admin control action buttons
+ * Create control buttons based on user permissions
  */
-async function createAdminControlButtons(guildId = null) {
+async function createControlButtonsForUser(interaction, guildId = null) {
+  const permissions = require('./permissions');
+
+  const isAdmin = await permissions.checkMovieAdminPermission(interaction);
+  const isModerator = await permissions.checkMovieModeratorPermission(interaction);
+
+  if (isAdmin) {
+    return await createAdminControlButtons(guildId);
+  } else if (isModerator) {
+    return await createModeratorControlButtons(guildId);
+  } else {
+    return []; // No permissions
+  }
+}
+
+/**
+ * Create moderator control action buttons (subset of admin controls)
+ */
+async function createModeratorControlButtons(guildId = null) {
+  // Moderation controls only
   const row1 = new ActionRowBuilder()
     .addComponents(
       new ButtonBuilder()
         .setCustomId('admin_ctrl_sync')
-        .setLabel('🔄 Sync Channel')
+        .setLabel('🔄 Sync Channels')
         .setStyle(ButtonStyle.Primary),
       new ButtonBuilder()
         .setCustomId('admin_ctrl_purge')
@@ -180,11 +199,92 @@ async function createAdminControlButtons(guildId = null) {
         .setLabel('📊 Guild Stats')
         .setStyle(ButtonStyle.Success),
       new ButtonBuilder()
-        .setCustomId('open_configuration')
-        .setLabel('⚙️ Configure')
-        .setStyle(ButtonStyle.Primary)
+        .setCustomId('admin_ctrl_banned_list')
+        .setLabel('🚫 Banned Movies')
+        .setStyle(ButtonStyle.Secondary)
     );
 
+  // Session management controls
+  const row2 = new ActionRowBuilder();
+
+  // Check for active session to determine which buttons to show
+  let hasActiveSession = false;
+  if (guildId) {
+    try {
+      const activeSession = await database.getActiveVotingSession(guildId);
+      hasActiveSession = !!activeSession;
+    } catch (error) {
+      console.warn('Error checking active session for moderator buttons:', error.message);
+    }
+  }
+
+  if (hasActiveSession) {
+    // Session management buttons
+    row2.addComponents(
+      new ButtonBuilder()
+        .setCustomId('admin_ctrl_cancel_session')
+        .setLabel('❌ Cancel Session')
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId('admin_ctrl_reschedule_session')
+        .setLabel('📅 Reschedule Session')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId('admin_ctrl_refresh')
+        .setLabel('🔄 Refresh Panel')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId('admin_ctrl_administration')
+        .setLabel('🔧 Administration')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  } else {
+    // Default buttons when no session
+    row2.addComponents(
+      new ButtonBuilder()
+        .setCustomId('admin_ctrl_plan_session')
+        .setLabel('🗳️ Plan Next Session')
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId('admin_ctrl_refresh')
+        .setLabel('🔄 Refresh Panel')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId('admin_ctrl_administration')
+        .setLabel('🔧 Administration')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  }
+
+  return [row1, row2];
+}
+
+/**
+ * Create admin control action buttons (full access)
+ */
+async function createAdminControlButtons(guildId = null) {
+  // Moderation controls (available to both moderators and admins)
+  const row1 = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('admin_ctrl_sync')
+        .setLabel('🔄 Sync Channels')
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId('admin_ctrl_purge')
+        .setLabel('🗑️ Purge Queue')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId('admin_ctrl_stats')
+        .setLabel('📊 Guild Stats')
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId('admin_ctrl_banned_list')
+        .setLabel('🚫 Banned Movies')
+        .setStyle(ButtonStyle.Secondary)
+    );
+
+  // Session management controls (available to both moderators and admins)
   const row2 = new ActionRowBuilder();
 
   // Check for active session to determine which buttons to show
@@ -210,9 +310,9 @@ async function createAdminControlButtons(guildId = null) {
         .setLabel('📅 Reschedule Session')
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
-        .setCustomId('admin_ctrl_deep_purge')
-        .setLabel('💥 Deep Purge')
-        .setStyle(ButtonStyle.Danger)
+        .setCustomId('admin_ctrl_refresh')
+        .setLabel('🔄 Refresh Panel')
+        .setStyle(ButtonStyle.Secondary)
     );
   } else {
     // Default buttons when no session
@@ -222,28 +322,32 @@ async function createAdminControlButtons(guildId = null) {
         .setLabel('🗳️ Plan Next Session')
         .setStyle(ButtonStyle.Success),
       new ButtonBuilder()
-        .setCustomId('admin_ctrl_deep_purge')
-        .setLabel('💥 Deep Purge')
-        .setStyle(ButtonStyle.Danger),
-      new ButtonBuilder()
-        .setCustomId('admin_ctrl_banned_list')
-        .setLabel('🚫 Banned Movies')
+        .setCustomId('admin_ctrl_refresh')
+        .setLabel('🔄 Refresh Panel')
         .setStyle(ButtonStyle.Secondary)
     );
   }
 
-  // Create row3 with conditional forum button
+  // Admin-only controls (third row)
   const row3Components = [
     new ButtonBuilder()
-      .setCustomId('admin_ctrl_refresh')
-      .setLabel('🔄 Refresh Panel')
+      .setCustomId('open_configuration')
+      .setLabel('⚙️ Configure Bot')
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId('admin_ctrl_deep_purge')
+      .setLabel('💥 Deep Purge')
+      .setStyle(ButtonStyle.Danger),
+    new ButtonBuilder()
+      .setCustomId('admin_ctrl_administration')
+      .setLabel('🔧 Administration')
       .setStyle(ButtonStyle.Secondary)
   ];
 
   // Check if voting channel is a forum channel
   const isForumChannel = await checkIfVotingChannelIsForum(guildId);
   if (isForumChannel) {
-    row3Components.unshift(
+    row3Components.push(
       new ButtonBuilder()
         .setCustomId('admin_ctrl_populate_forum')
         .setLabel('📋 Populate Forum')
@@ -319,7 +423,9 @@ async function ensureAdminControlPanel(client, guildId) {
     // First try to find in pinned messages
     try {
       const pinnedMessages = await adminChannel.messages.fetchPins();
-      existingPanel = pinnedMessages.find(msg =>
+      // Convert Collection to array for safer .find() usage
+      const pinnedArray = Array.from(pinnedMessages.values());
+      existingPanel = pinnedArray.find(msg =>
         msg.author.id === client.user.id &&
         msg.embeds.length > 0 &&
         msg.embeds[0].title &&
@@ -394,6 +500,17 @@ async function ensureAdminControlPanel(client, guildId) {
  */
 async function handleSyncChannel(interaction) {
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+  // Check permissions (moderators and admins can sync)
+  const permissions = require('./permissions');
+  const hasModerator = await permissions.checkMovieModeratorPermission(interaction);
+
+  if (!hasModerator) {
+    await interaction.editReply({
+      content: '❌ **Access Denied**\n\nYou need moderator or administrator permissions to sync channels.'
+    });
+    return;
+  }
 
   try {
     const database = require('../database');
@@ -542,6 +659,18 @@ async function handleSyncChannel(interaction) {
  * Handle purge queue action with confirmation
  */
 async function handlePurgeQueue(interaction) {
+  // Check permissions (moderators and admins can purge)
+  const permissions = require('./permissions');
+  const hasModerator = await permissions.checkMovieModeratorPermission(interaction);
+
+  if (!hasModerator) {
+    await interaction.reply({
+      content: '❌ **Access Denied**\n\nYou need moderator or administrator permissions to purge the queue.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
   // Create confirmation buttons
   const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 
@@ -912,6 +1041,8 @@ async function populateForumChannel(client, guildId) {
 module.exports = {
   createAdminControlEmbed,
   createAdminControlButtons,
+  createModeratorControlButtons,
+  createControlButtonsForUser,
   ensureAdminControlPanel,
   handleSyncChannel,
   handlePurgeQueue,

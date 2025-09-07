@@ -12,9 +12,6 @@ const cleanup = require('../services/cleanup');
 async function handleModal(interaction) {
   const customId = interaction.customId;
 
-  // Clean up any previous ephemeral messages for this user
-  await ephemeralManager.forceCleanupUser(interaction.user.id);
-
   try {
     // Movie recommendation modal
     if (customId === 'mn:modal') {

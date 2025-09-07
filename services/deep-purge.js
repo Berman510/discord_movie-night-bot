@@ -44,7 +44,7 @@ function createDeepPurgeSelectionEmbed(guildName) {
 /**
  * Create deep purge selection menu with submit button
  */
-function createDeepPurgeSelectionMenu() {
+function createDeepPurgeSelectionMenu(selectedCategories = []) {
   const selectMenu = new StringSelectMenuBuilder()
     .setCustomId('deep_purge_select_categories')
     .setPlaceholder('Select data categories to remove...')
@@ -88,6 +88,11 @@ function createDeepPurgeSelectionMenu() {
         emoji: '⚙️'
       }
     ]);
+
+  // Set default values if categories are selected
+  if (selectedCategories && selectedCategories.length > 0) {
+    selectMenu.setDefaultValues(...selectedCategories);
+  }
 
   const submitButton = new ButtonBuilder()
     .setCustomId('deep_purge_submit')

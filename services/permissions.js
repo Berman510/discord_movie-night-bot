@@ -28,6 +28,28 @@ async function checkMovieAdminPermission(interaction) {
   return false;
 }
 
+async function checkMovieModeratorPermission(interaction) {
+  // Check if user has admin permission first (admins can do everything moderators can)
+  if (await checkMovieAdminPermission(interaction)) {
+    return true;
+  }
+
+  // Check if user has configured moderator role
+  if (database.isConnected) {
+    try {
+      const config = await database.getGuildConfig(interaction.guild.id);
+      if (config && config.moderator_roles && config.moderator_roles.length > 0) {
+        const userRoles = interaction.member.roles.cache.map(role => role.id);
+        return config.moderator_roles.some(roleId => userRoles.includes(roleId));
+      }
+    } catch (error) {
+      console.error('Error checking moderator roles:', error.message);
+    }
+  }
+
+  return false;
+}
+
 async function checkChannelPermission(interaction, requiredChannel = null) {
   if (!database.isConnected) return true; // Allow if database not available
 
@@ -66,6 +88,7 @@ function hasSendMessagesPermission(member) {
 
 module.exports = {
   checkMovieAdminPermission,
+  checkMovieModeratorPermission,
   checkChannelPermission,
   hasManageChannelsPermission,
   hasCreateThreadsPermission,

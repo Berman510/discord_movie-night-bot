@@ -179,6 +179,7 @@ class Database {
         guild_id VARCHAR(20) UNIQUE NOT NULL,
         movie_channel_id VARCHAR(20) NULL,
         admin_roles JSON NULL,
+        moderator_roles JSON NULL,
         notification_role_id VARCHAR(20) NULL,
         default_timezone VARCHAR(50) DEFAULT 'UTC',
         session_viewing_channel_id VARCHAR(20) NULL,
@@ -1159,6 +1160,7 @@ class Database {
 
       const config = rows[0];
       config.admin_roles = config.admin_roles ? JSON.parse(config.admin_roles) : [];
+      config.moderator_roles = config.moderator_roles ? JSON.parse(config.moderator_roles) : [];
       return config;
     } catch (error) {
       console.error('Error getting guild config:', error.message);
@@ -1218,6 +1220,46 @@ class Database {
       return true;
     } catch (error) {
       console.error('Error removing admin role:', error.message);
+      return false;
+    }
+  }
+
+  async addModeratorRole(guildId, roleId) {
+    if (!this.isConnected) return false;
+
+    try {
+      const config = await this.getGuildConfig(guildId);
+      if (!config) return false;
+
+      if (!config.moderator_roles.includes(roleId)) {
+        config.moderator_roles.push(roleId);
+        await this.pool.execute(
+          `UPDATE guild_config SET moderator_roles = ? WHERE guild_id = ?`,
+          [JSON.stringify(config.moderator_roles), guildId]
+        );
+      }
+      return true;
+    } catch (error) {
+      console.error('Error adding moderator role:', error.message);
+      return false;
+    }
+  }
+
+  async removeModeratorRole(guildId, roleId) {
+    if (!this.isConnected) return false;
+
+    try {
+      const config = await this.getGuildConfig(guildId);
+      if (!config) return false;
+
+      config.moderator_roles = config.moderator_roles.filter(id => id !== roleId);
+      await this.pool.execute(
+        `UPDATE guild_config SET moderator_roles = ? WHERE guild_id = ?`,
+        [JSON.stringify(config.moderator_roles), guildId]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error removing moderator role:', error.message);
       return false;
     }
   }

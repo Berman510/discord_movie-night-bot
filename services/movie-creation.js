@@ -123,6 +123,9 @@ async function createTextMovieRecommendation(interaction, movieData, channel) {
       autoArchiveDuration: 10080 // 7 days
     });
     console.log(`🧵 Created discussion thread: ${thread.name}`);
+
+    // Add detailed information to the thread
+    await addDetailedMovieInfoToThread(thread, { title, where, imdbData });
   } catch (error) {
     console.warn('Failed to create thread:', error.message);
   }
@@ -213,6 +216,13 @@ async function createForumMovieRecommendation(interaction, movieData, channel) {
     throw new Error('Failed to save forum movie to database');
   }
 
+  // Add detailed information as a follow-up message in the forum thread
+  try {
+    await addDetailedMovieInfoToThread(thread, { title, where, imdbData });
+  } catch (error) {
+    console.warn('Failed to add detailed info to forum thread:', error.message);
+  }
+
   return { message, thread, movieId };
 }
 
@@ -278,11 +288,97 @@ async function cleanupChannelMovies(channel, olderThanDays = 30) {
   }
 }
 
+/**
+ * Add detailed movie information to a thread
+ */
+async function addDetailedMovieInfoToThread(thread, movieData) {
+  try {
+    const { title, where, imdbData } = movieData;
+    const { EmbedBuilder } = require('discord.js');
+
+    // Create a detailed information embed for the thread
+    const detailEmbed = new EmbedBuilder()
+      .setTitle(`🎬 ${title} - Discussion & Details`)
+      .setColor(0x5865f2);
+
+    let description = `Welcome to the discussion thread for **${title}**!\n\n`;
+
+    if (imdbData) {
+      if (imdbData.Plot && imdbData.Plot !== 'N/A') {
+        description += `**📖 Synopsis:**\n${imdbData.Plot}\n\n`;
+      }
+
+      if (imdbData.Director && imdbData.Director !== 'N/A') {
+        description += `**🎬 Director:** ${imdbData.Director}\n`;
+      }
+
+      if (imdbData.Actors && imdbData.Actors !== 'N/A') {
+        description += `**🎭 Cast:** ${imdbData.Actors}\n`;
+      }
+
+      if (imdbData.Awards && imdbData.Awards !== 'N/A' && imdbData.Awards !== 'N/A') {
+        description += `**🏆 Awards:** ${imdbData.Awards}\n`;
+      }
+
+      description += '\n';
+    }
+
+    description += `**📺 Where to Watch:** ${where}\n\n`;
+    description += `💬 **Use this thread to discuss:**\n`;
+    description += `• What you think about this movie\n`;
+    description += `• Why others should vote for it\n`;
+    description += `• Any questions about the movie\n`;
+    description += `• Alternative viewing options`;
+
+    detailEmbed.setDescription(description);
+
+    // Add additional fields if IMDb data is available
+    if (imdbData) {
+      const additionalFields = [];
+
+      if (imdbData.Language && imdbData.Language !== 'N/A') {
+        additionalFields.push({ name: '🌍 Language', value: imdbData.Language, inline: true });
+      }
+
+      if (imdbData.Country && imdbData.Country !== 'N/A') {
+        additionalFields.push({ name: '🏳️ Country', value: imdbData.Country, inline: true });
+      }
+
+      if (imdbData.BoxOffice && imdbData.BoxOffice !== 'N/A') {
+        additionalFields.push({ name: '💰 Box Office', value: imdbData.BoxOffice, inline: true });
+      }
+
+      if (additionalFields.length > 0) {
+        detailEmbed.addFields(...additionalFields);
+      }
+
+      // Add poster as thumbnail if available
+      if (imdbData.Poster && imdbData.Poster !== 'N/A') {
+        detailEmbed.setThumbnail(imdbData.Poster);
+      }
+
+      // Add IMDb link if available
+      if (imdbData.imdbID && imdbData.imdbID !== 'N/A') {
+        detailEmbed.setURL(`https://www.imdb.com/title/${imdbData.imdbID}/`);
+      }
+    }
+
+    detailEmbed.setFooter({ text: 'Vote on the main post • Discuss here in the thread' });
+
+    await thread.send({ embeds: [detailEmbed] });
+    console.log(`📝 Added detailed movie info to thread: ${thread.name}`);
+
+  } catch (error) {
+    console.warn('Error adding detailed info to thread:', error.message);
+  }
+}
+
 module.exports = {
   createMovieRecommendation,
   createTextMovieRecommendation,
   createForumMovieRecommendation,
   updateMovieStatus,
   getChannelMovies,
-  cleanupChannelMovies
+  cleanupChannelMovies,
+  addDetailedMovieInfoToThread
 };

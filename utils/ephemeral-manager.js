@@ -19,8 +19,9 @@ class EphemeralManager {
    */
   async sendEphemeral(interaction, content, options = {}) {
     try {
-      // Clean up previous ephemeral message for this user
-      await this.cleanupPreviousMessage(interaction.user.id);
+      // Note: We can't reliably delete previous ephemeral messages from different interactions
+      // Discord only allows each interaction to manage its own ephemeral messages
+      // So we'll just track the latest one and let Discord handle cleanup
 
       const { MessageFlags } = require('discord.js');
 
@@ -40,7 +41,7 @@ class EphemeralManager {
         });
       }
 
-      // Track this message for future cleanup
+      // Track this message for future cleanup (mainly for debugging/stats)
       this.userEphemeralMessages.set(interaction.user.id, {
         interaction: interaction,
         messageId: response.id,
@@ -56,13 +57,10 @@ class EphemeralManager {
   }
 
   /**
-   * Update an ephemeral message, cleaning up previous if needed
+   * Update an ephemeral message
    */
   async updateEphemeral(interaction, content, options = {}) {
     try {
-      // Clean up any previous message first
-      await this.cleanupPreviousMessage(interaction.user.id);
-
       // Update the interaction
       const response = await interaction.update({
         content,
@@ -85,23 +83,17 @@ class EphemeralManager {
 
   /**
    * Clean up previous ephemeral message for a user
+   * Note: This can only clean up messages from the same interaction
    */
   async cleanupPreviousMessage(userId) {
     const previousMessage = this.userEphemeralMessages.get(userId);
     if (!previousMessage) return;
 
-    console.log(`🧹 Attempting to cleanup previous ephemeral message for user ${userId}: ${previousMessage.messageId}`);
+    console.log(`🧹 Cleaning up ephemeral message tracking for user ${userId}: ${previousMessage.messageId}`);
 
-    try {
-      // Try to delete the previous ephemeral message
-      if (previousMessage.interaction) {
-        await previousMessage.interaction.deleteReply().catch((error) => {
-          console.log(`🧹 Could not delete previous ephemeral message: ${error.message}`);
-        });
-      }
-    } catch (error) {
-      console.log(`🧹 Error during ephemeral cleanup: ${error.message}`);
-    }
+    // Note: We can't actually delete ephemeral messages from different interactions
+    // Discord handles ephemeral message cleanup automatically
+    // We just remove from our tracking to avoid memory leaks
 
     // Remove from tracking
     this.userEphemeralMessages.delete(userId);
@@ -123,6 +115,7 @@ class EphemeralManager {
 
   /**
    * Force cleanup all messages for a user
+   * Note: This only cleans up our tracking, not the actual messages
    */
   async forceCleanupUser(userId) {
     await this.cleanupPreviousMessage(userId);
