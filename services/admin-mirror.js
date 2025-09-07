@@ -231,10 +231,10 @@ async function syncAdminChannel(client, guildId) {
       }
     }
 
-    // Get all active movies (not watched/skipped unless banned)
-    const movies = await database.getMoviesByStatus(guildId, 'pending', 50);
-    const plannedMovies = await database.getMoviesByStatus(guildId, 'planned', 50);
-    const scheduledMovies = await database.getMoviesByStatus(guildId, 'scheduled', 50);
+    // Get all active movies (not watched/skipped unless banned, excluding carryover movies)
+    const movies = await database.getMoviesByStatusExcludingCarryover(guildId, 'pending', 50);
+    const plannedMovies = await database.getMoviesByStatusExcludingCarryover(guildId, 'planned', 50);
+    const scheduledMovies = await database.getMoviesByStatusExcludingCarryover(guildId, 'scheduled', 50);
     const bannedMovies = await database.getBannedMovies(guildId);
 
     const allMovies = [...movies, ...plannedMovies, ...scheduledMovies];

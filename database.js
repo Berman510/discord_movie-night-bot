@@ -925,21 +925,42 @@ class Database {
   // Statistics and queries
   async getMoviesByStatus(guildId, status = 'pending', limit = 10) {
     if (!this.isConnected) return [];
-    
+
     try {
       const [rows] = await this.pool.execute(
-        `SELECT m.*, 
+        `SELECT m.*,
          (SELECT COUNT(*) FROM votes v WHERE v.message_id = m.message_id AND v.vote_type = 'up') as up_votes,
          (SELECT COUNT(*) FROM votes v WHERE v.message_id = m.message_id AND v.vote_type = 'down') as down_votes
-         FROM movies m 
-         WHERE m.guild_id = ? AND m.status = ? 
-         ORDER BY m.created_at DESC 
+         FROM movies m
+         WHERE m.guild_id = ? AND m.status = ?
+         ORDER BY m.created_at DESC
          LIMIT ?`,
         [guildId, status, limit]
       );
       return rows;
     } catch (error) {
       console.error('Error getting movies by status:', error.message);
+      return [];
+    }
+  }
+
+  async getMoviesByStatusExcludingCarryover(guildId, status = 'pending', limit = 10) {
+    if (!this.isConnected) return [];
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT m.*,
+         (SELECT COUNT(*) FROM votes v WHERE v.message_id = m.message_id AND v.vote_type = 'up') as up_votes,
+         (SELECT COUNT(*) FROM votes v WHERE v.message_id = m.message_id AND v.vote_type = 'down') as down_votes
+         FROM movies m
+         WHERE m.guild_id = ? AND m.status = ? AND (m.next_session IS NULL OR m.next_session = FALSE)
+         ORDER BY m.created_at DESC
+         LIMIT ?`,
+        [guildId, status, limit]
+      );
+      return rows;
+    } catch (error) {
+      console.error('Error getting movies by status excluding carryover:', error.message);
       return [];
     }
   }

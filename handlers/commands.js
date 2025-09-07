@@ -121,6 +121,31 @@ async function handleMovieQueue(interaction) {
     const activeSession = await database.getActiveVotingSession(interaction.guild.id);
 
     if (!activeSession) {
+      // Check if there are carryover movies waiting for next session
+      const carryoverMovies = await database.getNextSessionMovies(interaction.guild.id);
+      if (carryoverMovies.length > 0) {
+        const embed = new EmbedBuilder()
+          .setTitle('📋 Movies Waiting for Next Session')
+          .setDescription(`${carryoverMovies.length} movies are waiting to be carried over to the next voting session`)
+          .setColor(0xffa500);
+
+        carryoverMovies.forEach((movie, index) => {
+          embed.addFields({
+            name: `${index + 1}. ${movie.title}`,
+            value: `📺 ${movie.where_to_watch} • 👤 <@${movie.recommended_by}>`,
+            inline: false
+          });
+        });
+
+        embed.setFooter({ text: 'These movies will automatically appear when the next session starts!' });
+
+        await interaction.reply({
+          embeds: [embed],
+          flags: MessageFlags.Ephemeral
+        });
+        return;
+      }
+
       await interaction.reply({
         content: '📋 **No active voting session**\n\nThere are currently no movies in the queue. An admin needs to use the "Plan Next Session" button in the admin channel to start a new voting session before movies can be recommended.',
         flags: MessageFlags.Ephemeral

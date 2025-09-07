@@ -232,11 +232,11 @@ async function handleSyncChannel(interaction) {
             }
           }
 
-          // Get all active movies and recreate them
+          // Get all active movies and recreate them (excluding carryover movies)
           const database = require('../database');
-          const movies = await database.getMoviesByStatus(interaction.guild.id, 'pending', 50);
-          const plannedMovies = await database.getMoviesByStatus(interaction.guild.id, 'planned', 50);
-          const scheduledMovies = await database.getMoviesByStatus(interaction.guild.id, 'scheduled', 50);
+          const movies = await database.getMoviesByStatusExcludingCarryover(interaction.guild.id, 'pending', 50);
+          const plannedMovies = await database.getMoviesByStatusExcludingCarryover(interaction.guild.id, 'planned', 50);
+          const scheduledMovies = await database.getMoviesByStatusExcludingCarryover(interaction.guild.id, 'scheduled', 50);
 
           const allMovies = [...movies, ...plannedMovies, ...scheduledMovies];
 
