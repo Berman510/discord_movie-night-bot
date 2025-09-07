@@ -6,6 +6,7 @@
 const { MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
 const database = require('../database');
 const { TIMEZONE_OPTIONS } = require('../config/timezones');
+const guidedSetup = require('../services/guided-setup');
 
 async function handleSelect(interaction) {
   const customId = interaction.customId;
@@ -38,6 +39,12 @@ async function handleSelect(interaction) {
     // Deep purge selection menu
     if (customId === 'deep_purge_select') {
       await handleDeepPurgeSelection(interaction);
+      return;
+    }
+
+    // Guided setup select menus
+    if (customId.startsWith('setup_select_')) {
+      await handleGuidedSetupSelect(interaction, customId);
       return;
     }
 
@@ -314,6 +321,37 @@ async function handleImdbSelection(interaction) {
     content: 'IMDb selection processed.',
     flags: MessageFlags.Ephemeral
   });
+}
+
+/**
+ * Handle guided setup select menu interactions
+ */
+async function handleGuidedSetupSelect(interaction, customId) {
+  switch (customId) {
+    case 'setup_select_voting_channel':
+      await guidedSetup.handleChannelSelection(interaction, 'voting');
+      break;
+
+    case 'setup_select_admin_channel':
+      await guidedSetup.handleChannelSelection(interaction, 'admin');
+      break;
+
+    case 'setup_select_viewing_channel':
+      await guidedSetup.handleChannelSelection(interaction, 'viewing');
+      break;
+
+    case 'setup_select_admin_roles':
+      await guidedSetup.handleRoleSelection(interaction, 'admin');
+      break;
+
+    case 'setup_select_notification_role':
+      await guidedSetup.handleRoleSelection(interaction, 'notification');
+      break;
+
+    default:
+      console.warn('Unknown guided setup select menu:', customId);
+      break;
+  }
 }
 
 module.exports = {

@@ -17,6 +17,7 @@
 const { MessageFlags } = require('discord.js');
 const ephemeralManager = require('../utils/ephemeral-manager');
 const configCheck = require('../utils/config-check');
+const guidedSetup = require('../services/guided-setup');
 const database = require('../database');
 const { sessions } = require('../services');
 const { permissions } = require('../services');
@@ -146,6 +147,12 @@ async function handleButton(interaction) {
     // Configuration button
     if (customId === 'open_configuration') {
       await configCheck.handleConfigurationButton(interaction);
+      return;
+    }
+
+    // Guided setup buttons
+    if (customId.startsWith('setup_')) {
+      await handleGuidedSetupButton(interaction, customId);
       return;
     }
 
@@ -2108,6 +2115,75 @@ async function handleCancelSessionConfirmation(interaction) {
         components: []
       });
     }
+  }
+}
+
+/**
+ * Handle guided setup button interactions
+ */
+async function handleGuidedSetupButton(interaction, customId) {
+  switch (customId) {
+    case 'setup_start':
+      await guidedSetup.showSetupMenu(interaction);
+      break;
+
+    case 'setup_skip':
+      await ephemeralManager.sendEphemeral(interaction,
+        '⏭️ **Setup skipped**\n\nYou can run `/movie-setup-simple` anytime to configure the bot.'
+      );
+      break;
+
+    case 'setup_back_to_menu':
+      await guidedSetup.showSetupMenu(interaction);
+      break;
+
+    case 'setup_voting_channel':
+      await guidedSetup.showVotingChannelSetup(interaction);
+      break;
+
+    case 'setup_admin_channel':
+      await guidedSetup.showAdminChannelSetup(interaction);
+      break;
+
+    case 'setup_viewing_channel':
+      await guidedSetup.showViewingChannelSetup(interaction);
+      break;
+
+    case 'setup_admin_roles':
+      await guidedSetup.showAdminRolesSetup(interaction);
+      break;
+
+    case 'setup_notification_role':
+      await guidedSetup.showNotificationRoleSetup(interaction);
+      break;
+
+    case 'setup_skip_admin_roles':
+      await ephemeralManager.sendEphemeral(interaction, '⏭️ **Admin roles skipped**\n\nOnly Discord Administrators can manage the bot.');
+      setTimeout(async () => {
+        await guidedSetup.showSetupMenu(interaction);
+      }, 2000);
+      break;
+
+    case 'setup_skip_notification_role':
+      await ephemeralManager.sendEphemeral(interaction, '⏭️ **Notification role skipped**\n\nNo role will be pinged for movie sessions.');
+      setTimeout(async () => {
+        await guidedSetup.showSetupMenu(interaction);
+      }, 2000);
+      break;
+
+    case 'setup_finish':
+      await guidedSetup.showSetupComplete(interaction);
+      break;
+
+    case 'setup_create_first_session':
+      // Redirect to session creation
+      const { sessions } = require('../services');
+      await sessions.startVotingSessionCreation(interaction);
+      break;
+
+    default:
+      console.warn('Unknown guided setup button:', customId);
+      break;
   }
 }
 

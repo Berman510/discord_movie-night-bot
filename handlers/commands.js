@@ -6,6 +6,7 @@
 const { MessageFlags, EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
 const database = require('../database');
 const sessions = require('../services/sessions');
+const guidedSetup = require('../services/guided-setup');
 
 async function handleSlashCommand(interaction) {
   const commandName = interaction.commandName;
@@ -44,6 +45,10 @@ async function handleSlashCommand(interaction) {
         await handleMovieSetup(interaction);
         break;
 
+      case 'movie-setup-simple':
+        await handleMovieSetupSimple(interaction);
+        break;
+
       case 'movie-watched':
         await handleMovieWatched(interaction);
         break;
@@ -80,13 +85,22 @@ async function handleSlashCommand(interaction) {
 
 // Movie recommendation command handler
 async function handleMovieNight(interaction) {
+  // First check if bot is configured
+  const configCheck = require('../utils/config-check');
+  const configStatus = await configCheck.checkConfiguration(interaction.guild.id);
+
+  if (!configStatus.isConfigured) {
+    await configCheck.sendConfigurationError(interaction, configStatus);
+    return;
+  }
+
   // Check if there's an active voting session
   const database = require('../database');
   const activeSession = await database.getActiveVotingSession(interaction.guild.id);
 
   if (!activeSession) {
     await interaction.reply({
-      content: '❌ **No active voting session**\n\nMovie recommendations are only available during active voting sessions. An admin needs to use the "Plan Next Session" button in the admin channel to start a new voting session.',
+      content: '❌ **No active voting session**\n\nMovie recommendations are only available during active voting sessions. An admin needs to use the "Plan Next Session" button in the admin channel to start a new voting session.\n\n💡 **Tip:** Use `/movie-setup-simple` for easy bot configuration.',
       flags: MessageFlags.Ephemeral
     });
     return;
@@ -554,8 +568,28 @@ module.exports = {
   handleMovieCleanup,
   handleMovieStats,
   handleMovieSetup,
+  handleMovieSetupSimple,
   handleMovieWatched,
   handleMovieSkip,
   handleMoviePlan,
   handleDebugConfig
 };
+
+/**
+ * Handle movie-setup-simple command
+ */
+async function handleMovieSetupSimple(interaction) {
+  // Check if user has permission to configure
+  const { PermissionFlagsBits } = require('discord.js');
+
+  if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator) &&
+      !interaction.member.permissions.has(PermissionFlagsBits.ManageGuild)) {
+    await interaction.reply({
+      content: '❌ **Permission denied**\n\nYou need Administrator or Manage Server permissions to configure the bot.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  await guidedSetup.startGuidedSetup(interaction);
+}
