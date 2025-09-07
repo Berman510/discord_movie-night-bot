@@ -258,8 +258,8 @@ async function showConfigurationSetup(interaction) {
       {
         name: '1️⃣ Configure Channels',
         value: `Use \`/movie-configure\` to set up your channels:
-• \`action:set-channel\` - Set movie recommendations channel
-• \`action:set-viewing-channel\` - Set movie viewing channel  
+• \`action:set-voting-channel\` - Set movie recommendations/voting channel
+• \`action:set-viewing-channel\` - Set movie viewing channel
 • \`action:set-admin-channel\` - Set admin maintenance channel`,
         inline: false
       },

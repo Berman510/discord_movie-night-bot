@@ -16,7 +16,7 @@ const commands = [
         type: 3, // STRING
         required: true,
         choices: [
-          { name: 'set-channel', value: 'set-channel' },
+          { name: 'set-voting-channel', value: 'set-channel' },
           { name: 'set-viewing-channel', value: 'set-viewing-channel' },
           { name: 'set-admin-channel', value: 'set-admin-channel' },
           { name: 'add-admin-role', value: 'add-admin-role' },
@@ -30,7 +30,7 @@ const commands = [
       },
       {
         name: 'channel',
-        description: 'Channel to set (for set-channel, set-viewing-channel, or set-admin-channel actions)',
+        description: 'Channel to set (for set-voting-channel, set-viewing-channel, or set-admin-channel actions)',
         type: 7, // CHANNEL
         required: false
       },
