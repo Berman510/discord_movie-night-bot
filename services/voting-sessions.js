@@ -338,7 +338,7 @@ async function createVotingSession(interaction, state) {
     // Update voting channel to show the new session
     try {
       const config = await database.getGuildConfig(interaction.guild.id);
-      if (config && config.movie_channel_id) {
+      if (config && config.movie_channel_id && interaction.client) {
         const votingChannel = await interaction.client.channels.fetch(config.movie_channel_id);
         if (votingChannel) {
           // Clear existing messages first
@@ -410,7 +410,7 @@ async function createVotingSession(interaction, state) {
       }
 
       // Refresh admin control panel to show session management buttons
-      if (config && config.admin_channel_id) {
+      if (config && config.admin_channel_id && interaction.client) {
         try {
           const adminControls = require('./admin-controls');
           await adminControls.ensureAdminControlPanel(interaction.client, interaction.guild.id);

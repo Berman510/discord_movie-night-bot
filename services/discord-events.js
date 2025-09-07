@@ -176,16 +176,17 @@ async function notifyRole(guild, event, sessionData) {
       notificationChannel = guild.channels.cache.get(sessionData.channelId);
     }
 
-    // Fallback to general channel
-    if (!notificationChannel) {
+    // Fallback to general channel (must be text channel for notifications)
+    if (!notificationChannel || !notificationChannel.send) {
       notificationChannel = guild.channels.cache.find(channel =>
-        channel.type === 0 && // TEXT channel
+        channel.type === 0 && // TEXT channel only
+        channel.send && // Has send method
         channel.permissionsFor(guild.members.me).has(['SendMessages', 'ViewChannel'])
       );
     }
 
-    if (!notificationChannel) {
-      console.warn('No suitable channel found for role notification');
+    if (!notificationChannel || !notificationChannel.send) {
+      console.warn('No suitable text channel found for role notification');
       return;
     }
 
