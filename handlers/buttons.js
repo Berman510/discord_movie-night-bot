@@ -129,6 +129,12 @@ async function handleButton(interaction) {
       return;
     }
 
+    // Cancel session confirmation
+    if (customId.startsWith('confirm_cancel_session:') || customId === 'cancel_cancel_session') {
+      await handleCancelSessionConfirmation(interaction);
+      return;
+    }
+
     // Create recommendation button
     if (customId === 'create_recommendation') {
       await handleCreateRecommendation(interaction);
@@ -1223,6 +1229,8 @@ async function handlePickWinner(interaction, guildId, movieId) {
   const { EmbedBuilder } = require('discord.js');
 
   try {
+    // Defer the interaction immediately to prevent timeout
+    await interaction.deferReply({ ephemeral: true });
     // Get the movie - first try by message ID, then by finding from the interaction message
     let movie = await database.getMovieByMessageId(movieId);
 
@@ -1240,9 +1248,8 @@ async function handlePickWinner(interaction, guildId, movieId) {
     }
 
     if (!movie) {
-      await interaction.reply({
-        content: '❌ Movie not found. Please try syncing the channels first.',
-        flags: MessageFlags.Ephemeral
+      await interaction.editReply({
+        content: '❌ Movie not found. Please try syncing the channels first.'
       });
       return;
     }
@@ -1425,19 +1432,24 @@ async function handlePickWinner(interaction, guildId, movieId) {
       }
     }
 
-    await interaction.reply({
-      content: `🏆 **${movie.title}** has been selected as the winner! Announcement posted and channels cleared.`,
-      flags: MessageFlags.Ephemeral
+    await interaction.editReply({
+      content: `🏆 **${movie.title}** has been selected as the winner! Announcement posted and channels cleared.`
     });
 
     console.log(`🏆 Movie ${movie.title} picked as winner by ${interaction.user.tag}`);
 
   } catch (error) {
     console.error('Error picking winner:', error);
-    await interaction.reply({
-      content: '❌ Failed to pick winner.',
-      flags: MessageFlags.Ephemeral
-    });
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: '❌ Failed to pick winner.',
+        flags: MessageFlags.Ephemeral
+      });
+    } else {
+      await interaction.editReply({
+        content: '❌ Failed to pick winner.'
+      });
+    }
   }
 }
 
@@ -1773,6 +1785,149 @@ async function handleRescheduleSession(interaction) {
       content: '❌ An error occurred while processing the reschedule request.',
       flags: MessageFlags.Ephemeral
     });
+  }
+}
+
+/**
+ * Handle cancel session confirmation
+ */
+async function handleCancelSessionConfirmation(interaction) {
+  const database = require('../database');
+  const customId = interaction.customId;
+
+  try {
+    if (customId === 'cancel_cancel_session') {
+      await interaction.update({
+        content: '✅ Session cancellation cancelled.',
+        embeds: [],
+        components: []
+      });
+      return;
+    }
+
+    // Extract session ID from customId
+    const sessionId = customId.split(':')[1];
+
+    await interaction.deferUpdate();
+
+    // Get the session
+    const session = await database.getVotingSessionById(sessionId);
+    if (!session) {
+      await interaction.editReply({
+        content: '❌ Session not found.',
+        embeds: [],
+        components: []
+      });
+      return;
+    }
+
+    // Delete Discord event if it exists
+    if (session.discord_event_id) {
+      try {
+        const guild = interaction.guild;
+        const event = await guild.scheduledEvents.fetch(session.discord_event_id);
+        if (event) {
+          await event.delete();
+          console.log(`🗑️ Deleted Discord event: ${event.name} (${session.discord_event_id})`);
+        }
+      } catch (error) {
+        console.warn('Error deleting Discord event:', error.message);
+      }
+    }
+
+    // Delete the session and all associated data
+    await database.deleteVotingSession(sessionId);
+
+    // Clear voting channel
+    const config = await database.getGuildConfig(interaction.guild.id);
+    if (config && config.movie_channel_id) {
+      try {
+        const votingChannel = await interaction.client.channels.fetch(config.movie_channel_id);
+        if (votingChannel) {
+          // Clear all bot messages
+          const messages = await votingChannel.messages.fetch({ limit: 100 });
+          const botMessages = messages.filter(msg => msg.author.id === interaction.client.user.id);
+
+          for (const [messageId, message] of botMessages) {
+            try {
+              await message.delete();
+            } catch (error) {
+              console.warn(`Failed to delete message ${messageId}:`, error.message);
+            }
+          }
+
+          // Clear threads
+          const threads = await votingChannel.threads.fetchActive();
+          for (const [threadId, thread] of threads.threads) {
+            try {
+              await thread.delete();
+            } catch (error) {
+              console.warn(`Failed to delete thread ${threadId}:`, error.message);
+            }
+          }
+
+          // Add no session message
+          const cleanup = require('../services/cleanup');
+          await cleanup.ensureQuickActionAtBottom(votingChannel);
+        }
+      } catch (error) {
+        console.warn('Error clearing voting channel:', error.message);
+      }
+    }
+
+    // Clear admin channel (except control panel)
+    if (config && config.admin_channel_id) {
+      try {
+        const adminChannel = await interaction.client.channels.fetch(config.admin_channel_id);
+        if (adminChannel) {
+          const messages = await adminChannel.messages.fetch({ limit: 100 });
+          const botMessages = messages.filter(msg => msg.author.id === interaction.client.user.id);
+
+          for (const [messageId, message] of botMessages) {
+            try {
+              const isControlPanel = message.embeds.length > 0 &&
+                                    message.embeds[0].title &&
+                                    message.embeds[0].title.includes('Admin Control Panel');
+
+              if (!isControlPanel) {
+                await message.delete();
+              }
+            } catch (error) {
+              console.warn(`Failed to delete admin message ${messageId}:`, error.message);
+            }
+          }
+
+          // Refresh admin control panel
+          const adminControls = require('../services/admin-controls');
+          await adminControls.ensureAdminControlPanel(interaction.client, interaction.guild.id);
+        }
+      } catch (error) {
+        console.warn('Error clearing admin channel:', error.message);
+      }
+    }
+
+    await interaction.editReply({
+      content: `✅ **Session cancelled successfully!**\n\n🗑️ **${session.name}** has been cancelled and all associated data has been cleared.`,
+      embeds: [],
+      components: []
+    });
+
+    console.log(`❌ Session ${session.name} cancelled by ${interaction.user.tag}`);
+
+  } catch (error) {
+    console.error('Error handling cancel session confirmation:', error);
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: '❌ An error occurred while cancelling the session.',
+        flags: MessageFlags.Ephemeral
+      });
+    } else {
+      await interaction.editReply({
+        content: '❌ An error occurred while cancelling the session.',
+        embeds: [],
+        components: []
+      });
+    }
   }
 }
 

@@ -233,10 +233,12 @@ async function createVotingSession(interaction, state) {
 
       const event = await discordEvents.createDiscordEvent(interaction.guild, eventData, state.sessionDateTime);
 
-      if (event) {
+      if (event && event.id) {
         // Update session with Discord event ID
         await database.updateVotingSessionEventId(sessionId, event.id);
         console.log(`📅 Created Discord event: ${event.name} (${event.id})`);
+      } else {
+        console.warn('Discord event created but no ID returned');
       }
     } catch (error) {
       console.warn('Error creating Discord event for voting session:', error.message);
@@ -285,8 +287,18 @@ async function createVotingSession(interaction, state) {
           await cleanup.ensureQuickActionAtBottom(votingChannel);
         }
       }
+
+      // Refresh admin control panel to show session management buttons
+      if (config && config.admin_channel_id) {
+        try {
+          const adminControls = require('./admin-controls');
+          await adminControls.ensureAdminControlPanel(interaction.client, interaction.guild.id);
+        } catch (error) {
+          console.warn('Error refreshing admin control panel:', error.message);
+        }
+      }
     } catch (error) {
-      console.warn('Error updating voting channel after session creation:', error.message);
+      console.warn('Error updating channels after session creation:', error.message);
     }
 
     console.log(`🎬 Voting session created: ${state.sessionName} by ${interaction.user.tag}`);

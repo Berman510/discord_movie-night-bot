@@ -1255,6 +1255,50 @@ class Database {
     }
   }
 
+  async getVotingSessionById(sessionId) {
+    if (!this.isConnected) return null;
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT * FROM movie_sessions WHERE id = ?`,
+        [sessionId]
+      );
+      return rows.length > 0 ? rows[0] : null;
+    } catch (error) {
+      console.error('Error getting voting session by ID:', error.message);
+      return null;
+    }
+  }
+
+  async deleteVotingSession(sessionId) {
+    if (!this.isConnected) return false;
+
+    try {
+      // Delete associated movies first
+      await this.pool.execute(
+        `DELETE FROM movies WHERE session_id = ?`,
+        [sessionId]
+      );
+
+      // Delete votes for movies in this session
+      await this.pool.execute(
+        `DELETE FROM votes WHERE message_id IN (SELECT message_id FROM movies WHERE session_id = ?)`,
+        [sessionId]
+      );
+
+      // Delete the session
+      await this.pool.execute(
+        `DELETE FROM movie_sessions WHERE id = ?`,
+        [sessionId]
+      );
+
+      return true;
+    } catch (error) {
+      console.error('Error deleting voting session:', error.message);
+      return false;
+    }
+  }
+
   async getMoviesForVotingSession(sessionId) {
     if (!this.isConnected) return [];
 

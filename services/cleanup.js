@@ -400,7 +400,9 @@ async function cleanupOldGuideMessages(channel) {
       const isGuideMessage = message.embeds.length > 0 &&
                             message.embeds[0].title &&
                             (message.embeds[0].title.includes('Quick Guide') ||
-                             message.embeds[0].title.includes('Ready to recommend'));
+                             message.embeds[0].title.includes('Ready to recommend') ||
+                             message.embeds[0].title.includes('Movie Night') ||
+                             message.embeds[0].title.includes('No Active Voting Session'));
 
       if (isGuideMessage) {
         try {
