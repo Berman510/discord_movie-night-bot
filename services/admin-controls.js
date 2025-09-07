@@ -62,6 +62,105 @@ async function createAdminControlEmbed(guildName, guildId) {
 }
 
 /**
+ * Try to show setup panel in admin channels when no configuration exists
+ */
+async function tryShowSetupPanelInAdminChannels(client, guildId) {
+  try {
+    const guild = await client.guilds.fetch(guildId);
+    if (!guild) return null;
+
+    // Look for channels where bot has admin permissions (likely admin channels)
+    const channels = guild.channels.cache.filter(channel =>
+      channel.isTextBased() &&
+      channel.permissionsFor(client.user)?.has(['ViewChannel', 'SendMessages', 'EmbedLinks'])
+    );
+
+    // Try to find a channel with "admin" in the name first
+    let adminChannel = channels.find(channel =>
+      channel.name.toLowerCase().includes('admin') ||
+      channel.name.toLowerCase().includes('mod') ||
+      channel.name.toLowerCase().includes('staff')
+    );
+
+    // If no admin-named channel, use the first available channel
+    if (!adminChannel) {
+      adminChannel = channels.first();
+    }
+
+    if (!adminChannel) {
+      console.log('No suitable admin channel found for setup panel');
+      return null;
+    }
+
+    // Create setup panel embed
+    const guidedSetup = require('./guided-setup');
+    const embed = new EmbedBuilder()
+      .setTitle('🎬 Movie Night Bot - Setup Required')
+      .setDescription(`**Configuration Cleared**\n\nThe bot configuration has been cleared. Please complete setup to use Movie Night Bot.`)
+      .setColor(0xffa500)
+      .addFields(
+        {
+          name: '🚀 Quick Setup',
+          value: 'Use the button below to start the guided setup process.',
+          inline: false
+        },
+        {
+          name: '⚙️ Manual Setup',
+          value: 'Or use `/movie-setup` command for step-by-step configuration.',
+          inline: false
+        }
+      )
+      .setFooter({ text: 'Setup required before using Movie Night features' });
+
+    const components = [
+      new ActionRowBuilder()
+        .addComponents(
+          new ButtonBuilder()
+            .setCustomId('start_guided_setup')
+            .setLabel('🚀 Start Setup')
+            .setStyle(ButtonStyle.Primary)
+        )
+    ];
+
+    // Check for existing setup panel
+    const messages = await adminChannel.messages.fetch({ limit: 50 });
+    const existingSetupPanel = messages.find(msg =>
+      msg.author.id === client.user.id &&
+      msg.embeds.length > 0 &&
+      msg.embeds[0].title &&
+      msg.embeds[0].title.includes('Setup Required')
+    );
+
+    if (existingSetupPanel) {
+      await existingSetupPanel.edit({
+        embeds: [embed],
+        components: components
+      });
+      console.log('🔧 Updated setup panel in admin channel');
+      return existingSetupPanel;
+    } else {
+      const setupPanel = await adminChannel.send({
+        embeds: [embed],
+        components: components
+      });
+
+      try {
+        await setupPanel.pin();
+        console.log('🔧 Created and pinned setup panel in admin channel');
+      } catch (pinError) {
+        console.log('🔧 Created setup panel in admin channel (not pinned)');
+      }
+
+      return setupPanel;
+    }
+
+  } catch (error) {
+    console.error('Error showing setup panel in admin channels:', error);
+    return null;
+  }
+}
+
+/**
  * Create admin control action buttons
  */
 async function createAdminControlButtons(guildId = null) {
@@ -189,7 +288,14 @@ async function checkIfVotingChannelIsForum(guildId) {
 async function ensureAdminControlPanel(client, guildId) {
   try {
     const config = await database.getGuildConfig(guildId);
-    if (!config || !config.admin_channel_id) {
+
+    // If no configuration exists, try to show setup panel in any admin channel
+    if (!config) {
+      console.log('No configuration found for guild:', guildId);
+      return await tryShowSetupPanelInAdminChannels(client, guildId);
+    }
+
+    if (!config.admin_channel_id) {
       console.log('No admin channel configured for guild:', guildId);
       return null;
     }

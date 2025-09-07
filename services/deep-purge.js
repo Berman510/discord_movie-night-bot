@@ -321,9 +321,8 @@ async function executeDeepPurge(guildId, categories, reason = null, client = nul
               }
             }
 
-            // Add appropriate message based on remaining session state
-            const cleanup = require('./cleanup');
-            await cleanup.ensureQuickActionAtBottom(votingChannel);
+            // Don't add any messages - configuration was cleared
+            console.log('✅ Voting channel cleared, no messages added (configuration cleared)');
           }
         } catch (error) {
           console.warn('Error clearing voting channel during deep purge:', error.message);
@@ -352,7 +351,7 @@ async function executeDeepPurge(guildId, categories, reason = null, client = nul
               }
             }
 
-            // Ensure admin control panel is at bottom
+            // Update admin panel - will show setup panel if config was cleared
             const adminControls = require('./admin-controls');
             await adminControls.ensureAdminControlPanel(client, guildId);
           }

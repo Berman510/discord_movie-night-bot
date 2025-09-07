@@ -343,8 +343,16 @@ async function recreateScheduledMovieAtBottom(message, movie, channel) {
 async function ensureQuickActionPinned(channel) {
   // Ensure there's a pinned quick action message for movie recommendations
   try {
-    // Check if there's an active voting session
     const database = require('../database');
+
+    // Check if guild has configuration - don't add messages if no config
+    const config = await database.getGuildConfig(channel.guild.id);
+    if (!config) {
+      console.log('No guild configuration found, skipping quick action message');
+      return;
+    }
+
+    // Check if there's an active voting session
     const activeSession = await database.getActiveVotingSession(channel.guild.id);
 
     // Find existing pinned quick action message
@@ -419,10 +427,18 @@ async function ensureQuickActionPinned(channel) {
 async function ensureQuickActionAtBottom(channel) {
   // Fallback method: Clean up old guide/action messages and ensure only one quick action message at bottom
   try {
+    const database = require('../database');
+
+    // Check if guild has configuration - don't add messages if no config
+    const config = await database.getGuildConfig(channel.guild.id);
+    if (!config) {
+      console.log('No guild configuration found, skipping quick action message');
+      return;
+    }
+
     await cleanupOldGuideMessages(channel);
 
     // Check if there's an active voting session
-    const database = require('../database');
     const activeSession = await database.getActiveVotingSession(channel.guild.id);
 
     if (!activeSession) {
