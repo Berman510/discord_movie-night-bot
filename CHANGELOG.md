@@ -3,9 +3,12 @@
 All notable changes to **Movie Night Bot** will be documented in this file.
 
 ## [1.13.0] - 2025-09-07
-### 🎯 Major Release: Interactive Setup & Global Command Registration
+### 🎯 Major Release: Forum Channels, Safety Features & Professional Logging
 
 ### Added
+- **📋 Forum Channel Support**: Full support for Discord forum channels as voting channels
+- **🔒 Deep Purge Safety**: Submit button prevents accidental data deletion operations
+- **📊 Professional Logging**: Configurable log levels (ERROR/WARN/INFO/DEBUG) with colored output
 - **🎬 Interactive Guided Setup**: New `/movie-setup` command with ephemeral-based configuration flow
 - **🌍 Global Command Registration**: Commands now register globally for all servers automatically
 - **⚡ Instant Guild Setup**: Commands register immediately when bot joins new servers
@@ -15,23 +18,41 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **🎯 Bot Discovery Ready**: Streamlined setup perfect for bot discovery website reviews
 
 ### Enhanced
+- **📋 Forum Integration**: Movies post as forum threads with voting buttons and discussion
+- **🔒 Safety Improvements**: Two-step confirmation for dangerous operations with explicit submit buttons
+- **📊 Environment Logging**: LOG_LEVEL, DEBUG_LOGGING, LOG_COLORS environment variables
 - **⚙️ Setup Experience**: Visual progress indicators, navigation buttons, and clear instructions
-- **🔄 Role Naming**: Clarified "Viewer Role" vs "Admin Roles" vs "Movie Night Bot Role"
+- **🔄 Role Naming**: Dynamic bot role name display instead of hardcoded "Movie Night Bot"
 - **📝 Command Structure**: Consolidated setup commands into single intuitive interface
 - **🎪 Voice Monitoring**: Only logs activity in configured session viewing channels
 - **🔧 Configuration Labels**: "set-voting-channel" instead of generic "set-channel"
 
 ### Fixed
+- **🎬 IMDb Data Display**: Movie information now shows immediately on creation (not after first vote)
+- **📋 Forum Channel Selection**: Forum channels now appear in guided setup channel selector
+- **🔧 Discord.js Compatibility**: Fixed deprecated fetchPinned() → fetchPins() and isForumChannel() issues
+- **🔄 Admin Panel Duplication**: Robust message detection prevents multiple admin control panels
 - **🧹 Ephemeral Message Persistence**: All ephemeral messages now auto-cleanup properly
 - **⚡ Command Registration**: No more GUILD_ID requirement for production deployments
 - **🎯 Setup Button Conflicts**: Removed old setup guide handlers causing button failures
 - **📋 Voice Channel Logging**: Eliminated irrelevant voice state change logs
+- **🔧 Function Import Errors**: Fixed multiple "function is not a function" errors in button handlers
 
 ### Technical
-- **🔄 Hybrid Registration**: Global + guild-specific registration for best user experience
+- **� Forum Channel Architecture**: Complete forum post creation, voting, and discussion system
+- **🔒 Safety Architecture**: Two-step confirmation system with global state management
+- **📊 Logging Infrastructure**: Professional logging utility with environment-based configuration
+- **�🔄 Hybrid Registration**: Global + guild-specific registration for best user experience
 - **💾 Memory Management**: Ephemeral messages tracked in memory only (no database bloat)
 - **🎪 Event Handlers**: Added guildCreate/guildDelete handlers for automatic setup
 - **📋 Documentation**: Updated README and .env.example for new registration system
+- **🔧 Discord.js Updates**: Compatibility improvements for newer Discord.js versions
+
+### Environment Variables
+- **LOG_LEVEL**: Set logging verbosity (ERROR/WARN/INFO/DEBUG, default: INFO)
+- **DEBUG_LOGGING**: Force debug mode regardless of LOG_LEVEL (true/false, default: false)
+- **LOG_COLORS**: Enable colored console output (true/false, default: true)
+- **GUILD_ID**: Now optional - only needed for instant development command testing
 
 ## [1.12.1] - 2025-09-07
 ### 🎉 Major Release: Enhanced Administration & Automatic Voting System
