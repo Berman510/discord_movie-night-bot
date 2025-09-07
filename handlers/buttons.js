@@ -1728,6 +1728,9 @@ async function handleAdminControlButtons(interaction, customId) {
       case 'admin_ctrl_refresh':
         await adminControls.handleRefreshPanel(interaction);
         break;
+      case 'admin_ctrl_populate_forum':
+        await handlePopulateForumChannel(interaction);
+        break;
       case 'admin_ctrl_cancel_session':
         await handleCancelSession(interaction);
         break;
@@ -1745,6 +1748,38 @@ async function handleAdminControlButtons(interaction, customId) {
     await interaction.reply({
       content: '❌ An error occurred while processing the admin control action.',
       flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+/**
+ * Handle populate forum channel button
+ */
+async function handlePopulateForumChannel(interaction) {
+  try {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+    const adminControls = require('../services/admin-controls');
+    const result = await adminControls.populateForumChannel(interaction.client, interaction.guild.id);
+
+    if (result.error) {
+      await interaction.editReply({
+        content: `❌ **Failed to populate forum channel**\n\n${result.error}`
+      });
+    } else if (result.populated === 0) {
+      await interaction.editReply({
+        content: '📋 **Forum channel is up to date**\n\nNo new forum posts needed to be created.'
+      });
+    } else {
+      await interaction.editReply({
+        content: `✅ **Forum channel populated successfully**\n\n📝 Created ${result.populated} forum posts for active movies.`
+      });
+    }
+
+  } catch (error) {
+    console.error('Error handling populate forum channel:', error);
+    await interaction.editReply({
+      content: '❌ Error populating forum channel.'
     });
   }
 }

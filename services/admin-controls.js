@@ -105,6 +105,10 @@ async function createAdminControlButtons(guildId = null) {
   const row3 = new ActionRowBuilder()
     .addComponents(
       new ButtonBuilder()
+        .setCustomId('admin_ctrl_populate_forum')
+        .setLabel('📋 Populate Forum')
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
         .setCustomId('admin_ctrl_refresh')
         .setLabel('🔄 Refresh Panel')
         .setStyle(ButtonStyle.Secondary)
@@ -615,6 +619,74 @@ async function syncForumMoviePost(forumChannel, movie) {
   }
 }
 
+/**
+ * Populate forum channel with existing active movies
+ */
+async function populateForumChannel(client, guildId) {
+  try {
+    const database = require('../database');
+    const config = await database.getGuildConfig(guildId);
+
+    if (!config || !config.movie_channel_id) {
+      console.log('No movie channel configured');
+      return { populated: 0, error: 'No movie channel configured' };
+    }
+
+    const votingChannel = await client.channels.fetch(config.movie_channel_id);
+    if (!votingChannel) {
+      return { populated: 0, error: 'Movie channel not found' };
+    }
+
+    const forumChannels = require('./forum-channels');
+    if (!forumChannels.isForumChannel(votingChannel)) {
+      return { populated: 0, error: 'Channel is not a forum channel' };
+    }
+
+    // Get all active movies that should be in the forum
+    const activeSession = await database.getActiveVotingSession(guildId);
+    if (!activeSession) {
+      return { populated: 0, error: 'No active voting session' };
+    }
+
+    const movies = await database.getMoviesByStatusExcludingCarryover(guildId, 'pending', 50);
+    let populatedCount = 0;
+
+    console.log(`📋 Found ${movies.length} active movies to populate in forum channel`);
+
+    for (const movie of movies) {
+      try {
+        // Check if forum post already exists
+        let existingThread = null;
+        if (movie.thread_id) {
+          try {
+            existingThread = await votingChannel.threads.fetch(movie.thread_id);
+          } catch (error) {
+            console.log(`Forum thread ${movie.thread_id} not found for ${movie.title}`);
+          }
+        }
+
+        if (!existingThread) {
+          // Create new forum post for this movie
+          await syncForumMoviePost(votingChannel, movie);
+          populatedCount++;
+          console.log(`📝 Created forum post for: ${movie.title}`);
+        } else {
+          console.log(`📝 Forum post already exists for: ${movie.title}`);
+        }
+
+      } catch (error) {
+        console.warn(`Failed to populate forum post for ${movie.title}:`, error.message);
+      }
+    }
+
+    return { populated: populatedCount, error: null };
+
+  } catch (error) {
+    console.error('Error populating forum channel:', error);
+    return { populated: 0, error: error.message };
+  }
+}
+
 module.exports = {
   createAdminControlEmbed,
   createAdminControlButtons,
@@ -625,5 +697,6 @@ module.exports = {
   handleGuildStats,
   handleBannedMoviesList,
   handleRefreshPanel,
-  syncForumMoviePost
+  syncForumMoviePost,
+  populateForumChannel
 };
