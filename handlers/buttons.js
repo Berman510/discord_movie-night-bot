@@ -16,6 +16,7 @@
 
 const { MessageFlags } = require('discord.js');
 const ephemeralManager = require('../utils/ephemeral-manager');
+const configCheck = require('../utils/config-check');
 const database = require('../database');
 const { sessions } = require('../services');
 const { permissions } = require('../services');
@@ -139,6 +140,12 @@ async function handleButton(interaction) {
     // Create recommendation button
     if (customId === 'create_recommendation') {
       await handleCreateRecommendation(interaction);
+      return;
+    }
+
+    // Configuration button
+    if (customId === 'open_configuration') {
+      await configCheck.handleConfigurationButton(interaction);
       return;
     }
 
@@ -747,10 +754,7 @@ async function createMovieWithoutImdb(interaction, title, where) {
     console.error('Error creating movie without IMDb:', error);
     try {
       if (interaction.replied || interaction.deferred) {
-        await interaction.followUp({
-          content: '❌ Error creating movie recommendation.',
-          flags: MessageFlags.Ephemeral
-        });
+        await ephemeralManager.sendEphemeral(interaction, '❌ Error creating movie recommendation.');
       } else {
         await interaction.update({
           content: '❌ Error creating movie recommendation.',
@@ -821,10 +825,7 @@ async function createMovieWithImdb(interaction, title, where, imdbData) {
     console.error('Error creating movie with IMDb:', error);
     try {
       if (interaction.replied || interaction.deferred) {
-        await interaction.followUp({
-          content: '❌ Error creating movie recommendation.',
-          flags: MessageFlags.Ephemeral
-        });
+        await ephemeralManager.sendEphemeral(interaction, '❌ Error creating movie recommendation.');
       } else {
         await interaction.update({
           content: '❌ Error creating movie recommendation.',

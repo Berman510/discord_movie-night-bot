@@ -287,10 +287,7 @@ async function createMovieWithoutImdb(interaction, title, where) {
       ? `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added as a new forum post in ${movieChannel} for voting and discussion.`
       : `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added to the queue in ${movieChannel} for voting.`;
 
-    await interaction.reply({
-      content: successMessage,
-      flags: MessageFlags.Ephemeral
-    });
+    await ephemeralManager.sendEphemeral(interaction, successMessage);
 
   } catch (error) {
     console.error('🔍 DEBUG: Error in createMovieWithoutImdb:', error);

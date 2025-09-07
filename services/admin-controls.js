@@ -52,7 +52,11 @@ async function createAdminControlButtons(guildId = null) {
       new ButtonBuilder()
         .setCustomId('admin_ctrl_stats')
         .setLabel('📊 Guild Stats')
-        .setStyle(ButtonStyle.Success)
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId('open_configuration')
+        .setLabel('⚙️ Configure')
+        .setStyle(ButtonStyle.Primary)
     );
 
   const row2 = new ActionRowBuilder();
