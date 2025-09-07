@@ -1367,6 +1367,21 @@ class Database {
     }
   }
 
+  async getVotesByMessageId(messageId) {
+    if (!this.isConnected) return [];
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT * FROM votes WHERE message_id = ?`,
+        [messageId]
+      );
+      return rows;
+    } catch (error) {
+      console.error('Error getting votes by message ID:', error.message);
+      return [];
+    }
+  }
+
   async getMoviesForVotingSession(sessionId) {
     if (!this.isConnected) return [];
 
