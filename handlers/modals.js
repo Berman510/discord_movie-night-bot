@@ -218,13 +218,30 @@ async function createMovieWithoutImdb(interaction, title, where) {
   const movieCreation = require('../services/movie-creation');
   const database = require('../database');
 
+  console.log(`🔍 DEBUG: createMovieWithoutImdb called with:`, {
+    title,
+    where,
+    guildId: interaction.guild.id,
+    userId: interaction.user.id,
+    channelId: interaction.channel?.id
+  });
+
   try {
     // Create movie using the new unified service
+    console.log(`🔍 DEBUG: About to call movieCreation.createMovieRecommendation`);
     const result = await movieCreation.createMovieRecommendation(interaction, {
       title,
       where,
       imdbId: null,
       imdbData: null
+    });
+
+    console.log(`🔍 DEBUG: movieCreation.createMovieRecommendation result:`, {
+      hasMessage: !!result.message,
+      hasThread: !!result.thread,
+      movieId: result.movieId,
+      messageId: result.message?.id,
+      threadId: result.thread?.id
     });
 
     const { message, thread, movieId } = result;
@@ -268,9 +285,10 @@ async function createMovieWithoutImdb(interaction, title, where) {
     });
 
   } catch (error) {
-    console.error('Error creating movie without IMDB:', error);
+    console.error('🔍 DEBUG: Error in createMovieWithoutImdb:', error);
+    console.error('🔍 DEBUG: Error stack:', error.stack);
     await interaction.reply({
-      content: '❌ Failed to create movie recommendation. Please try again.',
+      content: `❌ Failed to create movie recommendation: ${error.message}`,
       flags: MessageFlags.Ephemeral
     });
   }

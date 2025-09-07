@@ -18,9 +18,10 @@ async function createMovieRecommendation(interaction, movieData) {
     const database = require('../database');
     const config = await database.getGuildConfig(interaction.guild.id);
 
-    console.log(`🔍 DEBUG: Guild config for ${interaction.guild.id}:`, config);
+    console.log(`🔍 DEBUG: Guild config for ${interaction.guild.id}:`, JSON.stringify(config, null, 2));
 
     if (!config || !config.movie_channel_id) {
+      console.log(`🔍 DEBUG: No movie channel configured. Config:`, config);
       throw new Error('No movie channel configured for this guild. Use /movie-configure set-channel to set one.');
     }
 
