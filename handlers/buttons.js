@@ -15,6 +15,7 @@
  */
 
 const { MessageFlags } = require('discord.js');
+const ephemeralManager = require('../utils/ephemeral-manager');
 const database = require('../database');
 const { sessions } = require('../services');
 const { permissions } = require('../services');
@@ -608,10 +609,9 @@ async function handleCreateRecommendation(interaction) {
   const activeSession = await database.getActiveVotingSession(interaction.guild.id);
 
   if (!activeSession) {
-    await interaction.reply({
-      content: '❌ **No active voting session**\n\nMovie recommendations are only available during active voting sessions. An admin needs to use the "Plan Next Session" button in the admin channel to start a new voting session.',
-      flags: MessageFlags.Ephemeral
-    });
+    await ephemeralManager.sendEphemeral(interaction,
+      '❌ **No active voting session**\n\nMovie recommendations are only available during active voting sessions. An admin needs to use the "Plan Next Session" button in the admin channel to start a new voting session.'
+    );
     return;
   }
 
@@ -657,10 +657,9 @@ async function handleImdbSelection(interaction) {
     // Retrieve the stored data
     const data = pendingPayloads.get(dataKey);
     if (!data) {
-      await interaction.followUp({
-        content: '❌ Selection expired. Please try creating the recommendation again.',
-        flags: MessageFlags.Ephemeral
-      });
+      await ephemeralManager.sendEphemeral(interaction,
+        '❌ Selection expired. Please try creating the recommendation again.'
+      );
       return;
     }
 
@@ -742,19 +741,7 @@ async function createMovieWithoutImdb(interaction, title, where) {
       ? `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added as a new forum post in ${movieChannel} for voting and discussion.`
       : `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added to the queue in ${movieChannel} for voting.`;
 
-    await interaction.followUp({
-      content: successMessage,
-      flags: MessageFlags.Ephemeral
-    });
-
-    // Clean up the original ephemeral message after a delay
-    setTimeout(async () => {
-      try {
-        await interaction.deleteReply();
-      } catch (error) {
-        // Ignore errors - message might already be dismissed
-      }
-    }, 5000); // 5 seconds
+    await ephemeralManager.sendEphemeral(interaction, successMessage);
 
   } catch (error) {
     console.error('Error creating movie without IMDb:', error);
@@ -828,19 +815,7 @@ async function createMovieWithImdb(interaction, title, where, imdbData) {
       ? `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added as a new forum post in ${movieChannel} for voting and discussion.`
       : `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added to the queue in ${movieChannel} for voting.`;
 
-    await interaction.followUp({
-      content: successMessage,
-      flags: MessageFlags.Ephemeral
-    });
-
-    // Clean up the original ephemeral message after a delay
-    setTimeout(async () => {
-      try {
-        await interaction.deleteReply();
-      } catch (error) {
-        // Ignore errors - message might already be dismissed
-      }
-    }, 5000); // 5 seconds
+    await ephemeralManager.sendEphemeral(interaction, successMessage);
 
   } catch (error) {
     console.error('Error creating movie with IMDb:', error);

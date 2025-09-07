@@ -4,6 +4,7 @@
  */
 
 const { MessageFlags } = require('discord.js');
+const ephemeralManager = require('../utils/ephemeral-manager');
 const { sessions } = require('../services');
 const { imdb } = require('../services');
 const cleanup = require('../services/cleanup');
@@ -208,10 +209,9 @@ async function showImdbSelection(interaction, title, where, imdbResults) {
       .setStyle(ButtonStyle.Secondary)
   );
 
-  await interaction.reply({
+  await ephemeralManager.sendEphemeral(interaction, '', {
     embeds: [embed],
-    components: [buttons],
-    flags: MessageFlags.Ephemeral
+    components: [buttons]
   });
 }
 
