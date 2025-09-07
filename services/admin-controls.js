@@ -9,28 +9,54 @@ const database = require('../database');
 /**
  * Create the admin control panel embed
  */
-function createAdminControlEmbed(guildName) {
+async function createAdminControlEmbed(guildName, guildId) {
   const embed = new EmbedBuilder()
     .setTitle('🔧 Movie Night Admin Control Panel')
     .setDescription(`Administrative controls for **${guildName}**`)
-    .setColor(0x5865f2)
-    .addFields(
-      {
-        name: '📋 Quick Actions',
-        value: `• **Sync** - Update admin channel with current movies
+    .setColor(0x5865f2);
+
+  // Get channel information
+  let channelInfo = 'Channel information not available';
+  try {
+    const config = await database.getGuildConfig(guildId);
+    if (config && config.movie_channel_id) {
+      const client = global.discordClient;
+      const channel = await client.channels.fetch(config.movie_channel_id).catch(() => null);
+      if (channel) {
+        const channelType = channel.isForumChannel() ? '📋 Forum Channel' : '💬 Text Channel';
+        channelInfo = `**Voting Channel:** ${channelType} <#${channel.id}>`;
+      } else {
+        channelInfo = '**Voting Channel:** ❌ Channel not found';
+      }
+    } else {
+      channelInfo = '**Voting Channel:** ❌ Not configured';
+    }
+  } catch (error) {
+    console.warn('Error getting channel info for admin panel:', error.message);
+  }
+
+  embed.addFields(
+    {
+      name: '📋 Quick Actions',
+      value: `• **Sync** - Update admin channel with current movies
 • **Purge** - Clear movie queue while preserving records
 • **Deep Purge** - Complete guild data removal (with confirmations)
 • **Stats** - View guild movie statistics`,
-        inline: false
-      },
-      {
-        name: '⚡ Status',
-        value: 'Control panel active and ready for use.',
-        inline: false
-      }
-    )
-    .setFooter({ text: 'Use the buttons below for quick admin actions' })
-    .setTimestamp();
+      inline: false
+    },
+    {
+      name: '⚙️ Configuration',
+      value: channelInfo,
+      inline: false
+    },
+    {
+      name: '⚡ Status',
+      value: 'Control panel active and ready for use.',
+      inline: false
+    }
+  )
+  .setFooter({ text: 'Use the buttons below for quick admin actions' })
+  .setTimestamp();
 
   return embed;
 }
@@ -106,19 +132,55 @@ async function createAdminControlButtons(guildId = null) {
     );
   }
 
-  const row3 = new ActionRowBuilder()
-    .addComponents(
+  // Create row3 with conditional forum button
+  const row3Components = [
+    new ButtonBuilder()
+      .setCustomId('admin_ctrl_refresh')
+      .setLabel('🔄 Refresh Panel')
+      .setStyle(ButtonStyle.Secondary)
+  ];
+
+  // Check if voting channel is a forum channel
+  const isForumChannel = await checkIfVotingChannelIsForum(guildId);
+  if (isForumChannel) {
+    row3Components.unshift(
       new ButtonBuilder()
         .setCustomId('admin_ctrl_populate_forum')
         .setLabel('📋 Populate Forum')
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId('admin_ctrl_refresh')
-        .setLabel('🔄 Refresh Panel')
-        .setStyle(ButtonStyle.Secondary)
+        .setStyle(ButtonStyle.Primary)
     );
+  }
+
+  const row3 = new ActionRowBuilder().addComponents(...row3Components);
 
   return [row1, row2, row3];
+}
+
+/**
+ * Check if the voting channel is a forum channel
+ */
+async function checkIfVotingChannelIsForum(guildId) {
+  if (!guildId) {
+    return false;
+  }
+
+  try {
+    const config = await database.getGuildConfig(guildId);
+    if (!config || !config.movie_channel_id) {
+      return false;
+    }
+
+    const client = global.discordClient;
+    if (!client) {
+      return false;
+    }
+
+    const channel = await client.channels.fetch(config.movie_channel_id).catch(() => null);
+    return channel && channel.isForumChannel();
+  } catch (error) {
+    console.warn('Error checking voting channel type:', error.message);
+    return false;
+  }
 }
 
 /**
@@ -153,7 +215,7 @@ async function ensureAdminControlPanel(client, guildId) {
       msg.embeds[0].title.includes('Admin Control Panel')
     );
 
-    const embed = createAdminControlEmbed(guild.name);
+    const embed = await createAdminControlEmbed(guild.name, guildId);
     const components = await createAdminControlButtons(guildId);
 
     if (existingPanel) {
@@ -546,7 +608,7 @@ async function handleBannedMoviesList(interaction) {
 async function handleRefreshPanel(interaction) {
   try {
     const guild = interaction.guild;
-    const embed = createAdminControlEmbed(guild.name);
+    const embed = await createAdminControlEmbed(guild.name, guild.id);
     const components = await createAdminControlButtons(guild.id);
 
     await interaction.update({

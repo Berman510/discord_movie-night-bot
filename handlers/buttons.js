@@ -1724,6 +1724,32 @@ async function handlePopulateForumChannel(interaction) {
   try {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
+    // Check if voting channel is actually a forum channel
+    const database = require('../database');
+    const config = await database.getGuildConfig(interaction.guild.id);
+
+    if (!config || !config.movie_channel_id) {
+      await interaction.editReply({
+        content: '❌ **No voting channel configured**\n\nPlease configure a voting channel first using `/movie-setup`.'
+      });
+      return;
+    }
+
+    const channel = await interaction.client.channels.fetch(config.movie_channel_id).catch(() => null);
+    if (!channel) {
+      await interaction.editReply({
+        content: '❌ **Voting channel not found**\n\nThe configured voting channel may have been deleted.'
+      });
+      return;
+    }
+
+    if (!channel.isForumChannel()) {
+      await interaction.editReply({
+        content: '❌ **Not a forum channel**\n\nThe "Populate Forum" feature is only available when your voting channel is a forum channel. Your current voting channel is a text channel.'
+      });
+      return;
+    }
+
     const adminControls = require('../services/admin-controls');
     const result = await adminControls.populateForumChannel(interaction.client, interaction.guild.id);
 
