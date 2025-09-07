@@ -121,15 +121,21 @@ class Database {
         guild_id VARCHAR(20) NOT NULL,
         channel_id VARCHAR(20) NOT NULL,
         title VARCHAR(255) NOT NULL,
+        movie_uid VARCHAR(64) NOT NULL,
         where_to_watch VARCHAR(255) NOT NULL,
         recommended_by VARCHAR(20) NOT NULL,
         imdb_id VARCHAR(20) NULL,
         imdb_data JSON NULL,
-        status ENUM('pending', 'watched', 'planned', 'skipped', 'scheduled') DEFAULT 'pending',
+        status ENUM('pending', 'watched', 'planned', 'skipped', 'scheduled', 'banned') DEFAULT 'pending',
+        session_id INT NULL,
+        is_banned BOOLEAN DEFAULT FALSE,
+        watch_count INT DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         watched_at TIMESTAMP NULL,
         INDEX idx_guild_status (guild_id, status),
-        INDEX idx_message_id (message_id)
+        INDEX idx_message_id (message_id),
+        INDEX idx_movie_uid (guild_id, movie_uid),
+        INDEX idx_banned (guild_id, is_banned)
       )`,
 
       // Votes table - stores all votes for movies
@@ -176,6 +182,7 @@ class Database {
         notification_role_id VARCHAR(20) NULL,
         default_timezone VARCHAR(50) DEFAULT 'UTC',
         session_viewing_channel_id VARCHAR(20) NULL,
+        admin_channel_id VARCHAR(20) NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )`,
@@ -507,10 +514,184 @@ class Database {
         console.error('❌ Failed to add guild_id columns (Migration 11):', error.message);
       }
 
+      // Migration 12: Add admin_channel_id column to guild_config table
+      try {
+        const [adminChannelColumns] = await this.pool.execute(`
+          SELECT COLUMN_NAME
+          FROM INFORMATION_SCHEMA.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'guild_config'
+        `);
+        const adminChannelColumnNames = adminChannelColumns.map(row => row.COLUMN_NAME);
+
+        if (!adminChannelColumnNames.includes('admin_channel_id')) {
+          await this.pool.execute(`
+            ALTER TABLE guild_config
+            ADD COLUMN admin_channel_id VARCHAR(20) NULL
+          `);
+          console.log('✅ Added admin_channel_id column to guild_config');
+        } else {
+          console.log('✅ admin_channel_id column already exists in guild_config');
+        }
+      } catch (error) {
+        console.error('❌ Failed to add admin_channel_id column (Migration 12):', error.message);
+      }
+
+      // Migration 13: Add movie UID system columns
+      try {
+        const [movieColumns] = await this.pool.execute(`
+          SELECT COLUMN_NAME
+          FROM INFORMATION_SCHEMA.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'movies'
+        `);
+        const movieColumnNames = movieColumns.map(row => row.COLUMN_NAME);
+
+        // Add movie_uid column
+        if (!movieColumnNames.includes('movie_uid')) {
+          await this.pool.execute(`
+            ALTER TABLE movies
+            ADD COLUMN movie_uid VARCHAR(64) NOT NULL DEFAULT ''
+          `);
+          console.log('✅ Added movie_uid column to movies');
+        }
+
+        // Add is_banned column
+        if (!movieColumnNames.includes('is_banned')) {
+          await this.pool.execute(`
+            ALTER TABLE movies
+            ADD COLUMN is_banned BOOLEAN DEFAULT FALSE
+          `);
+          console.log('✅ Added is_banned column to movies');
+        }
+
+        // Update status enum to include 'banned'
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movies
+            MODIFY COLUMN status ENUM('pending', 'watched', 'planned', 'skipped', 'scheduled', 'banned') DEFAULT 'pending'
+          `);
+          console.log('✅ Updated status enum to include banned');
+        } catch (error) {
+          console.warn('Migration 13 status enum warning:', error.message);
+        }
+
+        // Add indexes for new columns
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movies
+            ADD INDEX idx_movie_uid (guild_id, movie_uid)
+          `);
+          console.log('✅ Added movie_uid index');
+        } catch (error) {
+          if (!error.message.includes('Duplicate key name')) {
+            console.warn('Migration 13 movie_uid index warning:', error.message);
+          }
+        }
+
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movies
+            ADD INDEX idx_banned (guild_id, is_banned)
+          `);
+          console.log('✅ Added banned index');
+        } catch (error) {
+          if (!error.message.includes('Duplicate key name')) {
+            console.warn('Migration 13 banned index warning:', error.message);
+          }
+        }
+
+        // Populate movie_uid for existing movies
+        await this.pool.execute(`
+          UPDATE movies
+          SET movie_uid = SHA2(CONCAT(guild_id, ':', LOWER(TRIM(title))), 256)
+          WHERE movie_uid = '' OR movie_uid IS NULL
+        `);
+        console.log('✅ Populated movie_uid for existing movies');
+
+      } catch (error) {
+        console.error('❌ Failed to add movie UID system (Migration 13):', error.message);
+      }
+
+      // Migration 14: Add session_id to movies table for voting session tracking
+      try {
+        const [sessionColumns] = await this.pool.execute(`
+          SELECT COLUMN_NAME
+          FROM INFORMATION_SCHEMA.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'movies'
+          AND COLUMN_NAME = 'session_id'
+        `);
+
+        if (sessionColumns.length === 0) {
+          await this.pool.execute(`
+            ALTER TABLE movies
+            ADD COLUMN session_id INT NULL,
+            ADD INDEX idx_session_movies (guild_id, session_id)
+          `);
+          console.log('✅ Added session_id to movies table for voting session tracking');
+        }
+      } catch (error) {
+        console.warn('Migration 14 warning:', error.message);
+      }
+
+      // Migration 15: Add voting_end_time to movie_sessions
+      try {
+        const [votingEndColumns] = await this.pool.execute(`
+          SELECT COLUMN_NAME
+          FROM INFORMATION_SCHEMA.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'movie_sessions'
+          AND COLUMN_NAME = 'voting_end_time'
+        `);
+
+        if (votingEndColumns.length === 0) {
+          await this.pool.execute(`
+            ALTER TABLE movie_sessions
+            ADD COLUMN voting_end_time DATETIME NULL AFTER scheduled_date
+          `);
+          console.log('✅ Added voting_end_time column to movie_sessions');
+        } else {
+          console.log('✅ voting_end_time column already exists in movie_sessions');
+        }
+      } catch (error) {
+        console.error('Migration 15 error:', error.message);
+      }
+
+      // Migration 16: Add next_session flag to movies table
+      try {
+        const [nextSessionColumns] = await this.pool.execute(`
+          SELECT COLUMN_NAME
+          FROM INFORMATION_SCHEMA.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'movies'
+          AND COLUMN_NAME = 'next_session'
+        `);
+
+        if (nextSessionColumns.length === 0) {
+          await this.pool.execute(`
+            ALTER TABLE movies
+            ADD COLUMN next_session BOOLEAN DEFAULT FALSE AFTER session_id
+          `);
+          console.log('✅ Added next_session column to movies');
+        } else {
+          console.log('✅ next_session column already exists in movies');
+        }
+      } catch (error) {
+        console.error('Migration 16 error:', error.message);
+      }
+
       console.log('✅ Database migrations completed');
     } catch (error) {
       console.error('❌ Migration error:', error.message);
     }
+  }
+
+  // Movie UID generation
+  generateMovieUID(guildId, title) {
+    const crypto = require('crypto');
+    const normalizedTitle = title.toLowerCase().trim();
+    return crypto.createHash('sha256').update(`${guildId}:${normalizedTitle}`).digest('hex');
   }
 
   // Movie operations
@@ -519,17 +700,33 @@ class Database {
 
     if (this.useJsonFallback) {
       try {
+        const movieUID = this.generateMovieUID(movieData.guildId, movieData.title);
+
+        // Check if movie is banned in JSON data
+        const bannedMovie = this.data.movies.find(m =>
+          m.guild_id === movieData.guildId &&
+          m.movie_uid === movieUID &&
+          m.is_banned === true
+        );
+
+        if (bannedMovie) {
+          throw new Error('MOVIE_BANNED');
+        }
+
         const movie = {
           id: Date.now(), // Simple ID generation
           message_id: movieData.messageId,
           guild_id: movieData.guildId,
           channel_id: movieData.channelId,
           title: movieData.title,
+          movie_uid: movieUID,
           where_to_watch: movieData.whereToWatch,
           recommended_by: movieData.recommendedBy,
           imdb_id: movieData.imdbId || null,
           imdb_data: movieData.imdbData || null,
           status: 'pending',
+          is_banned: false,
+          watch_count: 0,
           created_at: new Date().toISOString(),
           watched_at: null
         };
@@ -544,18 +741,44 @@ class Database {
     }
 
     try {
+      // Generate movie UID
+      const movieUID = this.generateMovieUID(movieData.guildId, movieData.title);
+
+      // Check if this movie title is banned
+      const [bannedCheck] = await this.pool.execute(
+        `SELECT id FROM movies WHERE guild_id = ? AND movie_uid = ? AND is_banned = TRUE LIMIT 1`,
+        [movieData.guildId, movieUID]
+      );
+
+      if (bannedCheck.length > 0) {
+        throw new Error('MOVIE_BANNED');
+      }
+
+      // Check for active voting session and tag movie if one exists
+      let sessionId = null;
+      try {
+        const activeSession = await this.getActiveVotingSession(movieData.guildId);
+        if (activeSession) {
+          sessionId = activeSession.id;
+        }
+      } catch (error) {
+        console.warn('Error checking for active voting session:', error.message);
+      }
+
       const [result] = await this.pool.execute(
-        `INSERT INTO movies (message_id, guild_id, channel_id, title, where_to_watch, recommended_by, imdb_id, imdb_data)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO movies (message_id, guild_id, channel_id, title, movie_uid, where_to_watch, recommended_by, imdb_id, imdb_data, session_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           movieData.messageId,
           movieData.guildId,
           movieData.channelId,
           movieData.title,
+          movieUID,
           movieData.whereToWatch,
           movieData.recommendedBy,
           movieData.imdbId || null,
-          movieData.imdbData ? JSON.stringify(movieData.imdbData) : null
+          movieData.imdbData ? JSON.stringify(movieData.imdbData) : null,
+          sessionId
         ]
       );
       return result.insertId;
@@ -702,21 +925,42 @@ class Database {
   // Statistics and queries
   async getMoviesByStatus(guildId, status = 'pending', limit = 10) {
     if (!this.isConnected) return [];
-    
+
     try {
       const [rows] = await this.pool.execute(
-        `SELECT m.*, 
+        `SELECT m.*,
          (SELECT COUNT(*) FROM votes v WHERE v.message_id = m.message_id AND v.vote_type = 'up') as up_votes,
          (SELECT COUNT(*) FROM votes v WHERE v.message_id = m.message_id AND v.vote_type = 'down') as down_votes
-         FROM movies m 
-         WHERE m.guild_id = ? AND m.status = ? 
-         ORDER BY m.created_at DESC 
+         FROM movies m
+         WHERE m.guild_id = ? AND m.status = ?
+         ORDER BY m.created_at DESC
          LIMIT ?`,
         [guildId, status, limit]
       );
       return rows;
     } catch (error) {
       console.error('Error getting movies by status:', error.message);
+      return [];
+    }
+  }
+
+  async getMoviesByStatusExcludingCarryover(guildId, status = 'pending', limit = 10) {
+    if (!this.isConnected) return [];
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT m.*,
+         (SELECT COUNT(*) FROM votes v WHERE v.message_id = m.message_id AND v.vote_type = 'up') as up_votes,
+         (SELECT COUNT(*) FROM votes v WHERE v.message_id = m.message_id AND v.vote_type = 'down') as down_votes
+         FROM movies m
+         WHERE m.guild_id = ? AND m.status = ? AND (m.next_session IS NULL OR m.next_session = FALSE)
+         ORDER BY m.created_at DESC
+         LIMIT ?`,
+        [guildId, status, limit]
+      );
+      return rows;
+    } catch (error) {
+      console.error('Error getting movies by status excluding carryover:', error.message);
       return [];
     }
   }
@@ -1000,6 +1244,384 @@ class Database {
       return true;
     } catch (error) {
       console.error('Error updating session winner:', error.message);
+      return false;
+    }
+  }
+
+  // Voting session management methods
+  async getActiveVotingSession(guildId) {
+    if (!this.isConnected) return null;
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT * FROM movie_sessions
+         WHERE guild_id = ? AND status = 'voting'
+         ORDER BY created_at DESC
+         LIMIT 1`,
+        [guildId]
+      );
+      return rows.length > 0 ? rows[0] : null;
+    } catch (error) {
+      console.error('Error getting active voting session:', error.message);
+      return null;
+    }
+  }
+
+  async createVotingSession(sessionData) {
+    if (!this.isConnected) return null;
+
+    try {
+      const [result] = await this.pool.execute(
+        `INSERT INTO movie_sessions (guild_id, channel_id, name, description, scheduled_date, voting_end_time, timezone, status, discord_event_id, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'voting', ?, ?)`,
+        [
+          sessionData.guildId,
+          sessionData.channelId,
+          sessionData.name,
+          sessionData.description || null,
+          sessionData.scheduledDate || null,
+          sessionData.votingEndTime || null,
+          sessionData.timezone || 'UTC',
+          sessionData.discordEventId || null,
+          sessionData.createdBy
+        ]
+      );
+      return result.insertId;
+    } catch (error) {
+      console.error('Error creating voting session:', error.message);
+      return null;
+    }
+  }
+
+  async updateVotingSessionEventId(sessionId, eventId) {
+    if (!this.isConnected) return false;
+
+    try {
+      console.log(`🗄️ Database: Updating session ${sessionId} with event ID ${eventId}`);
+      const [result] = await this.pool.execute(
+        `UPDATE movie_sessions SET discord_event_id = ? WHERE id = ?`,
+        [eventId, sessionId]
+      );
+      console.log(`🗄️ Database: Update result - affected rows: ${result.affectedRows}`);
+      return result.affectedRows > 0;
+    } catch (error) {
+      console.error('Error updating voting session event ID:', error.message);
+      return false;
+    }
+  }
+
+  async getMoviesByGuild(guildId) {
+    if (!this.isConnected) return [];
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT * FROM movies WHERE guild_id = ? ORDER BY created_at DESC`,
+        [guildId]
+      );
+      return rows;
+    } catch (error) {
+      console.error('Error getting movies by guild:', error.message);
+      return [];
+    }
+  }
+
+  async getVotingSessionById(sessionId) {
+    if (!this.isConnected) return null;
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT * FROM movie_sessions WHERE id = ?`,
+        [sessionId]
+      );
+      return rows.length > 0 ? rows[0] : null;
+    } catch (error) {
+      console.error('Error getting voting session by ID:', error.message);
+      return null;
+    }
+  }
+
+  async deleteVotingSession(sessionId) {
+    if (!this.isConnected) return false;
+
+    try {
+      // Delete associated movies first
+      await this.pool.execute(
+        `DELETE FROM movies WHERE session_id = ?`,
+        [sessionId]
+      );
+
+      // Delete votes for movies in this session
+      await this.pool.execute(
+        `DELETE FROM votes WHERE message_id IN (SELECT message_id FROM movies WHERE session_id = ?)`,
+        [sessionId]
+      );
+
+      // Delete the session
+      await this.pool.execute(
+        `DELETE FROM movie_sessions WHERE id = ?`,
+        [sessionId]
+      );
+
+      return true;
+    } catch (error) {
+      console.error('Error deleting voting session:', error.message);
+      return false;
+    }
+  }
+
+  async getAllActiveVotingSessions() {
+    if (!this.isConnected) return [];
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT * FROM movie_sessions WHERE status = 'voting' ORDER BY scheduled_date ASC`
+      );
+      return rows;
+    } catch (error) {
+      console.error('Error getting all active voting sessions:', error.message);
+      return [];
+    }
+  }
+
+  async getMoviesBySession(sessionId) {
+    if (!this.isConnected) return [];
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT * FROM movies WHERE session_id = ? ORDER BY created_at DESC`,
+        [sessionId]
+      );
+      return rows;
+    } catch (error) {
+      console.error('Error getting movies by session:', error.message);
+      return [];
+    }
+  }
+
+  async updateVotingSessionStatus(sessionId, status) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `UPDATE movie_sessions SET status = ? WHERE id = ?`,
+        [status, sessionId]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error updating voting session status:', error.message);
+      return false;
+    }
+  }
+
+  async getVotesByMessageId(messageId) {
+    if (!this.isConnected) return [];
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT * FROM votes WHERE message_id = ?`,
+        [messageId]
+      );
+      return rows;
+    } catch (error) {
+      console.error('Error getting votes by message ID:', error.message);
+      return [];
+    }
+  }
+
+  async deleteMovie(messageId) {
+    if (!this.isConnected) return false;
+
+    try {
+      // Delete votes first
+      await this.pool.execute(
+        `DELETE FROM votes WHERE message_id = ?`,
+        [messageId]
+      );
+
+      // Delete the movie
+      await this.pool.execute(
+        `DELETE FROM movies WHERE message_id = ?`,
+        [messageId]
+      );
+
+      return true;
+    } catch (error) {
+      console.error('Error deleting movie:', error.message);
+      return false;
+    }
+  }
+
+  async markMoviesForNextSession(guildId, excludeWinnerId = null) {
+    if (!this.isConnected) return false;
+
+    try {
+      // Mark all non-winning movies from current session for next session
+      let query = `
+        UPDATE movies
+        SET next_session = TRUE, session_id = NULL, status = 'pending'
+        WHERE guild_id = ? AND status IN ('pending', 'planned')
+      `;
+      let params = [guildId];
+
+      if (excludeWinnerId) {
+        query += ` AND id != ?`;
+        params.push(excludeWinnerId);
+      }
+
+      await this.pool.execute(query, params);
+      console.log('✅ Marked non-winning movies for next session');
+      return true;
+    } catch (error) {
+      console.error('Error marking movies for next session:', error.message);
+      return false;
+    }
+  }
+
+  async getNextSessionMovies(guildId) {
+    if (!this.isConnected) return [];
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT * FROM movies WHERE guild_id = ? AND next_session = TRUE ORDER BY created_at ASC`,
+        [guildId]
+      );
+      return rows;
+    } catch (error) {
+      console.error('Error getting next session movies:', error.message);
+      return [];
+    }
+  }
+
+  async clearNextSessionFlag(guildId) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `UPDATE movies SET next_session = FALSE WHERE guild_id = ? AND next_session = TRUE`,
+        [guildId]
+      );
+      console.log('✅ Cleared next_session flags');
+      return true;
+    } catch (error) {
+      console.error('Error clearing next_session flags:', error.message);
+      return false;
+    }
+  }
+
+  async resetMovieVotes(movieId) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `DELETE FROM votes WHERE message_id = ?`,
+        [movieId]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error resetting movie votes:', error.message);
+      return false;
+    }
+  }
+
+  async updateMovieSessionId(messageId, sessionId) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `UPDATE movies SET session_id = ? WHERE message_id = ?`,
+        [sessionId, messageId]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error updating movie session ID:', error.message);
+      return false;
+    }
+  }
+
+  async updateMovieImdbData(messageId, imdbData) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `UPDATE movies SET imdb_data = ? WHERE message_id = ?`,
+        [imdbData, messageId]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error updating movie IMDB data:', error.message);
+      return false;
+    }
+  }
+
+  async getMoviesForVotingSession(sessionId) {
+    if (!this.isConnected) return [];
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT m.*,
+         (SELECT COUNT(*) FROM votes v WHERE v.message_id = m.message_id AND v.vote_type = 'up') as up_votes,
+         (SELECT COUNT(*) FROM votes v WHERE v.message_id = m.message_id AND v.vote_type = 'down') as down_votes
+         FROM movies m
+         WHERE m.session_id = ?
+         ORDER BY m.created_at ASC`,
+        [sessionId]
+      );
+      return rows;
+    } catch (error) {
+      console.error('Error getting movies for voting session:', error.message);
+      return [];
+    }
+  }
+
+  async moveMovieToNextSession(movieId) {
+    if (!this.isConnected) return false;
+
+    try {
+      // Clear the session_id to move it back to general queue
+      await this.pool.execute(
+        `UPDATE movies SET session_id = NULL, status = 'pending' WHERE message_id = ?`,
+        [movieId]
+      );
+
+      // Clear votes for this movie
+      await this.pool.execute(
+        `DELETE FROM votes WHERE message_id = ?`,
+        [movieId]
+      );
+
+      return true;
+    } catch (error) {
+      console.error('Error moving movie to next session:', error.message);
+      return false;
+    }
+  }
+
+  async finalizeVotingSession(sessionId, winnerMovieId) {
+    if (!this.isConnected) return false;
+
+    try {
+      // Update session status and winner
+      await this.pool.execute(
+        `UPDATE movie_sessions SET status = 'decided', winner_message_id = ? WHERE id = ?`,
+        [winnerMovieId, sessionId]
+      );
+
+      // Update winner movie status to scheduled
+      await this.pool.execute(
+        `UPDATE movies SET status = 'scheduled' WHERE message_id = ?`,
+        [winnerMovieId]
+      );
+
+      // Move non-winning movies back to general queue
+      await this.pool.execute(
+        `UPDATE movies SET session_id = NULL, status = 'pending'
+         WHERE session_id = ? AND message_id != ?`,
+        [sessionId, winnerMovieId]
+      );
+
+      return true;
+    } catch (error) {
+      console.error('Error finalizing voting session:', error.message);
       return false;
     }
   }
@@ -1313,6 +1935,23 @@ class Database {
     }
   }
 
+  async setAdminChannel(guildId, channelId) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `INSERT INTO guild_config (guild_id, admin_channel_id, admin_roles)
+         VALUES (?, ?, ?)
+         ON DUPLICATE KEY UPDATE admin_channel_id = VALUES(admin_channel_id)`,
+        [guildId, channelId, JSON.stringify([])]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error setting admin channel:', error.message);
+      return false;
+    }
+  }
+
   async getMoviesByChannel(guildId, channelId) {
     if (!this.isConnected) return [];
 
@@ -1573,39 +2212,74 @@ class Database {
     }
   }
 
-  // Database cleanup and maintenance functions
-  async cleanupOrphanedData() {
+  // Database cleanup and maintenance functions - GUILD-SCOPED for security
+  async cleanupOrphanedData(guildId = null) {
     if (!this.isConnected) return { cleaned: 0, errors: [] };
 
     const results = { cleaned: 0, errors: [] };
 
     try {
-      // Clean up votes for non-existent movies
-      const [orphanedVotes] = await this.pool.execute(`
-        DELETE v FROM votes v
-        LEFT JOIN movies m ON v.message_id = m.message_id
-        WHERE m.message_id IS NULL
-      `);
-      results.cleaned += orphanedVotes.affectedRows;
-      console.log(`🧹 Cleaned up ${orphanedVotes.affectedRows} orphaned votes`);
+      if (guildId) {
+        // Guild-specific cleanup (SECURE)
 
-      // Clean up session participants for non-existent sessions
-      const [orphanedParticipants] = await this.pool.execute(`
-        DELETE sp FROM session_participants sp
-        LEFT JOIN movie_sessions ms ON sp.session_id = ms.id
-        WHERE ms.id IS NULL
-      `);
-      results.cleaned += orphanedParticipants.affectedRows;
-      console.log(`🧹 Cleaned up ${orphanedParticipants.affectedRows} orphaned session participants`);
+        // Clean up votes for non-existent movies in this guild
+        const [orphanedVotes] = await this.pool.execute(`
+          DELETE v FROM votes v
+          LEFT JOIN movies m ON v.message_id = m.message_id AND m.guild_id = ?
+          WHERE v.guild_id = ? AND m.message_id IS NULL
+        `, [guildId, guildId]);
+        results.cleaned += orphanedVotes.affectedRows;
+        console.log(`🧹 Guild ${guildId}: Cleaned up ${orphanedVotes.affectedRows} orphaned votes`);
 
-      // Clean up session attendees for non-existent sessions
-      const [orphanedAttendees] = await this.pool.execute(`
-        DELETE sa FROM session_attendees sa
-        LEFT JOIN movie_sessions ms ON sa.session_id = ms.id
-        WHERE ms.id IS NULL
-      `);
-      results.cleaned += orphanedAttendees.affectedRows;
-      console.log(`🧹 Cleaned up ${orphanedAttendees.affectedRows} orphaned session attendees`);
+        // Clean up session participants for non-existent sessions in this guild
+        const [orphanedParticipants] = await this.pool.execute(`
+          DELETE sp FROM session_participants sp
+          LEFT JOIN movie_sessions ms ON sp.session_id = ms.id AND ms.guild_id = ?
+          WHERE sp.guild_id = ? AND ms.id IS NULL
+        `, [guildId, guildId]);
+        results.cleaned += orphanedParticipants.affectedRows;
+        console.log(`🧹 Guild ${guildId}: Cleaned up ${orphanedParticipants.affectedRows} orphaned session participants`);
+
+        // Clean up session attendees for non-existent sessions in this guild
+        const [orphanedAttendees] = await this.pool.execute(`
+          DELETE sa FROM session_attendees sa
+          LEFT JOIN movie_sessions ms ON sa.session_id = ms.id AND ms.guild_id = ?
+          WHERE sa.guild_id = ? AND ms.id IS NULL
+        `, [guildId, guildId]);
+        results.cleaned += orphanedAttendees.affectedRows;
+        console.log(`🧹 Guild ${guildId}: Cleaned up ${orphanedAttendees.affectedRows} orphaned session attendees`);
+
+      } else {
+        // Global cleanup (ADMIN ONLY - should rarely be used)
+        console.warn('⚠️ PERFORMING GLOBAL DATABASE CLEANUP - This affects ALL guilds!');
+
+        // Clean up votes for non-existent movies (global)
+        const [orphanedVotes] = await this.pool.execute(`
+          DELETE v FROM votes v
+          LEFT JOIN movies m ON v.message_id = m.message_id
+          WHERE m.message_id IS NULL
+        `);
+        results.cleaned += orphanedVotes.affectedRows;
+        console.log(`🧹 Global: Cleaned up ${orphanedVotes.affectedRows} orphaned votes`);
+
+        // Clean up session participants for non-existent sessions (global)
+        const [orphanedParticipants] = await this.pool.execute(`
+          DELETE sp FROM session_participants sp
+          LEFT JOIN movie_sessions ms ON sp.session_id = ms.id
+          WHERE ms.id IS NULL
+        `);
+        results.cleaned += orphanedParticipants.affectedRows;
+        console.log(`🧹 Global: Cleaned up ${orphanedParticipants.affectedRows} orphaned session participants`);
+
+        // Clean up session attendees for non-existent sessions (global)
+        const [orphanedAttendees] = await this.pool.execute(`
+          DELETE sa FROM session_attendees sa
+          LEFT JOIN movie_sessions ms ON sa.session_id = ms.id
+          WHERE ms.id IS NULL
+        `);
+        results.cleaned += orphanedAttendees.affectedRows;
+        console.log(`🧹 Global: Cleaned up ${orphanedAttendees.affectedRows} orphaned session attendees`);
+      }
 
     } catch (error) {
       console.error('Error during database cleanup:', error.message);
@@ -1678,6 +2352,224 @@ class Database {
       console.error('Error getting session attendees:', error.message);
       return [];
     }
+  }
+
+  // Movie banning functions
+  async banMovie(guildId, movieTitle) {
+    if (!this.isConnected) return false;
+
+    try {
+      const movieUID = this.generateMovieUID(guildId, movieTitle);
+
+      // Create a banned movie record if it doesn't exist
+      await this.pool.execute(
+        `INSERT INTO movies (message_id, guild_id, channel_id, title, movie_uid, where_to_watch, recommended_by, status, is_banned)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE is_banned = TRUE, status = 'banned'`,
+        [
+          `banned_${Date.now()}`, // Unique message ID for banned movies
+          guildId,
+          'admin', // Admin channel
+          movieTitle,
+          movieUID,
+          'N/A',
+          'system',
+          'banned',
+          true
+        ]
+      );
+
+      // Also ban any existing instances of this movie
+      await this.pool.execute(
+        `UPDATE movies SET is_banned = TRUE, status = 'banned' WHERE guild_id = ? AND movie_uid = ?`,
+        [guildId, movieUID]
+      );
+
+      return true;
+    } catch (error) {
+      console.error('Error banning movie:', error.message);
+      return false;
+    }
+  }
+
+  async unbanMovie(guildId, movieTitle) {
+    if (!this.isConnected) return false;
+
+    try {
+      const movieUID = this.generateMovieUID(guildId, movieTitle);
+
+      await this.pool.execute(
+        `UPDATE movies SET is_banned = FALSE WHERE guild_id = ? AND movie_uid = ? AND is_banned = TRUE`,
+        [guildId, movieUID]
+      );
+
+      return true;
+    } catch (error) {
+      console.error('Error unbanning movie:', error.message);
+      return false;
+    }
+  }
+
+  async isMovieBanned(guildId, movieTitle) {
+    if (!this.isConnected) return false;
+
+    try {
+      const movieUID = this.generateMovieUID(guildId, movieTitle);
+
+      const [rows] = await this.pool.execute(
+        `SELECT id FROM movies WHERE guild_id = ? AND movie_uid = ? AND is_banned = TRUE LIMIT 1`,
+        [guildId, movieUID]
+      );
+
+      return rows.length > 0;
+    } catch (error) {
+      console.error('Error checking if movie is banned:', error.message);
+      return false;
+    }
+  }
+
+  async getBannedMovies(guildId) {
+    if (!this.isConnected) return [];
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT DISTINCT title, movie_uid, created_at
+         FROM movies
+         WHERE guild_id = ? AND is_banned = TRUE
+         ORDER BY title ASC`,
+        [guildId]
+      );
+
+      return rows;
+    } catch (error) {
+      console.error('Error getting banned movies:', error.message);
+      return [];
+    }
+  }
+
+  // Enhanced purge function that preserves movie records
+  async purgeGuildMovieQueue(guildId) {
+    if (!this.isConnected) return { purged: 0, preserved: 0, errors: [] };
+
+    const results = { purged: 0, preserved: 0, errors: [] };
+
+    try {
+      // Get count of movies that will be affected
+      const [movieCount] = await this.pool.execute(
+        `SELECT COUNT(*) as total FROM movies WHERE guild_id = ? AND status IN ('pending', 'planned', 'scheduled')`,
+        [guildId]
+      );
+
+      // Clear votes for all movies in this guild
+      const [votesResult] = await this.pool.execute(
+        `DELETE FROM votes WHERE guild_id = ?`,
+        [guildId]
+      );
+      results.purged += votesResult.affectedRows;
+
+      // Update movie records: preserve banned/watched movies, reset others to archived state
+      const [moviesResult] = await this.pool.execute(`
+        UPDATE movies
+        SET
+          message_id = CONCAT('purged_', id),
+          channel_id = 'archived',
+          status = CASE
+            WHEN is_banned = TRUE THEN 'banned'
+            WHEN status = 'watched' THEN 'watched'
+            ELSE 'pending'
+          END,
+          session_id = NULL
+        WHERE guild_id = ? AND status IN ('pending', 'planned', 'scheduled')
+      `, [guildId]);
+
+      results.purged += moviesResult.affectedRows;
+      results.preserved = movieCount[0].total;
+
+      console.log(`🗑️ Purged ${results.purged} queue items, preserved ${results.preserved} movie records`);
+
+    } catch (error) {
+      console.error('Error during guild purge:', error.message);
+      results.errors.push(error.message);
+    }
+
+    return results;
+  }
+
+  // Deep purge function for complete guild data removal
+  async deepPurgeGuildData(guildId, options = {}) {
+    if (!this.isConnected) return { deleted: 0, errors: [] };
+
+    const results = { deleted: 0, errors: [] };
+    const {
+      movies = false,
+      sessions = false,
+      votes = false,
+      participants = false,
+      attendees = false,
+      config = false
+    } = options;
+
+    try {
+      if (votes) {
+        const [votesResult] = await this.pool.execute(
+          `DELETE FROM votes WHERE guild_id = ?`,
+          [guildId]
+        );
+        results.deleted += votesResult.affectedRows;
+        console.log(`🗑️ Deep purge: Deleted ${votesResult.affectedRows} votes`);
+      }
+
+      if (participants) {
+        const [participantsResult] = await this.pool.execute(
+          `DELETE FROM session_participants WHERE guild_id = ?`,
+          [guildId]
+        );
+        results.deleted += participantsResult.affectedRows;
+        console.log(`🗑️ Deep purge: Deleted ${participantsResult.affectedRows} session participants`);
+      }
+
+      if (attendees) {
+        const [attendeesResult] = await this.pool.execute(
+          `DELETE FROM session_attendees WHERE guild_id = ?`,
+          [guildId]
+        );
+        results.deleted += attendeesResult.affectedRows;
+        console.log(`🗑️ Deep purge: Deleted ${attendeesResult.affectedRows} session attendees`);
+      }
+
+      if (sessions) {
+        const [sessionsResult] = await this.pool.execute(
+          `DELETE FROM movie_sessions WHERE guild_id = ?`,
+          [guildId]
+        );
+        results.deleted += sessionsResult.affectedRows;
+        console.log(`🗑️ Deep purge: Deleted ${sessionsResult.affectedRows} movie sessions`);
+      }
+
+      if (movies) {
+        const [moviesResult] = await this.pool.execute(
+          `DELETE FROM movies WHERE guild_id = ?`,
+          [guildId]
+        );
+        results.deleted += moviesResult.affectedRows;
+        console.log(`🗑️ Deep purge: Deleted ${moviesResult.affectedRows} movies`);
+      }
+
+      if (config) {
+        const [configResult] = await this.pool.execute(
+          `DELETE FROM guild_config WHERE guild_id = ?`,
+          [guildId]
+        );
+        results.deleted += configResult.affectedRows;
+        console.log(`🗑️ Deep purge: Deleted ${configResult.affectedRows} guild config`);
+      }
+
+    } catch (error) {
+      console.error('Error during deep purge:', error.message);
+      results.errors.push(error.message);
+    }
+
+    return results;
   }
 
   async close() {

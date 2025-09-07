@@ -1,0 +1,547 @@
+/**
+ * Admin Controls Service
+ * Manages persistent admin control panel with quick action buttons
+ */
+
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
+const database = require('../database');
+
+/**
+ * Create the admin control panel embed
+ */
+function createAdminControlEmbed(guildName) {
+  const embed = new EmbedBuilder()
+    .setTitle('🔧 Movie Night Admin Control Panel')
+    .setDescription(`Administrative controls for **${guildName}**`)
+    .setColor(0x5865f2)
+    .addFields(
+      {
+        name: '📋 Quick Actions',
+        value: `• **Sync** - Update admin channel with current movies
+• **Purge** - Clear movie queue while preserving records
+• **Deep Purge** - Complete guild data removal (with confirmations)
+• **Stats** - View guild movie statistics`,
+        inline: false
+      },
+      {
+        name: '⚡ Status',
+        value: 'Control panel active and ready for use.',
+        inline: false
+      }
+    )
+    .setFooter({ text: 'Use the buttons below for quick admin actions' })
+    .setTimestamp();
+
+  return embed;
+}
+
+/**
+ * Create admin control action buttons
+ */
+async function createAdminControlButtons(guildId = null) {
+  const row1 = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('admin_ctrl_sync')
+        .setLabel('🔄 Sync Channel')
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId('admin_ctrl_purge')
+        .setLabel('🗑️ Purge Queue')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId('admin_ctrl_stats')
+        .setLabel('📊 Guild Stats')
+        .setStyle(ButtonStyle.Success)
+    );
+
+  const row2 = new ActionRowBuilder();
+
+  // Check for active session to determine which buttons to show
+  let hasActiveSession = false;
+  if (guildId) {
+    try {
+      const activeSession = await database.getActiveVotingSession(guildId);
+      hasActiveSession = !!activeSession;
+    } catch (error) {
+      console.warn('Error checking active session for admin buttons:', error.message);
+    }
+  }
+
+  if (hasActiveSession) {
+    // Session management buttons
+    row2.addComponents(
+      new ButtonBuilder()
+        .setCustomId('admin_ctrl_cancel_session')
+        .setLabel('❌ Cancel Session')
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId('admin_ctrl_reschedule_session')
+        .setLabel('📅 Reschedule Session')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId('admin_ctrl_deep_purge')
+        .setLabel('💥 Deep Purge')
+        .setStyle(ButtonStyle.Danger)
+    );
+  } else {
+    // Default buttons when no session
+    row2.addComponents(
+      new ButtonBuilder()
+        .setCustomId('admin_ctrl_plan_session')
+        .setLabel('🗳️ Plan Next Session')
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId('admin_ctrl_deep_purge')
+        .setLabel('💥 Deep Purge')
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId('admin_ctrl_banned_list')
+        .setLabel('🚫 Banned Movies')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  }
+
+  const row3 = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('admin_ctrl_refresh')
+        .setLabel('🔄 Refresh Panel')
+        .setStyle(ButtonStyle.Secondary)
+    );
+
+  return [row1, row2, row3];
+}
+
+/**
+ * Post or update the admin control panel in the admin channel
+ */
+async function ensureAdminControlPanel(client, guildId) {
+  try {
+    const config = await database.getGuildConfig(guildId);
+    if (!config || !config.admin_channel_id) {
+      console.log('No admin channel configured for guild:', guildId);
+      return null;
+    }
+
+    const adminChannel = await client.channels.fetch(config.admin_channel_id);
+    if (!adminChannel) {
+      console.log('Admin channel not found:', config.admin_channel_id);
+      return null;
+    }
+
+    const guild = client.guilds.cache.get(guildId);
+    if (!guild) {
+      console.log('Guild not found:', guildId);
+      return null;
+    }
+
+    // Check if control panel already exists
+    const messages = await adminChannel.messages.fetch({ limit: 50 });
+    const existingPanel = messages.find(msg => 
+      msg.author.id === client.user.id && 
+      msg.embeds.length > 0 && 
+      msg.embeds[0].title && 
+      msg.embeds[0].title.includes('Admin Control Panel')
+    );
+
+    const embed = createAdminControlEmbed(guild.name);
+    const components = await createAdminControlButtons(guildId);
+
+    if (existingPanel) {
+      // Delete existing panel to move it to bottom
+      try {
+        await existingPanel.delete();
+      } catch (error) {
+        console.warn('Could not delete existing admin panel:', error.message);
+      }
+    }
+
+    // Always create new panel at bottom
+    const controlPanel = await adminChannel.send({
+      embeds: [embed],
+      components: components
+    });
+    console.log('🔧 Created admin control panel at bottom');
+    return controlPanel;
+
+  } catch (error) {
+    console.error('Error ensuring admin control panel:', error);
+    return null;
+  }
+}
+
+/**
+ * Handle sync channel action - syncs both admin and voting channels
+ */
+async function handleSyncChannel(interaction) {
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+  try {
+    const database = require('../database');
+    const config = await database.getGuildConfig(interaction.guild.id);
+
+    if (!config) {
+      await interaction.editReply({
+        content: '❌ No guild configuration found. Please run `/movie-configure` first.'
+      });
+      return;
+    }
+
+    let adminSynced = 0;
+    let votingSynced = 0;
+    const errors = [];
+
+    // Sync admin channel if configured
+    if (config.admin_channel_id) {
+      try {
+        const adminMirror = require('./admin-mirror');
+        const adminResult = await adminMirror.syncAdminChannel(interaction.client, interaction.guild.id);
+
+        if (adminResult.error) {
+          errors.push(`Admin channel: ${adminResult.error}`);
+        } else {
+          adminSynced = adminResult.synced;
+        }
+      } catch (error) {
+        errors.push(`Admin channel: ${error.message}`);
+      }
+    }
+
+    // Sync voting channel if configured
+    if (config.movie_channel_id) {
+      try {
+        const votingChannel = await interaction.client.channels.fetch(config.movie_channel_id);
+        if (votingChannel) {
+          // Clear existing movie messages in voting channel (preserve quick action)
+          const messages = await votingChannel.messages.fetch({ limit: 100 });
+          const botMessages = messages.filter(msg => msg.author.id === interaction.client.user.id);
+
+          for (const [messageId, message] of botMessages) {
+            try {
+              // Skip quick action messages
+              const isQuickAction = message.embeds.length > 0 &&
+                                   message.embeds[0].title &&
+                                   message.embeds[0].title.includes('Quick Actions');
+
+              if (!isQuickAction) {
+                await message.delete();
+              }
+            } catch (error) {
+              console.warn(`Failed to delete voting message ${messageId}:`, error.message);
+            }
+          }
+
+          // Get all active movies and recreate them (excluding carryover movies)
+          const database = require('../database');
+          const movies = await database.getMoviesByStatusExcludingCarryover(interaction.guild.id, 'pending', 50);
+          const plannedMovies = await database.getMoviesByStatusExcludingCarryover(interaction.guild.id, 'planned', 50);
+          const scheduledMovies = await database.getMoviesByStatusExcludingCarryover(interaction.guild.id, 'scheduled', 50);
+
+          const allMovies = [...movies, ...plannedMovies, ...scheduledMovies];
+
+          for (const movie of allMovies) {
+            try {
+              // Skip movies with purged message IDs - they need proper recreation
+              if (movie.message_id && movie.message_id.startsWith('purged_')) {
+                console.log(`⏭️ Skipping purged movie for voting sync: ${movie.title}`);
+                continue;
+              }
+
+              const cleanup = require('./cleanup');
+              await cleanup.recreateMoviePost(votingChannel, movie);
+              votingSynced++;
+            } catch (error) {
+              console.warn(`Failed to recreate voting post for ${movie.title}:`, error.message);
+            }
+          }
+
+          // Also ensure quick action message at bottom
+          const cleanup = require('./cleanup');
+          await cleanup.ensureQuickActionAtBottom(votingChannel);
+        } else {
+          errors.push('Voting channel not found');
+        }
+      } catch (error) {
+        errors.push(`Voting channel: ${error.message}`);
+      }
+    }
+
+    // Prepare response
+    const successParts = [];
+    if (adminSynced > 0) {
+      successParts.push(`${adminSynced} movies to admin channel`);
+    }
+    if (votingSynced > 0) {
+      successParts.push(`${votingSynced} movies to voting channel`);
+    }
+
+    if (errors.length > 0) {
+      await interaction.editReply({
+        content: `⚠️ Sync completed with errors:\n${errors.join('\n')}\n\nSynced: ${successParts.join(', ')}`
+      });
+    } else if (successParts.length > 0) {
+      await interaction.editReply({
+        content: `✅ Successfully synced ${successParts.join(' and ')}.`
+      });
+    } else {
+      await interaction.editReply({
+        content: '✅ Sync completed. No movies found to sync.'
+      });
+    }
+
+  } catch (error) {
+    console.error('Error syncing channels:', error);
+    await interaction.editReply({
+      content: '❌ An error occurred while syncing the channels.'
+    });
+  }
+}
+
+/**
+ * Handle purge queue action with confirmation
+ */
+async function handlePurgeQueue(interaction) {
+  // Create confirmation buttons
+  const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
+
+  const confirmEmbed = new EmbedBuilder()
+    .setTitle('⚠️ Confirm Queue Purge')
+    .setDescription('This will **permanently delete** all movie posts and threads from both channels while preserving movie records in the database.')
+    .setColor(0xed4245)
+    .addFields(
+      { name: '🗑️ What will be deleted', value: '• All movie posts in voting channel\n• All movie posts in admin channel\n• All discussion threads\n• All votes', inline: false },
+      { name: '💾 What will be preserved', value: '• Movie records in database\n• Watched movies\n• Banned movies', inline: false }
+    )
+    .setFooter({ text: 'This action cannot be undone!' });
+
+  const confirmRow = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('confirm_purge_queue')
+        .setLabel('✅ Confirm Purge')
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId('cancel_purge_queue')
+        .setLabel('❌ Cancel')
+        .setStyle(ButtonStyle.Secondary)
+    );
+
+  await interaction.reply({
+    embeds: [confirmEmbed],
+    components: [confirmRow],
+    flags: MessageFlags.Ephemeral
+  });
+}
+
+/**
+ * Execute the actual purge after confirmation
+ */
+async function executePurgeQueue(interaction) {
+  try {
+    // Check if bot is configured
+    const config = await database.getGuildConfig(interaction.guild.id);
+    if (!config || !config.movie_channel_id) {
+      await interaction.update({
+        content: '❌ **Bot not configured**\n\nPlease use `/movie-configure` to set up the bot before using purge functions.',
+        embeds: [],
+        components: []
+      });
+      return;
+    }
+
+    await interaction.update({
+      content: '🗑️ Purging queue...',
+      embeds: [],
+      components: []
+    });
+
+    // Use the same cleanup function as /movie-cleanup purge but don't let it reply
+    const cleanup = require('./cleanup');
+
+    // Get channels
+    const votingChannel = await interaction.client.channels.fetch(config.movie_channel_id);
+    const adminChannel = config.admin_channel_id ? await interaction.client.channels.fetch(config.admin_channel_id) : null;
+
+    // Perform the purge manually
+    let purgedCount = 0;
+    let threadsDeleted = 0;
+
+    if (votingChannel) {
+      const movies = await database.getMoviesByGuild(interaction.guild.id);
+
+      for (const movie of movies) {
+        try {
+          // Delete threads
+          const threads = await votingChannel.threads.fetchActive();
+          for (const [threadId, thread] of threads.threads) {
+            if (thread.name.includes(movie.title)) {
+              await thread.delete();
+              threadsDeleted++;
+            }
+          }
+
+          // Delete votes and movie from database
+          await database.pool.execute('DELETE FROM votes WHERE message_id = ?', [movie.message_id]);
+          await database.pool.execute('DELETE FROM movies WHERE message_id = ?', [movie.message_id]);
+          purgedCount++;
+        } catch (error) {
+          console.warn(`Error purging movie ${movie.title}:`, error.message);
+        }
+      }
+
+      // Clear channel messages
+      const messages = await votingChannel.messages.fetch({ limit: 100 });
+      const botMessages = messages.filter(msg => msg.author.id === interaction.client.user.id);
+
+      for (const [messageId, message] of botMessages) {
+        try {
+          await message.delete();
+        } catch (error) {
+          console.warn(`Failed to delete message ${messageId}:`, error.message);
+        }
+      }
+
+      // Add appropriate message based on session state
+      await cleanup.ensureQuickActionAtBottom(votingChannel);
+    }
+
+    if (adminChannel) {
+      // Clear admin channel messages
+      const messages = await adminChannel.messages.fetch({ limit: 100 });
+      const botMessages = messages.filter(msg => msg.author.id === interaction.client.user.id);
+
+      for (const [messageId, message] of botMessages) {
+        try {
+          const isControlPanel = message.embeds.length > 0 &&
+                                message.embeds[0].title &&
+                                message.embeds[0].title.includes('Admin Control Panel');
+
+          if (!isControlPanel) {
+            await message.delete();
+          }
+        } catch (error) {
+          console.warn(`Failed to delete admin message ${messageId}:`, error.message);
+        }
+      }
+
+      // Ensure admin control panel is at bottom
+      await ensureAdminControlPanel(interaction.client, interaction.guild.id);
+    }
+
+    await interaction.followUp({
+      content: `✅ **Queue purged successfully!**\n\n🗑️ Deleted: ${purgedCount} movies, ${threadsDeleted} threads\n📋 Channels cleared and reset`,
+      flags: MessageFlags.Ephemeral
+    });
+
+    console.log(`🗑️ Admin purge executed by ${interaction.user.tag} in guild ${interaction.guild.name}`);
+
+  } catch (error) {
+    console.error('Error executing purge:', error);
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: '❌ An error occurred while purging the queue.',
+        flags: MessageFlags.Ephemeral
+      });
+    } else {
+      await interaction.followUp({
+        content: '❌ An error occurred while purging the queue.',
+        flags: MessageFlags.Ephemeral
+      });
+    }
+  }
+}
+
+/**
+ * Handle guild stats action
+ */
+async function handleGuildStats(interaction) {
+  try {
+    const stats = require('./stats');
+    // The stats service handles its own interaction reply
+    await stats.showOverviewStats(interaction);
+  } catch (error) {
+    console.error('Error showing guild stats:', error);
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: '❌ An error occurred while fetching guild statistics.',
+        flags: MessageFlags.Ephemeral
+      });
+    }
+  }
+}
+
+/**
+ * Handle banned movies list action
+ */
+async function handleBannedMoviesList(interaction) {
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+  try {
+    const bannedMovies = await database.getBannedMovies(interaction.guild.id);
+
+    if (bannedMovies.length === 0) {
+      await interaction.editReply({
+        content: '✅ No movies are currently banned in this guild.'
+      });
+      return;
+    }
+
+    const movieList = bannedMovies
+      .map((movie, index) => `${index + 1}. **${movie.title}**`)
+      .join('\n');
+
+    const embed = new EmbedBuilder()
+      .setTitle('🚫 Banned Movies')
+      .setDescription(`${bannedMovies.length} movie(s) currently banned:\n\n${movieList}`)
+      .setColor(0xed4245)
+      .setFooter({ text: `Guild: ${interaction.guild.name}` })
+      .setTimestamp();
+
+    await interaction.editReply({
+      embeds: [embed]
+    });
+
+  } catch (error) {
+    console.error('Error fetching banned movies:', error);
+    await interaction.editReply({
+      content: '❌ An error occurred while fetching banned movies.'
+    });
+  }
+}
+
+/**
+ * Handle refresh panel action
+ */
+async function handleRefreshPanel(interaction) {
+  try {
+    const guild = interaction.guild;
+    const embed = createAdminControlEmbed(guild.name);
+    const components = await createAdminControlButtons(guild.id);
+
+    await interaction.update({
+      embeds: [embed],
+      components: components
+    });
+
+    console.log('🔧 Refreshed admin control panel');
+  } catch (error) {
+    console.error('Error refreshing admin panel:', error);
+    await interaction.reply({
+      content: '❌ An error occurred while refreshing the control panel.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+module.exports = {
+  createAdminControlEmbed,
+  createAdminControlButtons,
+  ensureAdminControlPanel,
+  handleSyncChannel,
+  handlePurgeQueue,
+  executePurgeQueue,
+  handleGuildStats,
+  handleBannedMoviesList,
+  handleRefreshPanel
+};

@@ -3,6 +3,7 @@
  * Routes different types of interactions to appropriate handlers
  */
 
+const { MessageFlags } = require('discord.js');
 const buttonHandlers = require('./buttons');
 const modalHandlers = require('./modals');
 const selectHandlers = require('./selects');
@@ -36,7 +37,7 @@ module.exports = {
       if (!interaction.replied && !interaction.deferred) {
         await interaction.reply({
           content: '❌ An error occurred while processing your request.',
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         }).catch(console.error);
       }
     }

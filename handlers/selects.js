@@ -35,6 +35,12 @@ async function handleSelect(interaction) {
       return;
     }
 
+    // Deep purge selection menu
+    if (customId === 'deep_purge_select') {
+      await handleDeepPurgeSelection(interaction);
+      return;
+    }
+
     // Unknown select menu
     console.warn(`Unknown select menu interaction: ${customId}`);
     await interaction.reply({
@@ -49,6 +55,42 @@ async function handleSelect(interaction) {
         content: '❌ An error occurred while processing the selection.',
         flags: MessageFlags.Ephemeral
       }).catch(console.error);
+    }
+  }
+}
+
+/**
+ * Handle deep purge category selection
+ */
+async function handleDeepPurgeSelection(interaction) {
+  const { permissions } = require('../services');
+  const deepPurge = require('../services/deep-purge');
+
+  // Check admin permissions
+  const hasPermission = await permissions.checkMovieAdminPermission(interaction);
+  if (!hasPermission) {
+    await interaction.reply({
+      content: '❌ You need Administrator permissions or a configured admin role to use this action.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  const selectedCategories = interaction.values;
+
+  try {
+    // Create confirmation modal directly (no need for embed here)
+    const modal = deepPurge.createConfirmationModal(selectedCategories);
+
+    await interaction.showModal(modal);
+
+  } catch (error) {
+    console.error('Error handling deep purge selection:', error);
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: '❌ An error occurred while preparing the deep purge confirmation.',
+        flags: MessageFlags.Ephemeral
+      });
     }
   }
 }

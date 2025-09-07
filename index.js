@@ -44,13 +44,45 @@ const client = new Client({
 global.discordClient = client;
 
 // Bot ready event
-client.once('clientReady', () => {
+client.once('clientReady', async () => {
   console.log(`✅ ${client.user.tag} is online!`);
   console.log(`🎬 Movie Night Bot v${BOT_VERSION} ready`);
   console.log(`📊 Serving ${client.guilds.cache.size} guilds`);
-  
+
   // Set bot status
   client.user.setActivity('🍿 Movie Night', { type: 3 }); // 3 = WATCHING
+
+  // Initialize admin control panels for all guilds with admin channels
+  try {
+    const adminControls = require('./services/admin-controls');
+    let panelsCreated = 0;
+
+    for (const [guildId, guild] of client.guilds.cache) {
+      try {
+        const config = await database.getGuildConfig(guildId);
+        if (config && config.admin_channel_id) {
+          await adminControls.ensureAdminControlPanel(client, guildId);
+          panelsCreated++;
+        }
+      } catch (error) {
+        console.error(`Error initializing admin panel for guild ${guildId}:`, error);
+      }
+    }
+
+    if (panelsCreated > 0) {
+      console.log(`🔧 Initialized ${panelsCreated} admin control panels`);
+    }
+  } catch (error) {
+    console.error('Error during admin panel initialization:', error);
+  }
+
+  // Start voting closure checker
+  try {
+    const votingClosure = require('./services/voting-closure');
+    votingClosure.startVotingClosureChecker(client);
+  } catch (error) {
+    console.error('Error starting voting closure checker:', error);
+  }
 });
 
 // Handle all interactions

@@ -128,11 +128,72 @@ function createHelpEmbed() {
   return embed;
 }
 
-function createQuickActionEmbed() {
+function createQuickActionEmbed(activeSession = null) {
+  if (activeSession) {
+    let description = '';
+
+    // Add session description/theme if available
+    if (activeSession.description && activeSession.description.trim()) {
+      description += `${activeSession.description}\n\n`;
+    }
+
+    description += 'Click the button below to recommend a movie for this voting session!';
+
+    // Add event link if available
+    if (activeSession.discord_event_id) {
+      description += `\n\n📅 [**Join the Discord Event**](https://discord.com/events/${activeSession.guild_id}/${activeSession.discord_event_id}) to RSVP and get notified!`;
+    }
+
+    const embed = new EmbedBuilder()
+      .setTitle(`🍿 ${activeSession.name}`)
+      .setDescription(description)
+      .setColor(COLORS.primary)
+      .setFooter({ text: 'Use /movie-help for detailed commands and features' });
+
+    if (activeSession.scheduled_date) {
+      embed.addFields({
+        name: '📅 Scheduled Date',
+        value: new Date(activeSession.scheduled_date).toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        }),
+        inline: false
+      });
+    }
+
+    // Add voting end time if available
+    if (activeSession.voting_end_time) {
+      embed.addFields({
+        name: '🗳️ Voting Ends',
+        value: new Date(activeSession.voting_end_time).toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit'
+        }),
+        inline: true
+      });
+    }
+
+    return embed;
+  }
+
+  // Fallback for no session
+  return createNoSessionEmbed();
+}
+
+function createNoSessionEmbed() {
   const embed = new EmbedBuilder()
-    .setTitle('🍿 Ready to recommend a movie?')
-    .setDescription('Click the button below to get started, or use `/movie-help` for full commands.')
-    .setColor(COLORS.primary)
+    .setTitle('🎬 No Active Voting Session')
+    .setDescription('Movie recommendations are currently not available. An admin needs to start a new voting session using the "Plan Next Session" button in the admin channel.')
+    .setColor(COLORS.warning)
+    .addFields({
+      name: '🔧 For Admins',
+      value: 'Use the admin channel controls to plan the next voting session.',
+      inline: false
+    })
     .setFooter({ text: 'Use /movie-help for detailed commands and features' });
 
   return embed;
@@ -164,6 +225,7 @@ module.exports = {
   createSessionEmbed,
   createHelpEmbed,
   createQuickActionEmbed,
+  createNoSessionEmbed,
   createErrorEmbed,
   createSuccessEmbed,
   createWarningEmbed

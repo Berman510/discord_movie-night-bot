@@ -17,18 +17,26 @@ A comprehensive Discord bot for managing movie recommendations, voting, and orga
 - **Status Tracking**: Movies progress through pending → planned → watched/skipped
 - **Discussion Threads**: Automatic thread creation for movie discussions
 
-### 🗳️ **Voting System**
-- **Real-time Vote Counts**: Live updates on recommendation posts
-- **Vote Persistence**: Buttons remain functional after all interactions
+### 🗳️ **Advanced Voting System**
+- **Automatic Voting Closure**: Sessions automatically close at scheduled times with winner selection
+- **Intelligent Winner Selection**: Automatic winner selection with tie-breaking interface for admins
+- **Real-time Vote Counts**: Live updates on recommendation posts with persistent buttons
+- **Movie Carryover System**: Non-winning movies automatically carry over to next session
 - **User Vote Tracking**: Complete database tracking of all voting activity
-- **Vote Analytics**: Foundation for user preference analysis (see Future Features)
 
-### 🎪 **Session Management**
-- **Discord Event Integration**: Automatic Discord event creation for movie nights
-- **Timezone Support**: Proper timezone handling for global servers
-- **Session Participants**: Track who joins sessions vs. who actually attends
-- **Flexible Scheduling**: Support for specific dates/times or general planning
-- **Cancel/Reschedule**: Full session management with proper cleanup
+### 🎪 **Enhanced Session Management**
+- **Discord Event Integration**: Full event creation, updates, and RSVP functionality with channel integration
+- **Timezone Support**: Configurable guild timezones with 12-hour time format (7:30 PM) and US dates (MM-DD-YYYY)
+- **Session Descriptions**: Themed session messaging with custom descriptions in voting channels
+- **Automatic Event Updates**: Events update with winner information, IMDB details, and vote counts
+- **Session Participants**: Track who joins sessions vs. who actually attends with comprehensive analytics
+
+### 🔧 **Admin Control Panel**
+- **Comprehensive Admin Interface**: Complete session management, movie controls, and system operations
+- **Movie Management**: Pick Winner, Skip to Next, Remove, Ban Movie, and Details buttons for each movie
+- **Admin Channel Mirroring**: Dedicated admin channel with movie posts and management controls
+- **Sync Operations**: Channel synchronization and cleanup tools
+- **Session Controls**: Plan, cancel, reschedule sessions with proper state management
 
 ### 📊 **Statistics & Analytics**
 - **Movie Statistics**: Track recommendations, votes, and watch history
@@ -36,11 +44,13 @@ A comprehensive Discord bot for managing movie recommendations, voting, and orga
 - **Guild Overview**: Server-wide movie night statistics
 - **Voting Patterns**: Complete voting history and trends
 
-### ⚙️ **Configuration**
-- **Channel Management**: Dedicated movie recommendation channels
-- **Admin Roles**: Role-based permission system
-- **Timezone Settings**: Server-wide timezone configuration
-- **Notification Roles**: Ping roles for movie night events
+### ⚙️ **Enhanced Configuration**
+- **Channel Management**: Dedicated movie recommendation channels with admin channel support
+- **Session Viewing Channels**: Configurable channels for Discord events (Voice, Stage, or Text channels)
+- **Admin Roles**: Role-based permission system with comprehensive admin controls
+- **Timezone Settings**: Server-wide timezone configuration with automatic voting closure
+- **Notification Roles**: Ping roles for movie night events with Discord event integration
+- **Time Formats**: User-friendly 12-hour time format and US date format (MM-DD-YYYY)
 
 ---
 
@@ -235,23 +245,31 @@ pm2 startup  # follow the printed instructions
 - **Stats:** Run `/movie-stats` to view top-rated movies and viewing history
 - **Help:** Run `/movie-help` for comprehensive help and current status
 
-### Movie Night Sessions
-- **Interactive Creation:** `/movie-session create` opens an intuitive interface with date/time buttons
-- **Smart Date Selection:** Choose from "Tonight", "Tomorrow", "This Friday", or custom dates
-- **Time Presets:** Quick selection for 7pm, 8pm, 9pm, or custom times
-- **Timezone Support:** Select timezone during creation or use server default timezone
-- **Discord Events:** Automatically creates Discord scheduled events for sessions with dates
-- **Planned Movie Integration:** Create sessions directly from planned movies with "🎪 Create Session" button
-- **Enhanced Listing:** `/movie-session list` shows detailed session info with organizer, date, timezone, and featured movies
-- **Session Management:** `/movie-session join [id]` to follow sessions, `/movie-session add-movie [id] [title]` to add movies
-- **Winner Selection:** `/movie-session winner` automatically selects the top-voted movie
+### Enhanced Movie Night Sessions
+- **Admin Control Panel:** Comprehensive admin interface with "Plan Next Session" button and session management
+- **User-Friendly Formats:** 12-hour time format (7:30 PM) and US date format (MM-DD-YYYY)
+- **Session Descriptions:** Add custom themes like "Holiday Movie Night - Let's watch festive films!"
+- **Automatic Voting Closure:** Sessions automatically close at scheduled voting end times
+- **Intelligent Winner Selection:** Automatic winner selection with tie-breaking interface for admins
+- **Discord Event Integration:** Full event creation with channel integration, RSVP functionality, and winner updates
+- **Movie Carryover System:** Non-winning movies automatically carry over to next session with fresh votes
+- **Rich Event Details:** Events include IMDB information, plot summaries, and comprehensive movie details
 
-### Server Configuration
-- **Setup:** `/movie-configure set-channel` to designate the movie recommendation channel
-- **Timezone:** `/movie-configure set-timezone` to set server's default timezone for movie sessions
-- **Admin Roles:** `/movie-configure add-admin-role @role` to allow specific roles to use admin commands
-- **View Settings:** `/movie-configure view-settings` to see current configuration
-- **Security:** Only Discord Administrators can modify bot configuration
+### Admin Control Panel
+- **Comprehensive Interface:** Dedicated admin channel with complete session and movie management
+- **Session Controls:** Plan Next Session, Cancel Event, Reschedule Session with proper state management
+- **Movie Management:** Pick Winner, Skip to Next, Remove Suggestion, Ban Movie, and Details for each movie
+- **Admin Channel Mirroring:** All movies appear in admin channel with management buttons
+- **Sync Operations:** Channel synchronization and cleanup tools with carryover movie handling
+- **Real-time Updates:** Admin interface updates automatically with session changes
+
+### Enhanced Server Configuration
+- **Channel Setup:** `/movie-configure set-channel` for voting channel and admin channel configuration
+- **Session Viewing Channels:** Configure channels for Discord events (Voice, Stage, or Text channels)
+- **Timezone Management:** `/movie-configure set-timezone` with automatic voting closure support
+- **Admin Roles:** `/movie-configure add-admin-role @role` for comprehensive admin access
+- **Notification Roles:** Configure roles for Discord event notifications and session announcements
+- **View Settings:** `/movie-configure view-settings` shows all current configuration including new features
 
 ### Channel Maintenance
 - **Cleanup:** `/movie-cleanup` updates old bot messages to current format (Configured admins only)

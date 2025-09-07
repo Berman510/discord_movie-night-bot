@@ -345,10 +345,28 @@ async function ensureQuickActionAtBottom(channel) {
   try {
     await cleanupOldGuideMessages(channel);
 
+    // Check if there's an active voting session
+    const database = require('../database');
+    const activeSession = await database.getActiveVotingSession(channel.guild.id);
+
+    if (!activeSession) {
+      // No active session - just add a message explaining the situation
+      const { embeds } = require('../utils');
+      const noSessionEmbed = embeds.createNoSessionEmbed();
+
+      await channel.send({
+        embeds: [noSessionEmbed]
+      });
+
+      console.log('✅ Added no session message at bottom');
+      return;
+    }
+
+    // Active session exists - add recommend button
     const { embeds } = require('../utils');
     const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 
-    const quickActionEmbed = embeds.createQuickActionEmbed();
+    const quickActionEmbed = embeds.createQuickActionEmbed(activeSession);
     const recommendButton = new ActionRowBuilder()
       .addComponents(
         new ButtonBuilder()
@@ -382,7 +400,9 @@ async function cleanupOldGuideMessages(channel) {
       const isGuideMessage = message.embeds.length > 0 &&
                             message.embeds[0].title &&
                             (message.embeds[0].title.includes('Quick Guide') ||
-                             message.embeds[0].title.includes('Ready to recommend'));
+                             message.embeds[0].title.includes('Ready to recommend') ||
+                             message.embeds[0].title.includes('Movie Night') ||
+                             message.embeds[0].title.includes('No Active Voting Session'));
 
       if (isGuideMessage) {
         try {
@@ -520,17 +540,32 @@ async function recreateMissingMoviePosts(channel, guildId) {
   try {
     const database = require('../database');
 
-    // Get all movies for this guild and channel
+    // Check if there's an active voting session
+    const activeSession = await database.getActiveVotingSession(guildId);
+    if (!activeSession) {
+      console.log('🔍 No active voting session - skipping movie post recreation');
+      return 0;
+    }
+
+    // Get all movies for this guild and channel that are in the current session
     const allMovies = await database.getMoviesByChannel(guildId, channel.id);
+    const sessionMovies = allMovies.filter(movie =>
+      movie.session_id === activeSession.id ||
+      (movie.status === 'pending' && !movie.session_id) // Include pending movies without session
+    );
+
+    console.log(`🔍 Active voting session for guild ${guildId}: Session ${activeSession.id}`);
 
     // Get current messages in channel
     const messages = await channel.messages.fetch({ limit: 100 });
     const botMessages = messages.filter(msg => msg.author.id === channel.client.user.id);
     const existingMessageIds = new Set(botMessages.keys());
 
-    for (const movie of allMovies) {
+    for (const movie of sessionMovies) {
       // Skip watched movies - they don't need posts
       if (movie.status === 'watched') continue;
+
+      console.log(`🔍 Movie ${movie.message_id} in voting session: ${movie.session_id === activeSession.id} (movie session_id: ${movie.session_id})`);
 
       // Check if this movie's message exists in the channel
       if (!existingMessageIds.has(movie.message_id)) {
@@ -717,6 +752,45 @@ async function recreateMissingThreads(channel, botMessages) {
   }
 }
 
+async function removeMoviePost(client, channelId, movieId) {
+  try {
+    if (!client || !channelId || !movieId) {
+      console.warn('Missing parameters for removeMoviePost:', { client: !!client, channelId, movieId });
+      return false;
+    }
+
+    const channel = await client.channels.fetch(channelId);
+    if (!channel) {
+      console.warn(`Channel not found: ${channelId}`);
+      return false;
+    }
+
+    // Find and delete the movie message
+    const messages = await channel.messages.fetch({ limit: 100 });
+    const movieMessage = messages.find(msg => msg.id === movieId);
+
+    if (movieMessage) {
+      await movieMessage.delete();
+      console.log(`🗑️ Deleted movie message: ${movieId}`);
+    }
+
+    // Find and delete associated thread
+    const threads = await channel.threads.fetchActive();
+    for (const [threadId, thread] of threads.threads) {
+      if (thread.name.includes('Discussion') && thread.parentId === movieId) {
+        await thread.delete();
+        console.log(`🧵 Deleted thread: ${thread.name} (${threadId})`);
+        break;
+      }
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error removing movie post:', error.message);
+    return false;
+  }
+}
+
 module.exports = {
   handleMovieCleanup,
   handleCleanupSync,
@@ -727,5 +801,6 @@ module.exports = {
   cleanupAllThreads,
   recreateMissingMoviePosts,
   recreateMoviePost,
+  removeMoviePost,
   recreateMissingThreads
 };

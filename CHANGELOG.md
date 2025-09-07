@@ -2,6 +2,50 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.12.1] - 2025-09-07
+### 🎉 Major Release: Enhanced Administration & Automatic Voting System
+
+### Added
+- **🔧 Admin Control Panel**: Comprehensive admin interface with session management, movie controls, and system operations
+- **⏰ Automatic Voting Closure**: Sessions automatically close at scheduled voting end times with winner selection
+- **🏆 Intelligent Winner Selection**: Automatic winner selection with tie-breaking interface for admins
+- **🔄 Movie Carryover System**: Non-winning movies automatically carry over to next session with vote reset
+- **📅 Discord Event Integration**: Full Discord event creation, updates, and RSVP functionality
+- **🕐 Timezone Support**: Configurable guild timezones with proper datetime handling
+- **🎬 Enhanced IMDB Integration**: Rich movie information in events, announcements, and carryover restoration
+- **🗑️ Remove Suggestion Feature**: Complete movie removal from queue with proper cleanup
+- **📝 Session Descriptions**: Themed session messaging with custom descriptions in voting channels
+- **🔗 Event Links**: Clickable Discord event links in winner announcements and session messages
+
+### Enhanced
+- **🎯 User Experience**: 12-hour time format (7:30 PM) and US date format (MM-DD-YYYY) for better usability
+- **📋 Movie Queue Display**: Enhanced `/movie-queue` with carryover movie visibility and session context
+- **🔧 Admin Movie Management**: Pick Winner, Skip to Next, Remove, Ban Movie, and Details buttons for each movie
+- **📅 Event Management**: Events use session viewing channels with proper channel type detection
+- **🎬 Winner Announcements**: Rich announcements with IMDB info, event links, and comprehensive movie details
+- **⚡ Performance**: Optimized database queries with carryover movie filtering and better indexing
+
+### Fixed
+- **🔧 Critical Fixes**: Discord event ID storage, timezone handling, and automatic voting closure
+- **🔄 Sync Channel Issues**: Proper carryover movie isolation preventing interference with sync operations
+- **⚠️ Deprecation Warnings**: Replaced deprecated `ephemeral: true` with `flags: MessageFlags.Ephemeral`
+- **📅 Event Updates**: Comprehensive event updating with winner information for both automatic and manual selection
+- **🗄️ Database Integrity**: Enhanced migrations, proper column creation, and data consistency
+
+### Technical
+- **🗄️ Database Enhancements**: 6 new migrations (10-16) with timezone, admin channels, voting end times, and carryover flags
+- **🔧 New Database Functions**: 15+ new functions for session management, carryover handling, and admin operations
+- **⏰ Voting Closure System**: Complete automatic voting system with minute-aligned timing and comprehensive logging
+- **🎯 Admin Architecture**: Modular admin system with control panels, movie mirroring, and session management
+- **📅 Event System**: Full Discord event lifecycle management with channel integration and metadata handling
+- **🔄 State Management**: Sophisticated movie state handling with session transitions and carryover preservation
+
+### Migration Notes
+- **Database**: Automatic migrations handle all schema updates
+- **Configuration**: New timezone and admin channel settings available
+- **Compatibility**: Fully backward compatible with existing data
+- **Features**: All new features are opt-in through admin configuration
+
 ## [1.11.29] - 2025-09-06
 ### Added
 - **Guild ID Normalization**: Added `guild_id` columns to `votes`, `session_participants`, and `session_attendees` tables
@@ -324,7 +368,7 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ### Added
 - **cleanupOrphanedThreads:** Intelligent cleanup of threads that no longer have corresponding movie posts
 - **cleanupAllThreads:** Complete thread removal for purge operations
-- **Movie Channel Validation:** Ensures cleanup operations target the correct configured channel
+- **Movie Voting Channel Validation:** Ensures cleanup operations target the correct configured channel
 
 ### Enhanced
 - **Purge Operations:** Now completely clear the movie channel including all threads and messages
