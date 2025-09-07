@@ -16,11 +16,26 @@ const database = require('../database');
 
 async function configureMovieChannel(interaction, guildId) {
   const channel = interaction.options.getChannel('channel') || interaction.channel;
+  const forumChannels = require('./forum-channels');
+
+  // Validate channel type
+  if (!forumChannels.isTextChannel(channel) && !forumChannels.isForumChannel(channel)) {
+    await interaction.reply({
+      content: '❌ Movie channel must be a Text channel or Forum channel.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
 
   const success = await database.setMovieChannel(guildId, channel.id);
   if (success) {
+    const channelType = forumChannels.getChannelTypeString(channel);
+    const description = forumChannels.isForumChannel(channel)
+      ? 'Each movie recommendation will create a new forum post for voting and discussion.'
+      : 'Movie recommendations will be posted as messages with voting buttons and discussion threads.';
+
     await interaction.reply({
-      content: `✅ Movie channel set to ${channel}. Cleanup commands will only work in this channel.`,
+      content: `✅ **Movie channel set to ${channel}**\n\n📋 **Channel Type**: ${channelType}\n🎬 **Behavior**: ${description}\n\n🔧 Cleanup commands will only work in this channel.`,
       flags: MessageFlags.Ephemeral
     });
   } else {

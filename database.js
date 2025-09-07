@@ -681,6 +681,43 @@ class Database {
         console.error('Migration 16 error:', error.message);
       }
 
+      // Migration 17: Add forum channel support columns
+      try {
+        const [forumColumns] = await this.pool.execute(`
+          SELECT COLUMN_NAME
+          FROM INFORMATION_SCHEMA.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'movies'
+          AND COLUMN_NAME IN ('thread_id', 'channel_type')
+        `);
+
+        const existingColumns = forumColumns.map(row => row.COLUMN_NAME);
+
+        if (!existingColumns.includes('thread_id')) {
+          await this.pool.execute(`
+            ALTER TABLE movies
+            ADD COLUMN thread_id VARCHAR(20) NULL AFTER message_id
+          `);
+          console.log('✅ Added thread_id column to movies');
+        }
+
+        if (!existingColumns.includes('channel_type')) {
+          await this.pool.execute(`
+            ALTER TABLE movies
+            ADD COLUMN channel_type ENUM('text', 'forum') DEFAULT 'text' AFTER thread_id
+          `);
+          console.log('✅ Added channel_type column to movies');
+        }
+
+        if (existingColumns.length === 0) {
+          console.log('✅ Added forum channel support columns to movies');
+        } else {
+          console.log('✅ Forum channel support columns already exist in movies');
+        }
+      } catch (error) {
+        console.error('Migration 17 error:', error.message);
+      }
+
       console.log('✅ Database migrations completed');
     } catch (error) {
       console.error('❌ Migration error:', error.message);
@@ -1550,6 +1587,90 @@ class Database {
     } catch (error) {
       console.error('Error updating movie IMDB data:', error.message);
       return false;
+    }
+  }
+
+  // Forum Channel Support Functions
+
+  async addForumMovie(guildId, title, whereToWatch, recommendedBy, messageId, threadId, imdbId = null, imdbData = null) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `INSERT INTO movies (guild_id, title, where_to_watch, recommended_by, message_id, thread_id, channel_type, imdb_id, imdb_data, status, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, 'forum', ?, ?, 'pending', NOW())`,
+        [guildId, title, whereToWatch, recommendedBy, messageId, threadId, imdbId, imdbData]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error adding forum movie:', error.message);
+      return false;
+    }
+  }
+
+  async getMovieByThreadId(threadId) {
+    if (!this.isConnected) return null;
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT * FROM movies WHERE thread_id = ?`,
+        [threadId]
+      );
+      return rows.length > 0 ? rows[0] : null;
+    } catch (error) {
+      console.error('Error getting movie by thread ID:', error.message);
+      return null;
+    }
+  }
+
+  async updateMovieThreadId(messageId, threadId) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `UPDATE movies SET thread_id = ? WHERE message_id = ?`,
+        [threadId, messageId]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error updating movie thread ID:', error.message);
+      return false;
+    }
+  }
+
+  async getForumMovies(guildId, limit = 50) {
+    if (!this.isConnected) return [];
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT m.*,
+         (SELECT COUNT(*) FROM votes v WHERE v.message_id = m.message_id AND v.vote_type = 'up') as up_votes,
+         (SELECT COUNT(*) FROM votes v WHERE v.message_id = m.message_id AND v.vote_type = 'down') as down_votes
+         FROM movies m
+         WHERE m.guild_id = ? AND m.channel_type = 'forum'
+         ORDER BY m.created_at DESC
+         LIMIT ?`,
+        [guildId, limit]
+      );
+      return rows;
+    } catch (error) {
+      console.error('Error getting forum movies:', error.message);
+      return [];
+    }
+  }
+
+  async getChannelType(guildId) {
+    if (!this.isConnected) return 'text';
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT channel_type FROM movies WHERE guild_id = ? ORDER BY created_at DESC LIMIT 1`,
+        [guildId]
+      );
+      return rows.length > 0 ? rows[0].channel_type : 'text';
+    } catch (error) {
+      console.error('Error getting channel type:', error.message);
+      return 'text';
     }
   }
 

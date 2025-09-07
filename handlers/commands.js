@@ -163,9 +163,14 @@ async function handleMovieQueue(interaction) {
       return;
     }
 
+    // Check if we're in a forum channel to adjust description
+    const forumChannels = require('../services/forum-channels');
+    const isForumChannel = forumChannels.isForumChannel(interaction.channel);
+    const channelTypeNote = isForumChannel ? ' (Forum posts)' : '';
+
     const embed = new EmbedBuilder()
       .setTitle(`🍿 ${activeSession.name}`)
-      .setDescription(`Showing ${movies.length} movie recommendations for this voting session`)
+      .setDescription(`Showing ${movies.length} movie recommendations for this voting session${channelTypeNote}`)
       .setColor(0x5865f2);
 
     if (activeSession.scheduled_date) {

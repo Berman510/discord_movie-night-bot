@@ -215,75 +215,55 @@ async function showImdbSelection(interaction, title, where, imdbResults) {
 }
 
 async function createMovieWithoutImdb(interaction, title, where) {
+  const movieCreation = require('../services/movie-creation');
   const database = require('../database');
-  const { embeds, components } = require('../utils');
 
   try {
-    // Create movie embed first
-    const movieData = {
-      title: title,
-      where_to_watch: where,
-      recommended_by: interaction.user.id,
-      status: 'pending'
-    };
-
-    const movieEmbed = embeds.createMovieEmbed(movieData);
-
-    // Create the message first without buttons
-    const message = await interaction.channel.send({
-      embeds: [movieEmbed]
-    });
-
-    // Now create buttons with the actual message ID (voting only - admin uses slash commands)
-    const movieComponents = components.createVotingButtons(message.id);
-
-    // Update the message with the correct buttons
-    await message.edit({
-      embeds: [movieEmbed],
-      components: movieComponents
-    });
-
-    // Now save to database with the message ID
-    console.log(`💾 Saving movie to database: ${title} (${message.id})`);
-    const movieId = await database.saveMovie({
-      messageId: message.id,
-      guildId: interaction.guild.id,
-      channelId: interaction.channel.id,
-      title: title,
-      whereToWatch: where,
-      recommendedBy: interaction.user.id,
+    // Create movie using the new unified service
+    const result = await movieCreation.createMovieRecommendation(interaction, {
+      title,
+      where,
       imdbId: null,
       imdbData: null
     });
 
-    console.log(`💾 Movie save result: ${movieId ? 'SUCCESS' : 'FAILED'} (ID: ${movieId})`);
-    if (movieId) {
-      // Post to admin channel if configured
-      try {
-        const movie = await database.getMovieByMessageId(message.id);
-        if (movie) {
-          const adminMirror = require('../services/admin-mirror');
-          await adminMirror.postMovieToAdminChannel(interaction.client, interaction.guild.id, movie);
-        }
-      } catch (error) {
-        console.error('Error posting to admin channel:', error);
+    const { message, thread, movieId } = result;
+
+    // Post to admin channel if configured
+    try {
+      const movie = await database.getMovieByMessageId(message.id);
+      if (movie) {
+        const adminMirror = require('../services/admin-mirror');
+        await adminMirror.postMovieToAdminChannel(interaction.client, interaction.guild.id, movie);
       }
-
-      // Post Quick Action at bottom of channel
-      await cleanup.ensureQuickActionAtBottom(interaction.channel);
-
-      await interaction.reply({
-        content: `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added to the queue for voting.`,
-        flags: MessageFlags.Ephemeral
-      });
-    } else {
-      // If database save failed, delete the message
-      await message.delete().catch(console.error);
-      await interaction.reply({
-        content: '❌ Failed to create movie recommendation.',
-        flags: MessageFlags.Ephemeral
-      });
+    } catch (error) {
+      console.error('Error posting to admin channel:', error);
     }
+
+    // Post Quick Action at bottom of channel (only for text channels)
+    const forumChannels = require('../services/forum-channels');
+    if (forumChannels.isTextChannel(interaction.channel)) {
+      await cleanup.ensureQuickActionAtBottom(interaction.channel);
+    }
+
+    // Success message varies by channel type
+    const channelType = forumChannels.getChannelTypeString(interaction.channel);
+    const successMessage = thread
+      ? `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added as a new forum post for voting and discussion.`
+      : `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added to the queue for voting.`;
+
+    await interaction.reply({
+      content: successMessage,
+      flags: MessageFlags.Ephemeral
+    });
+
+  } catch (error) {
+    console.error('Error creating movie without IMDB:', error);
+    await interaction.reply({
+      content: '❌ Failed to create movie recommendation. Please try again.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
 
   } catch (error) {
     console.error('Error creating movie without IMDb:', error);

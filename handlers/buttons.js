@@ -221,6 +221,19 @@ async function handleVoting(interaction, action, msgId, votes) {
       }
 
       await interaction.editReply(updateData);
+
+      // Update forum post title if this is a forum channel movie
+      if (movie && movie.channel_type === 'forum' && movie.thread_id) {
+        try {
+          const forumChannels = require('../services/forum-channels');
+          const thread = await interaction.client.channels.fetch(movie.thread_id).catch(() => null);
+          if (thread) {
+            await forumChannels.updateForumPostTitle(thread, movie.title, movie.status, voteCounts.up, voteCounts.down);
+          }
+        } catch (error) {
+          console.warn('Error updating forum post title after vote:', error.message);
+        }
+      }
     } else {
       // Fallback to in-memory voting
       if (!votes.has(msgId)) {
