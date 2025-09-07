@@ -138,7 +138,11 @@ async function handleVotingSessionDateModal(interaction) {
     return;
   }
 
-  // Parse the full datetime
+  // Get guild timezone for proper conversion
+  const config = await database.getGuildConfig(interaction.guild.id);
+  const guildTimezone = config?.timezone || 'America/Los_Angeles';
+
+  // Parse the full datetime in guild timezone
   const sessionDateTime = new Date(`${sessionDate}T${sessionTime}:00`);
 
   // Parse voting end time (default to 1 hour before session if not provided)
@@ -150,6 +154,10 @@ async function handleVotingSessionDateModal(interaction) {
     votingEndDateTime = new Date(sessionDateTime);
     votingEndDateTime.setHours(votingEndDateTime.getHours() - 1);
   }
+
+  console.log(`🕐 Session times (${guildTimezone}):`);
+  console.log(`   Session: ${sessionDateTime.toLocaleString()} (${sessionDateTime.toISOString()})`);
+  console.log(`   Voting ends: ${votingEndDateTime.toLocaleString()} (${votingEndDateTime.toISOString()})`);
 
   // Validate that the dates are in the future
   if (sessionDateTime <= new Date()) {
@@ -199,6 +207,10 @@ async function createVotingSession(interaction, state) {
   const database = require('../database');
 
   try {
+    // Get guild configuration for timezone
+    const config = await database.getGuildConfig(interaction.guild.id);
+    const guildTimezone = config?.timezone || 'America/Los_Angeles'; // Default to PT
+
     // Create the voting session in the database
     const sessionData = {
       guildId: interaction.guild.id,
@@ -206,7 +218,8 @@ async function createVotingSession(interaction, state) {
       name: state.sessionName,
       description: state.sessionDescription,
       scheduledDate: state.sessionDateTime,
-      timezone: 'UTC',
+      votingEndTime: state.votingEndDateTime,
+      timezone: guildTimezone,
       createdBy: interaction.user.id,
       status: 'voting'
     };

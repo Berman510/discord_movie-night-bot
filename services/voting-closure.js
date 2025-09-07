@@ -11,20 +11,29 @@ const { EmbedBuilder } = require('discord.js');
 async function checkVotingClosures(client) {
   try {
     const database = require('../database');
-    
+
     // Get all active voting sessions
     const activeSessions = await database.getAllActiveVotingSessions();
-    
+
+    console.log(`⏰ Checking ${activeSessions.length} active sessions for voting closure...`);
+
     for (const session of activeSessions) {
       if (session.voting_end_time) {
         const now = new Date();
         const votingEndTime = new Date(session.voting_end_time);
-        
+
+        console.log(`⏰ Session "${session.name}": Current time: ${now.toISOString()}, Voting ends: ${votingEndTime.toISOString()}`);
+
         // Check if voting should be closed (with 1 minute buffer for processing)
         if (now >= votingEndTime) {
-          console.log(`⏰ Voting time ended for session: ${session.name}`);
+          console.log(`⏰ Voting time ended for session: ${session.name} - closing now!`);
           await closeVotingForSession(client, session);
+        } else {
+          const timeLeft = Math.round((votingEndTime - now) / 1000 / 60);
+          console.log(`⏰ Session "${session.name}" has ${timeLeft} minutes left`);
         }
+      } else {
+        console.log(`⏰ Session "${session.name}" has no voting end time set`);
       }
     }
   } catch (error) {
@@ -247,15 +256,21 @@ async function handleTieBreaking(client, session, winners, config) {
  * Start the voting closure checker (runs every minute)
  */
 function startVotingClosureChecker(client) {
+  console.log('⏰ Starting voting closure checker...');
+
   // Check immediately on start
   checkVotingClosures(client);
-  
+
   // Then check every minute
-  setInterval(() => {
+  const intervalId = setInterval(() => {
+    console.log('⏰ Running scheduled voting closure check...');
     checkVotingClosures(client);
   }, 60000); // 60 seconds
-  
+
   console.log('⏰ Voting closure checker started (checks every minute)');
+
+  // Return interval ID for potential cleanup
+  return intervalId;
 }
 
 module.exports = {

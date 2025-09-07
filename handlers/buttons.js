@@ -1439,6 +1439,12 @@ async function handlePickWinner(interaction, guildId, movieId) {
         const guild = interaction.guild;
         const event = await guild.scheduledEvents.fetch(activeSession.discord_event_id);
         if (event) {
+          // Get vote count for this movie
+          const votes = await database.getVotesByMessageId(movie.message_id);
+          const upVotes = votes.filter(v => v.vote_type === 'up').length;
+          const downVotes = votes.filter(v => v.vote_type === 'down').length;
+          const totalScore = upVotes - downVotes;
+
           // Get movie details for event update
           const imdbData = movie.imdb_id ? await require('../services/imdb').getMovieDetails(movie.imdb_id) : null;
 
@@ -1446,7 +1452,7 @@ async function handlePickWinner(interaction, guildId, movieId) {
           if (imdbData && imdbData.Plot && imdbData.Plot !== 'N/A') {
             updatedDescription += `📖 ${imdbData.Plot}\n\n`;
           }
-          updatedDescription += `🗳️ Selected from ${allVotingMovies.length} movie${allVotingMovies.length !== 1 ? 's' : ''}\n`;
+          updatedDescription += `🗳️ Final Score: ${totalScore} (${upVotes} 👍 - ${downVotes} 👎)\n`;
           updatedDescription += `📅 Join us for movie night!\n\n🔗 SESSION_UID:${activeSession.id}`;
 
           await event.edit({
@@ -1454,8 +1460,12 @@ async function handlePickWinner(interaction, guildId, movieId) {
             description: updatedDescription
           });
 
-          console.log(`📅 Updated Discord event with winner: ${movie.title}`);
+          console.log(`📅 Updated Discord event with winner: ${movie.title} (Score: ${totalScore})`);
+        } else {
+          console.warn(`Discord event not found: ${activeSession.discord_event_id}`);
         }
+      } else {
+        console.warn('No active session or Discord event ID found for event update');
       }
     } catch (error) {
       console.warn('Error updating Discord event with winner:', error.message);

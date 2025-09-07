@@ -1205,14 +1205,15 @@ class Database {
 
     try {
       const [result] = await this.pool.execute(
-        `INSERT INTO movie_sessions (guild_id, channel_id, name, description, scheduled_date, timezone, status, discord_event_id, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, 'voting', ?, ?)`,
+        `INSERT INTO movie_sessions (guild_id, channel_id, name, description, scheduled_date, voting_end_time, timezone, status, discord_event_id, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'voting', ?, ?)`,
         [
           sessionData.guildId,
           sessionData.channelId,
           sessionData.name,
           sessionData.description || null,
           sessionData.scheduledDate || null,
+          sessionData.votingEndTime || null,
           sessionData.timezone || 'UTC',
           sessionData.discordEventId || null,
           sessionData.createdBy
