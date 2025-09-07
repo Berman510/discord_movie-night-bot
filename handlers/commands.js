@@ -91,7 +91,7 @@ async function handleMovieNight(interaction) {
   // Show the movie recommendation modal
   const modal = new ModalBuilder()
     .setCustomId('mn:modal')
-    .setTitle(`Recommend Movie for ${activeSession.name}`);
+    .setTitle('🎬 Recommend Movie'); // Keep it short and simple
 
   const titleInput = new TextInputBuilder()
     .setCustomId('mn:title')
