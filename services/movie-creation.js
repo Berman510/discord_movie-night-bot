@@ -18,9 +18,13 @@ async function createMovieRecommendation(interaction, movieData) {
     const database = require('../database');
     const config = await database.getGuildConfig(interaction.guild.id);
 
+    console.log(`🔍 DEBUG: Guild config for ${interaction.guild.id}:`, config);
+
     if (!config || !config.movie_channel_id) {
       throw new Error('No movie channel configured for this guild. Use /movie-configure set-channel to set one.');
     }
+
+    console.log(`🔍 DEBUG: Configured movie channel ID: ${config.movie_channel_id}`);
 
     // Fetch the configured movie channel
     const client = interaction.client || global.discordClient;
@@ -33,11 +37,21 @@ async function createMovieRecommendation(interaction, movieData) {
       throw new Error('Configured movie channel not found');
     }
 
+    console.log(`🔍 DEBUG: Fetched channel:`, {
+      id: channel.id,
+      name: channel.name,
+      type: channel.type,
+      isForumChannel: forumChannels.isForumChannel(channel),
+      isTextChannel: forumChannels.isTextChannel(channel)
+    });
+
     console.log(`🎬 Creating movie recommendation: ${title} in ${forumChannels.getChannelTypeString(channel)} channel (${channel.name})`);
 
     if (forumChannels.isForumChannel(channel)) {
+      console.log(`🔍 DEBUG: Calling createForumMovieRecommendation`);
       return await createForumMovieRecommendation(interaction, movieData, channel);
     } else if (forumChannels.isTextChannel(channel)) {
+      console.log(`🔍 DEBUG: Calling createTextMovieRecommendation`);
       return await createTextMovieRecommendation(interaction, movieData, channel);
     } else {
       throw new Error(`Unsupported channel type: ${channel.type}`);
@@ -119,7 +133,15 @@ async function createTextMovieRecommendation(interaction, movieData, channel) {
  */
 async function createForumMovieRecommendation(interaction, movieData, channel) {
   const { title, where, imdbId = null, imdbData = null } = movieData;
-  
+
+  console.log(`🔍 DEBUG: createForumMovieRecommendation called with:`, {
+    title,
+    where,
+    channelId: channel.id,
+    channelName: channel.name,
+    channelType: channel.type
+  });
+
   // Create movie embed
   const movieEmbedData = {
     title: title,
@@ -131,13 +153,20 @@ async function createForumMovieRecommendation(interaction, movieData, channel) {
   };
 
   const movieEmbed = embeds.createMovieEmbed(movieEmbedData);
+  console.log(`🔍 DEBUG: Created movie embed for: ${title}`);
 
   // Create forum post
+  console.log(`🔍 DEBUG: About to call createForumMoviePost`);
   const result = await forumChannels.createForumMoviePost(
     channel,
     { title, embed: movieEmbed },
     [] // We'll add components after getting the message ID
   );
+
+  console.log(`🔍 DEBUG: createForumMoviePost result:`, {
+    threadId: result.thread?.id,
+    messageId: result.message?.id
+  });
 
   const { thread, message } = result;
 

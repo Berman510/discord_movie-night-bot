@@ -33,9 +33,19 @@ function getChannelTypeString(channel) {
  */
 async function createForumMoviePost(channel, movieData, components) {
   try {
-    console.log(`📋 Creating forum post for movie: ${movieData.title}`);
-    
+    console.log(`🔍 DEBUG: createForumMoviePost called with:`, {
+      channelId: channel.id,
+      channelName: channel.name,
+      channelType: channel.type,
+      movieTitle: movieData.title,
+      hasEmbed: !!movieData.embed,
+      componentsLength: components.length
+    });
+
+    console.log(`📋 Creating forum post for movie: ${movieData.title} in channel: ${channel.name}`);
+
     // Create forum post with movie as the topic
+    console.log(`🔍 DEBUG: About to call channel.threads.create`);
     const forumPost = await channel.threads.create({
       name: `🎬 ${movieData.title}`,
       message: {
@@ -46,10 +56,14 @@ async function createForumMoviePost(channel, movieData, components) {
       reason: `Movie recommendation: ${movieData.title}`
     });
 
-    console.log(`✅ Created forum post: ${forumPost.name} (ID: ${forumPost.id})`);
+    console.log(`✅ Created forum post: ${forumPost.name} (ID: ${forumPost.id}) in channel: ${channel.name}`);
+
+    const message = forumPost.lastMessage || await forumPost.fetchStarterMessage();
+    console.log(`🔍 DEBUG: Got starter message: ${message?.id}`);
+
     return {
       thread: forumPost,
-      message: forumPost.lastMessage || await forumPost.fetchStarterMessage()
+      message: message
     };
     
   } catch (error) {
