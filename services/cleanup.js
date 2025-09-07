@@ -713,40 +713,18 @@ async function recreateMoviePost(channel, movie) {
 
     // Create new movie record with new message ID and delete old one
     try {
-      // Get vote counts from old message
-      const voteCounts = await database.getVoteCounts(movie.message_id);
+      // Use the database's built-in method to properly update message ID and transfer votes
+      const success = await database.updateMovieMessageId(channel.guild.id, movie.title, newMessage.id);
 
-      // Create new movie record
-      await database.saveMovie({
-        messageId: newMessage.id,
-        guildId: channel.guild.id,
-        channelId: channel.id,
-        title: movie.title,
-        whereToWatch: movie.where_to_watch,
-        recommendedBy: movie.recommended_by,
-        imdbId: movie.imdb_id,
-        imdbData: movie.imdb_data
-      });
-
-      // Transfer votes to new message ID
-      if (voteCounts.up > 0 || voteCounts.down > 0) {
-        // Transfer up votes
-        for (const userId of voteCounts.voters.up) {
-          await database.saveVote(newMessage.id, userId, 'up');
-        }
-        // Transfer down votes
-        for (const userId of voteCounts.voters.down) {
-          await database.saveVote(newMessage.id, userId, 'down');
-        }
-        console.log(`🗳️ Transferred ${voteCounts.up} up votes and ${voteCounts.down} down votes`);
+      if (success) {
+        console.log(`🔄 Updated movie record: ${movie.title} (${movie.message_id} → ${newMessage.id})`);
+      } else {
+        console.warn(`Failed to update movie record for ${movie.title}`);
+        return false;
       }
-
-      // Delete old movie record (this will cascade delete old votes)
-      await database.deleteMovie(movie.message_id);
-
-      console.log(`🔄 Updated movie record: ${movie.title} (${movie.message_id} → ${newMessage.id})`);
     } catch (dbError) {
       console.warn(`Failed to update movie record for ${movie.title}:`, dbError.message);
+      return false;
     }
 
     // Create discussion thread for the movie

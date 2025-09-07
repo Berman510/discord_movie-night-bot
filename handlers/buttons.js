@@ -205,15 +205,37 @@ async function handleVoting(interaction, action, msgId, votes) {
 
     // Handle database voting
     if (database.isConnected) {
+      // First check if the movie exists in the database
+      const movie = await database.getMovieById(msgId, interaction.guild.id);
+      if (!movie) {
+        console.error(`🚨 VOTING ERROR: Movie with message ID ${msgId} not found in database for guild ${interaction.guild.id}`);
+        await interaction.editReply({
+          content: '❌ This movie is not found in the database. Please try refreshing the channel.',
+          flags: require('discord.js').MessageFlags.Ephemeral
+        });
+        return;
+      }
+
       // Check current vote
       const currentVote = await database.getUserVote(msgId, userId);
 
       if (currentVote === action) {
         // Remove vote if clicking same button
-        await database.removeVote(msgId, userId);
+        const removeSuccess = await database.removeVote(msgId, userId);
+        if (!removeSuccess) {
+          console.error(`Failed to remove vote for message ${msgId} by user ${userId}`);
+        }
       } else {
         // Add or change vote
-        await database.saveVote(msgId, userId, action);
+        const saveSuccess = await database.saveVote(msgId, userId, action, interaction.guild.id);
+        if (!saveSuccess) {
+          console.error(`Failed to save vote for message ${msgId} by user ${userId}`);
+          await interaction.editReply({
+            content: '❌ Failed to save your vote. Please try again.',
+            flags: require('discord.js').MessageFlags.Ephemeral
+          });
+          return;
+        }
       }
 
       // Get updated vote counts and movie data
