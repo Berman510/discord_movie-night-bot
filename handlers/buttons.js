@@ -61,6 +61,17 @@ async function handleButton(interaction) {
       return;
     }
 
+    // Deep purge submit/cancel buttons
+    if (customId === 'deep_purge_submit') {
+      await handleDeepPurgeSubmit(interaction);
+      return;
+    }
+
+    if (customId === 'deep_purge_cancel') {
+      await handleDeepPurgeCancel(interaction);
+      return;
+    }
+
     // Admin control panel buttons
     if (customId.startsWith('admin_ctrl_')) {
       await handleAdminControlButtons(interaction, customId);
@@ -1822,7 +1833,7 @@ async function handlePlanVotingSession(interaction) {
 async function handleDeepPurgeInitiation(interaction) {
   const deepPurge = require('../services/deep-purge');
 
-  const embed = deepPurge.createDeepPurgeSelectionEmbed(interaction.guild.name);
+  const embed = deepPurge.updateSelectionDisplay([]);
   const components = deepPurge.createDeepPurgeSelectionMenu();
 
   await interaction.reply({
@@ -2201,6 +2212,64 @@ async function handleGuidedSetupButton(interaction, customId) {
       console.warn('Unknown guided setup button:', customId);
       break;
   }
+}
+
+/**
+ * Handle deep purge submit button
+ */
+async function handleDeepPurgeSubmit(interaction) {
+  const { permissions } = require('../services');
+  const deepPurge = require('../services/deep-purge');
+
+  // Check admin permissions
+  const hasPermission = await permissions.checkMovieAdminPermission(interaction);
+  if (!hasPermission) {
+    await interaction.reply({
+      content: '❌ You need Administrator permissions or a configured admin role to use this action.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  // Get selected categories from global storage
+  const selectedCategories = global.deepPurgeSelections?.get(interaction.user.id);
+  if (!selectedCategories || selectedCategories.length === 0) {
+    await interaction.reply({
+      content: '❌ No categories selected. Please select categories first.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  try {
+    // Create confirmation modal
+    const modal = deepPurge.createConfirmationModal(selectedCategories);
+    await interaction.showModal(modal);
+
+    // Clean up stored selections
+    global.deepPurgeSelections?.delete(interaction.user.id);
+
+  } catch (error) {
+    console.error('Error handling deep purge submit:', error);
+    await interaction.reply({
+      content: '❌ An error occurred while preparing the confirmation.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+/**
+ * Handle deep purge cancel button
+ */
+async function handleDeepPurgeCancel(interaction) {
+  // Clean up stored selections
+  global.deepPurgeSelections?.delete(interaction.user.id);
+
+  await interaction.update({
+    content: '❌ **Deep Purge Cancelled**\n\nNo data was deleted.',
+    embeds: [],
+    components: []
+  });
 }
 
 module.exports = {

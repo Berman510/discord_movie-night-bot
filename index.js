@@ -8,6 +8,7 @@
 require('dotenv').config();
 
 const { Client, GatewayIntentBits, REST, Routes, InteractionType, MessageFlags, EmbedBuilder } = require('discord.js');
+const logger = require('./utils/logger');
 const database = require('./database');
 const { commands, registerCommands } = require('./commands');
 const { handleInteraction } = require('./handlers');
@@ -20,12 +21,12 @@ const { DISCORD_TOKEN, CLIENT_ID, GUILD_ID, OMDB_API_KEY } = process.env;
 
 // Validate required environment variables
 if (!DISCORD_TOKEN) {
-  console.error('❌ DISCORD_TOKEN is required');
+  logger.error('❌ DISCORD_TOKEN is required');
   process.exit(1);
 }
 
 if (!CLIENT_ID) {
-  console.error('❌ CLIENT_ID is required');
+  logger.error('❌ CLIENT_ID is required');
   process.exit(1);
 }
 
@@ -45,9 +46,9 @@ global.discordClient = client;
 
 // Bot ready event
 client.once('clientReady', async () => {
-  console.log(`✅ ${client.user.tag} is online!`);
-  console.log(`🎬 Movie Night Bot v${BOT_VERSION} ready`);
-  console.log(`📊 Serving ${client.guilds.cache.size} guilds`);
+  logger.info(`✅ ${client.user.tag} is online!`);
+  logger.info(`🎬 Movie Night Bot v${BOT_VERSION} ready`);
+  logger.info(`📊 Serving ${client.guilds.cache.size} guilds`);
 
   // Set bot status
   client.user.setActivity('🍿 Movie Night', { type: 3 }); // 3 = WATCHING
@@ -189,32 +190,32 @@ process.on('SIGTERM', async () => {
 // Start the bot
 async function startBot() {
   try {
-    console.log(`🎬 Movie Night Bot v${BOT_VERSION} starting...`);
-    
+    logger.info(`🎬 Movie Night Bot v${BOT_VERSION} starting...`);
+
     // Initialize database
     await database.connect();
-    
+
     // Register commands globally for all servers
-    console.log(`🌍 Registering commands globally for all servers`);
+    logger.info(`🌍 Registering commands globally for all servers`);
     await registerCommands(DISCORD_TOKEN, CLIENT_ID);
 
     // Also register to specific development guilds if specified for instant testing
     if (GUILD_ID && GUILD_ID.trim()) {
       const guildIds = GUILD_ID.split(',').map(id => id.trim()).filter(id => id);
-      console.log(`🧪 Also registering to ${guildIds.length} development guild(s) for instant testing`);
+      logger.info(`🧪 Also registering to ${guildIds.length} development guild(s) for instant testing`);
       for (const guildId of guildIds) {
         await registerCommands(DISCORD_TOKEN, CLIENT_ID, guildId);
       }
     }
-    
+
     // Login to Discord
     await client.login(DISCORD_TOKEN);
-    
+
     // Start payload cleanup
     startPayloadCleanup();
-    
+
   } catch (error) {
-    console.error('❌ Failed to start bot:', error);
+    logger.error('❌ Failed to start bot:', error);
     process.exit(1);
   }
 }

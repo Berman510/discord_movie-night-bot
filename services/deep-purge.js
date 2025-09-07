@@ -42,11 +42,11 @@ function createDeepPurgeSelectionEmbed(guildName) {
 }
 
 /**
- * Create deep purge selection menu
+ * Create deep purge selection menu with submit button
  */
 function createDeepPurgeSelectionMenu() {
   const selectMenu = new StringSelectMenuBuilder()
-    .setCustomId('deep_purge_select')
+    .setCustomId('deep_purge_select_categories')
     .setPlaceholder('Select data categories to remove...')
     .setMinValues(1)
     .setMaxValues(6)
@@ -89,8 +89,71 @@ function createDeepPurgeSelectionMenu() {
       }
     ]);
 
-  const row = new ActionRowBuilder().addComponents(selectMenu);
-  return [row];
+  const submitButton = new ButtonBuilder()
+    .setCustomId('deep_purge_submit')
+    .setLabel('🚨 Proceed with Deep Purge')
+    .setStyle(ButtonStyle.Danger);
+
+  const cancelButton = new ButtonBuilder()
+    .setCustomId('deep_purge_cancel')
+    .setLabel('❌ Cancel')
+    .setStyle(ButtonStyle.Secondary);
+
+  const selectRow = new ActionRowBuilder().addComponents(selectMenu);
+  const buttonRow = new ActionRowBuilder().addComponents(submitButton, cancelButton);
+
+  return [selectRow, buttonRow];
+}
+
+/**
+ * Update selection display with current selections
+ */
+function updateSelectionDisplay(selectedCategories) {
+  const embed = new EmbedBuilder()
+    .setTitle('💥 Deep Purge - Select Categories')
+    .setDescription('⚠️ **WARNING: This will permanently delete selected data**\n\nSelect the categories you want to remove, then click the submit button.')
+    .setColor(0xed4245);
+
+  if (selectedCategories && selectedCategories.length > 0) {
+    const categoryEmojis = {
+      movies: '🎬',
+      sessions: '🎪',
+      votes: '🗳️',
+      participants: '👥',
+      attendees: '📊',
+      config: '⚙️'
+    };
+
+    const categoryNames = {
+      movies: 'Movies',
+      sessions: 'Sessions',
+      votes: 'Votes',
+      participants: 'Participants',
+      attendees: 'Attendees',
+      config: 'Configuration'
+    };
+
+    const selectedList = selectedCategories.map(cat =>
+      `${categoryEmojis[cat]} **${categoryNames[cat]}**`
+    ).join('\n');
+
+    embed.addFields({
+      name: `📋 Selected Categories (${selectedCategories.length})`,
+      value: selectedList,
+      inline: false
+    });
+
+    embed.setFooter({ text: 'Click "Proceed with Deep Purge" to continue or "Cancel" to abort.' });
+  } else {
+    embed.addFields({
+      name: '📋 No Categories Selected',
+      value: 'Please select at least one category to purge.',
+      inline: false
+    });
+    embed.setFooter({ text: 'Select categories from the dropdown menu above.' });
+  }
+
+  return embed;
 }
 
 /**
@@ -418,6 +481,7 @@ function createSuccessEmbed(guildName, result, categories) {
 module.exports = {
   createDeepPurgeSelectionEmbed,
   createDeepPurgeSelectionMenu,
+  updateSelectionDisplay,
   createConfirmationEmbed,
   createConfirmationModal,
   executeDeepPurge,

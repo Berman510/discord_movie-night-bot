@@ -6,6 +6,7 @@
 const { embeds, components } = require('../utils');
 const forumChannels = require('./forum-channels');
 const database = require('../database');
+const logger = require('../utils/logger');
 
 /**
  * Create a movie recommendation in the appropriate channel type
@@ -18,14 +19,14 @@ async function createMovieRecommendation(interaction, movieData) {
     const database = require('../database');
     const config = await database.getGuildConfig(interaction.guild.id);
 
-    console.log(`🔍 DEBUG: Guild config for ${interaction.guild.id}:`, JSON.stringify(config, null, 2));
+    logger.debug(`Guild config for ${interaction.guild.id}:`, JSON.stringify(config, null, 2));
 
     if (!config || !config.movie_channel_id) {
-      console.log(`🔍 DEBUG: No movie channel configured. Config:`, config);
+      logger.debug(`No movie channel configured. Config:`, config);
       throw new Error('No movie channel configured for this guild. Use /movie-configure set-channel to set one.');
     }
 
-    console.log(`🔍 DEBUG: Configured movie channel ID: ${config.movie_channel_id}`);
+    logger.debug(`Configured movie channel ID: ${config.movie_channel_id}`);
 
     // Fetch the configured movie channel
     const client = interaction.client || global.discordClient;

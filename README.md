@@ -293,6 +293,12 @@ pm2 startup  # follow the printed instructions
 - **Notification Roles:** Configure roles for Discord event notifications and session announcements
 - **View Settings:** `/movie-configure view-settings` shows all current configuration including new features
 
+### Logging Configuration
+- **Log Levels:** `ERROR`, `WARN`, `INFO`, `DEBUG` - Control console output verbosity
+- **Debug Mode:** Enable detailed debugging for troubleshooting and development
+- **Colored Output:** Optional colored console logs for better readability
+- **Environment Variables:** Configure logging behavior via `.env` file
+
 ### Channel Maintenance
 - **Cleanup:** `/movie-cleanup` updates old bot messages to current format (Configured admins only)
 - **Thread Creation:** Automatically creates missing discussion threads for movies up for vote

@@ -40,9 +40,15 @@ async function handleSelect(interaction) {
       return;
     }
 
-    // Deep purge selection menu
+    // Deep purge category selection (old auto-submit version)
     if (customId === 'deep_purge_select') {
       await handleDeepPurgeSelection(interaction);
+      return;
+    }
+
+    // Deep purge category selection (new version with submit button)
+    if (customId === 'deep_purge_select_categories') {
+      await handleDeepPurgeCategorySelection(interaction);
       return;
     }
 
@@ -71,7 +77,7 @@ async function handleSelect(interaction) {
 }
 
 /**
- * Handle deep purge category selection
+ * Handle deep purge category selection (old auto-submit version)
  */
 async function handleDeepPurgeSelection(interaction) {
   const { permissions } = require('../services');
@@ -100,6 +106,50 @@ async function handleDeepPurgeSelection(interaction) {
     if (!interaction.replied && !interaction.deferred) {
       await interaction.reply({
         content: '❌ An error occurred while preparing the deep purge confirmation.',
+        flags: MessageFlags.Ephemeral
+      });
+    }
+  }
+}
+
+/**
+ * Handle deep purge category selection (new version with submit button)
+ */
+async function handleDeepPurgeCategorySelection(interaction) {
+  const { permissions } = require('../services');
+  const deepPurge = require('../services/deep-purge');
+
+  // Check admin permissions
+  const hasPermission = await permissions.checkMovieAdminPermission(interaction);
+  if (!hasPermission) {
+    await interaction.reply({
+      content: '❌ You need Administrator permissions or a configured admin role to use this action.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  const selectedCategories = interaction.values;
+
+  try {
+    // Update the display with selected categories
+    const embed = deepPurge.updateSelectionDisplay(selectedCategories);
+    const components = deepPurge.createDeepPurgeSelectionMenu();
+
+    // Store selected categories in the interaction for later use
+    global.deepPurgeSelections = global.deepPurgeSelections || new Map();
+    global.deepPurgeSelections.set(interaction.user.id, selectedCategories);
+
+    await interaction.update({
+      embeds: [embed],
+      components: components
+    });
+
+  } catch (error) {
+    console.error('Error handling deep purge category selection:', error);
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: '❌ An error occurred while updating the selection.',
         flags: MessageFlags.Ephemeral
       });
     }
