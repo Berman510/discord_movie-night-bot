@@ -56,6 +56,10 @@ async function handleSlashCommand(interaction) {
         await handleMoviePlan(interaction);
         break;
 
+      case 'debug-config':
+        await handleDebugConfig(interaction);
+        break;
+
       default:
         await interaction.reply({
           content: `❌ Unknown command: ${commandName}`,
@@ -448,6 +452,50 @@ async function handleMoviePlan(interaction) {
   }
 }
 
+/**
+ * Handle debug config command
+ */
+async function handleDebugConfig(interaction) {
+  try {
+    const database = require('../database');
+    const config = await database.getGuildConfig(interaction.guild.id);
+
+    let configInfo = `**Guild ID**: ${interaction.guild.id}\n`;
+
+    if (!config) {
+      configInfo += `**Status**: ❌ No configuration found\n`;
+    } else {
+      configInfo += `**Movie Channel ID**: ${config.movie_channel_id || 'Not set'}\n`;
+      configInfo += `**Admin Channel ID**: ${config.admin_channel_id || 'Not set'}\n`;
+      configInfo += `**Timezone**: ${config.timezone || 'Not set'}\n`;
+
+      if (config.movie_channel_id) {
+        try {
+          const channel = await interaction.client.channels.fetch(config.movie_channel_id);
+          const forumChannels = require('../services/forum-channels');
+          configInfo += `**Movie Channel**: ${channel.name} (${channel.type})\n`;
+          configInfo += `**Is Forum**: ${forumChannels.isForumChannel(channel) ? '✅ Yes' : '❌ No'}\n`;
+          configInfo += `**Is Text**: ${forumChannels.isTextChannel(channel) ? '✅ Yes' : '❌ No'}\n`;
+        } catch (error) {
+          configInfo += `**Movie Channel**: ❌ Channel not found (${error.message})\n`;
+        }
+      }
+    }
+
+    await interaction.reply({
+      content: `🔍 **Debug Configuration**\n\n${configInfo}`,
+      flags: MessageFlags.Ephemeral
+    });
+
+  } catch (error) {
+    console.error('Error in debug config:', error);
+    await interaction.reply({
+      content: `❌ Error getting debug info: ${error.message}`,
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
 module.exports = {
   handleSlashCommand,
   handleMovieNight,
@@ -459,5 +507,6 @@ module.exports = {
   handleMovieSetup,
   handleMovieWatched,
   handleMovieSkip,
-  handleMoviePlan
+  handleMoviePlan,
+  handleDebugConfig
 };
