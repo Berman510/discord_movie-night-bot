@@ -118,29 +118,40 @@ async function selectWinner(client, session, winner, config) {
       }
     }
     
-    // Clear voting channel
+    // Clear voting channel based on channel type
     if (config && config.movie_channel_id) {
       const votingChannel = await client.channels.fetch(config.movie_channel_id);
       if (votingChannel) {
-        // Clear all bot messages
-        const messages = await votingChannel.messages.fetch({ limit: 100 });
-        const botMessages = messages.filter(msg => msg.author.id === client.user.id);
-        
-        for (const [messageId, message] of botMessages) {
-          try {
-            await message.delete();
-          } catch (error) {
-            console.warn(`Failed to delete message ${messageId}:`, error.message);
+        const forumChannels = require('./forum-channels');
+
+        if (forumChannels.isForumChannel(votingChannel)) {
+          // Forum channel - archive non-winner posts and post winner announcement
+          await forumChannels.clearForumMoviePosts(votingChannel, winner.movie.thread_id);
+          await forumChannels.postForumWinnerAnnouncement(votingChannel, winner.movie, session.name);
+
+          // Archive recommendation post since session is ending
+          await forumChannels.ensureRecommendationPost(votingChannel, null);
+        } else {
+          // Text channel - delete messages and threads
+          const messages = await votingChannel.messages.fetch({ limit: 100 });
+          const botMessages = messages.filter(msg => msg.author.id === client.user.id);
+
+          for (const [messageId, message] of botMessages) {
+            try {
+              await message.delete();
+            } catch (error) {
+              console.warn(`Failed to delete message ${messageId}:`, error.message);
+            }
           }
-        }
-        
-        // Clear threads
-        const threads = await votingChannel.threads.fetchActive();
-        for (const [threadId, thread] of threads.threads) {
-          try {
-            await thread.delete();
-          } catch (error) {
-            console.warn(`Failed to delete thread ${threadId}:`, error.message);
+
+          // Clear threads
+          const threads = await votingChannel.threads.fetchActive();
+          for (const [threadId, thread] of threads.threads) {
+            try {
+              await thread.delete();
+            } catch (error) {
+              console.warn(`Failed to delete thread ${threadId}:`, error.message);
+            }
           }
         }
         

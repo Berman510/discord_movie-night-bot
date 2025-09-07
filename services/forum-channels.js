@@ -266,29 +266,120 @@ async function getForumMoviePosts(channel, limit = 50) {
 async function cleanupForumPosts(channel, olderThanDays = 30) {
   try {
     if (!isForumChannel(channel)) return 0;
-    
+
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
-    
+
     const moviePosts = await getForumMoviePosts(channel, 100);
     let archivedCount = 0;
-    
+
     for (const thread of moviePosts) {
       // Archive old completed movies
-      if (thread.createdAt < cutoffDate && 
+      if (thread.createdAt < cutoffDate &&
           (thread.name.includes('✅') || thread.name.includes('⏭️')) &&
           !thread.archived) {
         await archiveForumPost(thread, 'Automatic cleanup of old completed movie');
         archivedCount++;
       }
     }
-    
+
     console.log(`🧹 Archived ${archivedCount} old forum posts`);
     return archivedCount;
-    
+
   } catch (error) {
     console.error('Error cleaning up forum posts:', error);
     return 0;
+  }
+}
+
+/**
+ * Clear all movie forum posts when session ends (archive non-winners, delete losers)
+ */
+async function clearForumMoviePosts(channel, winnerMovieId = null) {
+  try {
+    if (!isForumChannel(channel)) return { archived: 0, deleted: 0 };
+
+    console.log(`🧹 Clearing forum movie posts in channel: ${channel.name}`);
+
+    const moviePosts = await getForumMoviePosts(channel, 100);
+    let archivedCount = 0;
+    let deletedCount = 0;
+
+    for (const thread of moviePosts) {
+      try {
+        // Skip recommendation posts
+        if (thread.name.includes('Recommend a Movie') || thread.name.includes('🍿')) {
+          continue;
+        }
+
+        // Check if this is the winner thread
+        const isWinner = winnerMovieId && thread.id === winnerMovieId;
+
+        if (isWinner) {
+          // Winner thread - just update status, don't archive yet
+          console.log(`🏆 Keeping winner thread: ${thread.name}`);
+          continue;
+        } else {
+          // Non-winner thread - archive it
+          if (!thread.archived) {
+            await archiveForumPost(thread, 'Session ended - movie not selected');
+            archivedCount++;
+            console.log(`📦 Archived non-winner thread: ${thread.name}`);
+          }
+        }
+      } catch (error) {
+        console.warn(`Error processing forum thread ${thread.name}:`, error.message);
+      }
+    }
+
+    console.log(`🧹 Forum cleanup complete: ${archivedCount} archived, ${deletedCount} deleted`);
+    return { archived: archivedCount, deleted: deletedCount };
+
+  } catch (error) {
+    console.error('Error clearing forum movie posts:', error);
+    return { archived: 0, deleted: 0 };
+  }
+}
+
+/**
+ * Post winner announcement in forum channel
+ */
+async function postForumWinnerAnnouncement(channel, winnerMovie, sessionName) {
+  try {
+    if (!isForumChannel(channel)) return null;
+
+    const { EmbedBuilder } = require('discord.js');
+
+    // Create winner announcement embed
+    const winnerEmbed = new EmbedBuilder()
+      .setTitle('🏆 Movie Night Winner Announced!')
+      .setDescription(`**${winnerMovie.title}** has been selected for our next movie night!`)
+      .setColor(0xffd700)
+      .addFields(
+        { name: '📺 Platform', value: winnerMovie.where_to_watch || 'TBD', inline: true },
+        { name: '👤 Recommended by', value: `<@${winnerMovie.recommended_by}>`, inline: true },
+        { name: '📅 Session', value: sessionName, inline: false }
+      )
+      .setTimestamp();
+
+    // Create announcement forum post
+    const announcementPost = await channel.threads.create({
+      name: `🏆 Winner: ${winnerMovie.title}`,
+      message: {
+        embeds: [winnerEmbed]
+      },
+      reason: `Winner announcement for ${sessionName}`
+    });
+
+    // Pin the announcement
+    await announcementPost.pin();
+
+    console.log(`🏆 Posted winner announcement in forum: ${winnerMovie.title}`);
+    return announcementPost;
+
+  } catch (error) {
+    console.error('Error posting forum winner announcement:', error);
+    return null;
   }
 }
 
@@ -412,6 +503,8 @@ module.exports = {
   archiveForumPost,
   getForumMoviePosts,
   cleanupForumPosts,
+  clearForumMoviePosts,
+  postForumWinnerAnnouncement,
   getMovieStatusTags,
   ensureRecommendationPost
 };
