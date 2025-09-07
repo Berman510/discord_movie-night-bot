@@ -1592,16 +1592,23 @@ class Database {
 
   // Forum Channel Support Functions
 
-  async addForumMovie(guildId, title, whereToWatch, recommendedBy, messageId, threadId, imdbId = null, imdbData = null) {
+  async addForumMovie(guildId, title, whereToWatch, recommendedBy, messageId, threadId, channelId, imdbId = null, imdbData = null) {
     if (!this.isConnected) return false;
 
     try {
-      await this.pool.execute(
-        `INSERT INTO movies (guild_id, title, where_to_watch, recommended_by, message_id, thread_id, channel_type, imdb_id, imdb_data, status, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, 'forum', ?, ?, 'pending', NOW())`,
-        [guildId, title, whereToWatch, recommendedBy, messageId, threadId, imdbId, imdbData]
+      // Generate movie UID
+      const movieUID = this.generateMovieUID(guildId, title);
+
+      // Get active session ID
+      const activeSession = await this.getActiveVotingSession(guildId);
+      const sessionId = activeSession ? activeSession.id : null;
+
+      const [result] = await this.pool.execute(
+        `INSERT INTO movies (guild_id, channel_id, title, movie_uid, where_to_watch, recommended_by, message_id, thread_id, channel_type, imdb_id, imdb_data, status, session_id, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'forum', ?, ?, 'pending', ?, NOW())`,
+        [guildId, channelId, title, movieUID, whereToWatch, recommendedBy, messageId, threadId, imdbId, imdbData ? JSON.stringify(imdbData) : null, sessionId]
       );
-      return true;
+      return result.insertId;
     } catch (error) {
       console.error('Error adding forum movie:', error.message);
       return false;

@@ -189,6 +189,7 @@ async function createForumMovieRecommendation(interaction, movieData, channel) {
     interaction.user.id,
     message.id,
     thread.id,
+    channel.id,
     imdbId,
     imdbData
   );

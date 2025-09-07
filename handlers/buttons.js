@@ -749,11 +749,22 @@ async function createMovieWithoutImdb(interaction, title, where) {
 
   } catch (error) {
     console.error('Error creating movie without IMDb:', error);
-    await interaction.update({
-      content: '❌ Error creating movie recommendation.',
-      embeds: [],
-      components: []
-    });
+    try {
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp({
+          content: '❌ Error creating movie recommendation.',
+          flags: MessageFlags.Ephemeral
+        });
+      } else {
+        await interaction.update({
+          content: '❌ Error creating movie recommendation.',
+          embeds: [],
+          components: []
+        });
+      }
+    } catch (responseError) {
+      console.error('Error responding to interaction:', responseError.message);
+    }
   }
 }
 
@@ -815,11 +826,22 @@ async function createMovieWithImdb(interaction, title, where, imdbData) {
 
   } catch (error) {
     console.error('Error creating movie with IMDb:', error);
-    await interaction.update({
-      content: '❌ Error creating movie recommendation.',
-      embeds: [],
-      components: []
-    });
+    try {
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp({
+          content: '❌ Error creating movie recommendation.',
+          flags: MessageFlags.Ephemeral
+        });
+      } else {
+        await interaction.update({
+          content: '❌ Error creating movie recommendation.',
+          embeds: [],
+          components: []
+        });
+      }
+    } catch (responseError) {
+      console.error('Error responding to interaction:', responseError.message);
+    }
   }
 }
 
