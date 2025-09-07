@@ -130,9 +130,16 @@ function createHelpEmbed() {
 
 function createQuickActionEmbed(activeSession = null) {
   if (activeSession) {
+    let description = 'Click the button below to recommend a movie for this voting session!';
+
+    // Add event link if available
+    if (activeSession.discord_event_id) {
+      description += `\n\n📅 [**Join the Discord Event**](https://discord.com/events/${activeSession.guild_id}/${activeSession.discord_event_id}) to RSVP and get notified!`;
+    }
+
     const embed = new EmbedBuilder()
       .setTitle(`🍿 ${activeSession.name}`)
-      .setDescription('Click the button below to recommend a movie for this voting session!')
+      .setDescription(description)
       .setColor(COLORS.primary)
       .setFooter({ text: 'Use /movie-help for detailed commands and features' });
 
@@ -148,6 +155,18 @@ function createQuickActionEmbed(activeSession = null) {
           minute: '2-digit'
         }),
         inline: false
+      });
+    }
+
+    // Add voting end time if available
+    if (activeSession.voting_end_time) {
+      embed.addFields({
+        name: '🗳️ Voting Ends',
+        value: new Date(activeSession.voting_end_time).toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit'
+        }),
+        inline: true
       });
     }
 

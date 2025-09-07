@@ -9,6 +9,9 @@ async function createDiscordEvent(guild, sessionData, scheduledDate) {
   if (!scheduledDate) return null;
 
   try {
+    // Get guild config for session viewing channel
+    const database = require('../database');
+    const config = await database.getGuildConfig(guild.id);
     // Calculate end time based on movie runtime + 30 minutes buffer
     const endTime = new Date(scheduledDate);
     let durationMinutes = 150; // Default 2.5 hours if no movie runtime available
@@ -44,24 +47,36 @@ async function createDiscordEvent(guild, sessionData, scheduledDate) {
     const baseDescription = sessionData.description || 'Movie night session - join us for a great movie!';
     const enhancedDescription = `${baseDescription}\n\n🔗 ${sessionUID}`;
 
-    const event = await guild.scheduledEvents.create({
+    // Determine event type and location
+    let eventConfig = {
       name: `🎬 ${sessionData.name}`,
       description: enhancedDescription,
       scheduledStartTime: scheduledDate,
       scheduledEndTime: endTime,
-      privacyLevel: GuildScheduledEventPrivacyLevel.GuildOnly,
-      entityType: GuildScheduledEventEntityType.External,
-      entityMetadata: {
-        location: sessionData.associatedMovieId ? 'Movie Voting Channel - Featured Movie Session' : 'Movie Voting Channel'
-      }
-    });
+      privacyLevel: GuildScheduledEventPrivacyLevel.GuildOnly
+    };
+
+    // Use session viewing channel if configured, otherwise external event
+    if (config && config.session_viewing_channel_id) {
+      eventConfig.entityType = GuildScheduledEventEntityType.Voice;
+      eventConfig.channel = config.session_viewing_channel_id;
+      console.log(`📍 Setting event location to session viewing channel: ${config.session_viewing_channel_id}`);
+    } else {
+      eventConfig.entityType = GuildScheduledEventEntityType.External;
+      eventConfig.entityMetadata = {
+        location: 'Movie Night Session - Check voting channel for details'
+      };
+      console.log(`📍 Using external event (no session viewing channel configured)`);
+    }
+
+    const event = await guild.scheduledEvents.create(eventConfig);
 
     console.log(`✅ Created Discord event: ${event.name} (ID: ${event.id}) - Duration: ${durationMinutes} minutes`);
 
     // Send notification to configured role
     await notifyRole(guild, event, sessionData);
 
-    return event.id;
+    return event; // Return the full event object, not just the ID
   } catch (error) {
     console.warn('Failed to create Discord event:', error.message);
     return null;
