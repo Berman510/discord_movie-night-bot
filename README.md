@@ -54,6 +54,28 @@ A comprehensive Discord bot for managing movie recommendations, voting, and orga
 
 ---
 
+## 📋 TODO List
+
+### 🔄 **Message Tracking System**
+- [ ] **Track all bot messages**: Store message IDs for notifications, admin panels, recommendations
+- [ ] **Message update system**: Update tracked messages when sessions are rescheduled
+- [ ] **Bidirectional sync**: Remove SESSION_UID from event descriptions once message tracking is implemented
+- [ ] **Message cleanup**: Proper cleanup of tracked messages when sessions end
+
+### 📅 **Reschedule Functionality**
+- [ ] **Reschedule button**: Add reschedule button to admin panel
+- [ ] **Reschedule modal**: Allow editing session name, description, start time, voting end time
+- [ ] **Event updates**: Update Discord events when sessions are rescheduled
+- [ ] **Notification updates**: Update all tracked notification messages with new times
+
+### 🎯 **Future Enhancements**
+- [ ] **Forum channel tags**: Implement status-based tags for forum posts
+- [ ] **Advanced analytics**: More detailed voting and attendance statistics
+- [ ] **Movie recommendations API**: Integration with additional movie databases
+- [ ] **Automated reminders**: Reminder notifications before voting ends
+
+---
+
 ## Prerequisites
 - Node.js 18+ (fetch built-in).
 - Discord application + bot token.

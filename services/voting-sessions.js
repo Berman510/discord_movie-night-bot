@@ -273,7 +273,8 @@ async function createVotingSession(interaction, state) {
         id: sessionId,
         guildId: interaction.guild.id,
         name: state.sessionName,
-        description: state.sessionDescription || 'Join us for movie night voting and viewing!'
+        description: state.sessionDescription || 'Join us for movie night voting and viewing!',
+        votingEndTime: state.votingEndDateTime
       };
 
       const event = await discordEvents.createDiscordEvent(interaction.guild, eventData, state.sessionDateTime);
@@ -462,6 +463,14 @@ async function createVotingSession(interaction, state) {
       }
     } catch (error) {
       console.warn('Error updating channels after session creation:', error.message);
+    }
+
+    // Schedule voting end with smart scheduler
+    try {
+      const sessionScheduler = require('./session-scheduler');
+      await sessionScheduler.scheduleVotingEnd(sessionId, state.votingEndDateTime);
+    } catch (error) {
+      console.warn('Error scheduling voting end:', error.message);
     }
 
     console.log(`🎬 Voting session created: ${state.sessionName} by ${interaction.user.tag}`);

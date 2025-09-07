@@ -76,12 +76,12 @@ client.once('clientReady', async () => {
     console.error('Error during admin panel initialization:', error);
   }
 
-  // Start voting closure checker
+  // Initialize smart session scheduler (replaces old polling system)
   try {
-    const votingClosure = require('./services/voting-closure');
-    votingClosure.startVotingClosureChecker(client);
+    const sessionScheduler = require('./services/session-scheduler');
+    await sessionScheduler.initialize(client);
   } catch (error) {
-    console.error('Error starting voting closure checker:', error);
+    console.error('Error starting session scheduler:', error);
   }
 });
 

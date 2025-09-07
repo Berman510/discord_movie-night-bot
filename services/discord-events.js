@@ -42,10 +42,25 @@ async function createDiscordEvent(guild, sessionData, scheduledDate) {
 
     endTime.setMinutes(endTime.getMinutes() + durationMinutes);
 
-    // Add session UID to description for bidirectional sync
+    // Create enhanced description with voting info and channel link
+    const baseDescription = sessionData.description || 'Join us for movie night voting and viewing!';
+    let enhancedDescription = baseDescription;
+
+    // Add voting information if available
+    if (sessionData.votingEndTime) {
+      const votingEndTimestamp = Math.floor(sessionData.votingEndTime.getTime() / 1000);
+      enhancedDescription += `\n\n🗳️ **Voting ends:** <t:${votingEndTimestamp}:F>`;
+      enhancedDescription += `\n⏰ **Time remaining:** <t:${votingEndTimestamp}:R>`;
+    }
+
+    // Add voting channel link if available
+    if (config && config.movie_channel_id) {
+      enhancedDescription += `\n📺 **Vote in:** <#${config.movie_channel_id}>`;
+    }
+
+    // Add session UID for bidirectional sync (keeping for now)
     const sessionUID = `SESSION_UID:${sessionData.id || 'unknown'}`;
-    const baseDescription = sessionData.description || 'Movie night session - join us for a great movie!';
-    const enhancedDescription = `${baseDescription}\n\n🔗 ${sessionUID}`;
+    enhancedDescription += `\n\n🔗 ${sessionUID}`;
 
     // Determine event type and location
     let eventConfig = {
