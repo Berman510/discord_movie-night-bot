@@ -5,6 +5,7 @@
 
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags } = require('discord.js');
 const database = require('../database');
+const ephemeralManager = require('../utils/ephemeral-manager');
 
 /**
  * Start the voting session creation process with date/time selection
@@ -300,8 +301,8 @@ async function createVotingSession(interaction, state) {
     global.votingSessionCreationState?.delete(interaction.user.id);
 
     // Success response
-    await interaction.reply({
-      content: `✅ **Voting session created successfully!**\n\n🎬 **${state.sessionName}**\n📅 ${state.sessionDateTime.toLocaleDateString('en-US', {
+    await ephemeralManager.sendEphemeral(interaction,
+      `✅ **Voting session created successfully!**\n\n🎬 **${state.sessionName}**\n📅 ${state.sessionDateTime.toLocaleDateString('en-US', {
         weekday: 'long',
         year: 'numeric',
         month: 'long',
@@ -312,9 +313,8 @@ async function createVotingSession(interaction, state) {
       })}\n🗳️ Voting ends: ${state.votingEndDateTime.toLocaleTimeString('en-US', {
         hour: '2-digit',
         minute: '2-digit'
-      })}\n\n🗳️ Users can now start recommending movies for this session!`,
-      flags: MessageFlags.Ephemeral
-    });
+      })}\n\n🗳️ Users can now start recommending movies for this session!`
+    );
 
     // Handle carryover movies from previous session
     try {

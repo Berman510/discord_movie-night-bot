@@ -5,6 +5,7 @@
 
 const { MessageFlags, EmbedBuilder } = require('discord.js');
 const database = require('../database');
+const ephemeralManager = require('../utils/ephemeral-manager');
 
 async function handleMovieStats(interaction) {
   const type = interaction.options.getString('type') || 'overview';
@@ -75,9 +76,8 @@ async function showOverviewStats(interaction) {
     .setFooter({ text: `Stats for ${interaction.guild.name}` })
     .setTimestamp();
 
-  await interaction.reply({
-    embeds: [embed],
-    flags: MessageFlags.Ephemeral
+  await ephemeralManager.sendEphemeral(interaction, '', {
+    embeds: [embed]
   });
 }
 

@@ -22,19 +22,21 @@ class EphemeralManager {
       // Clean up previous ephemeral message for this user
       await this.cleanupPreviousMessage(interaction.user.id);
 
-      // Send new ephemeral message
+      const { MessageFlags } = require('discord.js');
+
+      // Send new ephemeral message using flags
       let response;
       if (interaction.replied || interaction.deferred) {
         response = await interaction.followUp({
           content,
           ...options,
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         });
       } else {
         response = await interaction.reply({
           content,
           ...options,
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         });
       }
 
@@ -45,6 +47,7 @@ class EphemeralManager {
         timestamp: Date.now()
       });
 
+      console.log(`📝 Tracked ephemeral message for user ${interaction.user.id}: ${response.id}`);
       return response;
     } catch (error) {
       console.warn('Error sending ephemeral message:', error.message);
@@ -87,20 +90,22 @@ class EphemeralManager {
     const previousMessage = this.userEphemeralMessages.get(userId);
     if (!previousMessage) return;
 
+    console.log(`🧹 Attempting to cleanup previous ephemeral message for user ${userId}: ${previousMessage.messageId}`);
+
     try {
       // Try to delete the previous ephemeral message
-      if (previousMessage.interaction && !previousMessage.interaction.ephemeral) {
-        // Only try to delete if it's actually ephemeral
-        await previousMessage.interaction.deleteReply().catch(() => {
-          // Ignore errors - message might already be gone
+      if (previousMessage.interaction) {
+        await previousMessage.interaction.deleteReply().catch((error) => {
+          console.log(`🧹 Could not delete previous ephemeral message: ${error.message}`);
         });
       }
     } catch (error) {
-      // Ignore cleanup errors - message might already be dismissed
+      console.log(`🧹 Error during ephemeral cleanup: ${error.message}`);
     }
 
     // Remove from tracking
     this.userEphemeralMessages.delete(userId);
+    console.log(`🧹 Removed ephemeral message tracking for user ${userId}`);
   }
 
   /**
