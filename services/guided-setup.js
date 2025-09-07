@@ -39,14 +39,26 @@ async function startGuidedSetup(interaction) {
  * Show the main setup menu
  */
 async function showSetupMenu(interaction, currentConfig = null) {
+  await showSetupMenuWithMessage(interaction, currentConfig, null);
+}
+
+/**
+ * Show the main setup menu with an optional success message
+ */
+async function showSetupMenuWithMessage(interaction, currentConfig = null, successMessage = null) {
   if (!currentConfig) {
     currentConfig = await database.getGuildConfig(interaction.guild.id) || {};
   }
 
+  let description = 'Choose what to configure. ✅ = Configured, ❌ = Not set';
+  if (successMessage) {
+    description = `${successMessage}\n\n${description}`;
+  }
+
   const embed = new EmbedBuilder()
     .setTitle('⚙️ Bot Configuration Menu')
-    .setDescription('Choose what to configure. ✅ = Configured, ❌ = Not set')
-    .setColor(0x5865f2)
+    .setDescription(description)
+    .setColor(successMessage ? 0x57f287 : 0x5865f2)
     .addFields(
       {
         name: `${currentConfig.movie_channel_id ? '✅' : '❌'} Voting Channel`,
@@ -360,13 +372,9 @@ async function handleChannelSelection(interaction, channelType) {
         break;
     }
 
-    // Show success message briefly, then return to menu
-    await ephemeralManager.sendEphemeral(interaction, message);
-
-    // Wait a moment then show the menu again
-    setTimeout(async () => {
-      await showSetupMenu(interaction);
-    }, 2000);
+    // Show the menu with success message embedded
+    const updatedConfig = await database.getGuildConfig(interaction.guild.id);
+    await showSetupMenuWithMessage(interaction, updatedConfig, message);
 
   } catch (error) {
     console.error('Error handling channel selection:', error);
@@ -404,13 +412,9 @@ async function handleRoleSelection(interaction, roleType) {
         break;
     }
 
-    // Show success message briefly, then return to menu
-    await ephemeralManager.sendEphemeral(interaction, message);
-
-    // Wait a moment then show the menu again
-    setTimeout(async () => {
-      await showSetupMenu(interaction);
-    }, 2000);
+    // Show the menu with success message embedded
+    const updatedConfig = await database.getGuildConfig(interaction.guild.id);
+    await showSetupMenuWithMessage(interaction, updatedConfig, message);
 
   } catch (error) {
     console.error('Error handling role selection:', error);
@@ -421,6 +425,7 @@ async function handleRoleSelection(interaction, roleType) {
 module.exports = {
   startGuidedSetup,
   showSetupMenu,
+  showSetupMenuWithMessage,
   showVotingChannelSetup,
   showAdminChannelSetup,
   showViewingChannelSetup,

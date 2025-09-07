@@ -2126,17 +2126,15 @@ async function handleGuidedSetupButton(interaction, customId) {
       break;
 
     case 'setup_skip_admin_roles':
-      await ephemeralManager.sendEphemeral(interaction, '⏭️ **Admin roles skipped**\n\nOnly Discord Administrators can manage the bot.');
-      setTimeout(async () => {
-        await guidedSetup.showSetupMenu(interaction);
-      }, 2000);
+      const database = require('../database');
+      const config = await database.getGuildConfig(interaction.guild.id);
+      await guidedSetup.showSetupMenuWithMessage(interaction, config, '⏭️ **Admin roles skipped** - Only Discord Administrators can manage the bot.');
       break;
 
     case 'setup_skip_notification_role':
-      await ephemeralManager.sendEphemeral(interaction, '⏭️ **Notification role skipped**\n\nNo role will be pinged for movie sessions.');
-      setTimeout(async () => {
-        await guidedSetup.showSetupMenu(interaction);
-      }, 2000);
+      const database2 = require('../database');
+      const config2 = await database2.getGuildConfig(interaction.guild.id);
+      await guidedSetup.showSetupMenuWithMessage(interaction, config2, '⏭️ **Viewer role skipped** - No role will be pinged for movie sessions.');
       break;
 
     case 'setup_finish':
