@@ -165,24 +165,49 @@ async function notifyRole(guild, event, sessionData) {
     // Find a suitable channel to send the notification
     let notificationChannel = null;
 
-    // Try to use the configured movie channel first
+    // Try to use the configured movie channel first (if it's a text channel)
     const guildConfig = await database.getGuildConfig(guild.id);
     if (guildConfig && guildConfig.movie_channel_id) {
-      notificationChannel = guild.channels.cache.get(guildConfig.movie_channel_id);
+      const movieChannel = guild.channels.cache.get(guildConfig.movie_channel_id);
+      if (movieChannel && movieChannel.type === 0 && movieChannel.send) {
+        notificationChannel = movieChannel;
+      }
+    }
+
+    // If movie channel is forum or not suitable, try admin channel
+    if (!notificationChannel && guildConfig && guildConfig.admin_channel_id) {
+      const adminChannel = guild.channels.cache.get(guildConfig.admin_channel_id);
+      if (adminChannel && adminChannel.type === 0 && adminChannel.send) {
+        notificationChannel = adminChannel;
+        console.log(`📢 Using admin channel for event notification: ${adminChannel.name}`);
+      }
     }
 
     // Fallback to the session channel
     if (!notificationChannel && sessionData.channelId) {
-      notificationChannel = guild.channels.cache.get(sessionData.channelId);
+      const sessionChannel = guild.channels.cache.get(sessionData.channelId);
+      if (sessionChannel && sessionChannel.type === 0 && sessionChannel.send) {
+        notificationChannel = sessionChannel;
+      }
     }
 
-    // Fallback to general channel (must be text channel for notifications)
-    if (!notificationChannel || !notificationChannel.send) {
+    // Last resort: find any suitable text channel (avoid general if possible)
+    if (!notificationChannel) {
       notificationChannel = guild.channels.cache.find(channel =>
         channel.type === 0 && // TEXT channel only
         channel.send && // Has send method
-        channel.permissionsFor(guild.members.me).has(['SendMessages', 'ViewChannel'])
+        channel.permissionsFor(guild.members.me).has(['SendMessages', 'ViewChannel']) &&
+        !channel.name.toLowerCase().includes('general') // Avoid general channel
       );
+
+      // If no non-general channel found, use general as last resort
+      if (!notificationChannel) {
+        notificationChannel = guild.channels.cache.find(channel =>
+          channel.type === 0 && // TEXT channel only
+          channel.send && // Has send method
+          channel.permissionsFor(guild.members.me).has(['SendMessages', 'ViewChannel'])
+        );
+      }
     }
 
     if (!notificationChannel || !notificationChannel.send) {

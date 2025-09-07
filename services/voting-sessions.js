@@ -437,11 +437,15 @@ async function createVotingSession(interaction, state) {
             }
           }
 
-          // Add the new session message (text channels only)
-          if (!forumChannels.isForumChannel(votingChannel)) {
+          // Add the new session message/post
+          if (forumChannels.isTextChannel(votingChannel)) {
+            // Text channels get quick action at bottom
             const cleanup = require('./cleanup');
             await cleanup.ensureQuickActionAtBottom(votingChannel);
-          } else {
+          } else if (forumChannels.isForumChannel(votingChannel)) {
+            // Forum channels get recommendation post
+            const activeSession = await database.getActiveVotingSession(interaction.guild.id);
+            await forumChannels.ensureRecommendationPost(votingChannel, activeSession);
             console.log(`📋 Forum channel setup complete - movies will appear as individual posts`);
           }
         }
