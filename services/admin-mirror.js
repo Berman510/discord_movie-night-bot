@@ -90,6 +90,16 @@ async function createAdminActionButtons(movieId, status, isBanned = false, guild
     );
   }
 
+  // Remove Suggestion button (for pending/planned movies)
+  if (['pending', 'planned'].includes(status) && !isBanned) {
+    row.addComponents(
+      new ButtonBuilder()
+        .setCustomId(`admin_remove:${movieId}`)
+        .setLabel('🗑️ Remove')
+        .setStyle(ButtonStyle.Danger)
+    );
+  }
+
   // Ban/Unban button (always available)
   if (!isBanned) {
     row.addComponents(

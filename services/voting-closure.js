@@ -308,7 +308,7 @@ async function handleTieBreaking(client, session, winners, config) {
 }
 
 /**
- * Start the voting closure checker (runs every minute)
+ * Start the voting closure checker (runs on the minute)
  */
 function startVotingClosureChecker(client) {
   console.log('⏰ Starting voting closure checker...');
@@ -316,16 +316,25 @@ function startVotingClosureChecker(client) {
   // Check immediately on start
   checkVotingClosures(client);
 
-  // Then check every minute
-  const intervalId = setInterval(() => {
-    console.log('⏰ Running scheduled voting closure check...');
+  // Calculate time until next minute
+  const now = new Date();
+  const msUntilNextMinute = (60 - now.getSeconds()) * 1000 - now.getMilliseconds();
+
+  // Wait until the next minute, then start checking every minute on the minute
+  setTimeout(() => {
+    console.log('⏰ Running scheduled voting closure check (on the minute)...');
     checkVotingClosures(client);
-  }, 60000); // 60 seconds
 
-  console.log('⏰ Voting closure checker started (checks every minute)');
+    // Then check every minute on the minute
+    const intervalId = setInterval(() => {
+      console.log('⏰ Running scheduled voting closure check (on the minute)...');
+      checkVotingClosures(client);
+    }, 60000); // 60 seconds
 
-  // Return interval ID for potential cleanup
-  return intervalId;
+    console.log('⏰ Voting closure checker now running on the minute');
+  }, msUntilNextMinute);
+
+  console.log(`⏰ Voting closure checker will align to the minute in ${Math.round(msUntilNextMinute/1000)} seconds`);
 }
 
 module.exports = {

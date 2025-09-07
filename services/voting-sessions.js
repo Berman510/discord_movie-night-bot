@@ -280,10 +280,16 @@ async function createVotingSession(interaction, state) {
 
       if (event && event.id) {
         // Update session with Discord event ID
-        await database.updateVotingSessionEventId(sessionId, event.id);
+        console.log(`📅 Saving event ID ${event.id} to session ${sessionId}`);
+        const updateResult = await database.updateVotingSessionEventId(sessionId, event.id);
+        if (updateResult) {
+          console.log(`📅 Successfully saved event ID to database`);
+        } else {
+          console.warn(`📅 Failed to save event ID to database`);
+        }
         console.log(`📅 Created Discord event: ${event.name} (${event.id})`);
       } else {
-        console.warn('Discord event created but no ID returned');
+        console.warn('Discord event created but no ID returned:', event);
       }
     } catch (error) {
       console.warn('Error creating Discord event for voting session:', error.message);

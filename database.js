@@ -1382,6 +1382,29 @@ class Database {
     }
   }
 
+  async deleteMovie(messageId) {
+    if (!this.isConnected) return false;
+
+    try {
+      // Delete votes first
+      await this.pool.execute(
+        `DELETE FROM votes WHERE message_id = ?`,
+        [messageId]
+      );
+
+      // Delete the movie
+      await this.pool.execute(
+        `DELETE FROM movies WHERE message_id = ?`,
+        [messageId]
+      );
+
+      return true;
+    } catch (error) {
+      console.error('Error deleting movie:', error.message);
+      return false;
+    }
+  }
+
   async getMoviesForVotingSession(sessionId) {
     if (!this.isConnected) return [];
 

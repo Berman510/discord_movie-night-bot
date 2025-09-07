@@ -950,6 +950,9 @@ async function handleAdminMovieButtons(interaction, customId) {
       case 'admin_skip_vote':
         await handleSkipToNext(interaction, guildId, movieId);
         break;
+      case 'admin_remove':
+        await handleRemoveSuggestion(interaction, guildId, movieId);
+        break;
       default:
         await interaction.reply({
           content: '❌ Unknown admin action.',
@@ -1831,6 +1834,80 @@ async function handleRescheduleSession(interaction) {
       content: '❌ An error occurred while processing the reschedule request.',
       flags: MessageFlags.Ephemeral
     });
+  }
+}
+
+/**
+ * Handle removing a movie suggestion completely
+ */
+async function handleRemoveSuggestion(interaction, guildId, movieId) {
+  const database = require('../database');
+
+  try {
+    await interaction.deferReply({ ephemeral: true });
+
+    // Get the movie
+    let movie = await database.getMovieByMessageId(movieId);
+
+    if (!movie) {
+      // Try to get movie info from the admin message embed
+      const adminMessage = interaction.message;
+      if (adminMessage && adminMessage.embeds.length > 0) {
+        const movieTitle = adminMessage.embeds[0].title?.replace('🎬 ', '');
+        if (movieTitle) {
+          // Find movie by title in the guild
+          const allMovies = await database.getMoviesByGuild(guildId);
+          movie = allMovies.find(m => m.title === movieTitle && ['pending', 'planned'].includes(m.status));
+        }
+      }
+    }
+
+    if (!movie) {
+      await interaction.editReply({
+        content: '❌ Movie not found. Please try syncing the channels first.'
+      });
+      return;
+    }
+
+    // Remove from database completely
+    await database.deleteMovie(movie.message_id);
+
+    // Remove from voting channel
+    const config = await database.getGuildConfig(guildId);
+    if (config && config.movie_channel_id) {
+      try {
+        const cleanup = require('../services/cleanup');
+        await cleanup.removeMoviePost(interaction.client, config.movie_channel_id, movie.message_id);
+      } catch (error) {
+        console.warn('Error removing movie from voting channel:', error.message);
+      }
+    }
+
+    // Remove from admin channel (this message)
+    try {
+      await interaction.message.delete();
+    } catch (error) {
+      console.warn('Error removing admin message:', error.message);
+    }
+
+    await interaction.editReply({
+      content: `✅ **${movie.title}** has been completely removed from the queue.`
+    });
+
+    console.log(`🗑️ Movie ${movie.title} completely removed by ${interaction.user.tag}`);
+
+  } catch (error) {
+    console.error('Error removing suggestion:', error);
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: '❌ Failed to remove suggestion.',
+        flags: MessageFlags.Ephemeral
+      });
+    } else {
+      await interaction.editReply({
+        content: '❌ Failed to remove suggestion.'
+      });
+    }
   }
 }
 
