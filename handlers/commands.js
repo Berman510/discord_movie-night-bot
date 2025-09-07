@@ -275,6 +275,9 @@ async function handleMovieConfigure(interaction) {
       case 'view-settings':
         await configuration.viewSettings(interaction, guildId);
         break;
+      case 'debug':
+        await handleDebugConfig(interaction);
+        break;
       case 'reset':
         await configuration.resetConfiguration(interaction, guildId);
         break;

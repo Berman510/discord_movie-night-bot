@@ -23,6 +23,7 @@ const commands = [
           { name: 'remove-admin-role', value: 'remove-admin-role' },
           { name: 'set-notification-role', value: 'set-notification-role' },
           { name: 'view-settings', value: 'view-settings' },
+          { name: 'debug', value: 'debug' },
           { name: 'reset', value: 'reset' }
         ]
       },

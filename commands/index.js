@@ -13,6 +13,7 @@ const movieSetupCommands = require('./movie-setup');
 const movieWatchedCommand = require('./movie-watched');
 const movieSkipCommand = require('./movie-skip');
 const moviePlanCommand = require('./movie-plan');
+const debugConfigCommand = require('./debug-config');
 
 // Combine all command definitions
 const commands = [
@@ -24,7 +25,8 @@ const commands = [
   ...movieSetupCommands,
   movieWatchedCommand.data.toJSON(),
   movieSkipCommand.data.toJSON(),
-  moviePlanCommand.data.toJSON()
+  moviePlanCommand.data.toJSON(),
+  debugConfigCommand.data.toJSON()
 ];
 
 module.exports = {
