@@ -124,7 +124,7 @@ class SessionScheduler {
   async checkSessionsEndingToday() {
     try {
       const database = require('../database');
-      const activeSessions = await database.getActiveSessions();
+      const activeSessions = await database.getAllActiveVotingSessions();
       
       const now = new Date();
       const endOfDay = new Date(now);
@@ -152,7 +152,7 @@ class SessionScheduler {
   async recoverMissedSessions() {
     try {
       const database = require('../database');
-      const activeSessions = await database.getActiveSessions();
+      const activeSessions = await database.getAllActiveVotingSessions();
       
       const now = new Date();
       
@@ -177,7 +177,7 @@ class SessionScheduler {
   async scheduleAllActiveSessions() {
     try {
       const database = require('../database');
-      const activeSessions = await database.getActiveSessions();
+      const activeSessions = await database.getAllActiveVotingSessions();
       
       for (const session of activeSessions) {
         if (session.voting_end_time) {
