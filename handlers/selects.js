@@ -11,6 +11,10 @@ const guidedSetup = require('../services/guided-setup');
 async function handleSelect(interaction) {
   const customId = interaction.customId;
 
+  // Clean up any previous ephemeral messages for this user
+  const ephemeralManager = require('../utils/ephemeral-manager');
+  await ephemeralManager.forceCleanupUser(interaction.user.id);
+
   try {
     // Timezone selection for session creation
     if (customId === 'session_timezone_selected') {

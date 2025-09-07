@@ -26,6 +26,9 @@ const cleanup = require('../services/cleanup');
 async function handleButton(interaction) {
   const customId = interaction.customId;
 
+  // Clean up any previous ephemeral messages for this user
+  await ephemeralManager.forceCleanupUser(interaction.user.id);
+
   // Parse button ID format: namespace:action:data
   const [ns, action, ...rest] = customId.split(':');
   const msgId = rest[0];
