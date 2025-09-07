@@ -360,9 +360,26 @@ async function createVotingSession(interaction, state) {
 
             for (const movie of carryoverMovies) {
               try {
+                // Refresh IMDB data for carryover movie if it has an IMDB ID
+                let updatedMovie = movie;
+                if (movie.imdb_id) {
+                  try {
+                    const imdb = require('./imdb');
+                    const imdbData = await imdb.getMovieDetails(movie.imdb_id);
+                    if (imdbData) {
+                      // Update movie with fresh IMDB data
+                      await database.updateMovieImdbData(movie.message_id, JSON.stringify(imdbData));
+                      updatedMovie = { ...movie, imdb_data: JSON.stringify(imdbData) };
+                      console.log(`🎬 Refreshed IMDB data for carryover movie: ${movie.title}`);
+                    }
+                  } catch (error) {
+                    console.warn(`Error refreshing IMDB data for ${movie.title}:`, error.message);
+                  }
+                }
+
                 const { embeds, components } = require('../utils');
-                const movieEmbed = embeds.createMovieEmbed(movie);
-                const movieComponents = components.createStatusButtons(movie.message_id, movie.status);
+                const movieEmbed = embeds.createMovieEmbed(updatedMovie);
+                const movieComponents = components.createStatusButtons(updatedMovie.message_id, updatedMovie.status);
 
                 // Create new message for carryover movie
                 const newMessage = await votingChannel.send({
@@ -371,15 +388,15 @@ async function createVotingSession(interaction, state) {
                 });
 
                 // Update database with new message ID
-                await database.updateMovieMessageId(movie.guild_id, movie.title, newMessage.id);
+                await database.updateMovieMessageId(updatedMovie.guild_id, updatedMovie.title, newMessage.id);
 
                 // Create thread for the movie
                 const thread = await newMessage.startThread({
-                  name: `💬 ${movie.title}`,
+                  name: `💬 ${updatedMovie.title}`,
                   autoArchiveDuration: 10080 // 7 days
                 });
 
-                console.log(`📝 Created post and thread for carryover movie: ${movie.title}`);
+                console.log(`📝 Created post and thread for carryover movie: ${updatedMovie.title}`);
               } catch (error) {
                 console.warn(`Error creating post for carryover movie ${movie.title}:`, error.message);
               }

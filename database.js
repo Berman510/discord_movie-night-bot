@@ -1517,6 +1517,21 @@ class Database {
     }
   }
 
+  async updateMovieImdbData(messageId, imdbData) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `UPDATE movies SET imdb_data = ? WHERE message_id = ?`,
+        [imdbData, messageId]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error updating movie IMDB data:', error.message);
+      return false;
+    }
+  }
+
   async getMoviesForVotingSession(sessionId) {
     if (!this.isConnected) return [];
 

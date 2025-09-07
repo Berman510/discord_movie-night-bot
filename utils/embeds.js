@@ -130,7 +130,14 @@ function createHelpEmbed() {
 
 function createQuickActionEmbed(activeSession = null) {
   if (activeSession) {
-    let description = 'Click the button below to recommend a movie for this voting session!';
+    let description = '';
+
+    // Add session description/theme if available
+    if (activeSession.description && activeSession.description.trim()) {
+      description += `${activeSession.description}\n\n`;
+    }
+
+    description += 'Click the button below to recommend a movie for this voting session!';
 
     // Add event link if available
     if (activeSession.discord_event_id) {
