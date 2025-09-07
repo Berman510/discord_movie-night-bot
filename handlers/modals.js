@@ -258,7 +258,7 @@ async function createMovieWithoutImdb(interaction, title, where) {
       console.error('Error posting to admin channel:', error);
     }
 
-    // Post Quick Action at bottom of channel (only for text channels)
+    // Ensure recommendation post/action for the movie channel
     // Note: We need to get the actual movie channel, not the interaction channel
     const forumChannels = require('../services/forum-channels');
     const database = require('../database');
@@ -266,8 +266,15 @@ async function createMovieWithoutImdb(interaction, title, where) {
 
     if (config && config.movie_channel_id) {
       const movieChannel = await interaction.client.channels.fetch(config.movie_channel_id);
-      if (movieChannel && forumChannels.isTextChannel(movieChannel)) {
-        await cleanup.ensureQuickActionAtBottom(movieChannel);
+      if (movieChannel) {
+        if (forumChannels.isTextChannel(movieChannel)) {
+          // Text channels get quick action at bottom
+          await cleanup.ensureQuickActionAtBottom(movieChannel);
+        } else if (forumChannels.isForumChannel(movieChannel)) {
+          // Forum channels get recommendation post
+          const activeSession = await database.getActiveVotingSession(interaction.guild.id);
+          await forumChannels.ensureRecommendationPost(movieChannel, activeSession);
+        }
       }
     }
 

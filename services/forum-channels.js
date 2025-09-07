@@ -238,6 +238,115 @@ async function cleanupForumPosts(channel, olderThanDays = 30) {
   }
 }
 
+/**
+ * Create or update the "Recommend a Movie" forum post
+ */
+async function ensureRecommendationPost(channel, activeSession = null) {
+  try {
+    if (!isForumChannel(channel)) return;
+
+    console.log(`📋 Ensuring recommendation post in forum channel: ${channel.name}`);
+
+    // Look for existing recommendation post
+    const threads = await channel.threads.fetchActive();
+    const archivedThreads = await channel.threads.fetchArchived({ limit: 50 });
+    const allThreads = new Map([...threads.threads, ...archivedThreads.threads]);
+
+    let recommendationPost = null;
+    for (const [threadId, thread] of allThreads) {
+      if (thread.name.includes('Recommend a Movie') || thread.name.includes('🍿')) {
+        recommendationPost = thread;
+        break;
+      }
+    }
+
+    if (!activeSession) {
+      // No active session - archive existing recommendation post if it exists
+      if (recommendationPost && !recommendationPost.archived) {
+        await recommendationPost.setArchived(true);
+        console.log('📋 Archived recommendation post (no active session)');
+      }
+      return;
+    }
+
+    // Create recommendation post embed
+    const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+
+    let description = '**Ready to recommend a movie?** Click the button below to add your movie recommendation to this voting session!\n\n';
+
+    // Add session description/theme if available
+    if (activeSession.description && activeSession.description.trim()) {
+      description += `**Session Theme:** ${activeSession.description}\n\n`;
+    }
+
+    description += '🎬 Your movie will appear as a new forum post where everyone can vote and discuss!\n\n';
+
+    // Add event link if available
+    if (activeSession.discord_event_id) {
+      description += `📅 [**Join the Discord Event**](https://discord.com/events/${activeSession.guild_id}/${activeSession.discord_event_id}) to RSVP and get notified!`;
+    }
+
+    const recommendEmbed = new EmbedBuilder()
+      .setTitle('🍿 Recommend a Movie')
+      .setDescription(description)
+      .setColor(0x5865f2)
+      .addFields(
+        { name: '📋 Current Session', value: activeSession.name || 'Movie Night Session', inline: true },
+        { name: '⏰ Voting Ends', value: activeSession.voting_end_time ?
+          `<t:${Math.floor(new Date(activeSession.voting_end_time).getTime() / 1000)}:R>` :
+          'Not set', inline: true }
+      );
+
+    const recommendButton = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId('create_recommendation')
+          .setLabel('🍿 Recommend a Movie')
+          .setStyle(ButtonStyle.Primary)
+      );
+
+    if (recommendationPost) {
+      // Update existing post
+      if (recommendationPost.archived) {
+        await recommendationPost.setArchived(false);
+      }
+
+      const starterMessage = await recommendationPost.fetchStarterMessage();
+      if (starterMessage) {
+        await starterMessage.edit({
+          embeds: [recommendEmbed],
+          components: [recommendButton]
+        });
+
+        // Pin the post to keep it at the top
+        if (!recommendationPost.pinned) {
+          await recommendationPost.pin();
+        }
+
+        console.log('📋 Updated existing recommendation post');
+      }
+    } else {
+      // Create new recommendation post
+      const forumPost = await channel.threads.create({
+        name: '🍿 Recommend a Movie',
+        message: {
+          embeds: [recommendEmbed],
+          components: [recommendButton]
+        },
+        reason: 'Movie recommendation post for forum channel'
+      });
+
+      // Pin the post to keep it at the top
+      await forumPost.pin();
+
+      console.log(`📋 Created new recommendation post: ${forumPost.name} (ID: ${forumPost.id})`);
+    }
+
+  } catch (error) {
+    console.error('Error ensuring recommendation post:', error);
+  }
+}
+
 module.exports = {
   isForumChannel,
   isTextChannel,
@@ -248,5 +357,6 @@ module.exports = {
   archiveForumPost,
   getForumMoviePosts,
   cleanupForumPosts,
-  getMovieStatusTags
+  getMovieStatusTags,
+  ensureRecommendationPost
 };

@@ -275,10 +275,15 @@ async function handleSyncChannel(interaction) {
             }
           }
 
-          // Also ensure quick action message at bottom (text channels only)
-          if (!forumChannels.isForumChannel(votingChannel)) {
+          // Ensure recommendation post/action for the channel
+          if (forumChannels.isTextChannel(votingChannel)) {
+            // Text channels get quick action at bottom
             const cleanup = require('./cleanup');
             await cleanup.ensureQuickActionAtBottom(votingChannel);
+          } else if (forumChannels.isForumChannel(votingChannel)) {
+            // Forum channels get recommendation post
+            const activeSession = await database.getActiveVotingSession(interaction.guild.id);
+            await forumChannels.ensureRecommendationPost(votingChannel, activeSession);
           }
         } else {
           errors.push('Voting channel not found');
@@ -678,6 +683,9 @@ async function populateForumChannel(client, guildId) {
         console.warn(`Failed to populate forum post for ${movie.title}:`, error.message);
       }
     }
+
+    // Ensure recommendation post exists
+    await forumChannels.ensureRecommendationPost(votingChannel, activeSession);
 
     return { populated: populatedCount, error: null };
 
