@@ -1432,8 +1432,37 @@ async function handlePickWinner(interaction, guildId, movieId) {
       }
     }
 
+    // Update Discord event with winner information
+    try {
+      const activeSession = await database.getActiveVotingSession(guildId);
+      if (activeSession && activeSession.discord_event_id) {
+        const guild = interaction.guild;
+        const event = await guild.scheduledEvents.fetch(activeSession.discord_event_id);
+        if (event) {
+          // Get movie details for event update
+          const imdbData = movie.imdb_id ? await require('../services/imdb').getMovieDetails(movie.imdb_id) : null;
+
+          let updatedDescription = `🏆 **WINNER SELECTED: ${movie.title}**\n\n`;
+          if (imdbData && imdbData.Plot && imdbData.Plot !== 'N/A') {
+            updatedDescription += `📖 ${imdbData.Plot}\n\n`;
+          }
+          updatedDescription += `🗳️ Selected from ${allVotingMovies.length} movie${allVotingMovies.length !== 1 ? 's' : ''}\n`;
+          updatedDescription += `📅 Join us for movie night!\n\n🔗 SESSION_UID:${activeSession.id}`;
+
+          await event.edit({
+            name: `🎬 ${activeSession.name} - ${movie.title}`,
+            description: updatedDescription
+          });
+
+          console.log(`📅 Updated Discord event with winner: ${movie.title}`);
+        }
+      }
+    } catch (error) {
+      console.warn('Error updating Discord event with winner:', error.message);
+    }
+
     await interaction.editReply({
-      content: `🏆 **${movie.title}** has been selected as the winner! Announcement posted and channels cleared.`
+      content: `🏆 **${movie.title}** has been selected as the winner! Announcement posted, channels cleared, and event updated.`
     });
 
     console.log(`🏆 Movie ${movie.title} picked as winner by ${interaction.user.tag}`);
@@ -1570,8 +1599,11 @@ async function handleSkipToNext(interaction, guildId, movieId) {
 
     // Remove from voting channel
     try {
-      const cleanup = require('../services/cleanup');
-      await cleanup.removeMoviePost(interaction.client, guildId, movieId);
+      const config = await database.getGuildConfig(guildId);
+      if (config && config.movie_channel_id) {
+        const cleanup = require('../services/cleanup');
+        await cleanup.removeMoviePost(interaction.client, config.movie_channel_id, movieId);
+      }
     } catch (error) {
       console.warn('Error removing movie from voting channel:', error.message);
     }
@@ -1829,9 +1861,12 @@ async function handleCancelSessionConfirmation(interaction) {
         if (event) {
           await event.delete();
           console.log(`🗑️ Deleted Discord event: ${event.name} (${session.discord_event_id})`);
+        } else {
+          console.warn(`Discord event not found: ${session.discord_event_id}`);
         }
       } catch (error) {
-        console.warn('Error deleting Discord event:', error.message);
+        console.warn(`Error deleting Discord event ${session.discord_event_id}:`, error.message);
+        // Try to delete it anyway from the database
       }
     }
 

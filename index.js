@@ -75,6 +75,14 @@ client.once('clientReady', async () => {
   } catch (error) {
     console.error('Error during admin panel initialization:', error);
   }
+
+  // Start voting closure checker
+  try {
+    const votingClosure = require('./services/voting-closure');
+    votingClosure.startVotingClosureChecker(client);
+  } catch (error) {
+    console.error('Error starting voting closure checker:', error);
+  }
 });
 
 // Handle all interactions

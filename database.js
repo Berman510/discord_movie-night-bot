@@ -1299,6 +1299,50 @@ class Database {
     }
   }
 
+  async getAllActiveVotingSessions() {
+    if (!this.isConnected) return [];
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT * FROM movie_sessions WHERE status = 'voting' ORDER BY scheduled_date ASC`
+      );
+      return rows;
+    } catch (error) {
+      console.error('Error getting all active voting sessions:', error.message);
+      return [];
+    }
+  }
+
+  async getMoviesBySession(sessionId) {
+    if (!this.isConnected) return [];
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT * FROM movies WHERE session_id = ? ORDER BY created_at DESC`,
+        [sessionId]
+      );
+      return rows;
+    } catch (error) {
+      console.error('Error getting movies by session:', error.message);
+      return [];
+    }
+  }
+
+  async updateVotingSessionStatus(sessionId, status) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `UPDATE movie_sessions SET status = ? WHERE id = ?`,
+        [status, sessionId]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error updating voting session status:', error.message);
+      return false;
+    }
+  }
+
   async getMoviesForVotingSession(sessionId) {
     if (!this.isConnected) return [];
 

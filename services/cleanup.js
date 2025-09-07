@@ -540,17 +540,32 @@ async function recreateMissingMoviePosts(channel, guildId) {
   try {
     const database = require('../database');
 
-    // Get all movies for this guild and channel
+    // Check if there's an active voting session
+    const activeSession = await database.getActiveVotingSession(guildId);
+    if (!activeSession) {
+      console.log('🔍 No active voting session - skipping movie post recreation');
+      return 0;
+    }
+
+    // Get all movies for this guild and channel that are in the current session
     const allMovies = await database.getMoviesByChannel(guildId, channel.id);
+    const sessionMovies = allMovies.filter(movie =>
+      movie.session_id === activeSession.id ||
+      (movie.status === 'pending' && !movie.session_id) // Include pending movies without session
+    );
+
+    console.log(`🔍 Active voting session for guild ${guildId}: Session ${activeSession.id}`);
 
     // Get current messages in channel
     const messages = await channel.messages.fetch({ limit: 100 });
     const botMessages = messages.filter(msg => msg.author.id === channel.client.user.id);
     const existingMessageIds = new Set(botMessages.keys());
 
-    for (const movie of allMovies) {
+    for (const movie of sessionMovies) {
       // Skip watched movies - they don't need posts
       if (movie.status === 'watched') continue;
+
+      console.log(`🔍 Movie ${movie.message_id} in voting session: ${movie.session_id === activeSession.id} (movie session_id: ${movie.session_id})`);
 
       // Check if this movie's message exists in the channel
       if (!existingMessageIds.has(movie.message_id)) {
@@ -737,8 +752,19 @@ async function recreateMissingThreads(channel, botMessages) {
   }
 }
 
-async function removeMoviePost(channel, movieId) {
+async function removeMoviePost(client, channelId, movieId) {
   try {
+    if (!client || !channelId || !movieId) {
+      console.warn('Missing parameters for removeMoviePost:', { client: !!client, channelId, movieId });
+      return false;
+    }
+
+    const channel = await client.channels.fetch(channelId);
+    if (!channel) {
+      console.warn(`Channel not found: ${channelId}`);
+      return false;
+    }
+
     // Find and delete the movie message
     const messages = await channel.messages.fetch({ limit: 100 });
     const movieMessage = messages.find(msg => msg.id === movieId);
