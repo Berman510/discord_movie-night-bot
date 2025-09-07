@@ -575,7 +575,9 @@ async function syncForumMoviePost(forumChannel, movie) {
 
     if (existingThread) {
       // Update existing forum post
-      const movieEmbed = embeds.createMovieEmbed(movie);
+      const database = require('../database');
+      const voteCounts = await database.getVoteCounts(movie.message_id);
+      const movieEmbed = embeds.createMovieEmbed(movie, null, voteCounts);
       const movieComponents = components.createVotingButtons(movie.message_id);
 
       // Update the starter message
@@ -586,9 +588,7 @@ async function syncForumMoviePost(forumChannel, movie) {
           components: movieComponents
         });
 
-        // Update forum post title with vote counts
-        const database = require('../database');
-        const voteCounts = await database.getVoteCounts(movie.message_id);
+        // Update forum post title with vote counts (only for major status changes)
         await forumChannels.updateForumPostTitle(existingThread, movie.title, movie.status, voteCounts.up, voteCounts.down);
 
         console.log(`📝 Updated existing forum post: ${movie.title}`);

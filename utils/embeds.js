@@ -7,14 +7,23 @@ const { EmbedBuilder } = require('discord.js');
 const { COLORS, STATUS_EMOJIS, BOT_VERSION } = require('./constants');
 const { formatDateWithTimezone } = require('../services/timezone');
 
-function createMovieEmbed(movie, imdbData = null) {
+function createMovieEmbed(movie, imdbData = null, voteCounts = null) {
   const embed = new EmbedBuilder()
     .setTitle(`${STATUS_EMOJIS[movie.status] || STATUS_EMOJIS.pending} ${movie.title}`)
-    .setColor(COLORS[movie.status] || COLORS.pending)
-    .addFields(
-      { name: '📺 Where to Watch', value: movie.where_to_watch, inline: true },
-      { name: '👤 Recommended by', value: `<@${movie.recommended_by}>`, inline: true }
-    );
+    .setColor(COLORS[movie.status] || COLORS.pending);
+
+  // Add vote counts prominently if provided (especially useful for forum channels)
+  if (voteCounts && (voteCounts.up > 0 || voteCounts.down > 0)) {
+    const score = voteCounts.up - voteCounts.down;
+    const scoreText = score > 0 ? `+${score}` : score.toString();
+    const voteText = `👍 ${voteCounts.up} • 👎 ${voteCounts.down} • **Score: ${scoreText}**`;
+    embed.addFields({ name: '🗳️ Votes', value: voteText, inline: false });
+  }
+
+  embed.addFields(
+    { name: '📺 Where to Watch', value: movie.where_to_watch, inline: true },
+    { name: '👤 Recommended by', value: `<@${movie.recommended_by}>`, inline: true }
+  );
 
   // Set timestamp if created_at is available, otherwise use current time
   if (movie.created_at) {

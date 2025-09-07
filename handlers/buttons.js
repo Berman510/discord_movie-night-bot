@@ -212,7 +212,7 @@ async function handleVoting(interaction, action, msgId, votes) {
       // Update message with new vote counts and preserve all buttons
       const { components, embeds } = require('../utils');
       const imdbData = movie && movie.imdb_data ? JSON.parse(movie.imdb_data) : null;
-      const updatedEmbed = movie ? embeds.createMovieEmbed(movie, imdbData) : null;
+      const updatedEmbed = movie ? embeds.createMovieEmbed(movie, imdbData, voteCounts) : null;
       const updatedComponents = components.createVotingButtons(msgId, voteCounts.up, voteCounts.down);
 
       const updateData = { components: updatedComponents };
@@ -222,16 +222,18 @@ async function handleVoting(interaction, action, msgId, votes) {
 
       await interaction.editReply(updateData);
 
-      // Update forum post title if this is a forum channel movie
+      // Update forum post if this is a forum channel movie
       if (movie && movie.channel_type === 'forum' && movie.thread_id) {
         try {
           const forumChannels = require('../services/forum-channels');
           const thread = await interaction.client.channels.fetch(movie.thread_id).catch(() => null);
           if (thread) {
+            // For forum channels, we update the title only for major status changes
+            // Vote count updates are shown in the embed to avoid spam messages
             await forumChannels.updateForumPostTitle(thread, movie.title, movie.status, voteCounts.up, voteCounts.down);
           }
         } catch (error) {
-          console.warn('Error updating forum post title after vote:', error.message);
+          console.warn('Error updating forum post after vote:', error.message);
         }
       }
     } else {

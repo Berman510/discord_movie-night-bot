@@ -624,7 +624,7 @@ async function recreateMoviePost(channel, movie) {
       recommended_by: movie.recommended_by || 'Unknown User',
       status: movie.status || 'pending',
       created_at: movie.created_at
-    }, imdbData);
+    }, imdbData, voteCounts);
 
     // Create voting buttons only (admin buttons require permission checks)
     const movieComponents = components.createVotingButtons(movie.message_id, voteCounts.up, voteCounts.down);
