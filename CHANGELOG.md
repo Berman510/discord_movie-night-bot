@@ -48,6 +48,11 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - System post cleanup: remove lingering "No Active Voting Session" thread once a new session begins
 
 
+## [1.13.0-rc106] - 2025-09-08
+### Fixed
+- Tie-break admin UI: add missing admin-mirror.postTieBreakingMovie to render tied movies with a "Choose Winner" button (admin_choose_winner:<message_id>)
+
+
 
 
 

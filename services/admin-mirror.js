@@ -331,10 +331,45 @@ async function removeMovieFromAdminChannel(client, guildId, movieId) {
   }
 }
 
+async function postTieBreakingMovie(adminChannel, movie, winner) {
+  try {
+    const embed = new EmbedBuilder()
+      .setTitle(`🤝 Tie-Break Candidate: ${movie.title}`)
+      .setColor(0xfee75c)
+      .addFields(
+        { name: '👤 Recommended by', value: `<@${movie.recommended_by}>`, inline: true },
+        { name: '📺 Platform', value: movie.where_to_watch || 'Unknown', inline: true },
+        { name: '📊 Votes', value: `👍 ${winner.upVotes} | 👎 ${winner.downVotes} | Score: ${winner.totalScore}` }
+      )
+      .setFooter({ text: `Message ID: ${movie.message_id} • UID: ${movie.movie_uid?.substring(0, 8)}...` })
+      .setTimestamp();
+
+    const row = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId(`admin_choose_winner:${movie.message_id}`)
+          .setLabel('🏆 Choose Winner')
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId(`admin_details:${movie.message_id}`)
+          .setLabel('📋 Details')
+          .setStyle(ButtonStyle.Secondary)
+      );
+
+    await adminChannel.send({ embeds: [embed], components: [row] });
+
+    const logger = require('../utils/logger');
+    logger.debug(`🤝 Posted tie-break candidate to admin channel: ${movie.title}`);
+  } catch (error) {
+    console.error('Error posting tie-break movie to admin channel:', error);
+  }
+}
+
 module.exports = {
   createAdminMovieEmbed,
   createAdminActionButtons,
   postMovieToAdminChannel,
   syncAdminChannel,
-  removeMovieFromAdminChannel
+  removeMovieFromAdminChannel,
+  postTieBreakingMovie
 };
