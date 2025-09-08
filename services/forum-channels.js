@@ -501,23 +501,34 @@ async function unpinOtherForumPosts(channel, keepPinnedId = null) {
     const archivedThreads = await channel.threads.fetchArchived({ limit: 50 });
     const allThreads = new Map([...threads.threads, ...archivedThreads.threads]);
 
+    logger.debug(`📌 Checking ${allThreads.size} threads for unpinning (keep: ${keepPinnedId})`, guildId);
+
+    let unpinnedCount = 0;
     for (const [threadId, thread] of allThreads) {
+      logger.debug(`📌 Thread ${thread.name} (${threadId}) - pinned: ${thread.pinned}, archived: ${thread.archived}`, guildId);
+
       if (thread.pinned && threadId !== keepPinnedId) {
         try {
           // First unarchive if needed, then unpin
           if (thread.archived) {
             await thread.setArchived(false);
+            logger.debug(`📌 Unarchived thread before unpinning: ${thread.name}`, guildId);
           }
           await thread.unpin();
+          unpinnedCount++;
           logger.debug(`📌 Unpinned thread to make room: ${thread.name}`, guildId);
         } catch (error) {
           logger.warn(`Error unpinning thread ${thread.name}:`, error.message, guildId);
         }
       }
     }
+
+    logger.debug(`📌 Unpinned ${unpinnedCount} threads`, guildId);
+    return unpinnedCount;
   } catch (error) {
     const logger = require('../utils/logger');
     logger.warn('Error unpinning other forum posts:', error.message, channel.guild?.id);
+    return 0;
   }
 }
 
@@ -542,13 +553,20 @@ async function ensureRecommendationPost(channel, activeSession = null) {
     const archivedThreads = await channel.threads.fetchArchived({ limit: 50 });
     const allThreads = new Map([...threads.threads, ...archivedThreads.threads]);
 
+    logger.debug(`📋 Found ${threads.threads.size} active threads, ${archivedThreads.threads.size} archived threads`, guildId);
+
     let pinnedPost = null;
     for (const [threadId, thread] of allThreads) {
+      logger.debug(`📋 Checking thread: ${thread.name} (${thread.id}) - pinned: ${thread.pinned}, archived: ${thread.archived}`, guildId);
       if (thread.pinned) {
         pinnedPost = thread;
         logger.debug(`📋 Found existing pinned post: ${thread.name} (${thread.id})`, guildId);
         break;
       }
+    }
+
+    if (!pinnedPost) {
+      logger.debug(`📋 No pinned post found in ${allThreads.size} total threads`, guildId);
     }
 
     const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
@@ -598,12 +616,17 @@ async function ensureRecommendationPost(channel, activeSession = null) {
             logger.warn('📋 Cannot pin new post (pin limit reached), unpinning others first', guildId);
             await unpinOtherForumPosts(channel);
             // Try again after unpinning
-            const forumPost = await channel.threads.create({
-              name: '🚫 No Active Voting Session',
-              message: { embeds: [noSessionEmbed] }
-            });
-            await forumPost.pin();
-            logger.debug('📋 Created new no session post after unpinning others', guildId);
+            try {
+              const forumPost = await channel.threads.create({
+                name: '🚫 No Active Voting Session',
+                message: { embeds: [noSessionEmbed] }
+              });
+              await forumPost.pin();
+              logger.debug('📋 Created new no session post after unpinning others', guildId);
+            } catch (retryError) {
+              logger.error(`📋 Still cannot create no session post after unpinning: ${retryError.message}`, guildId);
+              // Don't throw - just log the error and continue
+            }
           } else {
             throw createError;
           }
@@ -664,12 +687,17 @@ async function ensureRecommendationPost(channel, activeSession = null) {
           logger.warn('📋 Cannot pin new post (pin limit reached), unpinning others first', guildId);
           await unpinOtherForumPosts(channel);
           // Try again after unpinning
-          const forumPost = await channel.threads.create({
-            name: '🍿 Recommend a Movie',
-            message: { embeds: [recommendEmbed], components: [recommendButton] }
-          });
-          await forumPost.pin();
-          logger.debug('📋 Created new recommendation post after unpinning others', guildId);
+          try {
+            const forumPost = await channel.threads.create({
+              name: '🍿 Recommend a Movie',
+              message: { embeds: [recommendEmbed], components: [recommendButton] }
+            });
+            await forumPost.pin();
+            logger.debug('📋 Created new recommendation post after unpinning others', guildId);
+          } catch (retryError) {
+            logger.error(`📋 Still cannot create recommendation post after unpinning: ${retryError.message}`, guildId);
+            // Don't throw - just log the error and continue
+          }
         } else {
           throw createError;
         }

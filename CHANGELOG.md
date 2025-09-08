@@ -2,6 +2,13 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.13.0-rc85] - 2025-09-08
+### Fixed
+- **🔍 Enhanced Debugging**: Added detailed logging for pinned post detection and thread enumeration in forum channels
+- **📌 Improved Unpinning Logic**: Enhanced unpinOtherForumPosts function with better error handling and logging
+- **🛡️ Error Recovery**: Added try-catch blocks around retry operations to prevent cascading failures
+- **📋 Thread Analysis**: Added comprehensive logging to diagnose why pinned posts aren't being detected properly
+
 ## [1.13.0-rc84] - 2025-09-08
 ### Fixed
 - **📋 Forum Channel Pin Management**: Fixed issue where starting new voting sessions in forum channels failed due to Discord pin limits
