@@ -489,6 +489,26 @@ async function createVotingSession(interaction, state) {
       logger.warn('Error updating channels after session creation:', error.message);
     }
 
+    // Ping notification role that voting has begun (in the configured voting channel)
+    try {
+      const database = require('../database');
+      const config = await database.getGuildConfig(interaction.guild.id);
+      const roleId = await database.getNotificationRole(interaction.guild.id);
+      const client = interaction.client || global.discordClient;
+
+      if (config && config.movie_channel_id && roleId && client) {
+        const votingChannel = await client.channels.fetch(config.movie_channel_id);
+        if (votingChannel && votingChannel.send) {
+          await votingChannel.send({
+            content: `<@&${roleId}> 🗳️ Voting for **${state.sessionName}** has begun! Join the conversation and vote in <#${config.movie_channel_id}>.`
+          });
+          logger.debug('📣 Sent voting start ping to notification role');
+        }
+      }
+    } catch (error) {
+      logger.warn('Error sending voting start ping:', error.message);
+    }
+
     // Schedule voting end with smart scheduler
     try {
       const sessionScheduler = require('./session-scheduler');

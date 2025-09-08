@@ -2,6 +2,18 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.13.0-rc94] - 2025-09-08
+### Added
+- Event descriptions now end with a clear CTA linking to the configured voting channel: "Join the conversation and vote for your favorite movie!"
+- Start-of-voting ping: when a voting session is created, the configured notification role is pinged in the voting channel
+- Standalone migration script: `npm run migrate` to apply DB migrations without starting the bot
+
+### Changed
+- Removed `SESSION_UID` from Discord event descriptions (we store `discord_event_id` in DB and sync via that)
+
+### Fixed
+- Addressed a syntax issue in the migration block that could cause startup failure on some Node runtimes
+
 ## [1.13.0-rc93] - 2025-09-08
 ### Fixed
 - 🧱 Migration 20: Align session_participants/session_attendees charsets to utf8mb4 (required for composite foreign keys on varchar columns)

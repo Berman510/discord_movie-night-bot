@@ -53,9 +53,10 @@ async function createDiscordEvent(guild, sessionData, scheduledDate) {
       enhancedDescription += `\n⏰ **Time remaining:** <t:${votingEndTimestamp}:R>`;
     }
 
-    // Add voting channel link if available
+    // Add voting channel link and CTA if available
     if (config && config.movie_channel_id) {
       enhancedDescription += `\n📺 **Vote in:** <#${config.movie_channel_id}>`;
+      enhancedDescription += `\n\n👉 Join the conversation and vote for your favorite movie in <#${config.movie_channel_id}>!`;
     }
 
     // Add movie poster if available (for sessions with associated movies)
@@ -72,9 +73,7 @@ async function createDiscordEvent(guild, sessionData, scheduledDate) {
       }
     }
 
-    // Add session UID for bidirectional sync (keeping for now)
-    const sessionUID = `SESSION_UID:${sessionData.id || 'unknown'}`;
-    enhancedDescription += `\n\n🔗 ${sessionUID}`;
+    // Note: We no longer include a SESSION_UID in the description because we track event IDs in the database
 
     // Determine event type and location
     let eventConfig = {
@@ -153,9 +152,27 @@ async function updateDiscordEvent(guild, eventId, sessionData, scheduledDate) {
     const event = await guild.scheduledEvents.fetch(eventId);
     if (!event) return false;
 
+    // Rebuild description similar to creation for consistency
+    const database = require('../database');
+    const config = await database.getGuildConfig(guild.id);
+
+    const baseDescription = sessionData.description || 'Join us for movie night voting and viewing!';
+    let enhancedDescription = baseDescription;
+
+    if (sessionData.votingEndTime) {
+      const votingEndTimestamp = Math.floor(sessionData.votingEndTime.getTime() / 1000);
+      enhancedDescription += `\n\n🗳️ **Voting ends:** <t:${votingEndTimestamp}:F>`;
+      enhancedDescription += `\n⏰ **Time remaining:** <t:${votingEndTimestamp}:R>`;
+    }
+
+    if (config && config.movie_channel_id) {
+      enhancedDescription += `\n📺 **Vote in:** <#${config.movie_channel_id}>`;
+      enhancedDescription += `\n\n👉 Join the conversation and vote for your favorite movie in <#${config.movie_channel_id}>!`;
+    }
+
     await event.edit({
       name: `🎬 ${sessionData.name}`,
-      description: sessionData.description || 'Movie night session - join us for a great movie!',
+      description: enhancedDescription,
       scheduledStartTime: scheduledDate
     });
 
