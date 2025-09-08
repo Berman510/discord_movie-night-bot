@@ -20,7 +20,16 @@ class Database {
       sessions: [],
       guilds: []
     };
+    // Utility: generate a stable UID for a movie title per guild
+    this.generateMovieUID = (guildId, title) => {
+      const crypto = require('crypto');
+      const normalizedTitle = String(title || '').toLowerCase().trim();
+      return crypto.createHash('sha256').update(`${guildId}:${normalizedTitle}`).digest('hex');
+    };
+
   }
+
+
 
   async connect() {
     try {
@@ -1128,12 +1137,6 @@ class Database {
 
   }
 
-  // Movie UID generation
-  generateMovieUID(guildId, title) {
-    const crypto = require('crypto');
-    const normalizedTitle = title.toLowerCase().trim();
-    return crypto.createHash('sha256').update(`${guildId}:${normalizedTitle}`).digest('hex');
-  }
 
   // Movie operations
   async saveMovie(movieData) {

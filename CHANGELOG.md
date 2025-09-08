@@ -6,6 +6,11 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ### Fixed
 - Fully removed the top-level try/catch wrapper around runMigrations() to prevent parser issues on certain Node.js builds. All migration statements remain individually guarded; functionality unchanged.
 
+## [1.13.0-rc97] - 2025-09-08
+### Fixed
+- Moved generateMovieUID implementation into constructor to avoid any parser confusion with class method shorthand on certain Node builds.
+
+
 
 ## [1.13.0-rc95] - 2025-09-08
 ### Fixed
