@@ -210,7 +210,15 @@ async function startBot() {
       logger.info(`🧪 Also registering to ${guildIds.length} development guild(s) for instant testing`);
       for (const guildId of guildIds) {
         try {
+          // Check if bot is actually in the guild before trying to register commands
+          const guild = client.guilds.cache.get(guildId);
+          if (!guild) {
+            logger.warn(`⚠️ Bot is not in development guild ${guildId} - skipping command registration`);
+            continue;
+          }
+
           await registerCommands(DISCORD_TOKEN, CLIENT_ID, guildId);
+          logger.info(`✅ Commands registered to development guild: ${guild.name}`);
         } catch (error) {
           logger.warn(`⚠️ Failed to register commands to development guild ${guildId}: ${error.message}`);
           logger.debug('This is non-critical - bot will continue with global commands only');
