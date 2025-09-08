@@ -279,6 +279,8 @@ async function notifyRole(guild, event, sessionData) {
     // If we used the admin channel for notification, ensure admin panel stays at bottom
     if (notificationChannel.id === guildConfig?.admin_channel_id) {
       try {
+        // Wait a moment for the notification to be sent
+        await new Promise(resolve => setTimeout(resolve, 1000));
         const adminControls = require('./admin-controls');
         await adminControls.ensureAdminControlPanel(guild.client, guild.id);
         logger.debug('🔧 Restored admin control panel after event notification');

@@ -379,6 +379,30 @@ async function clearForumMoviePosts(channel, winnerMovieId = null) {
       }
     }
 
+    // ALSO DELETE SYSTEM POSTS when no active session
+    if (!winnerMovieId) {
+      logger.debug(`🧹 No active session - also deleting system posts`, guildId);
+
+      // Get all threads to find system posts
+      const threads = await channel.threads.fetchActive();
+      const archivedThreads = await channel.threads.fetchArchived({ limit: 50 });
+      const allThreads = new Map([...threads.threads, ...archivedThreads.threads]);
+
+      for (const [threadId, thread] of allThreads) {
+        // Delete system posts (No Active Session, Recommend a Movie)
+        if (thread.name.includes('No Active Voting Session') || thread.name.includes('🚫') ||
+            thread.name.includes('Recommend a Movie') || thread.name.includes('🍿')) {
+          try {
+            await thread.delete('System post cleanup - no active session');
+            deletedCount++;
+            logger.info(`🗑️ Deleted system post: ${thread.name}`, guildId);
+          } catch (error) {
+            logger.warn(`Error deleting system post ${thread.name}:`, error.message, guildId);
+          }
+        }
+      }
+    }
+
     logger.info(`🧹 Forum cleanup complete: ${deletedCount} deleted, ${skippedCount} kept (winner/system)`, guildId);
     return { archived: 0, deleted: deletedCount };
 

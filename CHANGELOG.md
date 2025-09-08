@@ -2,7 +2,7 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
-## [1.13.0-rc78] - 2025-09-07
+## [1.13.0-rc79] - 2025-09-07
 ### 🎯 Major Release: Forum Channels, Safety Features & Professional Logging
 
 ### Added
@@ -196,6 +196,11 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **🎯 Accurate Forum Channel Permissions**: Clarified that users should NOT have "Send Messages" in main forum channel, only in threads
 - **🏗️ Enhanced Category Creation Guide**: Detailed permission setup for forum channels, admin channels, and voice channels with proper restrictions
 - **🛡️ Professional Permission Guidance**: Clear separation of bot permissions vs user permissions for optimal security and functionality
+- **🔧 CRITICAL: Fixed System Posts Not Being Deleted**: Added system post deletion (No Active Session, Recommend a Movie) during forum cleanup when no active session
+- **🗑️ Complete Forum Cleanup**: System posts are now properly deleted during sync operations when no active session exists
+- **⚡ Fixed /admin-panel Command Registration**: Added admin-panel command to command index so it's properly registered and available
+- **🔧 Enhanced Admin Panel Restoration**: Improved admin panel restoration timing with delay to ensure proper restoration after notifications
+- **📋 Comprehensive Forum State Management**: Both movie posts and system posts are now properly cleaned up during sync operations
 
 ### Technical
 - **� Forum Channel Architecture**: Complete forum post creation, voting, and discussion system

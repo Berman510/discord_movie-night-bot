@@ -14,6 +14,7 @@ const movieWatchedCommand = require('./movie-watched');
 const movieSkipCommand = require('./movie-skip');
 const moviePlanCommand = require('./movie-plan');
 const debugConfigCommand = require('./debug-config');
+const adminPanelCommand = require('./admin-panel');
 
 // Combine all command definitions
 const commands = [
@@ -26,7 +27,8 @@ const commands = [
   movieWatchedCommand.data.toJSON(),
   movieSkipCommand.data.toJSON(),
   moviePlanCommand.data.toJSON(),
-  debugConfigCommand.data.toJSON()
+  debugConfigCommand.data.toJSON(),
+  adminPanelCommand.data.toJSON()
 ];
 
 module.exports = {
