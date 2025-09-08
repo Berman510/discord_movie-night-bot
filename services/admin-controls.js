@@ -323,13 +323,18 @@ async function ensureAdminControlPanel(client, guildId) {
     // First try to find in pinned messages
     try {
       const pinnedMessages = await adminChannel.messages.fetchPins();
-      // Use Collection.find() method directly
-      existingPanel = pinnedMessages.find(msg =>
-        msg.author.id === client.user.id &&
-        msg.embeds.length > 0 &&
-        msg.embeds[0].title &&
-        msg.embeds[0].title.includes('Admin Control Panel')
-      );
+      // Check if pinnedMessages is a Collection and has the find method
+      if (pinnedMessages && typeof pinnedMessages.find === 'function') {
+        existingPanel = pinnedMessages.find(msg =>
+          msg.author.id === client.user.id &&
+          msg.embeds.length > 0 &&
+          msg.embeds[0].title &&
+          msg.embeds[0].title.includes('Admin Control Panel')
+        );
+      } else {
+        const logger = require('../utils/logger');
+        logger.debug('Pinned messages result is not a Collection, skipping pinned search');
+      }
     } catch (error) {
       const logger = require('../utils/logger');
       logger.warn('Error fetching pinned messages:', error.message);
@@ -459,7 +464,8 @@ async function handleSyncChannel(interaction) {
             // Forum sync will be handled by recreating/updating forum posts below
           } else {
             // Clear existing movie messages in text voting channel (preserve quick action)
-            console.log(`📋 Clearing messages in text channel: ${votingChannel.name}`);
+            const logger = require('../utils/logger');
+            logger.debug(`📋 Clearing messages in text channel: ${votingChannel.name}`);
             const messages = await votingChannel.messages.fetch({ limit: 100 });
             const botMessages = messages.filter(msg => msg.author.id === interaction.client.user.id);
 

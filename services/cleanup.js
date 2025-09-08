@@ -402,14 +402,16 @@ async function ensureQuickActionPinned(channel) {
           embeds: [noSessionEmbed],
           components: []
         });
-        console.log('✅ Updated pinned no session message');
+        const logger = require('../utils/logger');
+        logger.debug('✅ Updated pinned no session message');
       } else {
         // Create new pinned message
         const message = await channel.send({
           embeds: [noSessionEmbed]
         });
         await message.pin();
-        console.log('✅ Created and pinned no session message');
+        const logger = require('../utils/logger');
+        logger.debug('✅ Created and pinned no session message');
       }
       return;
     }
@@ -477,7 +479,8 @@ async function ensureQuickActionAtBottom(channel) {
         embeds: [noSessionEmbed]
       });
 
-      console.log('✅ Added no session message at bottom');
+      const logger = require('../utils/logger');
+      logger.debug('✅ Added no session message at bottom');
       return;
     }
 
@@ -499,9 +502,11 @@ async function ensureQuickActionAtBottom(channel) {
       components: [recommendButton]
     });
 
-    console.log('✅ Added quick action message at bottom');
+    const logger = require('../utils/logger');
+    logger.debug('✅ Added quick action message at bottom');
   } catch (error) {
-    console.warn('Error ensuring quick action at bottom:', error.message);
+    const logger = require('../utils/logger');
+    logger.warn('Error ensuring quick action at bottom:', error.message);
   }
 }
 

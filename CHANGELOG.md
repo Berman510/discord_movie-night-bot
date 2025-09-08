@@ -2,7 +2,7 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
-## [1.13.0-rc54] - 2025-09-07
+## [1.13.0-rc55] - 2025-09-07
 ### 🎯 Major Release: Forum Channels, Safety Features & Professional Logging
 
 ### Added
@@ -73,6 +73,12 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **🛡️ Fixed Moderator Roles Database Operations**: Fixed null handling in addModeratorRole and removeModeratorRole functions
 - **📊 Fixed Remaining Console.error Statements**: Converted database role management errors to use proper logger.error()
 - **💬 Fixed Setup Ephemeral Message Accumulation**: Fixed setup error handlers to use interaction.update() instead of creating new ephemeral messages
+- **🔧 Fixed Pinned Messages Collection Error**: Added proper Collection type checking for pinnedMessages.find() to prevent "is not a function" errors
+- **📊 Comprehensive Console.log Cleanup**: Converted 20+ remaining console.log statements to proper logger with appropriate levels
+- **🎬 Session Creation Logging**: Session times, Discord event creation, and database operations now use debug/info levels appropriately
+- **🍿 Movie Recommendation Logging**: Movie recommendation debug messages and database operations now use proper log levels
+- **💬 Fixed Voting Session Ephemeral Messages**: Voting session creation now updates existing ephemeral message instead of creating new ones
+- **🎭 Fixed Movie Recommendation Ephemeral Messages**: Movie recommendation success now uses interaction.reply() instead of ephemeralManager
 
 ### Technical
 - **� Forum Channel Architecture**: Complete forum post creation, voting, and discussion system

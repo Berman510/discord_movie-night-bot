@@ -188,9 +188,10 @@ async function handleVotingSessionDateModal(interaction) {
     day: 'numeric'
   })}`;
 
-  console.log(`🕐 Session times (${guildTimezone}):`);
-  console.log(`   Session: ${sessionDateTime.toLocaleString()} (${sessionDateTime.toISOString()})`);
-  console.log(`   Voting ends: ${votingEndDateTime.toLocaleString()} (${votingEndDateTime.toISOString()})`);
+  const logger = require('../utils/logger');
+  logger.debug(`🕐 Session times (${guildTimezone}):`);
+  logger.debug(`   Session: ${sessionDateTime.toLocaleString()} (${sessionDateTime.toISOString()})`);
+  logger.debug(`   Voting ends: ${votingEndDateTime.toLocaleString()} (${votingEndDateTime.toISOString()})`);
 
   // Validate that the dates are in the future
   if (sessionDateTime <= new Date()) {
@@ -282,14 +283,15 @@ async function createVotingSession(interaction, state) {
 
       if (event && event.id) {
         // Update session with Discord event ID
-        console.log(`📅 Saving event ID ${event.id} to session ${sessionId}`);
+        const logger = require('../utils/logger');
+        logger.debug(`📅 Saving event ID ${event.id} to session ${sessionId}`);
         const updateResult = await database.updateVotingSessionEventId(sessionId, event.id);
         if (updateResult) {
-          console.log(`📅 Successfully saved event ID to database`);
+          logger.debug(`📅 Successfully saved event ID to database`);
         } else {
-          console.warn(`📅 Failed to save event ID to database`);
+          logger.warn(`📅 Failed to save event ID to database`);
         }
-        console.log(`📅 Created Discord event: ${event.name} (${event.id})`);
+        logger.info(`📅 Created Discord event: ${event.name} (${event.id})`);
       } else {
         console.warn('Discord event created but no ID returned:', event);
       }
@@ -300,9 +302,9 @@ async function createVotingSession(interaction, state) {
     // Clear the creation state
     global.votingSessionCreationState?.delete(interaction.user.id);
 
-    // Success response
-    await ephemeralManager.sendEphemeral(interaction,
-      `✅ **Voting session created successfully!**\n\n🎬 **${state.sessionName}**\n📅 ${state.sessionDateTime.toLocaleDateString('en-US', {
+    // Success response - update the existing ephemeral message
+    await interaction.update({
+      content: `✅ **Voting session created successfully!**\n\n🎬 **${state.sessionName}**\n📅 ${state.sessionDateTime.toLocaleDateString('en-US', {
         weekday: 'long',
         year: 'numeric',
         month: 'long',
@@ -313,8 +315,10 @@ async function createVotingSession(interaction, state) {
       })}\n🗳️ Voting ends: ${state.votingEndDateTime.toLocaleTimeString('en-US', {
         hour: '2-digit',
         minute: '2-digit'
-      })}\n\n🗳️ Users can now start recommending movies for this session!`
-    );
+      })}\n\n🗳️ Users can now start recommending movies for this session!`,
+      embeds: [],
+      components: []
+    });
 
     // Handle carryover movies from previous session
     try {
@@ -342,7 +346,7 @@ async function createVotingSession(interaction, state) {
       const client = interaction.client || global.discordClient;
 
       if (config && config.movie_channel_id && client) {
-        console.log(`📋 Fetching voting channel: ${config.movie_channel_id}`);
+        logger.debug(`📋 Fetching voting channel: ${config.movie_channel_id}`);
         const votingChannel = await client.channels.fetch(config.movie_channel_id);
         if (votingChannel) {
           const forumChannels = require('./forum-channels');
@@ -354,7 +358,8 @@ async function createVotingSession(interaction, state) {
             // The carryover movies will be handled below by creating new forum posts
           } else {
             // Clear existing messages first (text channels only)
-            console.log(`📋 Clearing existing messages in text channel: ${votingChannel.name}`);
+            const logger = require('../utils/logger');
+            logger.debug(`📋 Clearing existing messages in text channel: ${votingChannel.name}`);
             const messages = await votingChannel.messages.fetch({ limit: 100 });
             const botMessages = messages.filter(msg => msg.author.id === client.user.id);
 

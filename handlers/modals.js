@@ -74,8 +74,9 @@ async function handleMovieRecommendationModal(interaction) {
   const title = interaction.fields.getTextInputValue('mn:title');
   const where = interaction.fields.getTextInputValue('mn:where');
 
-  console.log(`🔍 DEBUG: handleMovieRecommendationModal called with title: ${title}, where: ${where}`);
-  console.log(`Movie recommendation: ${title} on ${where}`);
+  const logger = require('../utils/logger');
+  logger.debug(`🔍 DEBUG: handleMovieRecommendationModal called with title: ${title}, where: ${where}`);
+  logger.debug(`Movie recommendation: ${title} on ${where}`);
 
   try {
     // Use the movie recommendation logic from the original backup
@@ -283,11 +284,15 @@ async function createMovieWithoutImdb(interaction, title, where) {
       ? `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added as a new forum post in ${movieChannel} for voting and discussion.`
       : `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added to the queue in ${movieChannel} for voting.`;
 
-    await ephemeralManager.sendEphemeral(interaction, successMessage);
+    await interaction.reply({
+      content: successMessage,
+      flags: MessageFlags.Ephemeral
+    });
 
   } catch (error) {
-    console.error('🔍 DEBUG: Error in createMovieWithoutImdb:', error);
-    console.error('🔍 DEBUG: Error stack:', error.stack);
+    const logger = require('../utils/logger');
+    logger.error('🔍 DEBUG: Error in createMovieWithoutImdb:', error);
+    logger.debug('🔍 DEBUG: Error stack:', error.stack);
     await interaction.reply({
       content: `❌ Failed to create movie recommendation: ${error.message}`,
       flags: MessageFlags.Ephemeral

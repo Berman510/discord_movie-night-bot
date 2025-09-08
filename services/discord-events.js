@@ -77,13 +77,14 @@ async function createDiscordEvent(guild, sessionData, scheduledDate) {
         // Fetch the channel to verify it exists and get its type
         const channel = await guild.channels.fetch(config.session_viewing_channel_id);
         if (channel) {
-          console.log(`📍 Found session viewing channel: ${channel.name} (${channel.type})`);
+          const logger = require('../utils/logger');
+          logger.debug(`📍 Found session viewing channel: ${channel.name} (${channel.type})`);
 
           // Use appropriate event type based on channel type
           if (channel.type === 2) { // Voice channel
             eventConfig.entityType = GuildScheduledEventEntityType.Voice;
             eventConfig.channel = config.session_viewing_channel_id;
-            console.log(`📍 Setting voice event in channel: #${channel.name}`);
+            logger.debug(`📍 Setting voice event in channel: #${channel.name}`);
           } else if (channel.type === 13) { // Stage channel
             eventConfig.entityType = GuildScheduledEventEntityType.StageInstance;
             eventConfig.channel = config.session_viewing_channel_id;
@@ -118,7 +119,8 @@ async function createDiscordEvent(guild, sessionData, scheduledDate) {
 
     const event = await guild.scheduledEvents.create(eventConfig);
 
-    console.log(`✅ Created Discord event: ${event.name} (ID: ${event.id}) - Duration: ${durationMinutes} minutes`);
+    const logger = require('../utils/logger');
+    logger.info(`✅ Created Discord event: ${event.name} (ID: ${event.id}) - Duration: ${durationMinutes} minutes`);
 
     // Send notification to configured role
     await notifyRole(guild, event, sessionData);
@@ -255,7 +257,8 @@ async function notifyRole(guild, event, sessionData) {
       embeds: [embed]
     });
 
-    console.log(`✅ Notified role ${notificationRoleId} about event ${event.id}`);
+    const logger = require('../utils/logger');
+    logger.debug(`✅ Notified role ${notificationRoleId} about event ${event.id}`);
 
   } catch (error) {
     console.error('Error notifying role about event:', error);
