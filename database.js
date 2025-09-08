@@ -778,7 +778,6 @@ class Database {
       }
 
       // Migration 19: Enforce guild-scoped uniqueness and composite foreign keys
-      try {
         // 19.1 Ensure composite unique/indexes exist on parent tables
         try {
           await this.pool.execute(`
@@ -1042,12 +1041,10 @@ class Database {
         }
 
         logger.debug('✅ Migration 19: Guild-scoped constraints and FKs applied');
-      } catch (error) {
-        logger.warn('Migration 19 warning:', error.message);
-      }
+
 
       // Migration 20: Align charsets and finalize composite FKs missed in rc91/rc92
-      try {
+
         // Ensure session tables use utf8mb4 to match parent tables for FKs
         try {
           await this.pool.execute(`
@@ -1125,9 +1122,7 @@ class Database {
         } catch (error) { if (!error.message.includes('Duplicate') && !error.message.includes('exists')) { logger.warn('Migration 20 fk_sessions_associated_movie warning:', error.message); } }
 
         logger.debug('✅ Migration 20: Charsets aligned and composite FKs ensured');
-      } catch (error) {
-        logger.warn('Migration 20 warning:', error.message);
-      }
+
 
       logger.info('✅ Database migrations completed');
     } catch (error) {

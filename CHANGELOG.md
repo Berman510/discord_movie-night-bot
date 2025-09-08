@@ -2,6 +2,11 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.13.0-rc95] - 2025-09-08
+### Fixed
+- Resolve startup crash on some Node runtimes by flattening Migration 19/20 structure (removed outer try/catch wrappers). All statements still guarded individually with warnings; functional behavior unchanged.
+
+
 ## [1.13.0-rc94] - 2025-09-08
 ### Added
 - Event descriptions now end with a clear CTA linking to the configured voting channel: "Join the conversation and vote for your favorite movie!"
