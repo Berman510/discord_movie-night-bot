@@ -23,11 +23,9 @@ async function handleSelect(interaction) {
       const { configuration } = require('../services');
 
       // Create a mock interaction with the selected channel
-      const mockInteraction = {
-        ...interaction,
-        options: {
-          getChannel: () => channel
-        }
+      const mockInteraction = Object.create(interaction);
+      mockInteraction.options = {
+        getChannel: () => channel
       };
 
       await configuration.configureMovieChannel(mockInteraction, interaction.guild.id);
@@ -40,11 +38,9 @@ async function handleSelect(interaction) {
       const { configuration } = require('../services');
 
       // Create a mock interaction with the selected channel
-      const mockInteraction = {
-        ...interaction,
-        options: {
-          getChannel: () => channel
-        }
+      const mockInteraction = Object.create(interaction);
+      mockInteraction.options = {
+        getChannel: () => channel
       };
 
       await configuration.configureAdminChannel(mockInteraction, interaction.guild.id);
@@ -57,11 +53,9 @@ async function handleSelect(interaction) {
       const { configuration } = require('../services');
 
       // Create a mock interaction with the selected channel
-      const mockInteraction = {
-        ...interaction,
-        options: {
-          getChannel: () => channel
-        }
+      const mockInteraction = Object.create(interaction);
+      mockInteraction.options = {
+        getChannel: () => channel
       };
 
       await configuration.configureViewingChannel(mockInteraction, interaction.guild.id);
@@ -74,11 +68,9 @@ async function handleSelect(interaction) {
       const { configuration } = require('../services');
 
       // Create a mock interaction with the selected role
-      const mockInteraction = {
-        ...interaction,
-        options: {
-          getRole: () => role
-        }
+      const mockInteraction = Object.create(interaction);
+      mockInteraction.options = {
+        getRole: () => role
       };
 
       await configuration.setNotificationRole(mockInteraction, interaction.guild.id);

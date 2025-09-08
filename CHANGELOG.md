@@ -2,7 +2,7 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
-## [1.13.0-rc61] - 2025-09-07
+## [1.13.0-rc62] - 2025-09-07
 ### 🎯 Major Release: Forum Channels, Safety Features & Professional Logging
 
 ### Added
@@ -105,6 +105,8 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **📋 Interactive Configuration System**: Added ChannelSelectMenuBuilder and RoleSelectMenuBuilder for voting channel, admin channel, viewing channel, and notification role selection
 - **🔧 Fixed GUILD_ID Warning**: Moved development guild command registration after Discord login to ensure guild cache is populated
 - **⚡ Enhanced Configuration UX**: Configuration buttons now provide interactive selection menus with proper validation and feedback
+- **🔧 CRITICAL: Fixed Mock Interaction Object**: Fixed "interaction.update is not a function" error in configuration select handlers
+- **🛠️ Proper Prototype Inheritance**: Changed from spread operator to Object.create() for mock interactions to preserve method inheritance
 
 ### Technical
 - **� Forum Channel Architecture**: Complete forum post creation, voting, and discussion system
