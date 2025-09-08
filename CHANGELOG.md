@@ -26,6 +26,11 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ### Added
 - Improve Migration 22 diagnostics: pretty-print column definitions; add MySQL version and SHOW CREATE TABLE outputs for movies and movie_sessions to pinpoint FK mismatch cause on hosts.
 
+## [1.13.0-rc102] - 2025-09-08
+### Added
+- Migration 23: Add simple single-column FKs and guild-enforcing triggers as a robust fallback on MariaDB hosts. Triggers prevent cross-guild references on insert/update while keeping data intact. Idempotent creation guarded via information_schema.
+
+
 
 
 

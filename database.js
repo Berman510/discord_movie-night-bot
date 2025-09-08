@@ -1375,6 +1375,159 @@ class Database {
         } catch (e) {
           logger.debug('Migration 22 version query failed:', e.message);
         }
+
+
+
+      // Migration 23: Fallback enforcement via simple FKs + triggers to ensure guild scoping
+      try {
+        // 23.1 Simple FKs (single-column) that MariaDB accepts universally
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movies
+            ADD CONSTRAINT fk_movies_session_simple
+            FOREIGN KEY (session_id) REFERENCES movie_sessions(id)
+            ON DELETE SET NULL
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.warn('Migration 23 fk_movies_session_simple warning:', error.message);
+          }
+        }
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movie_sessions
+            ADD CONSTRAINT fk_sessions_winner_movie_simple
+            FOREIGN KEY (winner_message_id) REFERENCES movies(message_id)
+            ON DELETE SET NULL
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.warn('Migration 23 fk_sessions_winner_movie_simple warning:', error.message);
+          }
+        }
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movie_sessions
+            ADD CONSTRAINT fk_sessions_associated_movie_simple
+            FOREIGN KEY (associated_movie_id) REFERENCES movies(message_id)
+            ON DELETE SET NULL
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.warn('Migration 23 fk_sessions_associated_movie_simple warning:', error.message);
+          }
+        }
+
+        // Helper to create trigger if missing
+        const ensureTrigger = async (name, sql) => {
+          const [exist] = await this.pool.execute(
+            `SELECT TRIGGER_NAME FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA = DATABASE() AND TRIGGER_NAME = ?`,
+            [name]
+          );
+          if (exist.length === 0) {
+            try {
+              await this.pool.execute(sql);
+              logger.debug(`Migration 23: created trigger ${name}`);
+            } catch (e) {
+              logger.warn(`Migration 23 trigger ${name} warning:`, e.message);
+            }
+          }
+        };
+
+        // 23.2 Triggers to enforce guild match for movies.session_id -> movie_sessions.id
+        await ensureTrigger('trg_movies_bi_session_guild', `
+          CREATE TRIGGER trg_movies_bi_session_guild BEFORE INSERT ON movies FOR EACH ROW
+          BEGIN
+            IF NEW.session_id IS NOT NULL THEN
+              DECLARE sess_gid VARCHAR(20);
+              SELECT guild_id INTO sess_gid FROM movie_sessions WHERE id = NEW.session_id;
+              IF sess_gid IS NULL THEN
+                SET NEW.session_id = NULL;
+              ELSEIF sess_gid <> NEW.guild_id THEN
+                SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Guild mismatch: movies.session_id references a session in a different guild';
+              END IF;
+            END IF;
+          END
+        `);
+        await ensureTrigger('trg_movies_bu_session_guild', `
+          CREATE TRIGGER trg_movies_bu_session_guild BEFORE UPDATE ON movies FOR EACH ROW
+          BEGIN
+            IF NEW.session_id IS NOT NULL THEN
+              DECLARE sess_gid2 VARCHAR(20);
+              SELECT guild_id INTO sess_gid2 FROM movie_sessions WHERE id = NEW.session_id;
+              IF sess_gid2 IS NULL THEN
+                SET NEW.session_id = NULL;
+              ELSEIF sess_gid2 <> NEW.guild_id THEN
+                SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Guild mismatch: movies.session_id references a session in a different guild';
+              END IF;
+            END IF;
+          END
+        `);
+
+        // 23.3 Triggers to enforce guild match for movie_sessions.winner/associated -> movies.message_id
+        await ensureTrigger('trg_sessions_bi_winner_guild', `
+          CREATE TRIGGER trg_sessions_bi_winner_guild BEFORE INSERT ON movie_sessions FOR EACH ROW
+          BEGIN
+            IF NEW.winner_message_id IS NOT NULL THEN
+              DECLARE mv_gid VARCHAR(20);
+              SELECT guild_id INTO mv_gid FROM movies WHERE message_id = NEW.winner_message_id;
+              IF mv_gid IS NULL THEN
+                SET NEW.winner_message_id = NULL;
+              ELSEIF mv_gid <> NEW.guild_id THEN
+                SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Guild mismatch: movie_sessions.winner_message_id references a movie in a different guild';
+              END IF;
+            END IF;
+          END
+        `);
+        await ensureTrigger('trg_sessions_bu_winner_guild', `
+          CREATE TRIGGER trg_sessions_bu_winner_guild BEFORE UPDATE ON movie_sessions FOR EACH ROW
+          BEGIN
+            IF NEW.winner_message_id IS NOT NULL THEN
+              DECLARE mv_gid2 VARCHAR(20);
+              SELECT guild_id INTO mv_gid2 FROM movies WHERE message_id = NEW.winner_message_id;
+              IF mv_gid2 IS NULL THEN
+                SET NEW.winner_message_id = NULL;
+              ELSEIF mv_gid2 <> NEW.guild_id THEN
+                SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Guild mismatch: movie_sessions.winner_message_id references a movie in a different guild';
+              END IF;
+            END IF;
+          END
+        `);
+        await ensureTrigger('trg_sessions_bi_assoc_guild', `
+          CREATE TRIGGER trg_sessions_bi_assoc_guild BEFORE INSERT ON movie_sessions FOR EACH ROW
+          BEGIN
+            IF NEW.associated_movie_id IS NOT NULL THEN
+              DECLARE am_gid VARCHAR(20);
+              SELECT guild_id INTO am_gid FROM movies WHERE message_id = NEW.associated_movie_id;
+              IF am_gid IS NULL THEN
+                SET NEW.associated_movie_id = NULL;
+              ELSEIF am_gid <> NEW.guild_id THEN
+                SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Guild mismatch: movie_sessions.associated_movie_id references a movie in a different guild';
+              END IF;
+            END IF;
+          END
+        `);
+        await ensureTrigger('trg_sessions_bu_assoc_guild', `
+          CREATE TRIGGER trg_sessions_bu_assoc_guild BEFORE UPDATE ON movie_sessions FOR EACH ROW
+          BEGIN
+            IF NEW.associated_movie_id IS NOT NULL THEN
+              DECLARE am_gid2 VARCHAR(20);
+              SELECT guild_id INTO am_gid2 FROM movies WHERE message_id = NEW.associated_movie_id;
+              IF am_gid2 IS NULL THEN
+                SET NEW.associated_movie_id = NULL;
+              ELSEIF am_gid2 <> NEW.guild_id THEN
+                SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Guild mismatch: movie_sessions.associated_movie_id references a movie in a different guild';
+              END IF;
+            END IF;
+          END
+        `);
+
+        logger.debug('✅ Migration 23: Simple FKs added and guild-scope triggers ensured');
+      } catch (error) {
+        logger.warn('Migration 23 wrapper warning:', error.message);
+      }
+
+
         try {
           const [crt1] = await this.pool.execute('SHOW CREATE TABLE movies');
           logger.debug('Migration 22 SHOW CREATE TABLE movies:', JSON.stringify(crt1[0] || crt1));
