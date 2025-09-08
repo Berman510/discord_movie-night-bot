@@ -2,7 +2,7 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
-## [1.13.0-rc62] - 2025-09-07
+## [1.13.0-rc63] - 2025-09-07
 ### 🎯 Major Release: Forum Channels, Safety Features & Professional Logging
 
 ### Added
@@ -107,6 +107,9 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **⚡ Enhanced Configuration UX**: Configuration buttons now provide interactive selection menus with proper validation and feedback
 - **🔧 CRITICAL: Fixed Mock Interaction Object**: Fixed "interaction.update is not a function" error in configuration select handlers
 - **🛠️ Proper Prototype Inheritance**: Changed from spread operator to Object.create() for mock interactions to preserve method inheritance
+- **🔧 Fixed Session Creation Logger Error**: Fixed "logger is not defined" error after voting session creation in voting-sessions.js
+- **🧵 Fixed Thread Creation for Deleted Messages**: Added message existence check before creating threads to prevent "Unknown Message" errors
+- **📊 Enhanced Sync Error Handling**: Improved error handling in thread recreation with proper logger usage and message validation
 
 ### Technical
 - **� Forum Channel Architecture**: Complete forum post creation, voting, and discussion system

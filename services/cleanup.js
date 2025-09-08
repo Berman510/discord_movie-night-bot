@@ -859,6 +859,9 @@ async function recreateMissingThreads(channel, botMessages) {
       // Check if this movie has a thread
       if (!existingThreadTitles.has(movieTitle)) {
         try {
+          // Verify message still exists before creating thread
+          await message.fetch();
+
           // Create missing thread
           const thread = await message.startThread({
             name: `${movieTitle} — Discussion`,
@@ -867,9 +870,15 @@ async function recreateMissingThreads(channel, botMessages) {
 
           await thread.send(`💬 **Discussion thread for ${movieTitle}**\n\nShare your thoughts, reviews, or questions about this movie!`);
           threadsCreated++;
-          console.log(`🧵 Created missing thread for: ${movieTitle}`);
+          const logger = require('../utils/logger');
+          logger.debug(`🧵 Created missing thread for: ${movieTitle}`);
         } catch (error) {
-          console.warn(`Failed to create thread for ${movieTitle}:`, error.message);
+          const logger = require('../utils/logger');
+          if (error.message.includes('Unknown Message')) {
+            logger.debug(`Skipping thread creation for deleted message: ${movieTitle}`);
+          } else {
+            logger.warn(`Failed to create thread for ${movieTitle}:`, error.message);
+          }
         }
       }
     }

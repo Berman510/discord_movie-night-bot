@@ -463,11 +463,13 @@ async function createVotingSession(interaction, state) {
           const adminControls = require('./admin-controls');
           await adminControls.ensureAdminControlPanel(client, interaction.guild.id);
         } catch (error) {
-          console.warn('Error refreshing admin control panel:', error.message);
+          const logger = require('../utils/logger');
+          logger.warn('Error refreshing admin control panel:', error.message);
         }
       }
     } catch (error) {
-      console.warn('Error updating channels after session creation:', error.message);
+      const logger = require('../utils/logger');
+      logger.warn('Error updating channels after session creation:', error.message);
     }
 
     // Schedule voting end with smart scheduler
