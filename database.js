@@ -1653,7 +1653,8 @@ class Database {
         `UPDATE movies SET next_session = FALSE WHERE guild_id = ? AND next_session = TRUE`,
         [guildId]
       );
-      console.log('✅ Cleared next_session flags');
+      const logger = require('./utils/logger');
+      logger.debug('✅ Cleared next_session flags');
       return true;
     } catch (error) {
       console.error('Error clearing next_session flags:', error.message);

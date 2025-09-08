@@ -413,11 +413,14 @@ async function ensureRecommendationPost(channel, activeSession = null) {
     }
 
     if (!activeSession) {
-      // No active session - archive existing recommendation post if it exists
+      // No active session - archive existing recommendation post and create "No Active Session" post
       if (recommendationPost && !recommendationPost.archived) {
         await recommendationPost.setArchived(true);
         logger.debug('📋 Archived recommendation post (no active session)');
       }
+
+      // Create "No Active Session" forum post
+      await createNoActiveSessionPost(channel);
       return;
     }
 
@@ -513,6 +516,79 @@ async function ensureRecommendationPost(channel, activeSession = null) {
       errorMessage: error.message,
       errorStack: error.stack
     });
+  }
+}
+
+/**
+ * Create a "No Active Session" forum post
+ */
+async function createNoActiveSessionPost(channel) {
+  try {
+    const logger = require('../utils/logger');
+
+    // Look for existing "No Active Session" post
+    const threads = await channel.threads.fetchActive();
+    const archivedThreads = await channel.threads.fetchArchived({ limit: 50 });
+    const allThreads = new Map([...threads.threads, ...archivedThreads.threads]);
+
+    let noSessionPost = null;
+    for (const [threadId, thread] of allThreads) {
+      if (thread.name.includes('No Active Voting Session') || thread.name.includes('🚫')) {
+        noSessionPost = thread;
+        break;
+      }
+    }
+
+    // Create the embed
+    const { EmbedBuilder } = require('discord.js');
+    const noSessionEmbed = new EmbedBuilder()
+      .setTitle('🚫 No Active Voting Session')
+      .setDescription('**There is currently no active voting session.**\n\nAn admin needs to use the "Plan Next Session" button in the admin channel to start a new voting session.\n\n💡 **Tip:** Movie recommendations are only available during active voting sessions.')
+      .setColor(0xed4245)
+      .addFields(
+        { name: '🎬 Want to recommend a movie?', value: 'Wait for an admin to start the next voting session!', inline: false },
+        { name: '⚙️ Admin?', value: 'Use the admin channel to plan and start the next session.', inline: false }
+      )
+      .setFooter({ text: 'Movie recommendations will be available when a session starts' });
+
+    if (noSessionPost) {
+      // Update existing post
+      if (noSessionPost.archived) {
+        await noSessionPost.setArchived(false);
+      }
+
+      const starterMessage = await noSessionPost.fetchStarterMessage();
+      if (starterMessage) {
+        await starterMessage.edit({
+          embeds: [noSessionEmbed]
+        });
+
+        // Pin the post to keep it visible
+        if (!noSessionPost.pinned) {
+          await noSessionPost.pin();
+        }
+
+        logger.debug('📋 Updated existing no session post');
+      }
+    } else {
+      // Create new no session post
+      const forumPost = await channel.threads.create({
+        name: '🚫 No Active Voting Session',
+        message: {
+          embeds: [noSessionEmbed]
+        },
+        reason: 'No active voting session notification'
+      });
+
+      // Pin the post to keep it visible
+      await forumPost.pin();
+
+      logger.info(`📋 Created no active session post: ${forumPost.name} (ID: ${forumPost.id})`);
+    }
+
+  } catch (error) {
+    const logger = require('../utils/logger');
+    logger.error('Error creating no active session post:', error);
   }
 }
 

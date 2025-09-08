@@ -2,7 +2,7 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
-## [1.13.0-rc68] - 2025-09-07
+## [1.13.0-rc69] - 2025-09-07
 ### 🎯 Major Release: Forum Channels, Safety Features & Professional Logging
 
 ### Added
@@ -138,6 +138,13 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **🔢 Enhanced Stats Display**: Added "Current Voting" (active session only) and "Queued for Next" (skip to next queue) fields
 - **🎯 Accurate Vote Counts**: "Current Voting" shows 0 when no active session, "Queued for Next" shows movies waiting for next session
 - **📋 Additional Logging Cleanup**: Fixed "Error clearing voting channel" and Discord event deletion logging
+- **🔧 CRITICAL: Fixed Forum "No Active Session" Message**: Forum channels now show proper "No Active Session" post when no voting session is active
+- **📋 Forum No Session Post**: Creates pinned forum post explaining no active session and how to start one when syncing channels
+- **🔧 CRITICAL: Fixed Admin Panel Disappearing Issue**: Admin panel no longer gets deleted when update fails, preventing disappearance
+- **⚡ Added /admin-panel Slash Command**: New command to restore admin control panel if it disappears (requires Manage Channels permission)
+- **🛡️ Enhanced Admin Panel Persistence**: Improved error handling prevents admin panel deletion during temporary update failures
+- **📊 Additional Critical Logging Cleanup**: Fixed carryover movie logging, next_session flag clearing, and logger initialization errors
+- **🔍 Fixed "Cannot access 'logger' before initialization"**: Resolved logger declaration conflicts in session creation
 
 ### Technical
 - **� Forum Channel Architecture**: Complete forum post creation, voting, and discussion system

@@ -324,13 +324,14 @@ async function createVotingSession(interaction, state) {
     try {
       const carryoverMovies = await database.getNextSessionMovies(interaction.guild.id);
       if (carryoverMovies.length > 0) {
-        console.log(`🔄 Found ${carryoverMovies.length} carryover movies from previous session`);
+        const logger = require('../utils/logger');
+        logger.info(`🔄 Found ${carryoverMovies.length} carryover movies from previous session`);
 
         // Update carryover movies with new session ID and reset votes
         for (const movie of carryoverMovies) {
           await database.updateMovieSessionId(movie.message_id, sessionId);
           await database.resetMovieVotes(movie.message_id);
-          console.log(`🔄 Added carryover movie: ${movie.title}`);
+          logger.debug(`🔄 Added carryover movie: ${movie.title}`);
         }
 
         // Clear the next_session flags
@@ -473,8 +474,13 @@ async function createVotingSession(interaction, state) {
       logger.warn('Error scheduling voting end:', error.message);
     }
 
-    const logger = require('../utils/logger');
-    logger.info(`🎬 Voting session created: ${state.sessionName} by ${interaction.user.tag}`);
+    // Log session creation (reuse logger from above if available)
+    try {
+      const logger = require('../utils/logger');
+      logger.info(`🎬 Voting session created: ${state.sessionName} by ${interaction.user.tag}`);
+    } catch (logError) {
+      console.log(`🎬 Voting session created: ${state.sessionName} by ${interaction.user.tag}`);
+    }
 
   } catch (error) {
     console.error('Error creating voting session:', error);

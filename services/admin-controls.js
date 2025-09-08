@@ -369,13 +369,11 @@ async function ensureAdminControlPanel(client, guildId) {
         logger.debug('🔧 Updated pinned admin control panel');
         return existingPanel;
       } catch (error) {
-        console.warn('Could not update existing admin panel:', error.message);
-        // Try to delete and recreate
-        try {
-          await existingPanel.delete();
-        } catch (deleteError) {
-          console.warn('Could not delete existing admin panel:', deleteError.message);
-        }
+        const logger = require('../utils/logger');
+        logger.warn('Could not update existing admin panel:', error.message);
+        // Don't delete the existing panel - just create a new one below
+        // This prevents the panel from disappearing if there's a temporary error
+        existingPanel = null; // Mark as null so we create a new one
       }
     }
 
