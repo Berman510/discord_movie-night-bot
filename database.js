@@ -64,7 +64,7 @@ class Database {
       await this.pool.execute('SELECT 1');
       this.isConnected = true;
       logger.info('✅ Connected to MySQL database');
-      
+
       // Initialize tables
       await this.initializeTables();
       return true;
@@ -877,6 +877,84 @@ class Database {
             ADD INDEX idx_attendees_gid_sid (guild_id, session_id)
           `);
         } catch (error) {}
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movies
+            ADD INDEX idx_movies_gid_sid (guild_id, session_id)
+          `);
+        } catch (error) {}
+
+
+        // 19.45 Data backfill/correction to satisfy composite FKs
+        try {
+          await this.pool.execute(`
+            UPDATE session_participants sp
+            INNER JOIN movie_sessions ms ON sp.session_id = ms.id
+            SET sp.guild_id = ms.guild_id
+            WHERE sp.guild_id <> ms.guild_id
+          `);
+          logger.debug('Migration 19: Backfilled session_participants.guild_id mismatches');
+        } catch (error) {
+          logger.warn('Migration 19 backfill session_participants warning:', error.message);
+        }
+        try {
+          await this.pool.execute(`
+            UPDATE session_attendees sa
+            INNER JOIN movie_sessions ms ON sa.session_id = ms.id
+            SET sa.guild_id = ms.guild_id
+            WHERE sa.guild_id <> ms.guild_id
+          `);
+          logger.debug('Migration 19: Backfilled session_attendees.guild_id mismatches');
+        } catch (error) {
+          logger.warn('Migration 19 backfill session_attendees warning:', error.message);
+        }
+        try {
+          await this.pool.execute(`
+            UPDATE movies m
+            INNER JOIN movie_sessions ms ON m.session_id = ms.id
+            SET m.session_id = NULL
+            WHERE m.session_id IS NOT NULL AND m.guild_id <> ms.guild_id
+          `);
+          logger.debug('Migration 19: Cleared movies.session_id that pointed across guilds');
+        } catch (error) {
+          logger.warn('Migration 19 backfill movies.session_id warning:', error.message);
+        }
+        try {
+          await this.pool.execute(`
+            UPDATE movie_sessions s
+            INNER JOIN movies m ON s.winner_message_id = m.message_id
+            SET s.winner_message_id = NULL
+            WHERE s.winner_message_id IS NOT NULL AND s.guild_id <> m.guild_id
+          `);
+          logger.debug('Migration 19: Cleared movie_sessions.winner_message_id mismatches');
+        } catch (error) {
+          logger.warn('Migration 19 backfill sessions.winner_message_id warning:', error.message);
+        }
+        try {
+          await this.pool.execute(`
+            UPDATE movie_sessions s
+            INNER JOIN movies m ON s.associated_movie_id = m.message_id
+            SET s.associated_movie_id = NULL
+            WHERE s.associated_movie_id IS NOT NULL AND s.guild_id <> m.guild_id
+          `);
+          logger.debug('Migration 19: Cleared movie_sessions.associated_movie_id mismatches');
+        } catch (error) {
+          logger.warn('Migration 19 backfill sessions.associated_movie_id warning:', error.message);
+        }
+
+        // Helpful supporting indexes on movie_sessions for FKs referencing movies
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movie_sessions
+            ADD INDEX idx_ms_gid_winner (guild_id, winner_message_id)
+          `);
+        } catch (error) {}
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movie_sessions
+            ADD INDEX idx_ms_gid_assoc (guild_id, associated_movie_id)
+          `);
+        } catch (error) {}
 
         // 19.5 Add composite foreign keys
         try {
@@ -1194,16 +1272,16 @@ class Database {
 
   async getVoteCounts(messageId) {
     if (!this.isConnected) return { up: 0, down: 0, voters: { up: [], down: [] } };
-    
+
     try {
       const [rows] = await this.pool.execute(
         `SELECT vote_type, user_id FROM votes WHERE message_id = ?`,
         [messageId]
       );
-      
+
       const up = rows.filter(r => r.vote_type === 'up');
       const down = rows.filter(r => r.vote_type === 'down');
-      
+
       return {
         up: up.length,
         down: down.length,
@@ -1263,15 +1341,15 @@ class Database {
 
   async getTopMovies(guildId, limit = 5) {
     if (!this.isConnected) return [];
-    
+
     try {
       const [rows] = await this.pool.execute(
-        `SELECT m.*, 
+        `SELECT m.*,
          (SELECT COUNT(*) FROM votes v WHERE v.message_id = m.message_id AND v.vote_type = 'up') as up_votes,
          (SELECT COUNT(*) FROM votes v WHERE v.message_id = m.message_id AND v.vote_type = 'down') as down_votes,
-         ((SELECT COUNT(*) FROM votes v WHERE v.message_id = m.message_id AND v.vote_type = 'up') - 
+         ((SELECT COUNT(*) FROM votes v WHERE v.message_id = m.message_id AND v.vote_type = 'up') -
           (SELECT COUNT(*) FROM votes v WHERE v.message_id = m.message_id AND v.vote_type = 'down')) as score
-         FROM movies m 
+         FROM movies m
          WHERE m.guild_id = ? AND m.status = 'pending'
          ORDER BY score DESC, m.created_at ASC
          LIMIT ?`,

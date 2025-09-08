@@ -2,6 +2,17 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.13.0-rc92] - 2025-09-08
+### Fixed
+- 🧰 Migration 19 data backfill: auto-correct legacy cross-guild mismatches so composite FKs can be created cleanly
+  - Align session_participants/session_attendees.guild_id to their movie_session.guild_id
+  - Null movies.session_id when it points to a session in another guild
+  - Null session.winner_message_id/associated_movie_id when message refers to a movie from a different guild
+- 🗂️ Added helpful indexes on movie_sessions for (guild_id, winner_message_id) and (guild_id, associated_movie_id)
+
+### Notes
+- This addresses “Foreign key constraint is incorrectly formed” warnings seen during rc91 deployment.
+
 ## [1.13.0-rc91] - 2025-09-08
 ### Changed
 - 🛡️ Database hardening: Enforce guild-scoped uniqueness and composite foreign keys across core tables (movies, votes, movie_sessions, session_participants, session_attendees)
