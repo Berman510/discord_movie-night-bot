@@ -96,7 +96,8 @@ async function handleCleanupSync(interaction, movieChannel) {
         secondBatch.forEach((msg, id) => allMessages.set(id, msg));
       }
     } catch (error) {
-      console.warn('Error fetching additional messages:', error.message);
+      const logger = require('../utils/logger');
+      logger.warn('Error fetching additional messages:', error.message);
       // Continue with what we have
     }
     
@@ -123,9 +124,11 @@ async function handleCleanupSync(interaction, movieChannel) {
           try {
             await message.delete();
             orphanedCount++;
-            console.log(`🗑️ Deleted orphaned movie message: ${messageId}`);
+            const logger = require('../utils/logger');
+            logger.debug(`🗑️ Deleted orphaned movie message: ${messageId}`);
           } catch (error) {
-            console.warn(`Failed to delete orphaned message ${messageId}:`, error.message);
+            const logger = require('../utils/logger');
+            logger.warn(`Failed to delete orphaned message ${messageId}:`, error.message);
           }
           continue;
         }
@@ -523,14 +526,17 @@ async function cleanupOldGuideMessages(channel) {
       if (isGuideMessage) {
         try {
           await message.delete();
-          console.log(`🗑️ Cleaned up old guide message: ${messageId}`);
+          const logger = require('../utils/logger');
+          logger.debug(`🗑️ Cleaned up old guide message: ${messageId}`);
         } catch (error) {
-          console.warn(`Failed to delete old guide message ${messageId}:`, error.message);
+          const logger = require('../utils/logger');
+          logger.warn(`Failed to delete old guide message ${messageId}:`, error.message);
         }
       }
     }
   } catch (error) {
-    console.warn('Error cleaning up old guide messages:', error.message);
+    const logger = require('../utils/logger');
+    logger.warn('Error cleaning up old guide messages:', error.message);
   }
 }
 

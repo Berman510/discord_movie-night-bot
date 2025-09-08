@@ -33,9 +33,10 @@ module.exports = {
   commands,
   registerCommands: async (token, clientId, guildId = null) => {
     const rest = new REST({ version: '10' }).setToken(token);
+    const logger = require('../utils/logger');
 
     try {
-      console.log('🔄 Started refreshing application (/) commands.');
+      logger.debug('🔄 Started refreshing application (/) commands.');
 
       const route = guildId
         ? Routes.applicationGuildCommands(clientId, guildId)
@@ -44,9 +45,9 @@ module.exports = {
       await rest.put(route, { body: commands });
 
       const scope = guildId ? `guild ${guildId}` : 'globally';
-      console.log(`✅ Successfully reloaded ${commands.length} application (/) commands ${scope}.`);
+      logger.info(`✅ Successfully reloaded ${commands.length} application (/) commands ${scope}.`);
     } catch (error) {
-      console.error('❌ Error registering commands:', error);
+      logger.error('❌ Error registering commands:', error);
       throw error;
     }
   }

@@ -2,7 +2,7 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
-## [1.13.0-rc51] - 2025-09-07
+## [1.13.0-rc52] - 2025-09-07
 ### 🎯 Major Release: Forum Channels, Safety Features & Professional Logging
 
 ### Added
@@ -62,6 +62,9 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **💬 Fixed Administration Panel Ephemeral**: Admin panel now updates existing ephemeral message instead of creating new ones
 - **🛡️ Added Moderator Roles Setup**: Added moderator roles configuration to guided setup process with proper UI and handlers
 - **🔧 Fixed Missing Configuration Handlers**: Added handlers for config_voting_channel, config_admin_channel, and config_viewing_channel buttons
+- **📊 Comprehensive Logging System Enforcement**: Converted all console.log/warn/error statements to use proper logger with levels
+- **🎯 Consistent Log Level Enforcement**: All application messages now respect LOG_LEVEL configuration (ERROR, WARN, INFO, DEBUG)
+- **🧹 Cleaned Up Raw Console Output**: Eliminated inconsistent logging where some messages had levels and others didn't
 
 ### Technical
 - **� Forum Channel Architecture**: Complete forum post creation, voting, and discussion system

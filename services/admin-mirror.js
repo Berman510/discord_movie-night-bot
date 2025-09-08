@@ -193,10 +193,12 @@ async function postMovieToAdminChannel(client, guildId, movie) {
       const adminControls = require('./admin-controls');
       await adminControls.ensureAdminControlPanel(client, guildId);
     } catch (error) {
-      console.warn('Error ensuring admin control panel after movie post:', error.message);
+      const logger = require('../utils/logger');
+      logger.warn('Error ensuring admin control panel after movie post:', error.message);
     }
 
-    console.log(`📋 Posted movie to admin channel: ${movie.title}`);
+    const logger = require('../utils/logger');
+    logger.debug(`📋 Posted movie to admin channel: ${movie.title}`);
     return adminMessage;
 
   } catch (error) {
@@ -277,14 +279,17 @@ async function syncAdminChannel(client, guildId) {
       const adminControls = require('./admin-controls');
       await adminControls.ensureAdminControlPanel(client, guildId);
     } catch (error) {
-      console.warn('Error ensuring admin control panel after sync:', error.message);
+      const logger = require('../utils/logger');
+      logger.warn('Error ensuring admin control panel after sync:', error.message);
     }
 
-    console.log(`📋 Synced ${syncedCount} movies to admin channel`);
+    const logger = require('../utils/logger');
+    logger.info(`📋 Synced ${syncedCount} movies to admin channel`);
     return { synced: syncedCount, error: null };
 
   } catch (error) {
-    console.error('Error syncing admin channel:', error);
+    const logger = require('../utils/logger');
+    logger.error('Error syncing admin channel:', error);
     return { synced: 0, error: error.message };
   }
 }

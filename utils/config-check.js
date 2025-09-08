@@ -64,7 +64,8 @@ async function checkConfiguration(guildId) {
     };
 
   } catch (error) {
-    console.error('Error checking configuration:', error);
+    const logger = require('./logger');
+    logger.error('Error checking configuration:', error);
     return {
       isConfigured: false,
       missingItems: ['Configuration check failed'],

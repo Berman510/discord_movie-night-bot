@@ -66,15 +66,15 @@ client.once('clientReady', async () => {
           panelsCreated++;
         }
       } catch (error) {
-        console.error(`Error initializing admin panel for guild ${guildId}:`, error);
+        logger.error(`Error initializing admin panel for guild ${guildId}:`, error);
       }
     }
 
     if (panelsCreated > 0) {
-      console.log(`🔧 Initialized ${panelsCreated} admin control panels`);
+      logger.info(`🔧 Initialized ${panelsCreated} admin control panels`);
     }
   } catch (error) {
-    console.error('Error during admin panel initialization:', error);
+    logger.error('Error during admin panel initialization:', error);
   }
 
   // Initialize smart session scheduler (replaces old polling system)
@@ -82,38 +82,38 @@ client.once('clientReady', async () => {
     const sessionScheduler = require('./services/session-scheduler');
     await sessionScheduler.initialize(client);
   } catch (error) {
-    console.error('Error starting session scheduler:', error);
+    logger.error('Error starting session scheduler:', error);
   }
 });
 
 // Bot joins a new guild
 client.on('guildCreate', async (guild) => {
-  console.log(`🎉 Joined new guild: ${guild.name} (${guild.id})`);
-  console.log(`📊 Now serving ${client.guilds.cache.size} guilds`);
+  logger.info(`🎉 Joined new guild: ${guild.name} (${guild.id})`);
+  logger.info(`📊 Now serving ${client.guilds.cache.size} guilds`);
 
   try {
     // Register commands to this specific guild for instant availability
-    console.log(`⚡ Registering commands to ${guild.name} for instant availability`);
+    logger.info(`⚡ Registering commands to ${guild.name} for instant availability`);
     await registerCommands(DISCORD_TOKEN, CLIENT_ID, guild.id);
-    console.log(`✅ Commands registered to ${guild.name}`);
+    logger.info(`✅ Commands registered to ${guild.name}`);
 
     // Initialize admin control panel for this guild if it has an admin channel configured
     const config = await database.getGuildConfig(guild.id);
     if (config && config.admin_channel_id) {
       const adminControls = require('./services/admin-controls');
       await adminControls.ensureAdminControlPanel(client, guild.id);
-      console.log(`🔧 Admin control panel initialized for ${guild.name}`);
+      logger.info(`🔧 Admin control panel initialized for ${guild.name}`);
     }
 
   } catch (error) {
-    console.error(`❌ Error setting up new guild ${guild.name}:`, error);
+    logger.error(`❌ Error setting up new guild ${guild.name}:`, error);
   }
 });
 
 // Bot leaves a guild
 client.on('guildDelete', (guild) => {
-  console.log(`👋 Left guild: ${guild.name} (${guild.id})`);
-  console.log(`📊 Now serving ${client.guilds.cache.size} guilds`);
+  logger.info(`👋 Left guild: ${guild.name} (${guild.id})`);
+  logger.info(`📊 Now serving ${client.guilds.cache.size} guilds`);
 });
 
 // Handle all interactions
@@ -166,7 +166,7 @@ process.on('uncaughtException', (error) => {
 
 // Graceful shutdown
 process.on('SIGINT', async () => {
-  console.log('🛑 Received SIGINT, shutting down gracefully...');
+  logger.info('🛑 Received SIGINT, shutting down gracefully...');
 
   if (database.isConnected) {
     await database.close();
@@ -177,7 +177,7 @@ process.on('SIGINT', async () => {
 });
 
 process.on('SIGTERM', async () => {
-  console.log('🛑 Received SIGTERM, shutting down gracefully...');
+  logger.info('🛑 Received SIGTERM, shutting down gracefully...');
 
   if (database.isConnected) {
     await database.close();

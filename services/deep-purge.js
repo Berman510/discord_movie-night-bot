@@ -438,17 +438,20 @@ async function executeDeepPurge(guildId, categories, reason = null, client = nul
             await adminControls.ensureAdminControlPanel(client, guildId);
           }
         } catch (error) {
-          console.warn('Error clearing admin channel during deep purge:', error.message);
+          const logger = require('../utils/logger');
+          logger.warn('Error clearing admin channel during deep purge:', error.message);
         }
       }
     } catch (error) {
-      console.warn('Error during Discord cleanup in deep purge:', error.message);
+      const logger = require('../utils/logger');
+      logger.warn('Error during Discord cleanup in deep purge:', error.message);
     }
   }
 
   const result = await database.deepPurgeGuildData(guildId, options);
 
-  console.log(`✅ Deep purge completed: ${result.deleted} items deleted`);
+  const logger = require('../utils/logger');
+  logger.info(`✅ Deep purge completed: ${result.deleted} items deleted`);
   if (result.errors.length > 0) {
     console.error('Deep purge errors:', result.errors);
   }

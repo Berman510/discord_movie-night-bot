@@ -27,8 +27,8 @@ class Logger {
     // Use colors in console (disable in production if needed)
     this.useColors = process.env.LOG_COLORS !== 'false';
 
-    // Only show initialization message if not ERROR level
-    if (this.logLevel >= LOG_LEVELS.WARN) {
+    // Only show initialization message if INFO level or higher
+    if (this.logLevel >= LOG_LEVELS.INFO) {
       console.log(`🔧 Logger initialized - Level: ${envLevel} (${this.logLevel})`);
     }
   }

@@ -90,12 +90,14 @@ class Database {
       }
 
       this.isConnected = true;
-      console.log('✅ Connected to JSON file storage');
-      console.log('💡 Tip: Set database credentials in .env for full MySQL features');
+      const logger = require('./utils/logger');
+      logger.info('✅ Connected to JSON file storage');
+      logger.info('💡 Tip: Set database credentials in .env for full MySQL features');
       return true;
     } catch (error) {
-      console.error('❌ JSON storage initialization failed:', error.message);
-      console.log('⚠️  Running in memory-only mode');
+      const logger = require('./utils/logger');
+      logger.error('❌ JSON storage initialization failed:', error.message);
+      logger.warn('⚠️  Running in memory-only mode');
       this.isConnected = false;
       this.useJsonFallback = false;
       return false;
@@ -108,7 +110,8 @@ class Database {
     try {
       await fs.writeFile(this.jsonFile, JSON.stringify(this.data, null, 2));
     } catch (error) {
-      console.error('Failed to save JSON data:', error.message);
+      const logger = require('./utils/logger');
+      logger.error('Failed to save JSON data:', error.message);
     }
   }
 
@@ -319,7 +322,8 @@ class Database {
           // Foreign key might already exist, continue
         }
 
-        console.log('✅ Updated charset to utf8mb4');
+        const logger = require('./utils/logger');
+        logger.info('✅ Updated charset to utf8mb4');
       } catch (error) {
         // Only log as warning if it's not a critical error
         if (!error.message.includes('already exists') && !error.message.includes('utf8mb4')) {
@@ -2448,7 +2452,8 @@ class Database {
 
       } else {
         // Global cleanup (ADMIN ONLY - should rarely be used)
-        console.warn('⚠️ PERFORMING GLOBAL DATABASE CLEANUP - This affects ALL guilds!');
+        const logger = require('./utils/logger');
+        logger.warn('⚠️ PERFORMING GLOBAL DATABASE CLEANUP - This affects ALL guilds!');
 
         // Clean up votes for non-existent movies (global)
         const [orphanedVotes] = await this.pool.execute(`
@@ -2457,7 +2462,7 @@ class Database {
           WHERE m.message_id IS NULL
         `);
         results.cleaned += orphanedVotes.affectedRows;
-        console.log(`🧹 Global: Cleaned up ${orphanedVotes.affectedRows} orphaned votes`);
+        logger.info(`🧹 Global: Cleaned up ${orphanedVotes.affectedRows} orphaned votes`);
 
         // Clean up session participants for non-existent sessions (global)
         const [orphanedParticipants] = await this.pool.execute(`
