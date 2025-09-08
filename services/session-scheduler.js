@@ -30,7 +30,8 @@ class SessionScheduler {
     await this.scheduleAllActiveSessions();
 
     this.isInitialized = true;
-    console.log('✅ Session scheduler initialized');
+    const logger = require('../utils/logger');
+    logger.info('✅ Session scheduler initialized');
   }
 
   /**
@@ -63,7 +64,7 @@ class SessionScheduler {
     }, msUntilMidnight);
 
     const hoursUntilMidnight = Math.round(msUntilMidnight / (1000 * 60 * 60));
-    console.log(`⏰ Daily session check scheduled - first check in ${hoursUntilMidnight} hours`);
+    logger.info(`⏰ Daily session check scheduled - first check in ${hoursUntilMidnight} hours`);
   }
 
   /**
@@ -186,9 +187,9 @@ class SessionScheduler {
         }
       }
       
-      console.log(`⏰ Scheduled ${activeSessions.length} active sessions`);
+      logger.info(`⏰ Scheduled ${activeSessions.length} active sessions`);
     } catch (error) {
-      console.error('Error scheduling active sessions:', error);
+      logger.error('Error scheduling active sessions:', error);
     }
   }
 

@@ -59,17 +59,19 @@ class Database {
       });
 
       // Test connection
-      console.log(`🔌 Attempting to connect to MySQL at ${host}:${port}...`);
+      const logger = require('./utils/logger');
+      logger.info(`🔌 Attempting to connect to MySQL at ${host}:${port}...`);
       await this.pool.execute('SELECT 1');
       this.isConnected = true;
-      console.log('✅ Connected to MySQL database');
+      logger.info('✅ Connected to MySQL database');
       
       // Initialize tables
       await this.initializeTables();
       return true;
     } catch (error) {
-      console.error('❌ Database connection failed:', error.message);
-      console.log('🔄 Falling back to JSON storage...');
+      const logger = require('./utils/logger');
+      logger.error('❌ Database connection failed:', error.message);
+      logger.info('🔄 Falling back to JSON storage...');
       return await this.initJsonStorage();
     }
   }
@@ -229,11 +231,13 @@ class Database {
     // Run migrations to ensure schema is up to date
     await this.runMigrations();
 
-    console.log('✅ Database tables initialized');
+    const logger = require('./utils/logger');
+    logger.info('✅ Database tables initialized');
   }
 
   async runMigrations() {
-    console.log('🔄 Running database migrations...');
+    const logger = require('./utils/logger');
+    logger.info('🔄 Running database migrations...');
 
     try {
       // Check current schema first
@@ -242,7 +246,7 @@ class Database {
         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'guild_config'
       `);
       const columnNames = columns.map(row => row.COLUMN_NAME);
-      console.log('Current guild_config columns:', columnNames);
+      logger.debug('Current guild_config columns:', columnNames);
 
       // Migration 1: Ensure timezone column exists in movie_sessions
       try {
@@ -250,12 +254,12 @@ class Database {
           ALTER TABLE movie_sessions
           ADD COLUMN timezone VARCHAR(50) DEFAULT 'UTC'
         `);
-        console.log('✅ Added timezone column to movie_sessions');
+        logger.debug('✅ Added timezone column to movie_sessions');
       } catch (error) {
         if (error.message.includes('Duplicate column name')) {
-          console.log('✅ timezone column already exists');
+          logger.debug('✅ timezone column already exists');
         } else {
-          console.warn('Migration 1 warning:', error.message);
+          logger.warn('Migration 1 warning:', error.message);
         }
       }
 
@@ -265,12 +269,12 @@ class Database {
           ALTER TABLE movie_sessions
           ADD COLUMN associated_movie_id VARCHAR(255) DEFAULT NULL
         `);
-        console.log('✅ Added associated_movie_id column to movie_sessions');
+        logger.debug('✅ Added associated_movie_id column to movie_sessions');
       } catch (error) {
         if (error.message.includes('Duplicate column name')) {
-          console.log('✅ associated_movie_id column already exists');
+          logger.debug('✅ associated_movie_id column already exists');
         } else {
-          console.warn('Migration 2 warning:', error.message);
+          logger.warn('Migration 2 warning:', error.message);
         }
       }
 
@@ -280,12 +284,12 @@ class Database {
           ALTER TABLE movie_sessions
           ADD COLUMN discord_event_id VARCHAR(255) DEFAULT NULL
         `);
-        console.log('✅ Added discord_event_id column to movie_sessions');
+        logger.debug('✅ Added discord_event_id column to movie_sessions');
       } catch (error) {
         if (error.message.includes('Duplicate column name')) {
-          console.log('✅ discord_event_id column already exists');
+          logger.debug('✅ discord_event_id column already exists');
         } else {
-          console.warn('Migration 3 warning:', error.message);
+          logger.warn('Migration 3 warning:', error.message);
         }
       }
 
@@ -338,9 +342,9 @@ class Database {
           ALTER TABLE movies
           MODIFY COLUMN status ENUM('pending', 'watched', 'planned', 'skipped', 'scheduled') DEFAULT 'pending'
         `);
-        console.log('✅ Added scheduled status to movies enum');
+        logger.debug('✅ Added scheduled status to movies enum');
       } catch (error) {
-        console.warn('Migration 5 warning:', error.message);
+        logger.warn('Migration 5 warning:', error.message);
       }
 
       // Migration 6: Add notification_role_id to guild_config
@@ -350,12 +354,12 @@ class Database {
             ALTER TABLE guild_config
             ADD COLUMN notification_role_id VARCHAR(20) DEFAULT NULL
           `);
-          console.log('✅ Added notification_role_id column to guild_config');
+          logger.debug('✅ Added notification_role_id column to guild_config');
         } catch (error) {
-          console.error('❌ Failed to add notification_role_id column:', error.message);
+          logger.error('❌ Failed to add notification_role_id column:', error.message);
         }
       } else {
-        console.log('✅ notification_role_id column already exists');
+        logger.debug('✅ notification_role_id column already exists');
       }
 
       // Migration 7: Ensure watched_at column exists in movies table
@@ -373,9 +377,9 @@ class Database {
             ALTER TABLE movies
             ADD COLUMN watched_at TIMESTAMP NULL
           `);
-          console.log('✅ Added watched_at column to movies');
+          logger.debug('✅ Added watched_at column to movies');
         } else {
-          console.log('✅ watched_at column already exists');
+          logger.debug('✅ watched_at column already exists');
         }
       } catch (error) {
         console.error('❌ Failed to add watched_at column:', error.message);
@@ -396,9 +400,9 @@ class Database {
             ALTER TABLE movies
             ADD COLUMN watch_count INT DEFAULT 0
           `);
-          console.log('✅ Added watch_count column to movies');
+          logger.debug('✅ Added watch_count column to movies');
         } else {
-          console.log('✅ watch_count column already exists');
+          logger.debug('✅ watch_count column already exists');
         }
       } catch (error) {
         console.error('❌ Failed to add watch_count column:', error.message);
@@ -419,9 +423,9 @@ class Database {
             ALTER TABLE guild_config
             ADD COLUMN session_viewing_channel_id VARCHAR(20) NULL
           `);
-          console.log('✅ Added session_viewing_channel_id column to guild_config');
+          logger.debug('✅ Added session_viewing_channel_id column to guild_config');
         } else {
-          console.log('✅ session_viewing_channel_id column already exists');
+          logger.debug('✅ session_viewing_channel_id column already exists');
         }
       } catch (error) {
         console.error('❌ Failed to add session_viewing_channel_id column:', error.message);
@@ -433,9 +437,9 @@ class Database {
           ALTER TABLE movie_sessions
           MODIFY COLUMN status ENUM('planning', 'voting', 'decided', 'active', 'completed', 'cancelled') DEFAULT 'planning'
         `);
-        console.log('✅ Added active status to movie_sessions enum');
+        logger.debug('✅ Added active status to movie_sessions enum');
       } catch (error) {
-        console.warn('Migration 10 warning:', error.message);
+        logger.warn('Migration 10 warning:', error.message);
       }
 
       // Migration 11: Add guild_id columns to votes, session_participants, and session_attendees tables
@@ -469,9 +473,9 @@ class Database {
             ADD INDEX idx_guild_votes (guild_id, vote_type)
           `);
 
-          console.log('✅ Added guild_id column to votes table');
+          logger.debug('✅ Added guild_id column to votes table');
         } else {
-          console.log('✅ guild_id column already exists in votes table');
+          logger.debug('✅ guild_id column already exists in votes table');
         }
 
         // Add guild_id to session_participants table
@@ -503,9 +507,9 @@ class Database {
             ADD INDEX idx_guild_participants (guild_id, user_id)
           `);
 
-          console.log('✅ Added guild_id column to session_participants table');
+          logger.debug('✅ Added guild_id column to session_participants table');
         } else {
-          console.log('✅ guild_id column already exists in session_participants table');
+          logger.debug('✅ guild_id column already exists in session_participants table');
         }
 
         // Add guild_id to session_attendees table
@@ -537,9 +541,9 @@ class Database {
             ADD INDEX idx_guild_attendees (guild_id, user_id)
           `);
 
-          console.log('✅ Added guild_id column to session_attendees table');
+          logger.debug('✅ Added guild_id column to session_attendees table');
         } else {
-          console.log('✅ guild_id column already exists in session_attendees table');
+          logger.debug('✅ guild_id column already exists in session_attendees table');
         }
 
       } catch (error) {
@@ -561,9 +565,9 @@ class Database {
             ALTER TABLE guild_config
             ADD COLUMN admin_channel_id VARCHAR(20) NULL
           `);
-          console.log('✅ Added admin_channel_id column to guild_config');
+          logger.debug('✅ Added admin_channel_id column to guild_config');
         } else {
-          console.log('✅ admin_channel_id column already exists in guild_config');
+          logger.debug('✅ admin_channel_id column already exists in guild_config');
         }
       } catch (error) {
         console.error('❌ Failed to add admin_channel_id column (Migration 12):', error.message);
@@ -603,9 +607,9 @@ class Database {
             ALTER TABLE movies
             MODIFY COLUMN status ENUM('pending', 'watched', 'planned', 'skipped', 'scheduled', 'banned') DEFAULT 'pending'
           `);
-          console.log('✅ Updated status enum to include banned');
+          logger.debug('✅ Updated status enum to include banned');
         } catch (error) {
-          console.warn('Migration 13 status enum warning:', error.message);
+          logger.warn('Migration 13 status enum warning:', error.message);
         }
 
         // Add indexes for new columns
@@ -639,7 +643,7 @@ class Database {
           SET movie_uid = SHA2(CONCAT(guild_id, ':', LOWER(TRIM(title))), 256)
           WHERE movie_uid = '' OR movie_uid IS NULL
         `);
-        console.log('✅ Populated movie_uid for existing movies');
+        logger.debug('✅ Populated movie_uid for existing movies');
 
       } catch (error) {
         console.error('❌ Failed to add movie UID system (Migration 13):', error.message);
@@ -682,9 +686,9 @@ class Database {
             ALTER TABLE movie_sessions
             ADD COLUMN voting_end_time DATETIME NULL AFTER scheduled_date
           `);
-          console.log('✅ Added voting_end_time column to movie_sessions');
+          logger.debug('✅ Added voting_end_time column to movie_sessions');
         } else {
-          console.log('✅ voting_end_time column already exists in movie_sessions');
+          logger.debug('✅ voting_end_time column already exists in movie_sessions');
         }
       } catch (error) {
         console.error('Migration 15 error:', error.message);
@@ -705,9 +709,9 @@ class Database {
             ALTER TABLE movies
             ADD COLUMN next_session BOOLEAN DEFAULT FALSE AFTER session_id
           `);
-          console.log('✅ Added next_session column to movies');
+          logger.debug('✅ Added next_session column to movies');
         } else {
-          console.log('✅ next_session column already exists in movies');
+          logger.debug('✅ next_session column already exists in movies');
         }
       } catch (error) {
         console.error('Migration 16 error:', error.message);
@@ -742,17 +746,17 @@ class Database {
         }
 
         if (existingColumns.length === 0) {
-          console.log('✅ Added forum channel support columns to movies');
+          logger.debug('✅ Added forum channel support columns to movies');
         } else {
-          console.log('✅ Forum channel support columns already exist in movies');
+          logger.debug('✅ Forum channel support columns already exist in movies');
         }
       } catch (error) {
         console.error('Migration 17 error:', error.message);
       }
 
-      console.log('✅ Database migrations completed');
+      logger.info('✅ Database migrations completed');
     } catch (error) {
-      console.error('❌ Migration error:', error.message);
+      logger.error('❌ Migration error:', error.message);
     }
   }
 

@@ -2,7 +2,7 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
-## [1.13.0-rc52] - 2025-09-07
+## [1.13.0-rc53] - 2025-09-07
 ### 🎯 Major Release: Forum Channels, Safety Features & Professional Logging
 
 ### Added
@@ -65,6 +65,9 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **📊 Comprehensive Logging System Enforcement**: Converted all console.log/warn/error statements to use proper logger with levels
 - **🎯 Consistent Log Level Enforcement**: All application messages now respect LOG_LEVEL configuration (ERROR, WARN, INFO, DEBUG)
 - **🧹 Cleaned Up Raw Console Output**: Eliminated inconsistent logging where some messages had levels and others didn't
+- **🔧 Fixed Remaining Console Bypass**: Converted database connection, migration, session scheduler, and admin panel messages to use proper logger
+- **📊 Migration Messages to DEBUG Level**: All database migration status messages now use logger.debug() to reduce startup noise
+- **⏰ Session Scheduler Logging**: Converted session scheduler initialization and scheduling messages to use proper log levels
 
 ### Technical
 - **� Forum Channel Architecture**: Complete forum post creation, voting, and discussion system

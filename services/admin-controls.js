@@ -360,7 +360,8 @@ async function ensureAdminControlPanel(client, guildId) {
           embeds: [embed],
           components: components
         });
-        console.log('🔧 Updated pinned admin control panel');
+        const logger = require('../utils/logger');
+        logger.debug('🔧 Updated pinned admin control panel');
         return existingPanel;
       } catch (error) {
         console.warn('Could not update existing admin panel:', error.message);
@@ -381,10 +382,12 @@ async function ensureAdminControlPanel(client, guildId) {
 
     try {
       await controlPanel.pin();
-      console.log('🔧 Created and pinned admin control panel');
+      const logger = require('../utils/logger');
+      logger.debug('🔧 Created and pinned admin control panel');
     } catch (pinError) {
-      console.warn('Could not pin admin control panel:', pinError.message);
-      console.log('🔧 Created admin control panel (not pinned)');
+      const logger = require('../utils/logger');
+      logger.warn('Could not pin admin control panel:', pinError.message);
+      logger.debug('🔧 Created admin control panel (not pinned)');
     }
 
     return controlPanel;
@@ -793,9 +796,11 @@ async function handleRefreshPanel(interaction) {
       components: components
     });
 
-    console.log('🔧 Refreshed admin control panel');
+    const logger = require('../utils/logger');
+    logger.debug('🔧 Refreshed admin control panel');
   } catch (error) {
-    console.error('Error refreshing admin panel:', error);
+    const logger = require('../utils/logger');
+    logger.error('Error refreshing admin panel:', error);
     await interaction.reply({
       content: '❌ An error occurred while refreshing the control panel.',
       flags: MessageFlags.Ephemeral
