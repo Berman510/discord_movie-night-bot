@@ -14,6 +14,11 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ### Fixed
 - Fixed a missing closing brace in Migration 19 (fk_votes_movie catch block) that caused parser to exit class context on some Node builds.
 
+## [1.13.0-rc99] - 2025-09-08
+### Added
+- Migration 21: Automated cleanup of orphaned rows (participants/attendees/movies-session links and session winner/associated references) followed by re-attempting composite FK creation. Fully idempotent and safe; does not remove valid data.
+
+
 
 
 

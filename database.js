@@ -1135,6 +1135,137 @@ class Database {
         logger.debug('✅ Migration 20: Charsets aligned and composite FKs ensured');
 
 
+      // Migration 21: Clean orphans and re-attempt composite foreign keys
+      try {
+        // 21.1 Remove or correct orphaned references safely
+        try {
+          await this.pool.execute(`
+            DELETE sp FROM session_participants sp
+            LEFT JOIN movie_sessions ms
+              ON ms.guild_id = sp.guild_id AND ms.id = sp.session_id
+            WHERE ms.id IS NULL
+          `);
+        } catch (error) {
+          logger.warn('Migration 21 delete orphan session_participants warning:', error.message);
+        }
+
+        try {
+          await this.pool.execute(`
+            DELETE sa FROM session_attendees sa
+            LEFT JOIN movie_sessions ms
+              ON ms.guild_id = sa.guild_id AND ms.id = sa.session_id
+            WHERE ms.id IS NULL
+          `);
+        } catch (error) {
+          logger.warn('Migration 21 delete orphan session_attendees warning:', error.message);
+        }
+
+        try {
+          await this.pool.execute(`
+            UPDATE movies m
+            LEFT JOIN movie_sessions ms
+              ON ms.guild_id = m.guild_id AND ms.id = m.session_id
+            SET m.session_id = NULL
+            WHERE m.session_id IS NOT NULL AND ms.id IS NULL
+          `);
+        } catch (error) {
+          logger.warn('Migration 21 nullify orphan movies.session_id warning:', error.message);
+        }
+
+        try {
+          await this.pool.execute(`
+            UPDATE movie_sessions s
+            LEFT JOIN movies m1 ON m1.guild_id = s.guild_id AND m1.message_id = s.winner_message_id
+            LEFT JOIN movies m2 ON m2.guild_id = s.guild_id AND m2.message_id = s.associated_movie_id
+            SET s.winner_message_id = CASE WHEN m1.message_id IS NULL THEN NULL ELSE s.winner_message_id END,
+                s.associated_movie_id = CASE WHEN m2.message_id IS NULL THEN NULL ELSE s.associated_movie_id END
+          `);
+        } catch (error) {
+          logger.warn('Migration 21 nullify orphan session winner/associated warnings:', error.message);
+        }
+
+        // 21.2 Re-ensure supporting indexes
+        try { await this.pool.execute(`ALTER TABLE movie_sessions ADD INDEX idx_ms_gid_winner (guild_id, winner_message_id)`); } catch (e) {}
+        try { await this.pool.execute(`ALTER TABLE movie_sessions ADD INDEX idx_ms_gid_assoc (guild_id, associated_movie_id)`); } catch (e) {}
+        try { await this.pool.execute(`ALTER TABLE movies ADD INDEX idx_movies_gid_sid (guild_id, session_id)`); } catch (e) {}
+
+        // 21.3 Re-attempt composite FKs now that orphans are cleared
+        try {
+          await this.pool.execute(`
+            ALTER TABLE session_participants
+            ADD CONSTRAINT fk_participants_session
+            FOREIGN KEY (guild_id, session_id)
+            REFERENCES movie_sessions(guild_id, id)
+            ON DELETE CASCADE
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.warn('Migration 21 fk_participants_session warning:', error.message);
+          }
+        }
+
+        try {
+          await this.pool.execute(`
+            ALTER TABLE session_attendees
+            ADD CONSTRAINT fk_attendees_session
+            FOREIGN KEY (guild_id, session_id)
+            REFERENCES movie_sessions(guild_id, id)
+            ON DELETE CASCADE
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.warn('Migration 21 fk_attendees_session warning:', error.message);
+          }
+        }
+
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movies
+            ADD CONSTRAINT fk_movies_session
+            FOREIGN KEY (guild_id, session_id)
+            REFERENCES movie_sessions(guild_id, id)
+            ON DELETE SET NULL
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.warn('Migration 21 fk_movies_session warning:', error.message);
+          }
+        }
+
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movie_sessions
+            ADD CONSTRAINT fk_sessions_winner_movie
+            FOREIGN KEY (guild_id, winner_message_id)
+            REFERENCES movies(guild_id, message_id)
+            ON DELETE SET NULL
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.warn('Migration 21 fk_sessions_winner_movie warning:', error.message);
+          }
+        }
+
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movie_sessions
+            ADD CONSTRAINT fk_sessions_associated_movie
+            FOREIGN KEY (guild_id, associated_movie_id)
+            REFERENCES movies(guild_id, message_id)
+            ON DELETE SET NULL
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.warn('Migration 21 fk_sessions_associated_movie warning:', error.message);
+          }
+        }
+
+        logger.debug('✅ Migration 21: Orphans cleaned and FKs re-attempted');
+      } catch (error) {
+        logger.warn('Migration 21 wrapper warning:', error.message);
+      }
+
+
       logger.info('✅ Database migrations completed');
 
   }
