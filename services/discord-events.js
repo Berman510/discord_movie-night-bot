@@ -309,7 +309,7 @@ async function syncDiscordEventsWithDatabase(guild) {
 
         if (!session) {
           // Session was deleted from database but Discord event still exists
-          console.log(`🗑️ Deleting orphaned Discord event: ${event.name} (Session ${sessionId} not found)`);
+          logger.info(`🗑️ Deleting orphaned Discord event: ${event.name} (Session ${sessionId} not found)`);
 
           try {
             await event.delete();

@@ -2100,40 +2100,66 @@ async function handleCancelSessionConfirmation(interaction) {
     // Delete the session and all associated data
     await database.deleteVotingSession(sessionId);
 
-    // Clear voting channel
+    // Should we move movies to next session? (like skip to next does)
+    const shouldMoveToNextSession = true; // Default to yes for better UX
+
+    // Clear voting channel based on channel type
     const config = await database.getGuildConfig(interaction.guild.id);
     if (config && config.movie_channel_id) {
       try {
         const votingChannel = await interaction.client.channels.fetch(config.movie_channel_id);
         if (votingChannel) {
-          // Clear all bot messages
-          const messages = await votingChannel.messages.fetch({ limit: 100 });
-          const botMessages = messages.filter(msg => msg.author.id === interaction.client.user.id);
+          const forumChannels = require('../services/forum-channels');
+          const logger = require('../utils/logger');
 
-          for (const [messageId, message] of botMessages) {
-            try {
-              await message.delete();
-            } catch (error) {
-              console.warn(`Failed to delete message ${messageId}:`, error.message);
+          if (forumChannels.isForumChannel(votingChannel)) {
+            // Forum channel - archive all movie posts and remove recommendation post
+            logger.debug('📦 Clearing forum channel after session cancellation');
+
+            // Archive all movie forum posts (but don't delete winner since there isn't one)
+            await forumChannels.clearForumMoviePosts(votingChannel, null);
+
+            // Remove recommendation post since session is cancelled
+            await forumChannels.ensureRecommendationPost(votingChannel, null);
+
+            // Optionally move movies to next session (like skip to next does)
+            if (shouldMoveToNextSession) {
+              await database.markMoviesForNextSession(interaction.guild.id, null);
+              logger.info('📋 Moved cancelled session movies to next session queue');
             }
-          }
+          } else {
+            // Text channel - delete all bot messages and threads
+            logger.debug('🗑️ Clearing text channel after session cancellation');
 
-          // Clear threads
-          const threads = await votingChannel.threads.fetchActive();
-          for (const [threadId, thread] of threads.threads) {
-            try {
-              await thread.delete();
-            } catch (error) {
-              console.warn(`Failed to delete thread ${threadId}:`, error.message);
+            const messages = await votingChannel.messages.fetch({ limit: 100 });
+            const botMessages = messages.filter(msg => msg.author.id === interaction.client.user.id);
+
+            for (const [messageId, message] of botMessages) {
+              try {
+                await message.delete();
+              } catch (error) {
+                logger.warn(`Failed to delete message ${messageId}:`, error.message);
+              }
             }
-          }
 
-          // Add no session message
-          const cleanup = require('../services/cleanup');
-          await cleanup.ensureQuickActionAtBottom(votingChannel);
+            // Clear threads
+            const threads = await votingChannel.threads.fetchActive();
+            for (const [threadId, thread] of threads.threads) {
+              try {
+                await thread.delete();
+              } catch (error) {
+                logger.warn(`Failed to delete thread ${threadId}:`, error.message);
+              }
+            }
+
+            // Add no session message
+            const cleanup = require('../services/cleanup');
+            await cleanup.ensureQuickActionAtBottom(votingChannel);
+          }
         }
       } catch (error) {
-        console.warn('Error clearing voting channel:', error.message);
+        const logger = require('../utils/logger');
+        logger.warn('Error clearing voting channel:', error.message);
       }
     }
 

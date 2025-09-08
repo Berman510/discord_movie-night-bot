@@ -1981,19 +1981,23 @@ class Database {
   async getMovieStats(guildId) {
     if (!this.isConnected) return {
       totalMovies: 0, watchedMovies: 0, plannedMovies: 0,
-      pendingMovies: 0, activeUsers: 0, totalSessions: 0
+      pendingMovies: 0, queuedMovies: 0, activeUsers: 0, totalSessions: 0
     };
 
     try {
+      // Get active session to filter current voting movies
+      const activeSession = await this.getActiveVotingSession(guildId);
+
       const [movieStats] = await this.pool.execute(
         `SELECT
           COUNT(*) as total,
           SUM(CASE WHEN status = 'watched' THEN 1 ELSE 0 END) as watched,
           SUM(CASE WHEN status = 'planned' THEN 1 ELSE 0 END) as planned,
-          SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+          SUM(CASE WHEN status = 'pending' AND session_id = ? THEN 1 ELSE 0 END) as pending_in_session,
+          SUM(CASE WHEN next_session = 1 THEN 1 ELSE 0 END) as queued_for_next,
           COUNT(DISTINCT recommended_by) as active_users
          FROM movies WHERE guild_id = ?`,
-        [guildId]
+        [activeSession?.id || 0, guildId]
       );
 
       // Count only sessions with active Discord events (scheduled sessions)
@@ -2007,15 +2011,17 @@ class Database {
         totalMovies: movieStats[0].total || 0,
         watchedMovies: movieStats[0].watched || 0,
         plannedMovies: movieStats[0].planned || 0,
-        pendingMovies: movieStats[0].pending || 0,
+        pendingMovies: activeSession ? (movieStats[0].pending_in_session || 0) : 0,
+        queuedMovies: movieStats[0].queued_for_next || 0,
         activeUsers: movieStats[0].active_users || 0,
         totalSessions: sessionStats[0].total_sessions || 0
       };
     } catch (error) {
-      console.error('Error getting movie stats:', error.message);
+      const logger = require('./utils/logger');
+      logger.error('Error getting movie stats:', error.message);
       return {
         totalMovies: 0, watchedMovies: 0, plannedMovies: 0,
-        pendingMovies: 0, activeUsers: 0, totalSessions: 0
+        pendingMovies: 0, queuedMovies: 0, activeUsers: 0, totalSessions: 0
       };
     }
   }

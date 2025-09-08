@@ -69,7 +69,8 @@ async function showOverviewStats(interaction) {
       { name: '🍿 Total Movies', value: stats.totalMovies.toString(), inline: true },
       { name: '✅ Watched', value: stats.watchedMovies.toString(), inline: true },
       { name: '📌 Planned', value: stats.plannedMovies.toString(), inline: true },
-      { name: '🗳️ Pending Votes', value: stats.pendingMovies.toString(), inline: true },
+      { name: '🗳️ Current Voting', value: stats.pendingMovies.toString(), inline: true },
+      { name: '⏭️ Queued for Next', value: stats.queuedMovies.toString(), inline: true },
       { name: '👥 Active Users', value: stats.activeUsers.toString(), inline: true },
       { name: '🎪 Scheduled Events', value: activeScheduledEvents.toString(), inline: true }
     )

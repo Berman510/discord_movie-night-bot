@@ -2,7 +2,7 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
-## [1.13.0-rc67] - 2025-09-07
+## [1.13.0-rc68] - 2025-09-07
 ### 🎯 Major Release: Forum Channels, Safety Features & Professional Logging
 
 ### Added
@@ -131,6 +131,13 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **🔍 Fixed "Cannot read properties of undefined (reading 'fetch')" Error**: Enhanced error handling in removeMoviePost function
 - **📊 Additional Logging Cleanup**: Fixed forum post title updates, voting actions, button creation debug messages, and error logging
 - **🛡️ Enhanced Forum Channel Support**: Proper handling of forum vs text channels when skipping movies to next session
+- **🔧 CRITICAL: Fixed Session Cancellation for Forum Channels**: Session cancellation now properly archives forum posts and removes recommendation post
+- **📦 Forum Session Cancellation**: Cancelled sessions now archive all movie forum posts and remove "Recommend a Movie" post
+- **⏭️ Auto-Queue Cancelled Movies**: Movies from cancelled sessions are automatically moved to next session queue (like skip to next)
+- **📊 CRITICAL: Fixed Guild Stats Accuracy**: Stats now show accurate counts based on active sessions and queue status
+- **🔢 Enhanced Stats Display**: Added "Current Voting" (active session only) and "Queued for Next" (skip to next queue) fields
+- **🎯 Accurate Vote Counts**: "Current Voting" shows 0 when no active session, "Queued for Next" shows movies waiting for next session
+- **📋 Additional Logging Cleanup**: Fixed "Error clearing voting channel" and Discord event deletion logging
 
 ### Technical
 - **� Forum Channel Architecture**: Complete forum post creation, voting, and discussion system
