@@ -15,7 +15,7 @@ const { MessageFlags, EmbedBuilder } = require('discord.js');
 const database = require('../database');
 
 async function configureMovieChannel(interaction, guildId) {
-  const channel = interaction.options.getChannel('channel') || interaction.channel;
+  const channel = interaction.options?.getChannel('channel') || interaction.channel;
   const forumChannels = require('./forum-channels');
 
   // Validate channel type

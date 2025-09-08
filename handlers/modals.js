@@ -348,10 +348,11 @@ async function handleDeepPurgeConfirmation(interaction, customId) {
     });
 
     // Log the purge action
-    console.log(`🗑️ Deep purge executed by ${interaction.user.tag} (${interaction.user.id}) in guild ${interaction.guild.name} (${interaction.guild.id})`);
-    console.log(`📋 Categories: ${categories.join(', ')}`);
-    console.log(`📝 Reason: ${reason || 'No reason provided'}`);
-    console.log(`📊 Result: ${result.deleted} items deleted, ${result.errors.length} errors`);
+    const logger = require('../utils/logger');
+    logger.info(`🗑️ Deep purge executed by ${interaction.user.tag} (${interaction.user.id}) in guild ${interaction.guild.name} (${interaction.guild.id})`);
+    logger.info(`📋 Categories: ${categories.join(', ')}`);
+    logger.info(`📝 Reason: ${reason || 'No reason provided'}`);
+    logger.info(`📊 Result: ${result.deleted} items deleted, ${result.errors.length} errors`);
 
   } catch (error) {
     console.error('Error executing deep purge:', error);

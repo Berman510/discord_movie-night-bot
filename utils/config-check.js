@@ -3,7 +3,7 @@
  * Validates bot configuration and provides setup guidance
  */
 
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
 const ephemeralManager = require('./ephemeral-manager');
 
 /**

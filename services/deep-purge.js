@@ -346,9 +346,10 @@ async function executeDeepPurge(guildId, categories, reason = null, client = nul
     options[category] = true;
   });
 
-  console.log(`🗑️ Executing deep purge for guild ${guildId}:`, categories);
+  const logger = require('../utils/logger');
+  logger.info(`🗑️ Executing deep purge for guild ${guildId}:`, categories);
   if (reason) {
-    console.log(`📝 Purge reason: ${reason}`);
+    logger.info(`📝 Purge reason: ${reason}`);
   }
 
   // Clear Discord content if movies/sessions are being purged
@@ -366,14 +367,14 @@ async function executeDeepPurge(guildId, categories, reason = null, client = nul
             try {
               if (event.name.includes('Movie Night')) {
                 await event.delete();
-                console.log(`🗑️ Deleted Discord event: ${event.name} (${eventId})`);
+                logger.debug(`🗑️ Deleted Discord event: ${event.name} (${eventId})`);
               }
             } catch (error) {
-              console.warn(`Failed to delete Discord event ${eventId}:`, error.message);
+              logger.warn(`Failed to delete Discord event ${eventId}:`, error.message);
             }
           }
         } catch (error) {
-          console.warn('Error deleting Discord events during deep purge:', error.message);
+          logger.warn('Error deleting Discord events during deep purge:', error.message);
         }
       }
 
@@ -389,7 +390,7 @@ async function executeDeepPurge(guildId, categories, reason = null, client = nul
               try {
                 await message.delete();
               } catch (error) {
-                console.warn(`Failed to delete voting message ${messageId}:`, error.message);
+                logger.warn(`Failed to delete voting message ${messageId}:`, error.message);
               }
             }
 
@@ -399,12 +400,22 @@ async function executeDeepPurge(guildId, categories, reason = null, client = nul
               try {
                 await thread.delete();
               } catch (error) {
-                console.warn(`Failed to delete thread ${threadId}:`, error.message);
+                logger.warn(`Failed to delete thread ${threadId}:`, error.message);
               }
             }
 
             // Don't add any messages - configuration was cleared
-            console.log('✅ Voting channel cleared, no messages added (configuration cleared)');
+            // Add "No Active Voting Session" message if configuration still exists
+            const configAfterPurge = await database.getGuildConfig(guildId);
+            if (configAfterPurge) {
+              const cleanup = require('./cleanup');
+              await cleanup.ensureQuickActionPinned(votingChannel);
+              const logger = require('../utils/logger');
+              logger.debug('✅ Added no session message after deep purge');
+            } else {
+              const logger = require('../utils/logger');
+              logger.debug('✅ Voting channel cleared, no messages added (configuration cleared)');
+            }
           }
         } catch (error) {
           console.warn('Error clearing voting channel during deep purge:', error.message);
@@ -429,7 +440,7 @@ async function executeDeepPurge(guildId, categories, reason = null, client = nul
                   await message.delete();
                 }
               } catch (error) {
-                console.warn(`Failed to delete admin message ${messageId}:`, error.message);
+                logger.warn(`Failed to delete admin message ${messageId}:`, error.message);
               }
             }
 
@@ -453,7 +464,7 @@ async function executeDeepPurge(guildId, categories, reason = null, client = nul
   const logger = require('../utils/logger');
   logger.info(`✅ Deep purge completed: ${result.deleted} items deleted`);
   if (result.errors.length > 0) {
-    console.error('Deep purge errors:', result.errors);
+    logger.error('Deep purge errors:', result.errors);
   }
 
   return result;

@@ -47,20 +47,20 @@ async function createMovieRecommendation(interaction, movieData) {
       isTextChannel: forumChannels.isTextChannel(channel)
     });
 
-    console.log(`🎬 Creating movie recommendation: ${title} in ${forumChannels.getChannelTypeString(channel)} channel (${channel.name})`);
+    logger.info(`🎬 Creating movie recommendation: ${title} in ${forumChannels.getChannelTypeString(channel)} channel (${channel.name})`);
 
     if (forumChannels.isForumChannel(channel)) {
-      console.log(`🔍 DEBUG: Calling createForumMovieRecommendation`);
+      logger.debug(`🔍 DEBUG: Calling createForumMovieRecommendation`);
       return await createForumMovieRecommendation(interaction, movieData, channel);
     } else if (forumChannels.isTextChannel(channel)) {
-      console.log(`🔍 DEBUG: Calling createTextMovieRecommendation`);
+      logger.debug(`🔍 DEBUG: Calling createTextMovieRecommendation`);
       return await createTextMovieRecommendation(interaction, movieData, channel);
     } else {
       throw new Error(`Unsupported channel type: ${channel.type}`);
     }
 
   } catch (error) {
-    console.error('Error creating movie recommendation:', error);
+    logger.error('Error creating movie recommendation:', error);
     throw error;
   }
 }
@@ -98,7 +98,7 @@ async function createTextMovieRecommendation(interaction, movieData, channel) {
   });
 
   // Save to database
-  console.log(`💾 Saving text channel movie to database: ${title} (${message.id})`);
+  logger.debug(`💾 Saving text channel movie to database: ${title} (${message.id})`);
   const movieId = await database.saveMovie({
     messageId: message.id,
     guildId: interaction.guild.id,
@@ -122,12 +122,12 @@ async function createTextMovieRecommendation(interaction, movieData, channel) {
       name: `💬 ${title}`,
       autoArchiveDuration: 10080 // 7 days
     });
-    console.log(`🧵 Created discussion thread: ${thread.name}`);
+    logger.debug(`🧵 Created discussion thread: ${thread.name}`);
 
     // Add detailed information to the thread
     await addDetailedMovieInfoToThread(thread, { title, where, imdbData });
   } catch (error) {
-    console.warn('Failed to create thread:', error.message);
+    logger.warn('Failed to create thread:', error.message);
   }
 
   return { message, movieId };
@@ -139,7 +139,7 @@ async function createTextMovieRecommendation(interaction, movieData, channel) {
 async function createForumMovieRecommendation(interaction, movieData, channel) {
   const { title, where, imdbId = null, imdbData = null } = movieData;
 
-  console.log(`🔍 DEBUG: createForumMovieRecommendation called with:`, {
+  logger.debug(`🔍 DEBUG: createForumMovieRecommendation called with:`, {
     title,
     where,
     channelId: channel.id,
@@ -158,17 +158,17 @@ async function createForumMovieRecommendation(interaction, movieData, channel) {
   };
 
   const movieEmbed = embeds.createMovieEmbed(movieEmbedData, imdbData);
-  console.log(`🔍 DEBUG: Created movie embed for: ${title}`);
+  logger.debug(`🔍 DEBUG: Created movie embed for: ${title}`);
 
   // Create forum post
-  console.log(`🔍 DEBUG: About to call createForumMoviePost`);
+  logger.debug(`🔍 DEBUG: About to call createForumMoviePost`);
   const result = await forumChannels.createForumMoviePost(
     channel,
     { title, embed: movieEmbed },
     [] // We'll add components after getting the message ID
   );
 
-  console.log(`🔍 DEBUG: createForumMoviePost result:`, {
+  logger.debug(`🔍 DEBUG: createForumMoviePost result:`, {
     threadId: result.thread?.id,
     messageId: result.message?.id
   });
@@ -177,7 +177,7 @@ async function createForumMovieRecommendation(interaction, movieData, channel) {
 
   // Create buttons with the actual message ID
   const movieComponents = components.createVotingButtons(message.id);
-  console.log(`🔍 DEBUG: Created voting buttons for forum post: ${message.id}`);
+  logger.debug(`🔍 DEBUG: Created voting buttons for forum post: ${message.id}`);
 
   // Recreate the embed with IMDb data to ensure it's included in the update
   const updatedMovieEmbed = embeds.createMovieEmbed({
@@ -194,10 +194,10 @@ async function createForumMovieRecommendation(interaction, movieData, channel) {
     embeds: [updatedMovieEmbed],
     components: movieComponents
   });
-  console.log(`🔍 DEBUG: Updated forum post with voting buttons and IMDb data`);
+  logger.debug(`🔍 DEBUG: Updated forum post with voting buttons and IMDb data`);
 
   // Save to database with both message ID and thread ID
-  console.log(`💾 Saving forum movie to database: ${title} (Message: ${message.id}, Thread: ${thread.id})`);
+  logger.debug(`💾 Saving forum movie to database: ${title} (Message: ${message.id}, Thread: ${thread.id})`);
   const movieId = await database.addForumMovie(
     interaction.guild.id,
     title,
@@ -212,7 +212,7 @@ async function createForumMovieRecommendation(interaction, movieData, channel) {
 
   if (!movieId) {
     // If database save failed, delete the forum post
-    await thread.delete().catch(console.error);
+    await thread.delete().catch(logger.error);
     throw new Error('Failed to save forum movie to database');
   }
 
@@ -366,10 +366,10 @@ async function addDetailedMovieInfoToThread(thread, movieData) {
     detailEmbed.setFooter({ text: 'Vote on the main post • Discuss here in the thread' });
 
     await thread.send({ embeds: [detailEmbed] });
-    console.log(`📝 Added detailed movie info to thread: ${thread.name}`);
+    logger.debug(`📝 Added detailed movie info to thread: ${thread.name}`);
 
   } catch (error) {
-    console.warn('Error adding detailed info to thread:', error.message);
+    logger.warn('Error adding detailed info to thread:', error.message);
   }
 }
 

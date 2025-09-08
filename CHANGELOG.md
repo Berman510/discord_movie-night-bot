@@ -2,7 +2,7 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
-## [1.13.0-rc56] - 2025-09-07
+## [1.13.0-rc57] - 2025-09-07
 ### 🎯 Major Release: Forum Channels, Safety Features & Professional Logging
 
 ### Added
@@ -86,6 +86,12 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **💬 CRITICAL Ephemeral Message Fixes**: Converted ephemeralManager.sendEphemeral() calls to interaction.reply() and interaction.update() to prevent message accumulation
 - **🧹 Fixed Setup Skip Message**: Setup skip now uses interaction.update() instead of creating new ephemeral message
 - **⚙️ Fixed Configuration Messages**: Configuration error and menu messages now use interaction.reply() instead of ephemeralManager
+- **🗑️ CRITICAL: Fixed Deep Purge No Session Message**: Deep purge now properly adds "No Active Voting Session" message after clearing data
+- **📊 Deep Purge Logging Cleanup**: All deep purge console.log statements converted to proper logger with appropriate levels
+- **🎬 Movie Creation Logging Cleanup**: All movie creation debug messages converted to logger.debug() for proper log level control
+- **🔧 Fixed Configuration Button Error**: Fixed "Cannot read properties of undefined (reading 'getChannel')" error in configuration
+- **📝 Fixed MessageFlags Import**: Added missing MessageFlags import to config-check.js to prevent "MessageFlags is not defined" errors
+- **🧵 Thread Creation Logging**: Thread creation and detailed info messages now use proper log levels
 
 ### Technical
 - **� Forum Channel Architecture**: Complete forum post creation, voting, and discussion system

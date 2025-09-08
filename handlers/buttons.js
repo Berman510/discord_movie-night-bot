@@ -753,7 +753,8 @@ async function createMovieWithoutImdb(interaction, title, where) {
 
   try {
     // Create movie using the new unified service
-    console.log(`🔍 DEBUG: About to call movieCreation.createMovieRecommendation from button handler`);
+    const logger = require('../utils/logger');
+    logger.debug(`🔍 DEBUG: About to call movieCreation.createMovieRecommendation from button handler`);
     const result = await movieCreation.createMovieRecommendation(interaction, {
       title,
       where,
@@ -761,7 +762,7 @@ async function createMovieWithoutImdb(interaction, title, where) {
       imdbData: null
     });
 
-    console.log(`🔍 DEBUG: movieCreation.createMovieRecommendation result from button handler:`, {
+    logger.debug(`🔍 DEBUG: movieCreation.createMovieRecommendation result from button handler:`, {
       hasMessage: !!result.message,
       hasThread: !!result.thread,
       movieId: result.movieId,
