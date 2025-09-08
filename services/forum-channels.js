@@ -686,56 +686,37 @@ async function ensureRecommendationPost(channel, activeSession = null) {
       }
 
       if (!pinnedPost) {
-        // Create new pinned post
+        // Create new post once, then handle pin/cleanup without recreating
+        const forumPost = await channel.threads.create({
+          name: '🚫 No Active Voting Session',
+          message: { embeds: [noSessionEmbed] }
+        });
         try {
-          const forumPost = await channel.threads.create({
-            name: '🚫 No Active Voting Session',
-            message: { embeds: [noSessionEmbed] }
-          });
           await forumPost.pin();
-          logger.debug('📋 Created new no session post', guildId);
-        } catch (createError) {
-          if (createError.code === 30047) {
+          logger.debug('📋 Created and pinned new no session post', guildId);
+        } catch (pinError) {
+          if (pinError.code === 30047) {
             logger.warn('📋 Cannot pin new post (pin limit reached), unpinning others first', guildId);
-            const unpinnedCount = await unpinOtherForumPosts(channel);
-
-            // If we still can't unpin anything, try creating without pinning
-            if (unpinnedCount === 0) {
-              logger.warn('📋 No threads were unpinned - creating no session post without pinning', guildId);
-              try {
-                const forumPost = await channel.threads.create({
-                  name: '🚫 No Active Voting Session',
-                  message: { embeds: [noSessionEmbed] }
-                });
-                logger.debug('📋 Created no session post without pinning due to Discord API issue', guildId);
-              } catch (noPinError) {
-                logger.error(`📋 Cannot create no session post even without pinning: ${noPinError.message}`, guildId);
-              }
-            } else {
-              // Try again after unpinning
-              try {
-                const forumPost = await channel.threads.create({
-                  name: '🚫 No Active Voting Session',
-                  message: { embeds: [noSessionEmbed] }
-                });
-                await forumPost.pin();
-                logger.debug('📋 Created new no session post after unpinning others', guildId);
-              } catch (retryError) {
-                logger.error(`📋 Still cannot create no session post after unpinning: ${retryError.message}`, guildId);
-                // Try without pinning as fallback
-                try {
-                  const forumPost = await channel.threads.create({
-                    name: '🚫 No Active Voting Session',
-                    message: { embeds: [noSessionEmbed] }
-                  });
-                  logger.debug('📋 Created no session post without pinning as fallback', guildId);
-                } catch (fallbackError) {
-                  logger.error(`📋 Complete failure to create no session post: ${fallbackError.message}`, guildId);
-                }
-              }
+            const unpinnedCount = await unpinOtherForumPosts(channel, forumPost.id);
+            try {
+              await forumPost.pin();
+              logger.debug('📋 Pinned no session post after unpinning others', guildId);
+            } catch (retryPinError) {
+              logger.warn(`📋 Still cannot pin no session post: ${retryPinError.message} - proceeding without pin`, guildId);
             }
           } else {
-            throw createError;
+            logger.warn(`📋 Error pinning no session post: ${pinError.message}`, guildId);
+          }
+        }
+
+        // Cleanup duplicates: remove other system posts except this one
+        const active = await channel.threads.fetchActive({ cache: false });
+        const archived = await channel.threads.fetchArchived({ limit: 50, cache: false });
+        const all = new Map([...active.threads, ...archived.threads]);
+        for (const [tid, t] of all) {
+          if (tid === forumPost.id) continue;
+          if (t.name.includes('No Active Voting Session') || t.name.includes('🚫') || t.name.includes('Recommend a Movie') || t.name.includes('🍿')) {
+            try { await t.delete('Removing duplicate system post'); logger.debug(`📋 Deleted duplicate system post: ${t.name}`, guildId); } catch {}
           }
         }
       }

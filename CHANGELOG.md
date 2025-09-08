@@ -2,6 +2,12 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.13.0-rc90] - 2025-09-08
+### Fixed
+- **🧷 Single-creation logic**: When no pinned system post is found, create the "No Active Voting Session" thread once, then try to pin and remove duplicates, avoiding multiple creations during the same operation
+- **🧹 System post dedupe**: After creating the system post, scan and delete other system posts (Recommend/No Session) in one pass
+- **📌 Safer pin retry**: If pin limit is hit, unpin others (keeping the new thread) and retry; otherwise proceed without pin
+
 ## [1.13.0-rc89] - 2025-09-08
 ### Changed
 - **🧹 Forum Session End Cleanup**: Always remove forum system posts (Recommend/No Session) when a winner is chosen, then re-create the proper "No Active Voting Session" post
