@@ -482,11 +482,11 @@ async function showChannelSafetyConfirmation(interaction, channel, channelType) 
 function getChannelPermissionInfo(channelType) {
   switch (channelType) {
     case 'voting':
-      return '• View Channel\n• Send Messages\n• Embed Links\n• Add Reactions\n• Create Public Threads\n• Send Messages in Threads';
+      return '**Bot Permissions:**\n• View Channel\n• Send Messages\n• Embed Links\n• Add Reactions\n• Create Public Threads\n• Send Messages in Threads\n• Manage Threads (delete/archive)\n• Manage Messages (delete/edit)\n\n**User Permissions:**\n• View Channel\n• Create Public Threads\n• Send Messages in Threads\n• Add Reactions\n• Read Message History\n\n*Note: Users should NOT have "Send Messages" in main channel - only in threads*';
     case 'admin':
-      return '• View Channel\n• Send Messages\n• Embed Links\n• Manage Messages';
+      return '**Bot Permissions:**\n• View Channel\n• Send Messages\n• Embed Links\n• Manage Messages\n• Manage Threads\n• Add Reactions\n\n**User Permissions:**\n• View Channel (Admins/Mods only)\n• Send Messages (Admins/Mods only)\n• Add Reactions (Admins/Mods only)\n• Read Message History';
     case 'viewing':
-      return '• View Channel\n• Connect\n• Create Events';
+      return '**Bot Permissions:**\n• View Channel\n• Connect\n• Create Events\n• Manage Events\n\n**User Permissions:**\n• View Channel\n• Connect\n• Speak (optional)\n• Use Voice Activity';
     default:
       return '• View Channel\n• Send Messages';
   }
@@ -627,9 +627,9 @@ async function showCategoryCreationGuide(interaction) {
 
   const embed = new EmbedBuilder()
     .setTitle('🏗️ Create Dedicated Movie Night Category')
-    .setDescription(`**Recommended Setup:**\n\n**1. Create a new category:** \`Movie Night\`\n\n**2. Create these channels in the category:**\n• \`#movie-voting\` (Text/Forum) - For recommendations and voting\n• \`#movie-admin\` (Text, Private) - For bot administration\n• \`#movie-night-vc\` (Voice) - For watching together\n\n**3. Set permissions:**\n• **Movie Voting**: Everyone can view, send messages\n• **Movie Admin**: Only admins/mods can view\n• **Movie Night VC**: Everyone can join\n\n**4. Give the bot these permissions in the category:**\n• View Channels\n• Send Messages\n• Embed Links\n• Add Reactions\n• Create Public Threads\n• Manage Messages (admin channel only)\n• Connect (voice channel)\n• Create Events\n\n**After creating the channels, return here to configure them!**`)
+    .setDescription(`**Recommended Setup:**\n\n**1. Create a new category:** \`Movie Night\`\n\n**2. Create these channels in the category:**\n• \`#movie-voting\` (Forum Channel) - For movie recommendations\n• \`#movie-admin\` (Text Channel, Private) - For bot administration\n• \`#movie-night-vc\` (Voice Channel) - For watching together\n\n**3. Set permissions carefully:**\n\n**Movie Voting (Forum):**\n• Everyone: View Channel, Create Threads, Send Messages in Threads, Add Reactions\n• Bot: View, Send Messages, Embed Links, Create Threads, Manage Threads, Manage Messages\n• **Important:** Users should NOT have "Send Messages" in main channel\n\n**Movie Admin (Text, Private):**\n• Admins/Mods only: View Channel, Send Messages, Add Reactions\n• Bot: View, Send Messages, Embed Links, Manage Messages\n• Everyone else: No access\n\n**Movie Night VC (Voice):**\n• Everyone: View Channel, Connect, Speak\n• Bot: View, Connect, Create Events, Manage Events\n\n**After creating the channels, return here to configure them!**`)
     .setColor(0x57f287)
-    .setFooter({ text: 'This setup prevents conflicts and provides the best experience' });
+    .setFooter({ text: 'Proper permissions are crucial for bot functionality' });
 
   const buttons = new ActionRowBuilder()
     .addComponents(

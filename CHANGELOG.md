@@ -2,7 +2,7 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
-## [1.13.0-rc77] - 2025-09-07
+## [1.13.0-rc78] - 2025-09-07
 ### 🎯 Major Release: Forum Channels, Safety Features & Professional Logging
 
 ### Added
@@ -190,6 +190,12 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **📋 Improved Forum State Management**: Better handling of pin transitions between "No Active Session" and "Recommend a Movie" posts
 - **🛡️ Robust Pin Error Handling**: Graceful handling of Discord API pin limit errors with automatic recovery
 - **🔧 HOTFIX: Fixed Duplicate Logger Declaration**: Removed duplicate logger declaration causing "Identifier 'logger' has already been declared" syntax error
+- **🔧 CRITICAL: Fixed Forum Pin Management Logic**: Fixed unpinOtherForumPosts() to properly unpin threads using thread.unpin() instead of setArchived(true)
+- **📌 Proper Thread Unpinning**: Unarchive threads first if needed, then call unpin() to properly remove pin status
+- **📋 Comprehensive Permission Documentation**: Enhanced permission documentation with separate bot and user permissions for each channel type
+- **🎯 Accurate Forum Channel Permissions**: Clarified that users should NOT have "Send Messages" in main forum channel, only in threads
+- **🏗️ Enhanced Category Creation Guide**: Detailed permission setup for forum channels, admin channels, and voice channels with proper restrictions
+- **🛡️ Professional Permission Guidance**: Clear separation of bot permissions vs user permissions for optimal security and functionality
 
 ### Technical
 - **� Forum Channel Architecture**: Complete forum post creation, voting, and discussion system

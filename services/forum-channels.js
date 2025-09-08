@@ -480,7 +480,11 @@ async function unpinOtherForumPosts(channel, keepPinnedId = null) {
     for (const [threadId, thread] of allThreads) {
       if (thread.pinned && threadId !== keepPinnedId) {
         try {
-          await thread.setArchived(true);
+          // First unarchive if needed, then unpin
+          if (thread.archived) {
+            await thread.setArchived(false);
+          }
+          await thread.unpin();
           logger.debug(`📌 Unpinned thread to make room: ${thread.name}`, guildId);
         } catch (error) {
           logger.warn(`Error unpinning thread ${thread.name}:`, error.message, guildId);
