@@ -55,6 +55,13 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 
 
 
+## [1.13.0-rc107] - 2025-09-08
+### Fixed
+- IMDb selection buttons: truncate long labels to <= 80 chars to satisfy Discord builder validation
+- Tie-break cleanup: after choosing a winner, remove tie-break candidate messages in admin channel (keep control panel)
+- Sync-after-winner: avoid double-reply error by syncing admin mirror directly instead of using interaction-bound sync handler
+
+
 
 
 

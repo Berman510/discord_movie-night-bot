@@ -190,10 +190,14 @@ async function showImdbSelection(interaction, title, where, imdbResults) {
   // Create selection buttons with short custom IDs
   const buttons = new ActionRowBuilder();
   displayResults.forEach((movie, index) => {
+    let label = `${index + 1}. ${movie.Title} (${movie.Year})`;
+    if (label.length > 80) {
+      label = label.slice(0, 77) + '...';
+    }
     buttons.addComponents(
       new ButtonBuilder()
         .setCustomId(`select_imdb:${index}:${dataKey}`)
-        .setLabel(`${index + 1}. ${movie.Title} (${movie.Year})`)
+        .setLabel(label)
         .setStyle(ButtonStyle.Primary)
     );
   });

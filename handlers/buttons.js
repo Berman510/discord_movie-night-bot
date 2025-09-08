@@ -1628,12 +1628,36 @@ async function handleChooseWinner(interaction, guildId, movieId) {
       flags: MessageFlags.Ephemeral
     });
 
-    // Sync channels to update the display
+    // Clean up any tie-break messages in admin channel (keep control panel)
     try {
-      const adminControls = require('../services/admin-controls');
-      await adminControls.handleSyncChannel(interaction);
+      const config = await database.getGuildConfig(guildId);
+      if (config && config.admin_channel_id) {
+        const adminChannel = await interaction.client.channels.fetch(config.admin_channel_id).catch(() => null);
+        if (adminChannel) {
+          const messages = await adminChannel.messages.fetch({ limit: 100 });
+          const botMessages = messages.filter(msg => msg.author.id === interaction.client.user.id);
+          for (const [messageId, message] of botMessages) {
+            try {
+              const isControlPanel = message.embeds.length > 0 && message.embeds[0].title && message.embeds[0].title.includes('Admin Control Panel');
+              if (!isControlPanel) {
+                await message.delete();
+              }
+            } catch (e) {
+              console.warn(`Failed to delete admin message ${messageId}:`, e.message);
+            }
+          }
+        }
+      }
     } catch (error) {
-      console.warn('Error syncing channels after choosing winner:', error.message);
+      console.warn('Error cleaning tie-break messages after choosing winner:', error.message);
+    }
+
+    // Refresh admin mirror without interacting with the original button interaction
+    try {
+      const adminMirror = require('../services/admin-mirror');
+      await adminMirror.syncAdminChannel(interaction.client, guildId);
+    } catch (error) {
+      console.warn('Error syncing admin mirror after choosing winner:', error.message);
     }
 
     console.log(`🏆 Movie ${movie.title} chosen as winner for session ${activeSession.id}`);
