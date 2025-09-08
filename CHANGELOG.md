@@ -2,6 +2,17 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.13.0-rc91] - 2025-09-08
+### Changed
+- 🛡️ Database hardening: Enforce guild-scoped uniqueness and composite foreign keys across core tables (movies, votes, movie_sessions, session_participants, session_attendees)
+- 🗳️ Votes: UNIQUE(message_id, user_id) → UNIQUE(guild_id, message_id, user_id); composite FK votes(guild_id, message_id) → movies(guild_id, message_id)
+- 🎬 Sessions: Composite FKs for participants/attendees → movie_sessions(guild_id, id); movies(guild_id, session_id) → movie_sessions(guild_id, id); session winner/associated → movies(guild_id, message_id)
+- 🔧 API: incrementWatchCount/getWatchCount now accept optional guildId; button handler passes guildId; removeVote accepts optional guildId
+- 🔁 Migrations: Added Migration 19 with idempotent guards; legacy single-column FKs dropped when present
+
+### Notes
+- All operations are now strictly guild-scoped to prevent any cross-guild data contamination.
+
 ## [1.13.0-rc90] - 2025-09-08
 ### Fixed
 - **🧷 Single-creation logic**: When no pinned system post is found, create the "No Active Voting Session" thread once, then try to pin and remove duplicates, avoiding multiple creations during the same operation

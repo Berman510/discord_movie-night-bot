@@ -777,6 +777,198 @@ class Database {
         logger.warn('Migration 18 warning:', error.message);
       }
 
+      // Migration 19: Enforce guild-scoped uniqueness and composite foreign keys
+      try {
+        // 19.1 Ensure composite unique/indexes exist on parent tables
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movies
+            ADD UNIQUE KEY uniq_movies_guild_message (guild_id, message_id)
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.warn('Migration 19 uniq_movies_guild_message warning:', error.message);
+          }
+        }
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movie_sessions
+            ADD INDEX idx_movie_sessions_gid_id (guild_id, id)
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.warn('Migration 19 idx_movie_sessions_gid_id warning:', error.message);
+          }
+        }
+
+        // 19.2 Drop legacy single-column foreign keys (best-effort)
+        try { await this.pool.execute(`ALTER TABLE votes DROP FOREIGN KEY votes_ibfk_1`); } catch (e) {}
+        try { await this.pool.execute(`ALTER TABLE session_participants DROP FOREIGN KEY session_participants_ibfk_1`); } catch (e) {}
+        try { await this.pool.execute(`ALTER TABLE session_attendees DROP FOREIGN KEY session_attendees_ibfk_1`); } catch (e) {}
+
+        // 19.3 Adjust unique constraints to be guild-scoped
+        try {
+          await this.pool.execute(`
+            ALTER TABLE votes
+            DROP INDEX unique_vote
+          `);
+        } catch (error) {}
+        try {
+          await this.pool.execute(`
+            ALTER TABLE votes
+            ADD UNIQUE KEY unique_vote_guild (guild_id, message_id, user_id)
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.warn('Migration 19 unique_vote_guild warning:', error.message);
+          }
+        }
+
+        try {
+          await this.pool.execute(`
+            ALTER TABLE session_participants
+            DROP INDEX unique_participant
+          `);
+        } catch (error) {}
+        try {
+          await this.pool.execute(`
+            ALTER TABLE session_participants
+            ADD UNIQUE KEY unique_participant_guild (guild_id, session_id, user_id)
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.warn('Migration 19 unique_participant_guild warning:', error.message);
+          }
+        }
+
+        try {
+          await this.pool.execute(`
+            ALTER TABLE session_attendees
+            DROP INDEX unique_attendee
+          `);
+        } catch (error) {}
+        try {
+          await this.pool.execute(`
+            ALTER TABLE session_attendees
+            ADD UNIQUE KEY unique_attendee_guild (guild_id, session_id, user_id)
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.warn('Migration 19 unique_attendee_guild warning:', error.message);
+          }
+        }
+
+        // 19.4 Add supporting indexes for composite FKs
+        try {
+          await this.pool.execute(`
+            ALTER TABLE votes
+            ADD INDEX idx_votes_gid_msg (guild_id, message_id)
+          `);
+        } catch (error) {}
+        try {
+          await this.pool.execute(`
+            ALTER TABLE session_participants
+            ADD INDEX idx_participants_gid_sid (guild_id, session_id)
+          `);
+        } catch (error) {}
+        try {
+          await this.pool.execute(`
+            ALTER TABLE session_attendees
+            ADD INDEX idx_attendees_gid_sid (guild_id, session_id)
+          `);
+        } catch (error) {}
+
+        // 19.5 Add composite foreign keys
+        try {
+          await this.pool.execute(`
+            ALTER TABLE votes
+            ADD CONSTRAINT fk_votes_movie
+            FOREIGN KEY (guild_id, message_id)
+            REFERENCES movies(guild_id, message_id)
+            ON DELETE CASCADE
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.warn('Migration 19 fk_votes_movie warning:', error.message);
+          }
+        }
+
+        try {
+          await this.pool.execute(`
+            ALTER TABLE session_participants
+            ADD CONSTRAINT fk_participants_session
+            FOREIGN KEY (guild_id, session_id)
+            REFERENCES movie_sessions(guild_id, id)
+            ON DELETE CASCADE
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.warn('Migration 19 fk_participants_session warning:', error.message);
+          }
+        }
+
+        try {
+          await this.pool.execute(`
+            ALTER TABLE session_attendees
+            ADD CONSTRAINT fk_attendees_session
+            FOREIGN KEY (guild_id, session_id)
+            REFERENCES movie_sessions(guild_id, id)
+            ON DELETE CASCADE
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.warn('Migration 19 fk_attendees_session warning:', error.message);
+          }
+        }
+
+        // movies → movie_sessions (nullable)
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movies
+            ADD CONSTRAINT fk_movies_session
+            FOREIGN KEY (guild_id, session_id)
+            REFERENCES movie_sessions(guild_id, id)
+            ON DELETE SET NULL
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.warn('Migration 19 fk_movies_session warning:', error.message);
+          }
+        }
+
+        // movie_sessions → movies for winner/associated
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movie_sessions
+            ADD CONSTRAINT fk_sessions_winner_movie
+            FOREIGN KEY (guild_id, winner_message_id)
+            REFERENCES movies(guild_id, message_id)
+            ON DELETE SET NULL
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.warn('Migration 19 fk_sessions_winner_movie warning:', error.message);
+          }
+        }
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movie_sessions
+            ADD CONSTRAINT fk_sessions_associated_movie
+            FOREIGN KEY (guild_id, associated_movie_id)
+            REFERENCES movies(guild_id, message_id)
+            ON DELETE SET NULL
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.warn('Migration 19 fk_sessions_associated_movie warning:', error.message);
+          }
+        }
+
+        logger.debug('✅ Migration 19: Guild-scoped constraints and FKs applied');
+      } catch (error) {
+        logger.warn('Migration 19 warning:', error.message);
+      }
+
       logger.info('✅ Database migrations completed');
     } catch (error) {
       logger.error('❌ Migration error:', error.message);
@@ -947,14 +1139,22 @@ class Database {
     }
   }
 
-  async removeVote(messageId, userId) {
+  async removeVote(messageId, userId, guildId = null) {
     if (!this.isConnected) return false;
 
     try {
-      await this.pool.execute(
-        `DELETE FROM votes WHERE message_id = ? AND user_id = ?`,
-        [messageId, userId]
-      );
+      if (guildId) {
+        await this.pool.execute(
+          `DELETE FROM votes WHERE message_id = ? AND user_id = ? AND guild_id = ?`,
+          [messageId, userId, guildId]
+        );
+      } else {
+        // Fallback without guild filter (kept for backward compatibility)
+        await this.pool.execute(
+          `DELETE FROM votes WHERE message_id = ? AND user_id = ?`,
+          [messageId, userId]
+        );
+      }
       return true;
     } catch (error) {
       console.error('Error removing vote:', error.message);
@@ -2433,14 +2633,17 @@ class Database {
     }
   }
 
-  async incrementWatchCount(messageId) {
+  async incrementWatchCount(messageId, guildId = null) {
     if (!this.isConnected) return false;
 
     try {
-      await this.pool.execute(
-        `UPDATE movies SET watch_count = watch_count + 1 WHERE message_id = ?`,
-        [messageId]
-      );
+      let query = `UPDATE movies SET watch_count = watch_count + 1 WHERE message_id = ?`;
+      const params = [messageId];
+      if (guildId) {
+        query += ` AND guild_id = ?`;
+        params.push(guildId);
+      }
+      await this.pool.execute(query, params);
       return true;
     } catch (error) {
       console.error('Error incrementing watch count:', error.message);
@@ -2448,14 +2651,17 @@ class Database {
     }
   }
 
-  async getWatchCount(messageId) {
+  async getWatchCount(messageId, guildId = null) {
     if (!this.isConnected) return 0;
 
     try {
-      const [rows] = await this.pool.execute(
-        `SELECT watch_count FROM movies WHERE message_id = ?`,
-        [messageId]
-      );
+      let query = `SELECT watch_count FROM movies WHERE message_id = ?`;
+      const params = [messageId];
+      if (guildId) {
+        query += ` AND guild_id = ?`;
+        params.push(guildId);
+      }
+      const [rows] = await this.pool.execute(query, params);
       return rows.length > 0 ? rows[0].watch_count || 0 : 0;
     } catch (error) {
       console.error('Error getting watch count:', error.message);

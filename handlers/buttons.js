@@ -238,7 +238,7 @@ async function handleVoting(interaction, action, msgId, votes) {
 
       if (currentVote === action) {
         // Remove vote if clicking same button
-        const removeSuccess = await database.removeVote(msgId, userId);
+        const removeSuccess = await database.removeVote(msgId, userId, interaction.guild.id);
         if (!removeSuccess) {
           console.error(`Failed to remove vote for message ${msgId} by user ${userId}`);
         }
@@ -350,7 +350,7 @@ async function handleStatusChange(interaction, action, msgId) {
 
     // If marking as watched, increment watch count
     if (action === 'watched') {
-      await database.incrementWatchCount(msgId);
+      await database.incrementWatchCount(msgId, interaction.guild.id);
     }
 
     // Get updated movie data
