@@ -132,7 +132,9 @@ async function selectWinner(client, session, winner, config) {
         if (forumChannels.isForumChannel(votingChannel)) {
           // Forum channel - archive non-winner posts and post winner announcement
           await forumChannels.clearForumMoviePosts(votingChannel, winner.movie.thread_id);
-          await forumChannels.postForumWinnerAnnouncement(votingChannel, winner.movie, session.name);
+          // Pass event info if available
+          const eventOptions = session.discord_event_id ? { event: { id: session.discord_event_id, startTime: session.scheduled_date } } : {};
+          await forumChannels.postForumWinnerAnnouncement(votingChannel, winner.movie, session.name, eventOptions);
 
           // Archive recommendation post since session is ending
           await forumChannels.ensureRecommendationPost(votingChannel, null);
@@ -342,8 +344,13 @@ async function selectWinner(client, session, winner, config) {
       try {
         const votingChannel = await client.channels.fetch(config.movie_channel_id);
         if (votingChannel) {
+          const forumChannels = require('./forum-channels');
           const cleanup = require('./cleanup');
-          await cleanup.ensureQuickActionPinned(votingChannel);
+          if (forumChannels.isForumChannel(votingChannel)) {
+            await forumChannels.ensureRecommendationPost(votingChannel, null);
+          } else {
+            await cleanup.ensureQuickActionPinned(votingChannel);
+          }
         }
       } catch (error) {
         const logger = require('../utils/logger');

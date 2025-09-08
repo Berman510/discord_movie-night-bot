@@ -379,26 +379,24 @@ async function clearForumMoviePosts(channel, winnerMovieId = null) {
       }
     }
 
-    // ALSO DELETE SYSTEM POSTS when no active session
-    if (!winnerMovieId) {
-      logger.debug(`🧹 No active session - also deleting system posts`, guildId);
+    // ALSO DELETE SYSTEM POSTS regardless of winner - we will re-create the appropriate one after
+    logger.debug(`🧹 Deleting system posts (Recommend/No Session)`, guildId);
 
-      // Get all threads to find system posts
-      const threads = await channel.threads.fetchActive();
-      const archivedThreads = await channel.threads.fetchArchived({ limit: 50 });
-      const allThreads = new Map([...threads.threads, ...archivedThreads.threads]);
+    // Get all threads to find system posts
+    const threads = await channel.threads.fetchActive();
+    const archivedThreads = await channel.threads.fetchArchived({ limit: 50 });
+    const allThreads = new Map([...threads.threads, ...archivedThreads.threads]);
 
-      for (const [threadId, thread] of allThreads) {
-        // Delete system posts (No Active Session, Recommend a Movie)
-        if (thread.name.includes('No Active Voting Session') || thread.name.includes('🚫') ||
-            thread.name.includes('Recommend a Movie') || thread.name.includes('🍿')) {
-          try {
-            await thread.delete('System post cleanup - no active session');
-            deletedCount++;
-            logger.info(`🗑️ Deleted system post: ${thread.name}`, guildId);
-          } catch (error) {
-            logger.warn(`Error deleting system post ${thread.name}:`, error.message, guildId);
-          }
+    for (const [threadId, thread] of allThreads) {
+      // Delete system posts (No Active Session, Recommend a Movie)
+      if (thread.name.includes('No Active Voting Session') || thread.name.includes('🚫') ||
+          thread.name.includes('Recommend a Movie') || thread.name.includes('🍿')) {
+        try {
+          await thread.delete('System post cleanup - session ended');
+          deletedCount++;
+          logger.info(`🗑️ Deleted system post: ${thread.name}`, guildId);
+        } catch (error) {
+          logger.warn(`Error deleting system post ${thread.name}:`, error.message, guildId);
         }
       }
     }
@@ -416,7 +414,7 @@ async function clearForumMoviePosts(channel, winnerMovieId = null) {
 /**
  * Post winner announcement in forum channel
  */
-async function postForumWinnerAnnouncement(channel, winnerMovie, sessionName) {
+async function postForumWinnerAnnouncement(channel, winnerMovie, sessionName, options = {}) {
   try {
     if (!isForumChannel(channel)) return null;
 
@@ -433,6 +431,19 @@ async function postForumWinnerAnnouncement(channel, winnerMovie, sessionName) {
         { name: '📅 Session', value: sessionName, inline: false }
       )
       .setTimestamp();
+
+    // Optional event info
+    if (options.event) {
+      const event = options.event; // { id, name, startTime }
+      const ts = event.startTime ? Math.floor(new Date(event.startTime).getTime() / 1000) : null;
+      if (ts) {
+        winnerEmbed.addFields({ name: '🗓️ Event Time', value: `<t:${ts}:F> (<t:${ts}:R>)`, inline: false });
+      }
+      if (event.id) {
+        // No direct links to events, but include the ID for reference
+        winnerEmbed.addFields({ name: '📣 Discord Event', value: `Event ID: ${event.id}`, inline: false });
+      }
+    }
 
     // Create announcement forum post
     const announcementPost = await channel.threads.create({

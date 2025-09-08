@@ -1332,7 +1332,7 @@ async function handlePickWinner(interaction, guildId, movieId) {
           if (forumChannels.isForumChannel(votingChannel)) {
             // Forum channel - archive non-winner posts and post winner announcement
             await forumChannels.clearForumMoviePosts(votingChannel, movie.thread_id);
-            await forumChannels.postForumWinnerAnnouncement(votingChannel, movie, 'Movie Night');
+            await forumChannels.postForumWinnerAnnouncement(votingChannel, movie, 'Movie Night', { event: null });
 
             // Archive recommendation post since session is ending
             await forumChannels.ensureRecommendationPost(votingChannel, null);
@@ -1523,8 +1523,13 @@ async function handlePickWinner(interaction, guildId, movieId) {
       if (config && config.movie_channel_id) {
         const votingChannel = await interaction.client.channels.fetch(config.movie_channel_id);
         if (votingChannel) {
+          const forumChannels = require('../services/forum-channels');
           const cleanup = require('../services/cleanup');
-          await cleanup.ensureQuickActionPinned(votingChannel);
+          if (forumChannels.isForumChannel(votingChannel)) {
+            await forumChannels.ensureRecommendationPost(votingChannel, null);
+          } else {
+            await cleanup.ensureQuickActionPinned(votingChannel);
+          }
         }
       }
     } catch (error) {

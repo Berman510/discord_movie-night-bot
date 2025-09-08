@@ -2,6 +2,13 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.13.0-rc89] - 2025-09-08
+### Changed
+- **🧹 Forum Session End Cleanup**: Always remove forum system posts (Recommend/No Session) when a winner is chosen, then re-create the proper "No Active Voting Session" post
+- **🏆 Winner Announcement**: Forum winner announcement now supports optional event info (event ID, start time)
+- **🧭 Manual Winner Flow**: Posts "No Active Voting Session" in forum channels (previously only text channels)
+- **🤖 Auto Closure Flow**: Same forum behavior applied to automatic winner selection
+
 ## [1.13.0-rc88] - 2025-09-08
 ### Fixed
 - **🔧 Aggressive Discord API Bug Workaround**: Added aggressive unpinning approach to handle Discord's pinned status reporting bug
