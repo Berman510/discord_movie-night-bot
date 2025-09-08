@@ -2,7 +2,7 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
-## [1.13.0-rc72] - 2025-09-07
+## [1.13.0-rc73] - 2025-09-07
 ### 🎯 Major Release: Forum Channels, Safety Features & Professional Logging
 
 ### Added
@@ -162,6 +162,12 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **📋 Enhanced Session Creation Logging**: Fixed all remaining console.log statements in voting session creation to use proper logger
 - **🎬 Carryover Movie Logging Cleanup**: All carryover movie operations now use proper logger with appropriate levels
 - **🛡️ Improved Logger Architecture**: Enhanced logger to support guild context while maintaining backward compatibility
+- **🔧 CRITICAL: Fixed Forum Post Filtering Logic**: Fixed clearForumMoviePosts to properly skip system posts like "No Active Voting Session"
+- **📋 Enhanced Forum Post Detection**: Improved getForumMoviePosts to exclude system posts from movie post filtering
+- **🧹 Proper System Post Handling**: System posts (🚫 No Active Session, 🍿 Recommend) are now properly excluded from cleanup operations
+- **🎯 Fixed Forum Sync Behavior**: Sync Channels now properly archives only actual movie posts, not system posts
+- **📊 Enhanced Guild-Aware Logging**: All forum operations now use guild ID in logging for better multi-guild debugging
+- **✅ Text Channel Compatibility Verified**: All forum-specific code properly gated with isForumChannel() checks - text channels unaffected
 
 ### Technical
 - **� Forum Channel Architecture**: Complete forum post creation, voting, and discussion system

@@ -248,21 +248,31 @@ async function getForumMoviePosts(channel, limit = 50) {
     if (!isForumChannel(channel)) return [];
 
     const logger = require('../utils/logger');
+    const guildId = channel.guild?.id;
 
     const threads = await channel.threads.fetchActive();
     const archivedThreads = await channel.threads.fetchArchived({ limit: 100 }); // Fetch more archived threads
 
     const allThreads = new Map([...threads.threads, ...archivedThreads.threads]);
 
-    logger.debug(`📋 Found ${threads.threads.size} active threads, ${archivedThreads.threads.size} archived threads`);
+    logger.debug(`📋 Found ${threads.threads.size} active threads, ${archivedThreads.threads.size} archived threads`, guildId);
 
-    // Filter for movie posts (those starting with movie emoji)
+    // Filter for actual movie posts (exclude system posts)
     const moviePosts = Array.from(allThreads.values())
-      .filter(thread => thread.name.match(/^[🎬📌🎪✅⏭️🚫]/))
+      .filter(thread => {
+        // Include movie posts with movie emojis
+        const hasMovieEmoji = thread.name.match(/^[🎬📌🎪✅⏭️]/);
+        // Exclude system posts
+        const isSystemPost = thread.name.includes('Recommend a Movie') ||
+                           thread.name.includes('🍿') ||
+                           thread.name.includes('No Active Voting Session') ||
+                           thread.name.includes('🚫');
+        return hasMovieEmoji && !isSystemPost;
+      })
       .slice(0, limit);
 
-    logger.debug(`📋 Found ${moviePosts.length} movie posts to process`);
-    moviePosts.forEach(post => logger.debug(`📋 Movie post: ${post.name} (archived: ${post.archived})`));
+    logger.debug(`📋 Found ${moviePosts.length} movie posts to process`, guildId);
+    moviePosts.forEach(post => logger.debug(`📋 Movie post: ${post.name} (archived: ${post.archived})`, guildId));
 
     return moviePosts;
     
@@ -312,7 +322,8 @@ async function clearForumMoviePosts(channel, winnerMovieId = null) {
     if (!isForumChannel(channel)) return { archived: 0, deleted: 0 };
 
     const logger = require('../utils/logger');
-  logger.debug(`🧹 Clearing forum movie posts in channel: ${channel.name}`);
+    const guildId = channel.guild?.id;
+    logger.debug(`🧹 Clearing forum movie posts in channel: ${channel.name}`, guildId);
 
     const moviePosts = await getForumMoviePosts(channel, 100);
     let archivedCount = 0;
@@ -320,8 +331,10 @@ async function clearForumMoviePosts(channel, winnerMovieId = null) {
 
     for (const thread of moviePosts) {
       try {
-        // Skip recommendation posts
-        if (thread.name.includes('Recommend a Movie') || thread.name.includes('🍿')) {
+        // Skip recommendation posts and no session posts
+        if (thread.name.includes('Recommend a Movie') || thread.name.includes('🍿') ||
+            thread.name.includes('No Active Voting Session') || thread.name.includes('🚫')) {
+          logger.debug(`📋 Skipping system post: ${thread.name}`, guildId);
           continue;
         }
 
@@ -330,22 +343,22 @@ async function clearForumMoviePosts(channel, winnerMovieId = null) {
 
         if (isWinner) {
           // Winner thread - just update status, don't archive yet
-          logger.debug(`🏆 Keeping winner thread: ${thread.name}`);
+          logger.debug(`🏆 Keeping winner thread: ${thread.name}`, guildId);
           continue;
         } else {
           // Non-winner thread - archive it
           if (!thread.archived) {
             await archiveForumPost(thread, winnerMovieId ? 'Session ended - movie not selected' : 'Session cancelled - archiving all movies');
             archivedCount++;
-            logger.debug(`📦 Archived non-winner thread: ${thread.name}`);
+            logger.debug(`📦 Archived non-winner thread: ${thread.name}`, guildId);
           }
         }
       } catch (error) {
-        logger.warn(`Error processing forum thread ${thread.name}:`, error.message);
+        logger.warn(`Error processing forum thread ${thread.name}:`, error.message, guildId);
       }
     }
 
-    logger.debug(`🧹 Forum cleanup complete: ${archivedCount} archived, ${deletedCount} deleted`);
+    logger.debug(`🧹 Forum cleanup complete: ${archivedCount} archived, ${deletedCount} deleted`, guildId);
     return { archived: archivedCount, deleted: deletedCount };
 
   } catch (error) {
