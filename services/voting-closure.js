@@ -375,21 +375,26 @@ async function handleTieBreaking(client, session, winners, config) {
     if (config && config.movie_channel_id) {
       const votingChannel = await client.channels.fetch(config.movie_channel_id);
       if (votingChannel) {
-        const tieEmbed = new EmbedBuilder()
-          .setTitle('🤝 Voting Closed - Tie Detected!')
-          .setDescription(`We have a ${winners.length}-way tie! An admin will select the winner.`)
-          .addFields(
-            { name: '🏆 Tied Movies', value: winners.map(w => `**${w.movie.title}** (Score: ${w.totalScore})`).join('\n'), inline: false },
-            { name: '📅 Session', value: session.name, inline: true },
-            { name: '⏰ Voting Ended', value: new Date().toLocaleString(), inline: true }
-          )
-          .setColor(0xfee75c)
-          .setTimestamp();
-        
-        await votingChannel.send({
-          content: config.notification_role_id ? `<@&${config.notification_role_id}>` : null,
-          embeds: [tieEmbed]
-        });
+        const forumChannels = require('./forum-channels');
+        if (!forumChannels.isForumChannel(votingChannel)) {
+          const tieEmbed = new EmbedBuilder()
+            .setTitle('🤝 Voting Closed - Tie Detected!')
+            .setDescription(`We have a ${winners.length}-way tie! An admin will select the winner.`)
+            .addFields(
+              { name: '🏆 Tied Movies', value: winners.map(w => `**${w.movie.title}** (Score: ${w.totalScore})`).join('\n'), inline: false },
+              { name: '📅 Session', value: session.name, inline: true },
+              { name: '⏰ Voting Ended', value: new Date().toLocaleString(), inline: true }
+            )
+            .setColor(0xfee75c)
+            .setTimestamp();
+          await votingChannel.send({
+            content: config.notification_role_id ? `<@&${config.notification_role_id}>` : null,
+            embeds: [tieEmbed]
+          });
+        } else {
+          const logger = require('../utils/logger');
+          logger.debug('🤝 Tie detected in forum channel — skipping channel.send, admin panel will handle tie-break');
+        }
       }
     }
     

@@ -39,6 +39,15 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - Migration 24: Ensure movie_sessions.id is AUTO_INCREMENT and has a PRIMARY KEY on hosts where this was missing, preventing "Field 'id' doesn't have a default value" when creating sessions.
 
 
+## [1.13.0-rc105] - 2025-09-08
+### Fixed
+- Forum tie-break: detect forum channels and skip channel.send during tie announcement to avoid `votingChannel.send is not a function` crash; admins still receive tie-break options in admin channel
+- Ephemeral IMDb selection: replace deferUpdate with update+auto-dismiss so the selection popup clears after choosing a movie
+- Forum post duplication: remove redundant follow-up details post; initial forum starter embed now contains full info + buttons
+- Event notification noise (forum mode): skip "New Movie Night Event!" message when voting channel is a forum
+- System post cleanup: remove lingering "No Active Voting Session" thread once a new session begins
+
+
 
 
 

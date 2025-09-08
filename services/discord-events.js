@@ -221,6 +221,17 @@ async function notifyRole(guild, event, sessionData) {
       if (movieChannel && movieChannel.type === 0 && movieChannel.send) {
         notificationChannel = movieChannel;
       }
+    // If the configured movie channel is a forum, skip sending the notification message entirely
+    try {
+      const forumChannels = require('./forum-channels');
+      const movieChannelForCheck = guildConfig && guildConfig.movie_channel_id ? guild.channels.cache.get(guildConfig.movie_channel_id) : null;
+      if (movieChannelForCheck && forumChannels.isForumChannel(movieChannelForCheck)) {
+        const logger = require('../utils/logger');
+        logger.debug('📢 Skipping event notification message in forum mode');
+        return;
+      }
+    } catch (_) {/* no-op */}
+
     }
 
     // If movie channel is forum or not suitable, try admin channel

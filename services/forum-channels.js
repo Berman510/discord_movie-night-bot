@@ -65,7 +65,7 @@ async function createForumMoviePost(channel, movieData, components) {
       thread: forumPost,
       message: message
     };
-    
+
   } catch (error) {
     console.error('Error creating forum movie post:', error);
     throw error;
@@ -124,20 +124,20 @@ function getStatusEmoji(status) {
 async function getMovieStatusTags(channel, status) {
   try {
     if (!channel.availableTags) return [];
-    
+
     // Look for existing status tag
-    const statusTag = channel.availableTags.find(tag => 
+    const statusTag = channel.availableTags.find(tag =>
       tag.name.toLowerCase() === status.toLowerCase()
     );
-    
+
     if (statusTag) {
       return [statusTag.id];
     }
-    
+
     // If no matching tag found, return empty array
     // In the future, we could create tags automatically if the bot has permissions
     return [];
-    
+
   } catch (error) {
     console.warn('Error getting forum tags:', error.message);
     return [];
@@ -229,11 +229,11 @@ async function updateForumPostContent(thread, movie, newStatus) {
 async function archiveForumPost(thread, reason = 'Movie completed') {
   try {
     if (thread.archived) return;
-    
+
     await thread.setArchived(true, reason);
     const logger = require('../utils/logger');
     logger.debug(`📦 Archived forum post: ${thread.name}`);
-    
+
   } catch (error) {
     const logger = require('../utils/logger');
     logger.warn('Error archiving forum post:', error.message);
@@ -275,7 +275,7 @@ async function getForumMoviePosts(channel, limit = 50) {
     moviePosts.forEach(post => logger.debug(`📋 Movie post: ${post.name} (archived: ${post.archived})`, guildId));
 
     return moviePosts;
-    
+
   } catch (error) {
     console.error('Error getting forum movie posts:', error);
     return [];
@@ -815,6 +815,19 @@ async function ensureRecommendationPost(channel, activeSession = null) {
         }
       }
     }
+
+    // Cleanup lingering "No Active Voting Session" system posts now that a session is active
+    try {
+      const active = await channel.threads.fetchActive({ cache: false });
+      const archived = await channel.threads.fetchArchived({ limit: 50, cache: false });
+      const all = new Map([...active.threads, ...archived.threads]);
+      for (const [tid, t] of all) {
+        if (t.name.includes('No Active Voting Session') || t.name.includes('🚫')) {
+          try { await t.delete('Removing stale no-session post after session start'); } catch {}
+        }
+      }
+    } catch (_) {/* ignore cleanup errors */}
+
 
   } catch (error) {
     const logger = require('../utils/logger');

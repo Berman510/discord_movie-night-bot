@@ -699,8 +699,12 @@ async function handleImdbSelection(interaction) {
   const [, indexStr, dataKey] = customId.split(':');
 
   try {
-    // Defer the interaction immediately to prevent timeout
-    await interaction.deferUpdate();
+    // Update the original ephemeral selection message so it doesn't linger
+    await interaction.update({
+      content: '⏳ Creating your recommendation...',
+      embeds: [],
+      components: []
+    });
 
     const { pendingPayloads } = require('../utils/constants');
 
@@ -728,6 +732,11 @@ async function handleImdbSelection(interaction) {
 
     // Clean up the stored data
     pendingPayloads.delete(dataKey);
+
+    // Auto-dismiss the updated ephemeral selector after a short delay
+    setTimeout(async () => {
+      try { await interaction.deleteReply(); } catch {}
+    }, 3000);
 
   } catch (error) {
     console.error('Error handling IMDb selection:', error);

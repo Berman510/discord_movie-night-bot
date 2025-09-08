@@ -216,12 +216,7 @@ async function createForumMovieRecommendation(interaction, movieData, channel) {
     throw new Error('Failed to save forum movie to database');
   }
 
-  // Add detailed information as a follow-up message in the forum thread
-  try {
-    await addDetailedMovieInfoToThread(thread, { title, where, imdbData });
-  } catch (error) {
-    console.warn('Failed to add detailed info to forum thread:', error.message);
-  }
+  // Forum mode: include all details in the starter embed; no follow-up message needed
 
   return { message, thread, movieId };
 }
