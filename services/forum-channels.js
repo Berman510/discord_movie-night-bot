@@ -496,30 +496,38 @@ async function unpinOtherForumPosts(channel, keepPinnedId = null) {
     const logger = require('../utils/logger');
     const guildId = channel.guild?.id;
 
-    // Get all threads (active and archived)
-    const threads = await channel.threads.fetchActive();
-    const archivedThreads = await channel.threads.fetchArchived({ limit: 50 });
+    // Get all threads with force refresh to get accurate pinned status
+    const threads = await channel.threads.fetchActive({ cache: false });
+    const archivedThreads = await channel.threads.fetchArchived({ limit: 50, cache: false });
     const allThreads = new Map([...threads.threads, ...archivedThreads.threads]);
 
     logger.debug(`📌 Checking ${allThreads.size} threads for unpinning (keep: ${keepPinnedId})`, guildId);
 
     let unpinnedCount = 0;
     for (const [threadId, thread] of allThreads) {
-      logger.debug(`📌 Thread ${thread.name} (${threadId}) - pinned: ${thread.pinned}, archived: ${thread.archived}`, guildId);
+      try {
+        // Force fetch the thread to get accurate pinned status
+        const freshThread = await channel.client.channels.fetch(threadId, { force: true });
+        const isPinned = freshThread.pinned || false;
 
-      if (thread.pinned && threadId !== keepPinnedId) {
-        try {
-          // First unarchive if needed, then unpin
-          if (thread.archived) {
-            await thread.setArchived(false);
-            logger.debug(`📌 Unarchived thread before unpinning: ${thread.name}`, guildId);
+        logger.debug(`📌 Thread ${thread.name} (${threadId}) - pinned: ${isPinned}, archived: ${thread.archived}`, guildId);
+
+        if (isPinned && threadId !== keepPinnedId) {
+          try {
+            // First unarchive if needed, then unpin
+            if (freshThread.archived) {
+              await freshThread.setArchived(false);
+              logger.debug(`📌 Unarchived thread before unpinning: ${thread.name}`, guildId);
+            }
+            await freshThread.unpin();
+            unpinnedCount++;
+            logger.debug(`📌 Unpinned thread to make room: ${thread.name}`, guildId);
+          } catch (error) {
+            logger.warn(`Error unpinning thread ${thread.name}:`, error.message, guildId);
           }
-          await thread.unpin();
-          unpinnedCount++;
-          logger.debug(`📌 Unpinned thread to make room: ${thread.name}`, guildId);
-        } catch (error) {
-          logger.warn(`Error unpinning thread ${thread.name}:`, error.message, guildId);
         }
+      } catch (fetchError) {
+        logger.warn(`📌 Error fetching thread ${threadId}: ${fetchError.message}`, guildId);
       }
     }
 
@@ -548,25 +556,61 @@ async function ensureRecommendationPost(channel, activeSession = null) {
       status: activeSession.status
     } : 'null', guildId);
 
-    // SIMPLE: Find the pinned post (there should only be one)
-    const threads = await channel.threads.fetchActive();
-    const archivedThreads = await channel.threads.fetchArchived({ limit: 50 });
+    // BETTER APPROACH: Use channel.threads.fetchActive with force refresh and check each thread individually
+    logger.debug(`📋 Fetching threads to find pinned posts...`, guildId);
+
+    // Force refresh threads to get accurate pinned status
+    const threads = await channel.threads.fetchActive({ cache: false });
+    const archivedThreads = await channel.threads.fetchArchived({ limit: 50, cache: false });
     const allThreads = new Map([...threads.threads, ...archivedThreads.threads]);
 
     logger.debug(`📋 Found ${threads.threads.size} active threads, ${archivedThreads.threads.size} archived threads`, guildId);
 
     let pinnedPost = null;
+    let systemPosts = [];
+
+    // Check each thread individually and refresh if needed
     for (const [threadId, thread] of allThreads) {
-      logger.debug(`📋 Checking thread: ${thread.name} (${thread.id}) - pinned: ${thread.pinned}, archived: ${thread.archived}`, guildId);
-      if (thread.pinned) {
-        pinnedPost = thread;
-        logger.debug(`📋 Found existing pinned post: ${thread.name} (${thread.id})`, guildId);
-        break;
+      try {
+        // Force fetch the thread to get accurate pinned status
+        const freshThread = await channel.client.channels.fetch(threadId, { force: true });
+        const isPinned = freshThread.pinned || false;
+
+        logger.debug(`📋 Thread: ${thread.name} (${thread.id}) - pinned: ${isPinned}, archived: ${thread.archived}`, guildId);
+
+        // Track system posts (recommendation and no session posts)
+        if (thread.name.includes('Recommend a Movie') || thread.name.includes('🍿') ||
+            thread.name.includes('No Active Voting Session') || thread.name.includes('🚫')) {
+          systemPosts.push({ thread: freshThread, isPinned });
+        }
+
+        if (isPinned) {
+          pinnedPost = freshThread;
+          logger.debug(`📋 Found existing pinned post: ${thread.name} (${thread.id})`, guildId);
+        }
+      } catch (fetchError) {
+        logger.warn(`📋 Error fetching thread ${threadId}: ${fetchError.message}`, guildId);
       }
     }
 
-    if (!pinnedPost) {
-      logger.debug(`📋 No pinned post found in ${allThreads.size} total threads`, guildId);
+    logger.debug(`📋 Found ${systemPosts.length} system posts, pinned post: ${pinnedPost ? pinnedPost.name : 'none'}`, guildId);
+
+    // Clean up duplicate system posts first
+    if (systemPosts.length > 1) {
+      logger.debug(`📋 Cleaning up ${systemPosts.length} duplicate system posts`, guildId);
+      for (const { thread: systemThread, isPinned } of systemPosts) {
+        try {
+          if (isPinned) {
+            await systemThread.unpin();
+            logger.debug(`📋 Unpinned system post: ${systemThread.name}`, guildId);
+          }
+          await systemThread.delete('Cleaning up duplicate system posts');
+          logger.debug(`📋 Deleted duplicate system post: ${systemThread.name}`, guildId);
+        } catch (deleteError) {
+          logger.warn(`📋 Error deleting system post ${systemThread.name}: ${deleteError.message}`, guildId);
+        }
+      }
+      pinnedPost = null; // Force creation of new post
     }
 
     const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');

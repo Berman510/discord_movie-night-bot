@@ -2,6 +2,14 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.13.0-rc86] - 2025-09-08
+### Fixed
+- **🔧 Discord.js Thread Pinned Status Bug**: Fixed issue where thread.pinned was returning undefined instead of boolean values
+- **🔄 Force Thread Refresh**: Added force refresh when fetching threads to get accurate pinned status from Discord API
+- **🧹 Duplicate System Post Cleanup**: Added logic to detect and clean up multiple recommendation/no session posts
+- **📌 Improved Unpinning Logic**: Enhanced unpinOtherForumPosts to use force-fetched thread data for accurate pinned detection
+- **🗑️ Automatic Cleanup**: Function now automatically removes duplicate system posts before creating new ones
+
 ## [1.13.0-rc85] - 2025-09-08
 ### Fixed
 - **🔍 Enhanced Debugging**: Added detailed logging for pinned post detection and thread enumeration in forum channels
