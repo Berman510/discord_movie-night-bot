@@ -48,6 +48,11 @@ module.exports = {
       logger.info(`✅ Successfully reloaded ${commands.length} application (/) commands ${scope}.`);
     } catch (error) {
       logger.error('❌ Error registering commands:', error);
+      // For development guild registration failures, don't crash the bot
+      if (guildId && error.code === 50001) {
+        logger.warn(`⚠️ Missing permissions to register commands in guild ${guildId} - this is non-critical`);
+        return false;
+      }
       throw error;
     }
   }

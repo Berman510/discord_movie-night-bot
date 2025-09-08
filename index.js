@@ -94,8 +94,13 @@ client.on('guildCreate', async (guild) => {
   try {
     // Register commands to this specific guild for instant availability
     logger.info(`⚡ Registering commands to ${guild.name} for instant availability`);
-    await registerCommands(DISCORD_TOKEN, CLIENT_ID, guild.id);
-    logger.info(`✅ Commands registered to ${guild.name}`);
+    try {
+      await registerCommands(DISCORD_TOKEN, CLIENT_ID, guild.id);
+      logger.info(`✅ Commands registered to ${guild.name}`);
+    } catch (commandError) {
+      logger.warn(`⚠️ Failed to register commands to ${guild.name}: ${commandError.message}`);
+      logger.debug('Commands will still be available globally, just not instantly in this guild');
+    }
 
     // Initialize admin control panel for this guild if it has an admin channel configured
     const config = await database.getGuildConfig(guild.id);
@@ -204,7 +209,12 @@ async function startBot() {
       const guildIds = GUILD_ID.split(',').map(id => id.trim()).filter(id => id);
       logger.info(`🧪 Also registering to ${guildIds.length} development guild(s) for instant testing`);
       for (const guildId of guildIds) {
-        await registerCommands(DISCORD_TOKEN, CLIENT_ID, guildId);
+        try {
+          await registerCommands(DISCORD_TOKEN, CLIENT_ID, guildId);
+        } catch (error) {
+          logger.warn(`⚠️ Failed to register commands to development guild ${guildId}: ${error.message}`);
+          logger.debug('This is non-critical - bot will continue with global commands only');
+        }
       }
     }
 

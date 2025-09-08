@@ -2,7 +2,7 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
-## [1.13.0-rc57] - 2025-09-07
+## [1.13.0-rc58] - 2025-09-07
 ### 🎯 Major Release: Forum Channels, Safety Features & Professional Logging
 
 ### Added
@@ -92,6 +92,9 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **🔧 Fixed Configuration Button Error**: Fixed "Cannot read properties of undefined (reading 'getChannel')" error in configuration
 - **📝 Fixed MessageFlags Import**: Added missing MessageFlags import to config-check.js to prevent "MessageFlags is not defined" errors
 - **🧵 Thread Creation Logging**: Thread creation and detailed info messages now use proper log levels
+- **🚀 CRITICAL: Fixed Bot Startup Crash**: Fixed Discord API "Missing Access" error that prevented bot from starting
+- **🛡️ Resilient Command Registration**: Bot now continues startup even if development guild command registration fails
+- **⚠️ Graceful Permission Handling**: Missing permissions for guild command registration are now handled as warnings, not fatal errors
 
 ### Technical
 - **� Forum Channel Architecture**: Complete forum post creation, voting, and discussion system
