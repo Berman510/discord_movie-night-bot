@@ -59,7 +59,7 @@ async function handleButton(interaction) {
     }
 
     // Deep purge submit/cancel buttons
-    if (customId === 'deep_purge_submit') {
+    if (customId === 'deep_purge_submit' || customId.startsWith('deep_purge_submit:')) {
       await handleDeepPurgeSubmit(interaction);
       return;
     }
@@ -2231,8 +2231,18 @@ async function handleDeepPurgeSubmit(interaction) {
     return;
   }
 
-  // Get selected categories from global storage
-  const selectedCategories = global.deepPurgeSelections?.get(interaction.user.id);
+  // Get selected categories from button ID or global storage
+  let selectedCategories;
+
+  if (interaction.customId.includes(':')) {
+    // Decode from button ID
+    const encodedCategories = interaction.customId.split(':')[1];
+    selectedCategories = encodedCategories ? encodedCategories.split(',') : [];
+  } else {
+    // Fallback to global storage
+    selectedCategories = global.deepPurgeSelections?.get(interaction.user.id);
+  }
+
   if (!selectedCategories || selectedCategories.length === 0) {
     await interaction.reply({
       content: '❌ No categories selected. Please select categories first.',
@@ -2319,9 +2329,9 @@ async function handleAdministrationPanel(interaction) {
         .setLabel('💥 Deep Purge')
         .setStyle(ButtonStyle.Danger),
       new ButtonBuilder()
-        .setCustomId('admin_role_management')
-        .setLabel('👥 Role Management')
-        .setStyle(ButtonStyle.Secondary)
+        .setCustomId('admin_ctrl_stats')
+        .setLabel('📊 Guild Stats')
+        .setStyle(ButtonStyle.Success)
     );
 
   await ephemeralManager.sendEphemeral(interaction, '', {

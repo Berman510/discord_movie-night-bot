@@ -2,7 +2,7 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
-## [1.13.0-rc48] - 2025-09-07
+## [1.13.0-rc49] - 2025-09-07
 ### 🎯 Major Release: Forum Channels, Safety Features & Professional Logging
 
 ### Added
@@ -50,6 +50,10 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **🔧 Guided Setup Ephemeral**: Fixed ephemeral message accumulation during /movie-setup by using interaction.update()
 - **📊 Migration Warnings**: Fixed charset migration warnings and improved logging system usage
 - **📋 Logging System**: Converted console.warn/error calls to use proper logging system with levels
+- **💥 Deep Purge Selection Persistence**: Fixed selections disappearing by encoding categories in button custom IDs
+- **🛡️ Moderator Roles Configuration**: Added moderator roles display to /movie-configure view-settings
+- **🔧 Admin Control Panel Restructure**: Reorganized panel with Sync Channels, Purge Current Queue, Cancel/Reschedule Session, and Administration button
+- **📋 Removed Populate Forums**: Integrated forum population into intelligent Sync Channels button
 
 ### Technical
 - **� Forum Channel Architecture**: Complete forum post creation, voting, and discussion system

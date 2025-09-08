@@ -183,87 +183,16 @@ async function createControlButtonsForUser(interaction, guildId = null) {
  * Create moderator control action buttons (subset of admin controls)
  */
 async function createModeratorControlButtons(guildId = null) {
-  // Moderation controls only
-  const row1 = new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId('admin_ctrl_sync')
-        .setLabel('🔄 Sync Channels')
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId('admin_ctrl_purge')
-        .setLabel('🗑️ Purge Queue')
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId('admin_ctrl_stats')
-        .setLabel('📊 Guild Stats')
-        .setStyle(ButtonStyle.Success),
-      new ButtonBuilder()
-        .setCustomId('admin_ctrl_banned_list')
-        .setLabel('🚫 Banned Movies')
-        .setStyle(ButtonStyle.Secondary)
-    );
-
-  // Session management controls
-  const row2 = new ActionRowBuilder();
-
-  // Check for active session to determine which buttons to show
-  let hasActiveSession = false;
-  if (guildId) {
-    try {
-      const activeSession = await database.getActiveVotingSession(guildId);
-      hasActiveSession = !!activeSession;
-    } catch (error) {
-      console.warn('Error checking active session for moderator buttons:', error.message);
-    }
-  }
-
-  if (hasActiveSession) {
-    // Session management buttons
-    row2.addComponents(
-      new ButtonBuilder()
-        .setCustomId('admin_ctrl_cancel_session')
-        .setLabel('❌ Cancel Session')
-        .setStyle(ButtonStyle.Danger),
-      new ButtonBuilder()
-        .setCustomId('admin_ctrl_reschedule_session')
-        .setLabel('📅 Reschedule Session')
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId('admin_ctrl_refresh')
-        .setLabel('🔄 Refresh Panel')
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId('admin_ctrl_administration')
-        .setLabel('🔧 Administration')
-        .setStyle(ButtonStyle.Secondary)
-    );
-  } else {
-    // Default buttons when no session
-    row2.addComponents(
-      new ButtonBuilder()
-        .setCustomId('admin_ctrl_plan_session')
-        .setLabel('🗳️ Plan Next Session')
-        .setStyle(ButtonStyle.Success),
-      new ButtonBuilder()
-        .setCustomId('admin_ctrl_refresh')
-        .setLabel('🔄 Refresh Panel')
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId('admin_ctrl_administration')
-        .setLabel('🔧 Administration')
-        .setStyle(ButtonStyle.Secondary)
-    );
-  }
-
-  return [row1, row2];
+  // Same as admin controls - moderators get the same panel
+  // Permission checking happens at the button handler level
+  return await createAdminControlButtons(guildId);
 }
 
 /**
  * Create admin control action buttons (full access)
  */
 async function createAdminControlButtons(guildId = null) {
-  // Moderation controls (available to both moderators and admins)
+  // Main moderation controls
   const row1 = new ActionRowBuilder()
     .addComponents(
       new ButtonBuilder()
@@ -272,19 +201,19 @@ async function createAdminControlButtons(guildId = null) {
         .setStyle(ButtonStyle.Primary),
       new ButtonBuilder()
         .setCustomId('admin_ctrl_purge')
-        .setLabel('🗑️ Purge Queue')
+        .setLabel('🗑️ Purge Current Queue')
         .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId('admin_ctrl_stats')
-        .setLabel('📊 Guild Stats')
-        .setStyle(ButtonStyle.Success),
       new ButtonBuilder()
         .setCustomId('admin_ctrl_banned_list')
         .setLabel('🚫 Banned Movies')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId('admin_ctrl_refresh')
+        .setLabel('🔄 Refresh Panel')
         .setStyle(ButtonStyle.Secondary)
     );
 
-  // Session management controls (available to both moderators and admins)
+  // Session management controls
   const row2 = new ActionRowBuilder();
 
   // Check for active session to determine which buttons to show
@@ -299,19 +228,19 @@ async function createAdminControlButtons(guildId = null) {
   }
 
   if (hasActiveSession) {
-    // Session management buttons
+    // Session management buttons for active session
     row2.addComponents(
       new ButtonBuilder()
         .setCustomId('admin_ctrl_cancel_session')
-        .setLabel('❌ Cancel Session')
+        .setLabel('❌ Cancel Current Session')
         .setStyle(ButtonStyle.Danger),
       new ButtonBuilder()
         .setCustomId('admin_ctrl_reschedule_session')
-        .setLabel('📅 Reschedule Session')
+        .setLabel('📅 Reschedule Current Session')
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
-        .setCustomId('admin_ctrl_refresh')
-        .setLabel('🔄 Refresh Panel')
+        .setCustomId('admin_ctrl_administration')
+        .setLabel('🔧 Administration')
         .setStyle(ButtonStyle.Secondary)
     );
   } else {
@@ -322,42 +251,13 @@ async function createAdminControlButtons(guildId = null) {
         .setLabel('🗳️ Plan Next Session')
         .setStyle(ButtonStyle.Success),
       new ButtonBuilder()
-        .setCustomId('admin_ctrl_refresh')
-        .setLabel('🔄 Refresh Panel')
+        .setCustomId('admin_ctrl_administration')
+        .setLabel('🔧 Administration')
         .setStyle(ButtonStyle.Secondary)
     );
   }
 
-  // Admin-only controls (third row)
-  const row3Components = [
-    new ButtonBuilder()
-      .setCustomId('open_configuration')
-      .setLabel('⚙️ Configure Bot')
-      .setStyle(ButtonStyle.Primary),
-    new ButtonBuilder()
-      .setCustomId('admin_ctrl_deep_purge')
-      .setLabel('💥 Deep Purge')
-      .setStyle(ButtonStyle.Danger),
-    new ButtonBuilder()
-      .setCustomId('admin_ctrl_administration')
-      .setLabel('🔧 Administration')
-      .setStyle(ButtonStyle.Secondary)
-  ];
-
-  // Check if voting channel is a forum channel
-  const isForumChannel = await checkIfVotingChannelIsForum(guildId);
-  if (isForumChannel) {
-    row3Components.push(
-      new ButtonBuilder()
-        .setCustomId('admin_ctrl_populate_forum')
-        .setLabel('📋 Populate Forum')
-        .setStyle(ButtonStyle.Primary)
-    );
-  }
-
-  const row3 = new ActionRowBuilder().addComponents(...row3Components);
-
-  return [row1, row2, row3];
+  return [row1, row2];
 }
 
 /**

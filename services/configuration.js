@@ -159,6 +159,13 @@ async function viewSettings(interaction, guildId) {
           inline: false
         },
         {
+          name: '🛡️ Moderator Roles',
+          value: config.moderator_roles && config.moderator_roles.length > 0 ?
+            `${config.moderator_roles.map(id => `<@&${id}>`).join('\n')}\n*These roles can moderate movies and sessions*` :
+            'None configured\n*Only admins can moderate*',
+          inline: false
+        },
+        {
           name: '🔔 Notification Role',
           value: config.notification_role_id ?
             `<@&${config.notification_role_id}>\n*This role gets pinged for Discord events*` :

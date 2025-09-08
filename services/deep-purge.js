@@ -103,8 +103,13 @@ function createDeepPurgeSelectionMenu(selectedCategories = []) {
     selectMenu.setPlaceholder(`Selected: ${selectedNames} (click to change)`);
   }
 
+  // Encode selected categories in the button ID for persistence
+  const encodedCategories = selectedCategories && selectedCategories.length > 0
+    ? selectedCategories.join(',')
+    : '';
+
   const submitButton = new ButtonBuilder()
-    .setCustomId('deep_purge_submit')
+    .setCustomId(`deep_purge_submit:${encodedCategories}`)
     .setLabel('🚨 Proceed with Deep Purge')
     .setStyle(ButtonStyle.Danger);
 
