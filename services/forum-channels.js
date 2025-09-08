@@ -522,7 +522,7 @@ async function unpinOtherForumPosts(channel, keepPinnedId = null) {
 }
 
 /**
- * Create or update the "Recommend a Movie" forum post
+ * SIMPLE SOLUTION: Just edit the pinned post instead of complex create/delete
  */
 async function ensureRecommendationPost(channel, activeSession = null) {
   try {
@@ -536,99 +536,83 @@ async function ensureRecommendationPost(channel, activeSession = null) {
       status: activeSession.status
     } : 'null');
 
-    // Look for existing recommendation post
+    // SIMPLE: Find the pinned post (there should only be one)
     const threads = await channel.threads.fetchActive();
     const archivedThreads = await channel.threads.fetchArchived({ limit: 50 });
     const allThreads = new Map([...threads.threads, ...archivedThreads.threads]);
 
-    let recommendationPost = null;
+    let pinnedPost = null;
     for (const [threadId, thread] of allThreads) {
-      if (thread.name.includes('Recommend a Movie') || thread.name.includes('🍿')) {
-        recommendationPost = thread;
+      if (thread.pinned) {
+        pinnedPost = thread;
         break;
       }
     }
 
-    if (!activeSession) {
-      // No active session - archive existing recommendation post and create "No Active Session" post
-      if (recommendationPost && !recommendationPost.archived) {
-        await recommendationPost.setArchived(true);
-        logger.debug('📋 Archived recommendation post (no active session)');
-      }
+    const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 
-      // Create "No Active Session" forum post
-      await createNoActiveSessionPost(channel);
+    if (!activeSession) {
+      // No active session - edit pinned post to show "No Active Session"
+      const noSessionEmbed = new EmbedBuilder()
+        .setTitle('🚫 No Active Voting Session')
+        .setDescription('There is currently no active voting session.\n\n🎬 **To start a new session:**\n• Use the admin controls to create a new voting session\n• Movies can be recommended once a session is active\n\n📋 **Current Status:** No active session')
+        .setColor(0x95a5a6)
+        .setFooter({ text: 'Check back later for new voting sessions!' });
+
+      if (pinnedPost) {
+        // Edit existing pinned post
+        if (pinnedPost.archived) await pinnedPost.setArchived(false);
+        await pinnedPost.setName('🚫 No Active Voting Session');
+        const starterMessage = await pinnedPost.fetchStarterMessage();
+        if (starterMessage) {
+          await starterMessage.edit({ embeds: [noSessionEmbed], components: [] });
+        }
+        logger.debug('📋 Updated pinned post to no session');
+      } else {
+        // Create new pinned post
+        const forumPost = await channel.threads.create({
+          name: '🚫 No Active Voting Session',
+          message: { embeds: [noSessionEmbed] }
+        });
+        await forumPost.pin();
+        logger.debug('📋 Created new no session post');
+      }
       return;
     }
 
-    // Create recommendation post embed
-    const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-
-    let description = '**Ready to recommend a movie?** Click the button below to add your movie recommendation to this voting session!\n\n';
-
-    // Add session description/theme if available
-    if (activeSession.description && activeSession.description.trim()) {
-      description += `**Session Theme:** ${activeSession.description}\n\n`;
-    }
-
-    description += '🎬 Your movie will appear as a new forum post where everyone can vote and discuss!\n\n';
-
-    // Add event link if available
-    if (activeSession.discord_event_id) {
-      description += `📅 [**Join the Discord Event**](https://discord.com/events/${activeSession.guild_id}/${activeSession.discord_event_id}) to RSVP and get notified!`;
-    }
-
+    // Active session - edit pinned post to show recommendation
     const recommendEmbed = new EmbedBuilder()
       .setTitle('🍿 Recommend a Movie')
-      .setDescription(description)
+      .setDescription(`**Current Session:** ${activeSession.name}\n\n🎬 Click the button below to recommend a movie!\n\n📝 Each movie gets its own thread for voting and discussion.\n\n🗳️ Voting ends: <t:${Math.floor(new Date(activeSession.voting_end_time).getTime() / 1000)}:R>`)
       .setColor(0x5865f2)
-      .addFields(
-        { name: '📋 Current Session', value: activeSession.name || 'Movie Night Session', inline: true },
-        { name: '⏰ Voting Ends', value: activeSession.voting_end_time ?
-          `<t:${Math.floor(new Date(activeSession.voting_end_time).getTime() / 1000)}:R>` :
-          'Not set', inline: true }
-      );
+      .setFooter({ text: `Session ID: ${activeSession.id}` });
 
     const recommendButton = new ActionRowBuilder()
       .addComponents(
         new ButtonBuilder()
           .setCustomId('create_recommendation')
-          .setLabel('🍿 Recommend a Movie')
+          .setLabel('🎬 Recommend a Movie')
           .setStyle(ButtonStyle.Primary)
       );
 
-    if (recommendationPost) {
-      // Update existing post
-      if (recommendationPost.archived) {
-        await recommendationPost.setArchived(false);
-      }
-
-      const starterMessage = await recommendationPost.fetchStarterMessage();
+    if (pinnedPost) {
+      // Edit existing pinned post
+      if (pinnedPost.archived) await pinnedPost.setArchived(false);
+      await pinnedPost.setName('🍿 Recommend a Movie');
+      const starterMessage = await pinnedPost.fetchStarterMessage();
       if (starterMessage) {
-        await starterMessage.edit({
-          embeds: [recommendEmbed],
-          components: [recommendButton]
-        });
-
-        // Unpin other posts first, then pin this one if needed
-        if (!recommendationPost.pinned) {
-          await unpinOtherForumPosts(channel, recommendationPost.id);
-          await recommendationPost.pin();
-        }
-
-        logger.debug('📋 Updated existing recommendation post');
+        await starterMessage.edit({ embeds: [recommendEmbed], components: [recommendButton] });
       }
+      logger.debug('📋 Updated pinned post to recommendation');
     } else {
-      // Create new recommendation post
-      logger.debug('📋 Creating new recommendation post...');
+      // Create new pinned post
       const forumPost = await channel.threads.create({
         name: '🍿 Recommend a Movie',
-        message: {
-          embeds: [recommendEmbed],
-          components: [recommendButton]
-        },
-        reason: 'Movie recommendation post for forum channel'
+        message: { embeds: [recommendEmbed], components: [recommendButton] }
       });
+      await forumPost.pin();
+      logger.debug('📋 Created new recommendation post');
+    }
 
       logger.debug(`📋 Forum post created successfully: ${forumPost.name} (ID: ${forumPost.id})`);
 
