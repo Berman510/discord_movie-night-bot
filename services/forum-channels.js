@@ -465,6 +465,35 @@ async function postForumWinnerAnnouncement(channel, winnerMovie, sessionName) {
 }
 
 /**
+ * Unpin other forum posts to make room for new pin
+ */
+async function unpinOtherForumPosts(channel, keepPinnedId = null) {
+  try {
+    const logger = require('../utils/logger');
+    const guildId = channel.guild?.id;
+
+    // Get all threads (active and archived)
+    const threads = await channel.threads.fetchActive();
+    const archivedThreads = await channel.threads.fetchArchived({ limit: 50 });
+    const allThreads = new Map([...threads.threads, ...archivedThreads.threads]);
+
+    for (const [threadId, thread] of allThreads) {
+      if (thread.pinned && threadId !== keepPinnedId) {
+        try {
+          await thread.setArchived(true);
+          logger.debug(`📌 Unpinned thread to make room: ${thread.name}`, guildId);
+        } catch (error) {
+          logger.warn(`Error unpinning thread ${thread.name}:`, error.message, guildId);
+        }
+      }
+    }
+  } catch (error) {
+    const logger = require('../utils/logger');
+    logger.warn('Error unpinning other forum posts:', error.message, channel.guild?.id);
+  }
+}
+
+/**
  * Create or update the "Recommend a Movie" forum post
  */
 async function ensureRecommendationPost(channel, activeSession = null) {
@@ -553,8 +582,9 @@ async function ensureRecommendationPost(channel, activeSession = null) {
           components: [recommendButton]
         });
 
-        // Pin the post to keep it at the top
+        // Unpin other posts first, then pin this one if needed
         if (!recommendationPost.pinned) {
+          await unpinOtherForumPosts(channel, recommendationPost.id);
           await recommendationPost.pin();
         }
 
@@ -574,8 +604,9 @@ async function ensureRecommendationPost(channel, activeSession = null) {
 
       logger.debug(`📋 Forum post created successfully: ${forumPost.name} (ID: ${forumPost.id})`);
 
-      // Pin the post to keep it at the top
+      // Unpin other posts first, then pin this one
       try {
+        await unpinOtherForumPosts(channel, forumPost.id);
         await forumPost.pin();
         logger.debug('📋 Pinned recommendation post');
       } catch (pinError) {
@@ -686,5 +717,6 @@ module.exports = {
   clearForumMoviePosts,
   postForumWinnerAnnouncement,
   getMovieStatusTags,
-  ensureRecommendationPost
+  ensureRecommendationPost,
+  unpinOtherForumPosts
 };

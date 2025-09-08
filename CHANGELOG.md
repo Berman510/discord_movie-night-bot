@@ -2,7 +2,7 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
-## [1.13.0-rc75] - 2025-09-07
+## [1.13.0-rc76] - 2025-09-07
 ### 🎯 Major Release: Forum Channels, Safety Features & Professional Logging
 
 ### Added
@@ -182,6 +182,13 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **📋 Enhanced Channel Safety**: Checks for existing messages/threads before allowing channel configuration
 - **🎯 Smart Configuration Flow**: Guides users toward dedicated channels while supporting mixed-use scenarios safely
 - **📊 Comprehensive Permission Documentation**: Detailed permission requirements for each channel type in setup process
+- **🔧 CRITICAL: Fixed Forum Pin Management**: Added unpinOtherForumPosts() to properly manage Discord's 1-pin limit in forum channels
+- **📌 Smart Pin Transitions**: Automatically unpins old posts before pinning new ones to prevent "Maximum number pinned threads" errors
+- **🔄 CRITICAL: Fixed Carryover Movies Missing**: Fixed order of operations in session cancellation to preserve movies for next session
+- **⚡ Database Operation Order Fix**: markMoviesForNextSession() now called BEFORE clearForumMoviePosts() to prevent data loss
+- **🎬 Enhanced Session Cancellation**: Movies from cancelled sessions now properly carry over to next session as intended
+- **📋 Improved Forum State Management**: Better handling of pin transitions between "No Active Session" and "Recommend a Movie" posts
+- **🛡️ Robust Pin Error Handling**: Graceful handling of Discord API pin limit errors with automatic recovery
 
 ### Technical
 - **� Forum Channel Architecture**: Complete forum post creation, voting, and discussion system

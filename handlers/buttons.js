@@ -2104,14 +2104,14 @@ async function handleCancelSessionConfirmation(interaction) {
       }
     }
 
-    // Mark non-winning movies for next session before deleting session
-    await database.markMoviesForNextSession(interaction.guild.id);
+    // CRITICAL: Mark movies for next session BEFORE clearing forum posts
+    // This must happen before clearForumMoviePosts which deletes movies from database
+    await database.markMoviesForNextSession(interaction.guild.id, null);
+    const logger = require('../utils/logger');
+    logger.info('📋 Marked cancelled session movies for next session carryover');
 
     // Delete the session and all associated data
     await database.deleteVotingSession(sessionId);
-
-    // Should we move movies to next session? (like skip to next does)
-    const shouldMoveToNextSession = true; // Default to yes for better UX
 
     // Clear voting channel based on channel type
     const config = await database.getGuildConfig(interaction.guild.id);
@@ -2120,23 +2120,16 @@ async function handleCancelSessionConfirmation(interaction) {
         const votingChannel = await interaction.client.channels.fetch(config.movie_channel_id);
         if (votingChannel) {
           const forumChannels = require('../services/forum-channels');
-          const logger = require('../utils/logger');
 
           if (forumChannels.isForumChannel(votingChannel)) {
-            // Forum channel - archive all movie posts and remove recommendation post
+            // Forum channel - clear movie posts (movies already marked for carryover)
             logger.debug('📦 Clearing forum channel after session cancellation');
 
-            // Archive all movie forum posts (but don't delete winner since there isn't one)
+            // Clear all movie forum posts (movies already marked for carryover above)
             await forumChannels.clearForumMoviePosts(votingChannel, null);
 
             // Remove recommendation post since session is cancelled
             await forumChannels.ensureRecommendationPost(votingChannel, null);
-
-            // Optionally move movies to next session (like skip to next does)
-            if (shouldMoveToNextSession) {
-              await database.markMoviesForNextSession(interaction.guild.id, null);
-              logger.info('📋 Moved cancelled session movies to next session queue');
-            }
           } else {
             // Text channel - delete all bot messages and threads
             logger.debug('🗑️ Clearing text channel after session cancellation');
