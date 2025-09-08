@@ -442,8 +442,13 @@ async function handleChannelSelection(interaction, channelType) {
     await showSetupMenuWithMessage(interaction, updatedConfig, message);
 
   } catch (error) {
-    console.error('Error handling channel selection:', error);
-    await ephemeralManager.sendEphemeral(interaction, '❌ An error occurred while setting the channel.');
+    const logger = require('../utils/logger');
+    logger.error('Error handling channel selection:', error);
+    await interaction.update({
+      content: '❌ An error occurred while setting the channel.',
+      embeds: [],
+      components: []
+    });
   }
 }
 
@@ -492,8 +497,13 @@ async function handleRoleSelection(interaction, roleType) {
     await showSetupMenuWithMessage(interaction, updatedConfig, message);
 
   } catch (error) {
-    console.error('Error handling role selection:', error);
-    await ephemeralManager.sendEphemeral(interaction, '❌ An error occurred while setting the roles.');
+    const logger = require('../utils/logger');
+    logger.error('Error handling role selection:', error);
+    await interaction.update({
+      content: '❌ An error occurred while setting the roles.',
+      embeds: [],
+      components: []
+    });
   }
 }
 

@@ -754,6 +754,29 @@ class Database {
         console.error('Migration 17 error:', error.message);
       }
 
+      // Migration 18: Add moderator_roles column to guild_config
+      try {
+        const [guildConfigColumns] = await this.pool.execute(`
+          SELECT COLUMN_NAME
+          FROM INFORMATION_SCHEMA.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'guild_config'
+        `);
+        const guildConfigColumnNames = guildConfigColumns.map(row => row.COLUMN_NAME);
+
+        if (!guildConfigColumnNames.includes('moderator_roles')) {
+          await this.pool.execute(`
+            ALTER TABLE guild_config
+            ADD COLUMN moderator_roles JSON DEFAULT NULL
+          `);
+          logger.debug('✅ Added moderator_roles column to guild_config');
+        } else {
+          logger.debug('✅ moderator_roles column already exists in guild_config');
+        }
+      } catch (error) {
+        logger.warn('Migration 18 warning:', error.message);
+      }
+
       logger.info('✅ Database migrations completed');
     } catch (error) {
       logger.error('❌ Migration error:', error.message);
@@ -1235,7 +1258,8 @@ class Database {
       }
       return true;
     } catch (error) {
-      console.error('Error adding admin role:', error.message);
+      const logger = require('./utils/logger');
+      logger.error('Error adding admin role:', error.message);
       return false;
     }
   }
@@ -1254,7 +1278,8 @@ class Database {
       );
       return true;
     } catch (error) {
-      console.error('Error removing admin role:', error.message);
+      const logger = require('./utils/logger');
+      logger.error('Error removing admin role:', error.message);
       return false;
     }
   }
@@ -1266,6 +1291,11 @@ class Database {
       const config = await this.getGuildConfig(guildId);
       if (!config) return false;
 
+      // Initialize moderator_roles if it doesn't exist
+      if (!config.moderator_roles) {
+        config.moderator_roles = [];
+      }
+
       if (!config.moderator_roles.includes(roleId)) {
         config.moderator_roles.push(roleId);
         await this.pool.execute(
@@ -1275,7 +1305,8 @@ class Database {
       }
       return true;
     } catch (error) {
-      console.error('Error adding moderator role:', error.message);
+      const logger = require('./utils/logger');
+      logger.error('Error adding moderator role:', error.message);
       return false;
     }
   }
@@ -1287,6 +1318,11 @@ class Database {
       const config = await this.getGuildConfig(guildId);
       if (!config) return false;
 
+      // Initialize moderator_roles if it doesn't exist
+      if (!config.moderator_roles) {
+        config.moderator_roles = [];
+      }
+
       config.moderator_roles = config.moderator_roles.filter(id => id !== roleId);
       await this.pool.execute(
         `UPDATE guild_config SET moderator_roles = ? WHERE guild_id = ?`,
@@ -1294,7 +1330,8 @@ class Database {
       );
       return true;
     } catch (error) {
-      console.error('Error removing moderator role:', error.message);
+      const logger = require('./utils/logger');
+      logger.error('Error removing moderator role:', error.message);
       return false;
     }
   }

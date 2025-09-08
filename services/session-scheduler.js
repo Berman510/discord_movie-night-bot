@@ -64,6 +64,7 @@ class SessionScheduler {
     }, msUntilMidnight);
 
     const hoursUntilMidnight = Math.round(msUntilMidnight / (1000 * 60 * 60));
+    const logger = require('../utils/logger');
     logger.info(`⏰ Daily session check scheduled - first check in ${hoursUntilMidnight} hours`);
   }
 
@@ -187,8 +188,10 @@ class SessionScheduler {
         }
       }
       
+      const logger = require('../utils/logger');
       logger.info(`⏰ Scheduled ${activeSessions.length} active sessions`);
     } catch (error) {
+      const logger = require('../utils/logger');
       logger.error('Error scheduling active sessions:', error);
     }
   }

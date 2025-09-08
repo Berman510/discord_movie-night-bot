@@ -2,7 +2,7 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
-## [1.13.0-rc53] - 2025-09-07
+## [1.13.0-rc54] - 2025-09-07
 ### 🎯 Major Release: Forum Channels, Safety Features & Professional Logging
 
 ### Added
@@ -68,6 +68,11 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **🔧 Fixed Remaining Console Bypass**: Converted database connection, migration, session scheduler, and admin panel messages to use proper logger
 - **📊 Migration Messages to DEBUG Level**: All database migration status messages now use logger.debug() to reduce startup noise
 - **⏰ Session Scheduler Logging**: Converted session scheduler initialization and scheduling messages to use proper log levels
+- **🔧 Fixed Session Scheduler Logger Error**: Added missing logger imports causing "logger is not defined" errors
+- **🗃️ Added Moderator Roles Database Migration**: Added Migration 18 to create moderator_roles JSON column in guild_config table
+- **🛡️ Fixed Moderator Roles Database Operations**: Fixed null handling in addModeratorRole and removeModeratorRole functions
+- **📊 Fixed Remaining Console.error Statements**: Converted database role management errors to use proper logger.error()
+- **💬 Fixed Setup Ephemeral Message Accumulation**: Fixed setup error handlers to use interaction.update() instead of creating new ephemeral messages
 
 ### Technical
 - **� Forum Channel Architecture**: Complete forum post creation, voting, and discussion system
