@@ -614,20 +614,6 @@ async function ensureRecommendationPost(channel, activeSession = null) {
       logger.debug('📋 Created new recommendation post');
     }
 
-      logger.debug(`📋 Forum post created successfully: ${forumPost.name} (ID: ${forumPost.id})`);
-
-      // Unpin other posts first, then pin this one
-      try {
-        await unpinOtherForumPosts(channel, forumPost.id);
-        await forumPost.pin();
-        logger.debug('📋 Pinned recommendation post');
-      } catch (pinError) {
-        logger.warn('📋 Could not pin recommendation post:', pinError.message);
-      }
-
-      logger.info(`📋 Created new recommendation post: ${forumPost.name} (ID: ${forumPost.id})`);
-    }
-
   } catch (error) {
     const logger = require('../utils/logger');
     logger.error('Error ensuring recommendation post:', error);

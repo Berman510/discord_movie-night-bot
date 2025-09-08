@@ -2,6 +2,11 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.13.0-rc83] - 2025-09-08
+### Fixed
+- **🔧 Forum Channel Sync**: Fixed "Missing catch or finally after try" error in sync channels operation for forum channels
+- **📋 Syntax Error**: Corrected malformed try-catch block in ensureRecommendationPost function that was causing sync failures
+
 ## [1.13.0-rc82] - 2025-09-07
 ### 🎯 Major Release: Forum Channels, Safety Features & Professional Logging
 
