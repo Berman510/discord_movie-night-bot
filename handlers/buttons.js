@@ -2203,7 +2203,6 @@ async function handleCancelSessionConfirmation(interaction) {
       components: []
     });
 
-    const logger = require('../utils/logger');
     logger.info(`❌ Session ${session.name} cancelled by ${interaction.user.tag}`);
 
   } catch (error) {

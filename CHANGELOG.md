@@ -2,7 +2,7 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
-## [1.13.0-rc76] - 2025-09-07
+## [1.13.0-rc77] - 2025-09-07
 ### 🎯 Major Release: Forum Channels, Safety Features & Professional Logging
 
 ### Added
@@ -189,6 +189,7 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **🎬 Enhanced Session Cancellation**: Movies from cancelled sessions now properly carry over to next session as intended
 - **📋 Improved Forum State Management**: Better handling of pin transitions between "No Active Session" and "Recommend a Movie" posts
 - **🛡️ Robust Pin Error Handling**: Graceful handling of Discord API pin limit errors with automatic recovery
+- **🔧 HOTFIX: Fixed Duplicate Logger Declaration**: Removed duplicate logger declaration causing "Identifier 'logger' has already been declared" syntax error
 
 ### Technical
 - **� Forum Channel Architecture**: Complete forum post creation, voting, and discussion system
