@@ -977,6 +977,8 @@ class Database {
           if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
             logger.warn('Migration 19 fk_votes_movie warning:', error.message);
           }
+          }
+
 
         try {
           await this.pool.execute(`

@@ -10,6 +10,11 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ### Fixed
 - Moved generateMovieUID implementation into constructor to avoid any parser confusion with class method shorthand on certain Node builds.
 
+## [1.13.0-rc98] - 2025-09-08
+### Fixed
+- Fixed a missing closing brace in Migration 19 (fk_votes_movie catch block) that caused parser to exit class context on some Node builds.
+
+
 
 
 ## [1.13.0-rc95] - 2025-09-08
