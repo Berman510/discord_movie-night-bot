@@ -1363,10 +1363,31 @@ class Database {
               AND COLUMN_NAME IN ('guild_id','message_id','session_id','winner_message_id','associated_movie_id','id')
             ORDER BY TABLE_NAME, COLUMN_NAME
           `);
-          logger.debug('Migration 22 diagnostics:', rows);
+          logger.debug('Migration 22 diagnostics:', JSON.stringify(rows, null, 2));
         } catch (e) {
           logger.debug('Migration 22 diagnostics failed:', e.message);
         }
+
+        // Extra diagnostics: MySQL version and SHOW CREATE TABLE for involved tables
+        try {
+          const [[ver]] = await this.pool.execute('SELECT @@version AS version, @@version_comment AS comment');
+          logger.debug('Migration 22 MySQL version:', JSON.stringify(ver));
+        } catch (e) {
+          logger.debug('Migration 22 version query failed:', e.message);
+        }
+        try {
+          const [crt1] = await this.pool.execute('SHOW CREATE TABLE movies');
+          logger.debug('Migration 22 SHOW CREATE TABLE movies:', JSON.stringify(crt1[0] || crt1));
+        } catch (e) {
+          logger.debug('Migration 22 SHOW CREATE TABLE movies failed:', e.message);
+        }
+        try {
+          const [crt2] = await this.pool.execute('SHOW CREATE TABLE movie_sessions');
+          logger.debug('Migration 22 SHOW CREATE TABLE movie_sessions:', JSON.stringify(crt2[0] || crt2));
+        } catch (e) {
+          logger.debug('Migration 22 SHOW CREATE TABLE movie_sessions failed:', e.message);
+        }
+
 
         logger.debug('✅ Migration 22: Column normalization and FK retry complete');
       } catch (error) {

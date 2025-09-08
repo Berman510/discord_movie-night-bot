@@ -22,6 +22,11 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ### Fixed
 - Migration 22: Normalize column definitions (types/collations) for guild_id/message_id/session_id to satisfy MySQL FK requirements and retry FK creation. Includes diagnostics logging of actual column definitions at runtime.
 
+## [1.13.0-rc101] - 2025-09-08
+### Added
+- Improve Migration 22 diagnostics: pretty-print column definitions; add MySQL version and SHOW CREATE TABLE outputs for movies and movie_sessions to pinpoint FK mismatch cause on hosts.
+
+
 
 
 
