@@ -16,6 +16,75 @@ async function handleSelect(interaction) {
   await ephemeralManager.forceCleanupUser(interaction.user.id);
 
   try {
+    // Configuration channel/role selections
+    if (customId === 'config_select_voting_channel') {
+      const channelId = interaction.values[0];
+      const channel = interaction.guild.channels.cache.get(channelId);
+      const { configuration } = require('../services');
+
+      // Create a mock interaction with the selected channel
+      const mockInteraction = {
+        ...interaction,
+        options: {
+          getChannel: () => channel
+        }
+      };
+
+      await configuration.configureMovieChannel(mockInteraction, interaction.guild.id);
+      return;
+    }
+
+    if (customId === 'config_select_admin_channel') {
+      const channelId = interaction.values[0];
+      const channel = interaction.guild.channels.cache.get(channelId);
+      const { configuration } = require('../services');
+
+      // Create a mock interaction with the selected channel
+      const mockInteraction = {
+        ...interaction,
+        options: {
+          getChannel: () => channel
+        }
+      };
+
+      await configuration.configureAdminChannel(mockInteraction, interaction.guild.id);
+      return;
+    }
+
+    if (customId === 'config_select_viewing_channel') {
+      const channelId = interaction.values[0];
+      const channel = interaction.guild.channels.cache.get(channelId);
+      const { configuration } = require('../services');
+
+      // Create a mock interaction with the selected channel
+      const mockInteraction = {
+        ...interaction,
+        options: {
+          getChannel: () => channel
+        }
+      };
+
+      await configuration.configureViewingChannel(mockInteraction, interaction.guild.id);
+      return;
+    }
+
+    if (customId === 'config_select_notification_role') {
+      const roleId = interaction.values[0];
+      const role = interaction.guild.roles.cache.get(roleId);
+      const { configuration } = require('../services');
+
+      // Create a mock interaction with the selected role
+      const mockInteraction = {
+        ...interaction,
+        options: {
+          getRole: () => role
+        }
+      };
+
+      await configuration.setNotificationRole(mockInteraction, interaction.guild.id);
+      return;
+    }
+
     // Timezone selection for session creation
     if (customId === 'session_timezone_selected') {
       await handleSessionTimezoneSelection(interaction);

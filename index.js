@@ -204,6 +204,12 @@ async function startBot() {
     logger.info(`🌍 Registering commands globally for all servers`);
     await registerCommands(DISCORD_TOKEN, CLIENT_ID);
 
+    // Login to Discord first
+    await client.login(DISCORD_TOKEN);
+
+    // Wait a moment for guild cache to populate
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
     // Also register to specific development guilds if specified for instant testing
     if (GUILD_ID && GUILD_ID.trim()) {
       const guildIds = GUILD_ID.split(',').map(id => id.trim()).filter(id => id);
@@ -226,8 +232,7 @@ async function startBot() {
       }
     }
 
-    // Login to Discord
-    await client.login(DISCORD_TOKEN);
+    // Discord login moved above for guild cache population
 
     // Start payload cleanup
     startPayloadCleanup();

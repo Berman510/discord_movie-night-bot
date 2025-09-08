@@ -2,7 +2,7 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
-## [1.13.0-rc60] - 2025-09-07
+## [1.13.0-rc61] - 2025-09-07
 ### 🎯 Major Release: Forum Channels, Safety Features & Professional Logging
 
 ### Added
@@ -101,6 +101,10 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **💬 Fixed Configuration Ephemeral Messages**: Configuration actions now use interaction.update() instead of interaction.reply() to prevent message accumulation
 - **🔧 Fixed Missing Admin Roles Handler**: Added missing admin_roles and notification_role cases to configuration action handler
 - **🔍 Fixed Remaining Pinned Messages Error**: Applied Collection type checking fix to cleanup.js to prevent "pinnedMessages.find is not a function" errors
+- **🎯 CRITICAL: Fixed Configuration Button Flow**: Configuration buttons now show proper channel/role selectors instead of requiring parameters
+- **📋 Interactive Configuration System**: Added ChannelSelectMenuBuilder and RoleSelectMenuBuilder for voting channel, admin channel, viewing channel, and notification role selection
+- **🔧 Fixed GUILD_ID Warning**: Moved development guild command registration after Discord login to ensure guild cache is populated
+- **⚡ Enhanced Configuration UX**: Configuration buttons now provide interactive selection menus with proper validation and feedback
 
 ### Technical
 - **� Forum Channel Architecture**: Complete forum post creation, voting, and discussion system
