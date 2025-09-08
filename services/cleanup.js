@@ -461,6 +461,12 @@ async function ensureQuickActionPinned(channel) {
 async function ensureQuickActionAtBottom(channel) {
   // Fallback method: Clean up old guide/action messages and ensure only one quick action message at bottom
   try {
+    if (!channel || !channel.send) {
+      const logger = require('../utils/logger');
+      logger.warn('Error ensuring quick action at bottom: channel.send is not a function');
+      return;
+    }
+
     const database = require('../database');
 
     // Check if guild has configuration - don't add messages if no config
@@ -518,6 +524,12 @@ async function ensureQuickActionAtBottom(channel) {
 async function cleanupOldGuideMessages(channel) {
   // Remove old guide/quick action messages to prevent duplicates
   try {
+    if (!channel || !channel.messages) {
+      const logger = require('../utils/logger');
+      logger.warn('Invalid channel provided to cleanupOldGuideMessages');
+      return;
+    }
+
     const botId = channel.client.user.id;
 
     // Fetch recent messages to find old guide messages

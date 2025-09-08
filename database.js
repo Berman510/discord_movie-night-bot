@@ -1621,7 +1621,8 @@ class Database {
       }
 
       await this.pool.execute(query, params);
-      console.log('✅ Marked non-winning movies for next session');
+      const logger = require('./utils/logger');
+      logger.info('✅ Marked non-winning movies for next session');
       return true;
     } catch (error) {
       console.error('Error marking movies for next session:', error.message);

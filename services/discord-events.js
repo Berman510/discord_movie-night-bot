@@ -175,7 +175,8 @@ async function deleteDiscordEvent(guild, eventId) {
     if (!event) return false;
 
     await event.delete();
-    console.log(`🗑️ Deleted Discord event: ${eventId}`);
+    const logger = require('../utils/logger');
+    logger.info(`🗑️ Deleted Discord event: ${event.name} (${eventId})`);
     return true;
   } catch (error) {
     console.warn('Failed to delete Discord event:', error.message);

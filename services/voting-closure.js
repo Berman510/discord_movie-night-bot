@@ -26,14 +26,17 @@ async function checkVotingClosures(client) {
 
         // Check if voting should be closed (with 1 minute buffer for processing)
         if (now >= votingEndTime) {
-          console.log(`⏰ Voting time ended for session: ${session.name} - closing now!`);
+          const logger = require('../utils/logger');
+          logger.info(`⏰ Session ${session.id} voting time already passed, closing now`);
           await closeVotingForSession(client, session);
         } else {
           const timeLeft = Math.round((votingEndTime - now) / 1000 / 60);
-          console.log(`⏰ Session "${session.name}" has ${timeLeft} minutes left`);
+          const logger = require('../utils/logger');
+          logger.debug(`⏰ Session "${session.name}" has ${timeLeft} minutes left`);
         }
       } else {
-        console.log(`⏰ Session "${session.name}" has no voting end time set`);
+        const logger = require('../utils/logger');
+        logger.debug(`⏰ Session "${session.name}" has no voting end time set`);
       }
     }
   } catch (error) {
@@ -52,7 +55,8 @@ async function closeVotingForSession(client, session) {
     const movies = await database.getMoviesBySession(session.id);
     
     if (movies.length === 0) {
-      console.log(`No movies found for session ${session.id}`);
+      const logger = require('../utils/logger');
+      logger.info(`No movies found for session ${session.id}`);
       return;
     }
     

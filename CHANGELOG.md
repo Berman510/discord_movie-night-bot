@@ -2,7 +2,7 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
-## [1.13.0-rc63] - 2025-09-07
+## [1.13.0-rc64] - 2025-09-07
 ### 🎯 Major Release: Forum Channels, Safety Features & Professional Logging
 
 ### Added
@@ -110,6 +110,14 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **🔧 Fixed Session Creation Logger Error**: Fixed "logger is not defined" error after voting session creation in voting-sessions.js
 - **🧵 Fixed Thread Creation for Deleted Messages**: Added message existence check before creating threads to prevent "Unknown Message" errors
 - **📊 Enhanced Sync Error Handling**: Improved error handling in thread recreation with proper logger usage and message validation
+- **📊 COMPREHENSIVE: Fixed All Missing Logging Levels**: Converted 15+ remaining console.log statements to proper logger with appropriate levels
+- **⏰ Session Scheduler Logging**: All session recovery, scheduling, and closure messages now use logger.info/debug
+- **🗑️ Discord Event Deletion Logging**: Event deletion messages now use logger.info with proper formatting
+- **✅ Database Operation Logging**: "Marked non-winning movies for next session" now uses logger.info
+- **❌ Session Cancellation Logging**: Session cancellation messages now use logger.info with user attribution
+- **🔧 Fixed Channel Validation Errors**: Added proper validation for undefined channels in cleanup operations to prevent "Cannot read properties of undefined (reading 'fetch')" errors
+- **🔙 Added Back to Moderation Button**: Administration panel now includes "Back to Moderation" button to return to main admin control panel
+- **🛡️ Enhanced Error Handling**: All cleanup and sync operations now validate channel objects before attempting operations
 
 ### Technical
 - **� Forum Channel Architecture**: Complete forum post creation, voting, and discussion system

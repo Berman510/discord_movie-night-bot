@@ -1762,6 +1762,9 @@ async function handleAdminControlButtons(interaction, customId) {
       case 'admin_ctrl_administration':
         await handleAdministrationPanel(interaction);
         break;
+      case 'admin_ctrl_back_to_moderation':
+        await handleBackToModerationPanel(interaction);
+        break;
       default:
         await interaction.reply({
           content: '❌ Unknown admin control action.',
@@ -2151,7 +2154,8 @@ async function handleCancelSessionConfirmation(interaction) {
       components: []
     });
 
-    console.log(`❌ Session ${session.name} cancelled by ${interaction.user.tag}`);
+    const logger = require('../utils/logger');
+    logger.info(`❌ Session ${session.name} cancelled by ${interaction.user.tag}`);
 
   } catch (error) {
     console.error('Error handling cancel session confirmation:', error);
@@ -2478,13 +2482,32 @@ async function handleAdministrationPanel(interaction) {
       new ButtonBuilder()
         .setCustomId('admin_ctrl_stats')
         .setLabel('📊 Guild Stats')
-        .setStyle(ButtonStyle.Success)
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId('admin_ctrl_back_to_moderation')
+        .setLabel('🔙 Back to Moderation')
+        .setStyle(ButtonStyle.Secondary)
     );
 
   await interaction.update({
     content: '',
     embeds: [adminEmbed],
     components: [adminButtons]
+  });
+}
+
+/**
+ * Handle back to moderation panel button
+ */
+async function handleBackToModerationPanel(interaction) {
+  // Refresh the main admin control panel
+  const adminControls = require('../services/admin-controls');
+  await adminControls.ensureAdminControlPanel(interaction.client, interaction.guild.id);
+
+  await interaction.update({
+    content: '✅ **Returned to Moderation Panel**\n\nThe main admin control panel has been refreshed.',
+    embeds: [],
+    components: []
   });
 }
 

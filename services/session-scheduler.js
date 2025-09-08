@@ -89,7 +89,8 @@ class SessionScheduler {
       if (msUntilEnd <= 24 * 60 * 60 * 1000) { // Within 24 hours
         // Use setTimeout for precise timing
         const timeoutId = setTimeout(async () => {
-          console.log(`⏰ Scheduled voting closure triggered for session ${sessionId}`);
+          const logger = require('../utils/logger');
+          logger.info(`⏰ Scheduled voting closure triggered for session ${sessionId}`);
           await this.closeVotingForSession(sessionId);
           this.activeTimeouts.delete(sessionId);
         }, msUntilEnd);
@@ -97,11 +98,13 @@ class SessionScheduler {
         this.activeTimeouts.set(sessionId, timeoutId);
         
         const hoursUntilEnd = Math.round(msUntilEnd / (1000 * 60 * 60));
-        console.log(`⏰ Scheduled voting end for session ${sessionId} in ${hoursUntilEnd} hours`);
+        const logger = require('../utils/logger');
+        logger.info(`⏰ Scheduled voting end for session ${sessionId} in ${hoursUntilEnd} hours`);
       } else {
         // More than 24 hours away - will be picked up by daily check
         const daysUntilEnd = Math.round(msUntilEnd / (1000 * 60 * 60 * 24));
-        console.log(`⏰ Session ${sessionId} voting ends in ${daysUntilEnd} days - will be checked daily`);
+        const logger = require('../utils/logger');
+        logger.debug(`⏰ Session ${sessionId} voting ends in ${daysUntilEnd} days - will be checked daily`);
       }
     } catch (error) {
       console.error(`Error scheduling voting end for session ${sessionId}:`, error);
@@ -163,7 +166,8 @@ class SessionScheduler {
           const votingEndTime = new Date(session.voting_end_time);
           
           if (votingEndTime <= now) {
-            console.log(`⏰ Recovering missed session: ${session.name} (should have ended ${votingEndTime})`);
+            const logger = require('../utils/logger');
+            logger.info(`⏰ Recovering missed session: ${session.name} (should have ended ${votingEndTime})`);
             await this.closeVotingForSession(session.id);
           }
         }
