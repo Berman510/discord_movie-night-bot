@@ -2,7 +2,7 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
-## [1.13.0-rc69] - 2025-09-07
+## [1.13.0-rc70] - 2025-09-07
 ### 🎯 Major Release: Forum Channels, Safety Features & Professional Logging
 
 ### Added
@@ -145,6 +145,12 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **🛡️ Enhanced Admin Panel Persistence**: Improved error handling prevents admin panel deletion during temporary update failures
 - **📊 Additional Critical Logging Cleanup**: Fixed carryover movie logging, next_session flag clearing, and logger initialization errors
 - **🔍 Fixed "Cannot access 'logger' before initialization"**: Resolved logger declaration conflicts in session creation
+- **🔧 CRITICAL: Fixed Forum Pin Limit Error**: Enhanced pin handling when forum channels reach maximum pinned threads (Discord limit: 1)
+- **📌 Smart Pin Management**: Automatically unpins old posts to make room for winner announcements and important posts
+- **🔧 CRITICAL: Fixed "votingChannel.send is not a function"**: Added proper forum vs text channel detection in winner announcements
+- **🏆 Enhanced Winner Announcement Logic**: Forum channels use forum-specific announcement posts, text channels use regular messages
+- **📊 Additional Forum Logging Cleanup**: Fixed forum post archiving, title updates, tag updates, and content updates to use proper logger
+- **🧹 Comprehensive Forum Error Handling**: All forum operations now have proper error handling with appropriate log levels
 
 ### Technical
 - **� Forum Channel Architecture**: Complete forum post creation, voting, and discussion system

@@ -1454,13 +1454,23 @@ async function handlePickWinner(interaction, guildId, movieId) {
             content = `<@&${config.notification_role_id}>`;
           }
 
-          await votingChannel.send({
-            content: content,
-            embeds: [winnerEmbed]
-          });
+          // Check if this is a forum channel
+          const forumChannels = require('../services/forum-channels');
+          if (forumChannels.isForumChannel(votingChannel)) {
+            // Forum channels handle winner announcements differently
+            // This is already handled above in the forum-specific section
+            logger.debug('Skipping text channel winner announcement for forum channel');
+          } else {
+            // Text channel - send winner announcement
+            await votingChannel.send({
+              content: content,
+              embeds: [winnerEmbed]
+            });
+          }
         }
       } catch (error) {
-        console.warn('Error posting winner announcement:', error.message);
+        const logger = require('../utils/logger');
+        logger.warn('Error posting winner announcement:', error.message);
       }
     }
 

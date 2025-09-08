@@ -92,12 +92,14 @@ async function updateForumPostTitle(thread, movieTitle, status, upVotes = 0, dow
 
       if (thread.name !== newName) {
         await thread.setName(newName);
-        console.log(`📝 Updated forum post title for status change: ${newName}`);
+        const logger = require('../utils/logger');
+        logger.debug(`📝 Updated forum post title for status change: ${newName}`);
       }
     }
 
   } catch (error) {
-    console.warn('Error updating forum post title:', error.message);
+    const logger = require('../utils/logger');
+    logger.warn('Error updating forum post title:', error.message);
   }
 }
 
@@ -229,10 +231,12 @@ async function archiveForumPost(thread, reason = 'Movie completed') {
     if (thread.archived) return;
     
     await thread.setArchived(true, reason);
-    console.log(`📦 Archived forum post: ${thread.name}`);
+    const logger = require('../utils/logger');
+    logger.debug(`📦 Archived forum post: ${thread.name}`);
     
   } catch (error) {
-    console.warn('Error archiving forum post:', error.message);
+    const logger = require('../utils/logger');
+    logger.warn('Error archiving forum post:', error.message);
   }
 }
 
@@ -300,7 +304,8 @@ async function clearForumMoviePosts(channel, winnerMovieId = null) {
   try {
     if (!isForumChannel(channel)) return { archived: 0, deleted: 0 };
 
-    console.log(`🧹 Clearing forum movie posts in channel: ${channel.name}`);
+    const logger = require('../utils/logger');
+  logger.debug(`🧹 Clearing forum movie posts in channel: ${channel.name}`);
 
     const moviePosts = await getForumMoviePosts(channel, 100);
     let archivedCount = 0;
@@ -333,7 +338,7 @@ async function clearForumMoviePosts(channel, winnerMovieId = null) {
       }
     }
 
-    console.log(`🧹 Forum cleanup complete: ${archivedCount} archived, ${deletedCount} deleted`);
+    logger.debug(`🧹 Forum cleanup complete: ${archivedCount} archived, ${deletedCount} deleted`);
     return { archived: archivedCount, deleted: deletedCount };
 
   } catch (error) {
@@ -372,14 +377,47 @@ async function postForumWinnerAnnouncement(channel, winnerMovie, sessionName) {
       reason: `Winner announcement for ${sessionName}`
     });
 
-    // Pin the announcement
-    await announcementPost.pin();
+    // Try to pin the announcement
+    try {
+      await announcementPost.pin();
+      const logger = require('../utils/logger');
+      logger.debug(`📌 Pinned winner announcement: ${winnerMovie.title}`);
+    } catch (pinError) {
+      const logger = require('../utils/logger');
+      if (pinError.code === 30047) {
+        logger.warn(`📌 Cannot pin winner announcement (pin limit reached): ${winnerMovie.title}`);
+        // Try to unpin other posts to make room
+        try {
+          const threads = await channel.threads.fetchActive();
+          const archivedThreads = await channel.threads.fetchArchived({ limit: 50 });
+          const allThreads = new Map([...threads.threads, ...archivedThreads.threads]);
 
-    console.log(`🏆 Posted winner announcement in forum: ${winnerMovie.title}`);
+          for (const [threadId, thread] of allThreads) {
+            if (thread.pinned && thread.id !== announcementPost.id) {
+              await thread.setArchived(true);
+              logger.debug(`📌 Unpinned thread to make room for winner: ${thread.name}`);
+              break;
+            }
+          }
+
+          // Try to pin winner announcement again
+          await announcementPost.pin();
+          logger.debug(`📌 Pinned winner announcement after making room: ${winnerMovie.title}`);
+        } catch (retryError) {
+          logger.warn(`📌 Still cannot pin winner announcement: ${retryError.message}`);
+        }
+      } else {
+        logger.warn(`📌 Error pinning winner announcement: ${pinError.message}`);
+      }
+    }
+
+    const logger = require('../utils/logger');
+    logger.info(`🏆 Posted winner announcement in forum: ${winnerMovie.title}`);
     return announcementPost;
 
   } catch (error) {
-    console.error('Error posting forum winner announcement:', error);
+    const logger = require('../utils/logger');
+    logger.error('Error posting forum winner announcement:', error);
     return null;
   }
 }
