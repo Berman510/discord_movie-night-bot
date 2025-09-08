@@ -1439,11 +1439,9 @@ class Database {
           CREATE TRIGGER trg_movies_bi_session_guild BEFORE INSERT ON movies FOR EACH ROW
           BEGIN
             IF NEW.session_id IS NOT NULL THEN
-              DECLARE sess_gid VARCHAR(20);
-              SELECT guild_id INTO sess_gid FROM movie_sessions WHERE id = NEW.session_id;
-              IF sess_gid IS NULL THEN
+              IF (SELECT guild_id FROM movie_sessions WHERE id = NEW.session_id) IS NULL THEN
                 SET NEW.session_id = NULL;
-              ELSEIF sess_gid <> NEW.guild_id THEN
+              ELSEIF (SELECT guild_id FROM movie_sessions WHERE id = NEW.session_id) <> NEW.guild_id THEN
                 SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Guild mismatch: movies.session_id references a session in a different guild';
               END IF;
             END IF;
@@ -1453,11 +1451,9 @@ class Database {
           CREATE TRIGGER trg_movies_bu_session_guild BEFORE UPDATE ON movies FOR EACH ROW
           BEGIN
             IF NEW.session_id IS NOT NULL THEN
-              DECLARE sess_gid2 VARCHAR(20);
-              SELECT guild_id INTO sess_gid2 FROM movie_sessions WHERE id = NEW.session_id;
-              IF sess_gid2 IS NULL THEN
+              IF (SELECT guild_id FROM movie_sessions WHERE id = NEW.session_id) IS NULL THEN
                 SET NEW.session_id = NULL;
-              ELSEIF sess_gid2 <> NEW.guild_id THEN
+              ELSEIF (SELECT guild_id FROM movie_sessions WHERE id = NEW.session_id) <> NEW.guild_id THEN
                 SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Guild mismatch: movies.session_id references a session in a different guild';
               END IF;
             END IF;
@@ -1469,11 +1465,9 @@ class Database {
           CREATE TRIGGER trg_sessions_bi_winner_guild BEFORE INSERT ON movie_sessions FOR EACH ROW
           BEGIN
             IF NEW.winner_message_id IS NOT NULL THEN
-              DECLARE mv_gid VARCHAR(20);
-              SELECT guild_id INTO mv_gid FROM movies WHERE message_id = NEW.winner_message_id;
-              IF mv_gid IS NULL THEN
+              IF (SELECT guild_id FROM movies WHERE message_id = NEW.winner_message_id) IS NULL THEN
                 SET NEW.winner_message_id = NULL;
-              ELSEIF mv_gid <> NEW.guild_id THEN
+              ELSEIF (SELECT guild_id FROM movies WHERE message_id = NEW.winner_message_id) <> NEW.guild_id THEN
                 SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Guild mismatch: movie_sessions.winner_message_id references a movie in a different guild';
               END IF;
             END IF;
@@ -1483,11 +1477,9 @@ class Database {
           CREATE TRIGGER trg_sessions_bu_winner_guild BEFORE UPDATE ON movie_sessions FOR EACH ROW
           BEGIN
             IF NEW.winner_message_id IS NOT NULL THEN
-              DECLARE mv_gid2 VARCHAR(20);
-              SELECT guild_id INTO mv_gid2 FROM movies WHERE message_id = NEW.winner_message_id;
-              IF mv_gid2 IS NULL THEN
+              IF (SELECT guild_id FROM movies WHERE message_id = NEW.winner_message_id) IS NULL THEN
                 SET NEW.winner_message_id = NULL;
-              ELSEIF mv_gid2 <> NEW.guild_id THEN
+              ELSEIF (SELECT guild_id FROM movies WHERE message_id = NEW.winner_message_id) <> NEW.guild_id THEN
                 SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Guild mismatch: movie_sessions.winner_message_id references a movie in a different guild';
               END IF;
             END IF;
@@ -1497,11 +1489,9 @@ class Database {
           CREATE TRIGGER trg_sessions_bi_assoc_guild BEFORE INSERT ON movie_sessions FOR EACH ROW
           BEGIN
             IF NEW.associated_movie_id IS NOT NULL THEN
-              DECLARE am_gid VARCHAR(20);
-              SELECT guild_id INTO am_gid FROM movies WHERE message_id = NEW.associated_movie_id;
-              IF am_gid IS NULL THEN
+              IF (SELECT guild_id FROM movies WHERE message_id = NEW.associated_movie_id) IS NULL THEN
                 SET NEW.associated_movie_id = NULL;
-              ELSEIF am_gid <> NEW.guild_id THEN
+              ELSEIF (SELECT guild_id FROM movies WHERE message_id = NEW.associated_movie_id) <> NEW.guild_id THEN
                 SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Guild mismatch: movie_sessions.associated_movie_id references a movie in a different guild';
               END IF;
             END IF;
@@ -1511,11 +1501,9 @@ class Database {
           CREATE TRIGGER trg_sessions_bu_assoc_guild BEFORE UPDATE ON movie_sessions FOR EACH ROW
           BEGIN
             IF NEW.associated_movie_id IS NOT NULL THEN
-              DECLARE am_gid2 VARCHAR(20);
-              SELECT guild_id INTO am_gid2 FROM movies WHERE message_id = NEW.associated_movie_id;
-              IF am_gid2 IS NULL THEN
+              IF (SELECT guild_id FROM movies WHERE message_id = NEW.associated_movie_id) IS NULL THEN
                 SET NEW.associated_movie_id = NULL;
-              ELSEIF am_gid2 <> NEW.guild_id THEN
+              ELSEIF (SELECT guild_id FROM movies WHERE message_id = NEW.associated_movie_id) <> NEW.guild_id THEN
                 SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Guild mismatch: movie_sessions.associated_movie_id references a movie in a different guild';
               END IF;
             END IF;

@@ -30,6 +30,11 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ### Added
 - Migration 23: Add simple single-column FKs and guild-enforcing triggers as a robust fallback on MariaDB hosts. Triggers prevent cross-guild references on insert/update while keeping data intact. Idempotent creation guarded via information_schema.
 
+## [1.13.0-rc103] - 2025-09-08
+### Fixed
+- Migration 23 triggers: remove DECLARE usage and use subqueries in IF conditions to satisfy MariaDB trigger syntax rules (DECLARE must be first). This resolves syntax errors and ensures guild-scope enforcement works.
+
+
 
 
 
