@@ -33,42 +33,43 @@ class Logger {
     }
   }
 
-  formatMessage(level, message, ...args) {
+  formatMessage(level, message, guildId = null, ...args) {
     const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
     const levelStr = level.padEnd(5);
-    
+    const guildStr = guildId ? ` [${guildId}]` : '';
+
     let formattedMessage;
     if (this.useColors) {
       const color = LOG_COLORS[level] || '';
-      formattedMessage = `${color}${timestamp} [${levelStr}]${LOG_COLORS.RESET} ${message}`;
+      formattedMessage = `${color}${timestamp} [${levelStr}]${LOG_COLORS.RESET}${guildStr} ${message}`;
     } else {
-      formattedMessage = `${timestamp} [${levelStr}] ${message}`;
+      formattedMessage = `${timestamp} [${levelStr}]${guildStr} ${message}`;
     }
-    
+
     return args.length > 0 ? [formattedMessage, ...args] : [formattedMessage];
   }
 
-  error(message, ...args) {
+  error(message, guildId = null, ...args) {
     if (this.logLevel >= LOG_LEVELS.ERROR) {
-      console.error(...this.formatMessage('ERROR', message, ...args));
+      console.error(...this.formatMessage('ERROR', message, guildId, ...args));
     }
   }
 
-  warn(message, ...args) {
+  warn(message, guildId = null, ...args) {
     if (this.logLevel >= LOG_LEVELS.WARN) {
-      console.warn(...this.formatMessage('WARN', message, ...args));
+      console.warn(...this.formatMessage('WARN', message, guildId, ...args));
     }
   }
 
-  info(message, ...args) {
+  info(message, guildId = null, ...args) {
     if (this.logLevel >= LOG_LEVELS.INFO) {
-      console.log(...this.formatMessage('INFO', message, ...args));
+      console.log(...this.formatMessage('INFO', message, guildId, ...args));
     }
   }
 
-  debug(message, ...args) {
+  debug(message, guildId = null, ...args) {
     if (this.logLevel >= LOG_LEVELS.DEBUG) {
-      console.log(...this.formatMessage('DEBUG', message, ...args));
+      console.log(...this.formatMessage('DEBUG', message, guildId, ...args));
     }
   }
 

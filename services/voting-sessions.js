@@ -320,11 +320,13 @@ async function createVotingSession(interaction, state) {
       components: []
     });
 
+    // Initialize logger for this function
+    const logger = require('../utils/logger');
+
     // Handle carryover movies from previous session
     try {
       const carryoverMovies = await database.getNextSessionMovies(interaction.guild.id);
       if (carryoverMovies.length > 0) {
-        const logger = require('../utils/logger');
         logger.info(`🔄 Found ${carryoverMovies.length} carryover movies from previous session`);
 
         // Update carryover movies with new session ID and reset votes
@@ -376,7 +378,7 @@ async function createVotingSession(interaction, state) {
           // Add carryover movies to the voting channel
           const carryoverMovies = await database.getMoviesBySession(sessionId);
           if (carryoverMovies.length > 0) {
-            console.log(`📝 Creating posts for ${carryoverMovies.length} carryover movies`);
+            logger.debug(`📝 Creating posts for ${carryoverMovies.length} carryover movies`);
 
             for (const movie of carryoverMovies) {
               try {
@@ -390,10 +392,10 @@ async function createVotingSession(interaction, state) {
                       // Update movie with fresh IMDB data
                       await database.updateMovieImdbData(movie.message_id, JSON.stringify(imdbData));
                       updatedMovie = { ...movie, imdb_data: JSON.stringify(imdbData) };
-                      console.log(`🎬 Refreshed IMDB data for carryover movie: ${movie.title}`);
+                      logger.debug(`🎬 Refreshed IMDB data for carryover movie: ${movie.title}`);
                     }
                   } catch (error) {
-                    console.warn(`Error refreshing IMDB data for ${movie.title}:`, error.message);
+                    logger.warn(`Error refreshing IMDB data for ${movie.title}:`, error.message);
                   }
                 }
 
@@ -415,7 +417,7 @@ async function createVotingSession(interaction, state) {
                   await database.updateMovieMessageId(updatedMovie.guild_id, updatedMovie.title, message.id);
                   await database.updateMovieThreadId(message.id, thread.id);
 
-                  console.log(`📝 Created forum post for carryover movie: ${updatedMovie.title} (Thread: ${thread.id})`);
+                  logger.info(`📝 Created forum post for carryover movie: ${updatedMovie.title} (Thread: ${thread.id})`);
                 } else {
                   // Create text channel message for carryover movie
                   const { embeds, components } = require('../utils');
@@ -439,7 +441,7 @@ async function createVotingSession(interaction, state) {
                   console.log(`📝 Created post and thread for carryover movie: ${updatedMovie.title}`);
                 }
               } catch (error) {
-                console.warn(`Error creating post for carryover movie ${movie.title}:`, error.message);
+                logger.warn(`Error creating post for carryover movie ${movie.title}:`, error.message);
               }
             }
           }
@@ -453,7 +455,7 @@ async function createVotingSession(interaction, state) {
             // Forum channels get recommendation post
             const activeSession = await database.getActiveVotingSession(interaction.guild.id);
             await forumChannels.ensureRecommendationPost(votingChannel, activeSession);
-            console.log(`📋 Forum channel setup complete - movies will appear as individual posts`);
+            logger.debug(`📋 Forum channel setup complete - movies will appear as individual posts`);
           }
         }
       }
@@ -461,7 +463,6 @@ async function createVotingSession(interaction, state) {
       // Note: Admin control panel will be updated automatically by the next sync operation
       // We don't refresh it here to avoid replacing the existing panel that users might be interacting with
     } catch (error) {
-      const logger = require('../utils/logger');
       logger.warn('Error updating channels after session creation:', error.message);
     }
 
@@ -470,14 +471,11 @@ async function createVotingSession(interaction, state) {
       const sessionScheduler = require('./session-scheduler');
       await sessionScheduler.scheduleVotingEnd(sessionId, state.votingEndDateTime);
     } catch (error) {
-      const logger = require('../utils/logger');
       logger.warn('Error scheduling voting end:', error.message);
     }
 
-    // Log session creation (reuse logger from above if available)
-    try {
-      const logger = require('../utils/logger');
-      logger.info(`🎬 Voting session created: ${state.sessionName} by ${interaction.user.tag}`);
+    // Log session creation
+    logger.info(`🎬 Voting session created: ${state.sessionName} by ${interaction.user.tag}`);
     } catch (logError) {
       console.log(`🎬 Voting session created: ${state.sessionName} by ${interaction.user.tag}`);
     }
