@@ -390,7 +390,13 @@ async function ensureRecommendationPost(channel, activeSession = null) {
   try {
     if (!isForumChannel(channel)) return;
 
-    console.log(`📋 Ensuring recommendation post in forum channel: ${channel.name}`);
+    const logger = require('../utils/logger');
+    logger.debug(`📋 Ensuring recommendation post in forum channel: ${channel.name}`);
+    logger.debug(`📋 Active session provided:`, activeSession ? {
+      id: activeSession.id,
+      name: activeSession.name,
+      status: activeSession.status
+    } : 'null');
 
     // Look for existing recommendation post
     const threads = await channel.threads.fetchActive();
@@ -409,7 +415,7 @@ async function ensureRecommendationPost(channel, activeSession = null) {
       // No active session - archive existing recommendation post if it exists
       if (recommendationPost && !recommendationPost.archived) {
         await recommendationPost.setArchived(true);
-        console.log('📋 Archived recommendation post (no active session)');
+        logger.debug('📋 Archived recommendation post (no active session)');
       }
       return;
     }
@@ -468,10 +474,11 @@ async function ensureRecommendationPost(channel, activeSession = null) {
           await recommendationPost.pin();
         }
 
-        console.log('📋 Updated existing recommendation post');
+        logger.debug('📋 Updated existing recommendation post');
       }
     } else {
       // Create new recommendation post
+      logger.debug('📋 Creating new recommendation post...');
       const forumPost = await channel.threads.create({
         name: '🍿 Recommend a Movie',
         message: {
@@ -481,14 +488,30 @@ async function ensureRecommendationPost(channel, activeSession = null) {
         reason: 'Movie recommendation post for forum channel'
       });
 
-      // Pin the post to keep it at the top
-      await forumPost.pin();
+      logger.debug(`📋 Forum post created successfully: ${forumPost.name} (ID: ${forumPost.id})`);
 
-      console.log(`📋 Created new recommendation post: ${forumPost.name} (ID: ${forumPost.id})`);
+      // Pin the post to keep it at the top
+      try {
+        await forumPost.pin();
+        logger.debug('📋 Pinned recommendation post');
+      } catch (pinError) {
+        logger.warn('📋 Could not pin recommendation post:', pinError.message);
+      }
+
+      logger.info(`📋 Created new recommendation post: ${forumPost.name} (ID: ${forumPost.id})`);
     }
 
   } catch (error) {
-    console.error('Error ensuring recommendation post:', error);
+    const logger = require('../utils/logger');
+    logger.error('Error ensuring recommendation post:', error);
+    logger.error('Error details:', {
+      channelName: channel?.name,
+      channelId: channel?.id,
+      channelType: channel?.type,
+      activeSession: activeSession?.id,
+      errorMessage: error.message,
+      errorStack: error.stack
+    });
   }
 }
 

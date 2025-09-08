@@ -2,7 +2,7 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
-## [1.13.0-rc64] - 2025-09-07
+## [1.13.0-rc65] - 2025-09-07
 ### 🎯 Major Release: Forum Channels, Safety Features & Professional Logging
 
 ### Added
@@ -118,6 +118,11 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **🔧 Fixed Channel Validation Errors**: Added proper validation for undefined channels in cleanup operations to prevent "Cannot read properties of undefined (reading 'fetch')" errors
 - **🔙 Added Back to Moderation Button**: Administration panel now includes "Back to Moderation" button to return to main admin control panel
 - **🛡️ Enhanced Error Handling**: All cleanup and sync operations now validate channel objects before attempting operations
+- **🔒 CRITICAL: Made Administration Panel Ephemeral**: Administration panel now shows as ephemeral message instead of editing shared moderation panel
+- **👥 Fixed Security Issue**: Non-admin moderators can no longer see or access administrator-only buttons in shared channel
+- **🔙 Enhanced Back Button**: Back to Moderation button now auto-dismisses ephemeral message after 3 seconds for clean UX
+- **📋 Enhanced Forum Recommendation Post Debugging**: Added comprehensive logging and error details for forum recommendation post creation issues
+- **🔍 Detailed Forum Post Error Tracking**: Added session validation, channel type checking, and stack trace logging for forum post troubleshooting
 
 ### Technical
 - **� Forum Channel Architecture**: Complete forum post creation, voting, and discussion system

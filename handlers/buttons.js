@@ -2489,10 +2489,10 @@ async function handleAdministrationPanel(interaction) {
         .setStyle(ButtonStyle.Secondary)
     );
 
-  await interaction.update({
-    content: '',
+  await interaction.reply({
     embeds: [adminEmbed],
-    components: [adminButtons]
+    components: [adminButtons],
+    flags: MessageFlags.Ephemeral
   });
 }
 
@@ -2505,10 +2505,19 @@ async function handleBackToModerationPanel(interaction) {
   await adminControls.ensureAdminControlPanel(interaction.client, interaction.guild.id);
 
   await interaction.update({
-    content: '✅ **Returned to Moderation Panel**\n\nThe main admin control panel has been refreshed.',
+    content: '✅ **Returned to Moderation Panel**\n\nThe main admin control panel has been refreshed. This message will dismiss automatically.',
     embeds: [],
     components: []
   });
+
+  // Auto-dismiss the ephemeral message after 3 seconds
+  setTimeout(async () => {
+    try {
+      await interaction.deleteReply();
+    } catch (error) {
+      // Message might already be dismissed, ignore error
+    }
+  }, 3000);
 }
 
 module.exports = {
