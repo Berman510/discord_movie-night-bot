@@ -476,9 +476,6 @@ async function createVotingSession(interaction, state) {
 
     // Log session creation
     logger.info(`🎬 Voting session created: ${state.sessionName} by ${interaction.user.tag}`);
-    } catch (logError) {
-      console.log(`🎬 Voting session created: ${state.sessionName} by ${interaction.user.tag}`);
-    }
 
   } catch (error) {
     console.error('Error creating voting session:', error);

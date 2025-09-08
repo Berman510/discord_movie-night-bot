@@ -2347,7 +2347,19 @@ async function handleGuidedSetupButton(interaction, customId) {
       await votingSessions.startVotingSessionCreation(interaction);
       break;
 
+    case 'setup_create_category':
+      await guidedSetup.showCategoryCreationGuide(interaction);
+      break;
+
     default:
+      // Handle channel confirmation buttons
+      if (customId.startsWith('setup_confirm_channel_')) {
+        const parts = customId.split('_');
+        const channelType = parts[3]; // voting, admin, or viewing
+        const channelId = parts[4];
+        await guidedSetup.handleChannelConfirmation(interaction, channelType, channelId);
+        break;
+      }
       console.warn('Unknown guided setup button:', customId);
       break;
   }

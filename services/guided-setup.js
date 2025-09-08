@@ -395,26 +395,121 @@ async function showSetupComplete(interaction) {
 }
 
 /**
- * Handle channel selection
+ * Handle channel selection with safety checks
  */
 async function handleChannelSelection(interaction, channelType) {
   const selectedChannel = interaction.values[0];
   const channel = interaction.guild.channels.cache.get(selectedChannel);
 
+  // Check if channel has existing messages (safety check)
+  const hasExistingContent = await checkChannelForExistingContent(channel);
+
+  if (hasExistingContent) {
+    // Show confirmation dialog for existing channel
+    await showChannelSafetyConfirmation(interaction, channel, channelType);
+    return;
+  }
+
+  // Channel is safe, proceed with configuration
+  await configureChannelDirectly(interaction, channel, channelType);
+}
+
+/**
+ * Check if channel has existing content
+ */
+async function checkChannelForExistingContent(channel) {
+  try {
+    // For forum channels, check for existing threads
+    if (channel.type === 15) { // Forum channel
+      const threads = await channel.threads.fetchActive();
+      const archivedThreads = await channel.threads.fetchArchived({ limit: 10 });
+      return threads.threads.size > 0 || archivedThreads.threads.size > 0;
+    }
+
+    // For text channels, check for existing messages
+    const messages = await channel.messages.fetch({ limit: 10 });
+    return messages.size > 0;
+  } catch (error) {
+    // If we can't check, assume it's safe
+    return false;
+  }
+}
+
+/**
+ * Show channel safety confirmation dialog
+ */
+async function showChannelSafetyConfirmation(interaction, channel, channelType) {
+  const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+
+  const channelTypeNames = {
+    'voting': 'Voting Channel',
+    'admin': 'Admin Channel',
+    'viewing': 'Viewing Channel'
+  };
+
+  const embed = new EmbedBuilder()
+    .setTitle('⚠️ Channel Safety Warning')
+    .setDescription(`**${channel}** appears to have existing content.\n\n**⚠️ STRONGLY RECOMMENDED:** Use dedicated channels for the Movie Night Bot to avoid conflicts with existing content.\n\n**🏗️ Consider creating a dedicated category:**\n• \`#movie-voting\` - For movie recommendations and voting\n• \`#movie-admin\` - For bot administration (private)\n• \`#movie-night-vc\` - Voice channel for watching together\n\n**Required Permissions:**\n${getChannelPermissionInfo(channelType)}\n\n**Are you sure you want to use this existing channel?**`)
+    .setColor(0xfee75c)
+    .setFooter({ text: 'Using existing channels may cause conflicts with other content' });
+
+  const buttons = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId(`setup_confirm_channel_${channelType}_${channel.id}`)
+        .setLabel('⚠️ Use Existing Channel')
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId('setup_create_category')
+        .setLabel('🏗️ Create Dedicated Category')
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId(`setup_${channelType}_channel`)
+        .setLabel('🔙 Choose Different Channel')
+        .setStyle(ButtonStyle.Secondary)
+    );
+
+  await interaction.update({
+    content: '',
+    embeds: [embed],
+    components: [buttons]
+  });
+}
+
+/**
+ * Get permission info for channel type
+ */
+function getChannelPermissionInfo(channelType) {
+  switch (channelType) {
+    case 'voting':
+      return '• View Channel\n• Send Messages\n• Embed Links\n• Add Reactions\n• Create Public Threads\n• Send Messages in Threads';
+    case 'admin':
+      return '• View Channel\n• Send Messages\n• Embed Links\n• Manage Messages';
+    case 'viewing':
+      return '• View Channel\n• Connect\n• Create Events';
+    default:
+      return '• View Channel\n• Send Messages';
+  }
+}
+
+/**
+ * Configure channel directly (after safety check passed)
+ */
+async function configureChannelDirectly(interaction, channel, channelType) {
   let success = false;
   let message = '';
 
   try {
     switch (channelType) {
       case 'voting':
-        success = await database.setMovieChannel(interaction.guild.id, selectedChannel);
+        success = await database.setMovieChannel(interaction.guild.id, channel.id);
         message = success ?
           `✅ **Voting channel set to ${channel}**\n\nUsers can now recommend movies here!` :
           '❌ Failed to set voting channel.';
         break;
 
       case 'admin':
-        success = await database.setAdminChannel(interaction.guild.id, selectedChannel);
+        success = await database.setAdminChannel(interaction.guild.id, channel.id);
         if (success) {
           // Create admin control panel in the new admin channel
           try {
@@ -430,7 +525,7 @@ async function handleChannelSelection(interaction, channelType) {
         break;
 
       case 'viewing':
-        success = await database.setViewingChannel(interaction.guild.id, selectedChannel);
+        success = await database.setViewingChannel(interaction.guild.id, channel.id);
         message = success ?
           `✅ **Viewing channel set to ${channel}**\n\nThe bot will track attendance during movie sessions!` :
           '❌ Failed to set viewing channel.';
@@ -507,6 +602,50 @@ async function handleRoleSelection(interaction, roleType) {
   }
 }
 
+/**
+ * Handle channel confirmation after safety warning
+ */
+async function handleChannelConfirmation(interaction, channelType, channelId) {
+  const channel = interaction.guild.channels.cache.get(channelId);
+  if (!channel) {
+    await interaction.update({
+      content: '❌ Channel not found. Please try again.',
+      embeds: [],
+      components: []
+    });
+    return;
+  }
+
+  await configureChannelDirectly(interaction, channel, channelType);
+}
+
+/**
+ * Show category creation guide
+ */
+async function showCategoryCreationGuide(interaction) {
+  const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+
+  const embed = new EmbedBuilder()
+    .setTitle('🏗️ Create Dedicated Movie Night Category')
+    .setDescription(`**Recommended Setup:**\n\n**1. Create a new category:** \`Movie Night\`\n\n**2. Create these channels in the category:**\n• \`#movie-voting\` (Text/Forum) - For recommendations and voting\n• \`#movie-admin\` (Text, Private) - For bot administration\n• \`#movie-night-vc\` (Voice) - For watching together\n\n**3. Set permissions:**\n• **Movie Voting**: Everyone can view, send messages\n• **Movie Admin**: Only admins/mods can view\n• **Movie Night VC**: Everyone can join\n\n**4. Give the bot these permissions in the category:**\n• View Channels\n• Send Messages\n• Embed Links\n• Add Reactions\n• Create Public Threads\n• Manage Messages (admin channel only)\n• Connect (voice channel)\n• Create Events\n\n**After creating the channels, return here to configure them!**`)
+    .setColor(0x57f287)
+    .setFooter({ text: 'This setup prevents conflicts and provides the best experience' });
+
+  const buttons = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('setup_back_to_menu')
+        .setLabel('🔙 Back to Setup')
+        .setStyle(ButtonStyle.Secondary)
+    );
+
+  await interaction.update({
+    content: '',
+    embeds: [embed],
+    components: [buttons]
+  });
+}
+
 module.exports = {
   startGuidedSetup,
   showSetupMenu,
@@ -519,5 +658,7 @@ module.exports = {
   showNotificationRoleSetup,
   showSetupComplete,
   handleChannelSelection,
-  handleRoleSelection
+  handleRoleSelection,
+  handleChannelConfirmation,
+  showCategoryCreationGuide
 };

@@ -2,7 +2,7 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
-## [1.13.0-rc74] - 2025-09-07
+## [1.13.0-rc75] - 2025-09-07
 ### 🎯 Major Release: Forum Channels, Safety Features & Professional Logging
 
 ### Added
@@ -175,6 +175,13 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **🔍 Thread ID Tracking**: Leverages existing thread_id column in database for precise forum thread identification and deletion
 - **⚡ Immediate Cleanup Results**: Forum posts are deleted immediately during sync operations, providing instant visual feedback
 - **🧹 Professional Forum State Management**: Clean transitions between active/inactive sessions with proper content lifecycle management
+- **🔧 CRITICAL: Fixed Session Creation Syntax Error**: Resolved malformed try-catch block causing "Unexpected token 'catch'" error
+- **🛡️ Channel Safety Confirmation System**: Added safety checks for existing channels during configuration to prevent conflicts
+- **⚠️ Existing Channel Warning**: Configuration now detects existing content and shows confirmation dialog with safety recommendations
+- **🏗️ Dedicated Category Creation Guide**: Added comprehensive guide for creating dedicated Movie Night category with proper permissions
+- **📋 Enhanced Channel Safety**: Checks for existing messages/threads before allowing channel configuration
+- **🎯 Smart Configuration Flow**: Guides users toward dedicated channels while supporting mixed-use scenarios safely
+- **📊 Comprehensive Permission Documentation**: Detailed permission requirements for each channel type in setup process
 
 ### Technical
 - **� Forum Channel Architecture**: Complete forum post creation, voting, and discussion system
