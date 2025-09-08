@@ -462,6 +462,7 @@ async function createVotingSession(interaction, state) {
 
       // Note: Admin control panel will be updated automatically by the next sync operation
       // We don't refresh it here to avoid replacing the existing panel that users might be interacting with
+      }
     } catch (error) {
       logger.warn('Error updating channels after session creation:', error.message);
     }
