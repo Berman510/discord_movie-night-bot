@@ -2,6 +2,11 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.13.0-rc96] - 2025-09-08
+### Fixed
+- Fully removed the top-level try/catch wrapper around runMigrations() to prevent parser issues on certain Node.js builds. All migration statements remain individually guarded; functionality unchanged.
+
+
 ## [1.13.0-rc95] - 2025-09-08
 ### Fixed
 - Resolve startup crash on some Node runtimes by flattening Migration 19/20 structure (removed outer try/catch wrappers). All statements still guarded individually with warnings; functional behavior unchanged.

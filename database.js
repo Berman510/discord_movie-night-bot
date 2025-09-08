@@ -239,7 +239,7 @@ class Database {
     const logger = require('./utils/logger');
     logger.info('🔄 Running database migrations...');
 
-    try {
+
       // Check current schema first
       const [columns] = await this.pool.execute(`
         SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
@@ -1125,9 +1125,7 @@ class Database {
 
 
       logger.info('✅ Database migrations completed');
-    } catch (error) {
-      logger.error('❌ Migration error:', error.message);
-    }
+
   }
 
   // Movie UID generation
