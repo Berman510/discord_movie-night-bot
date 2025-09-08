@@ -18,6 +18,11 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ### Added
 - Migration 21: Automated cleanup of orphaned rows (participants/attendees/movies-session links and session winner/associated references) followed by re-attempting composite FK creation. Fully idempotent and safe; does not remove valid data.
 
+## [1.13.0-rc100] - 2025-09-08
+### Fixed
+- Migration 22: Normalize column definitions (types/collations) for guild_id/message_id/session_id to satisfy MySQL FK requirements and retry FK creation. Includes diagnostics logging of actual column definitions at runtime.
+
+
 
 
 

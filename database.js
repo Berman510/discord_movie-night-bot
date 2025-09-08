@@ -1266,6 +1266,114 @@ class Database {
       }
 
 
+      // Migration 22: Normalize column definitions for FK compatibility and retry
+      try {
+        // 22.1 Normalize VARCHAR columns (guild_id/message_id) to same charset/collation
+        const varcharTargets = [
+          // table, column, nullability
+          ['movies','guild_id','NOT NULL'],
+          ['movies','message_id','NOT NULL'],
+          ['movie_sessions','guild_id','NOT NULL'],
+          ['movie_sessions','winner_message_id','NULL'],
+          ['movie_sessions','associated_movie_id','NULL'],
+          ['session_participants','guild_id','NOT NULL'],
+          ['session_attendees','guild_id','NOT NULL'],
+        ];
+        for (const [tbl, col, nullable] of varcharTargets) {
+          try {
+            await this.pool.execute(`ALTER TABLE ${tbl} MODIFY COLUMN ${col} VARCHAR(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci ${nullable}`);
+          } catch (error) {
+            if (!error.message.includes('check that column/column exists')) {
+              logger.debug(`Migration 22 note (${tbl}.${col}):`, error.message);
+            }
+          }
+        }
+
+        // 22.2 Normalize INT columns (session_id/id) to same signedness/size
+        const intTargets = [
+          ['movies','session_id','INT NULL'],
+          ['session_participants','session_id','INT NOT NULL'],
+          ['session_attendees','session_id','INT NOT NULL'],
+          ['movie_sessions','id','INT NOT NULL'], // keep AUTO_INCREMENT intact
+        ];
+        for (const [tbl, col, defn] of intTargets) {
+          try {
+            await this.pool.execute(`ALTER TABLE ${tbl} MODIFY COLUMN ${col} ${defn}`);
+          } catch (error) {
+            logger.debug(`Migration 22 note (${tbl}.${col}):`, error.message);
+          }
+        }
+
+        // 22.3 Re-ensure supporting indexes
+        try { await this.pool.execute(`ALTER TABLE movies ADD UNIQUE KEY uniq_movies_guild_message (guild_id, message_id)`); } catch (e) {}
+        try { await this.pool.execute(`ALTER TABLE movie_sessions ADD INDEX idx_movie_sessions_gid_id (guild_id, id)`); } catch (e) {}
+        try { await this.pool.execute(`ALTER TABLE movie_sessions ADD INDEX idx_ms_gid_winner (guild_id, winner_message_id)`); } catch (e) {}
+        try { await this.pool.execute(`ALTER TABLE movie_sessions ADD INDEX idx_ms_gid_assoc (guild_id, associated_movie_id)`); } catch (e) {}
+
+        // 22.4 Retry the remaining composite FKs (the ones still warning)
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movies
+            ADD CONSTRAINT fk_movies_session
+            FOREIGN KEY (guild_id, session_id)
+            REFERENCES movie_sessions(guild_id, id)
+            ON DELETE SET NULL
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.warn('Migration 22 fk_movies_session warning:', error.message);
+          }
+        }
+
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movie_sessions
+            ADD CONSTRAINT fk_sessions_winner_movie
+            FOREIGN KEY (guild_id, winner_message_id)
+            REFERENCES movies(guild_id, message_id)
+            ON DELETE SET NULL
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.warn('Migration 22 fk_sessions_winner_movie warning:', error.message);
+          }
+        }
+
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movie_sessions
+            ADD CONSTRAINT fk_sessions_associated_movie
+            FOREIGN KEY (guild_id, associated_movie_id)
+            REFERENCES movies(guild_id, message_id)
+            ON DELETE SET NULL
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.warn('Migration 22 fk_sessions_associated_movie warning:', error.message);
+          }
+        }
+
+        // 22.5 Diagnostic: log column types/collations for future reference
+        try {
+          const [rows] = await this.pool.execute(`
+            SELECT TABLE_NAME, COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, COLLATION_NAME, CHARACTER_SET_NAME
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME IN ('movies','movie_sessions','session_participants','session_attendees')
+              AND COLUMN_NAME IN ('guild_id','message_id','session_id','winner_message_id','associated_movie_id','id')
+            ORDER BY TABLE_NAME, COLUMN_NAME
+          `);
+          logger.debug('Migration 22 diagnostics:', rows);
+        } catch (e) {
+          logger.debug('Migration 22 diagnostics failed:', e.message);
+        }
+
+        logger.debug('✅ Migration 22: Column normalization and FK retry complete');
+      } catch (error) {
+        logger.warn('Migration 22 wrapper warning:', error.message);
+      }
+
+
       logger.info('✅ Database migrations completed');
 
   }
