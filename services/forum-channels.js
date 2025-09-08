@@ -246,17 +246,24 @@ async function archiveForumPost(thread, reason = 'Movie completed') {
 async function getForumMoviePosts(channel, limit = 50) {
   try {
     if (!isForumChannel(channel)) return [];
-    
+
+    const logger = require('../utils/logger');
+
     const threads = await channel.threads.fetchActive();
-    const archivedThreads = await channel.threads.fetchArchived({ limit });
-    
+    const archivedThreads = await channel.threads.fetchArchived({ limit: 100 }); // Fetch more archived threads
+
     const allThreads = new Map([...threads.threads, ...archivedThreads.threads]);
-    
+
+    logger.debug(`📋 Found ${threads.threads.size} active threads, ${archivedThreads.threads.size} archived threads`);
+
     // Filter for movie posts (those starting with movie emoji)
     const moviePosts = Array.from(allThreads.values())
       .filter(thread => thread.name.match(/^[🎬📌🎪✅⏭️🚫]/))
       .slice(0, limit);
-    
+
+    logger.debug(`📋 Found ${moviePosts.length} movie posts to process`);
+    moviePosts.forEach(post => logger.debug(`📋 Movie post: ${post.name} (archived: ${post.archived})`));
+
     return moviePosts;
     
   } catch (error) {
@@ -323,18 +330,18 @@ async function clearForumMoviePosts(channel, winnerMovieId = null) {
 
         if (isWinner) {
           // Winner thread - just update status, don't archive yet
-          console.log(`🏆 Keeping winner thread: ${thread.name}`);
+          logger.debug(`🏆 Keeping winner thread: ${thread.name}`);
           continue;
         } else {
           // Non-winner thread - archive it
           if (!thread.archived) {
-            await archiveForumPost(thread, 'Session ended - movie not selected');
+            await archiveForumPost(thread, winnerMovieId ? 'Session ended - movie not selected' : 'Session cancelled - archiving all movies');
             archivedCount++;
-            console.log(`📦 Archived non-winner thread: ${thread.name}`);
+            logger.debug(`📦 Archived non-winner thread: ${thread.name}`);
           }
         }
       } catch (error) {
-        console.warn(`Error processing forum thread ${thread.name}:`, error.message);
+        logger.warn(`Error processing forum thread ${thread.name}:`, error.message);
       }
     }
 

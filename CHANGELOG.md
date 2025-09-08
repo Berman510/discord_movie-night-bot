@@ -2,7 +2,7 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
-## [1.13.0-rc70] - 2025-09-07
+## [1.13.0-rc71] - 2025-09-07
 ### 🎯 Major Release: Forum Channels, Safety Features & Professional Logging
 
 ### Added
@@ -151,6 +151,11 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **🏆 Enhanced Winner Announcement Logic**: Forum channels use forum-specific announcement posts, text channels use regular messages
 - **📊 Additional Forum Logging Cleanup**: Fixed forum post archiving, title updates, tag updates, and content updates to use proper logger
 - **🧹 Comprehensive Forum Error Handling**: All forum operations now have proper error handling with appropriate log levels
+- **🔧 CRITICAL: Fixed Forum Posts Not Being Archived**: Sync Channels now properly cleans up old movie posts when no active session
+- **📋 Enhanced Forum Cleanup During Sync**: When no active session exists, all old movie forum posts are archived before showing "No Active Session"
+- **🔍 Enhanced Forum Post Detection**: Improved getForumMoviePosts to fetch more archived threads and provide detailed logging
+- **📊 Better Forum Cleanup Logging**: Added detailed logging to show which posts are found and processed during cleanup operations
+- **🧹 Comprehensive Forum Sync Behavior**: Sync Channels now properly handles forum state transitions between active and inactive sessions
 
 ### Technical
 - **� Forum Channel Architecture**: Complete forum post creation, voting, and discussion system

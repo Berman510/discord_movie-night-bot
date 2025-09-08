@@ -520,8 +520,16 @@ async function handleSyncChannel(interaction) {
             const cleanup = require('./cleanup');
             await cleanup.ensureQuickActionAtBottom(votingChannel);
           } else if (forumChannels.isForumChannel(votingChannel)) {
-            // Forum channels get recommendation post
+            // Forum channels get recommendation post and cleanup
             const activeSession = await database.getActiveVotingSession(interaction.guild.id);
+
+            // If no active session, clean up all old movie posts first
+            if (!activeSession) {
+              const logger = require('../utils/logger');
+              logger.debug('📋 No active session - cleaning up forum movie posts');
+              await forumChannels.clearForumMoviePosts(votingChannel, null);
+            }
+
             await forumChannels.ensureRecommendationPost(votingChannel, activeSession);
           }
         } else {
