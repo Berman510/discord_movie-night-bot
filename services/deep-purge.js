@@ -461,7 +461,6 @@ async function executeDeepPurge(guildId, categories, reason = null, client = nul
 
   const result = await database.deepPurgeGuildData(guildId, options);
 
-  const logger = require('../utils/logger');
   logger.info(`✅ Deep purge completed: ${result.deleted} items deleted`);
   if (result.errors.length > 0) {
     logger.error('Deep purge errors:', result.errors);

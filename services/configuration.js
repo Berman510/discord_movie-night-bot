@@ -20,9 +20,10 @@ async function configureMovieChannel(interaction, guildId) {
 
   // Validate channel type
   if (!forumChannels.isTextChannel(channel) && !forumChannels.isForumChannel(channel)) {
-    await interaction.reply({
+    await interaction.update({
       content: '❌ Movie channel must be a Text channel or Forum channel.',
-      flags: MessageFlags.Ephemeral
+      embeds: [],
+      components: []
     });
     return;
   }
@@ -34,20 +35,22 @@ async function configureMovieChannel(interaction, guildId) {
       ? 'Each movie recommendation will create a new forum post for voting and discussion.'
       : 'Movie recommendations will be posted as messages with voting buttons and discussion threads.';
 
-    await interaction.reply({
+    await interaction.update({
       content: `✅ **Movie channel set to ${channel}**\n\n📋 **Channel Type**: ${channelType}\n🎬 **Behavior**: ${description}\n\n🔧 Cleanup commands will only work in this channel.`,
-      flags: MessageFlags.Ephemeral
+      embeds: [],
+      components: []
     });
   } else {
-    await interaction.reply({
+    await interaction.update({
       content: '❌ Failed to set movie channel.',
-      flags: MessageFlags.Ephemeral
+      embeds: [],
+      components: []
     });
   }
 }
 
 async function addAdminRole(interaction, guildId) {
-  const role = interaction.options.getRole('role');
+  const role = interaction.options?.getRole('role');
   
   if (!role) {
     await interaction.reply({
@@ -72,7 +75,7 @@ async function addAdminRole(interaction, guildId) {
 }
 
 async function removeAdminRole(interaction, guildId) {
-  const role = interaction.options.getRole('role');
+  const role = interaction.options?.getRole('role');
   
   if (!role) {
     await interaction.reply({
@@ -97,7 +100,7 @@ async function removeAdminRole(interaction, guildId) {
 }
 
 async function setNotificationRole(interaction, guildId) {
-  const role = interaction.options.getRole('role');
+  const role = interaction.options?.getRole('role');
   
   const success = await database.setNotificationRole(guildId, role ? role.id : null);
   if (success) {
@@ -213,7 +216,7 @@ async function resetConfiguration(interaction, guildId) {
 }
 
 async function configureViewingChannel(interaction, guildId) {
-  const channel = interaction.options.getChannel('channel');
+  const channel = interaction.options?.getChannel('channel');
 
   if (!channel) {
     await interaction.reply({
@@ -248,7 +251,7 @@ async function configureViewingChannel(interaction, guildId) {
 }
 
 async function configureAdminChannel(interaction, guildId) {
-  const channel = interaction.options.getChannel('channel');
+  const channel = interaction.options?.getChannel('channel');
 
   if (!channel) {
     await interaction.reply({

@@ -2,7 +2,7 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
-## [1.13.0-rc59] - 2025-09-07
+## [1.13.0-rc60] - 2025-09-07
 ### 🎯 Major Release: Forum Channels, Safety Features & Professional Logging
 
 ### Added
@@ -97,6 +97,10 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **⚠️ Graceful Permission Handling**: Missing permissions for guild command registration are now handled as warnings, not fatal errors
 - **🔍 Enhanced Guild Validation**: Added check to verify bot is in development guild before attempting command registration
 - **📋 Root Cause Analysis**: Issue was caused by GUILD_ID pointing to guild where bot lost permissions (from rc45 GUILD_ID changes)
+- **🔧 CRITICAL: Fixed Configuration System Crashes**: Fixed "Cannot read properties of undefined (reading 'getChannel')" errors in all configuration functions
+- **💬 Fixed Configuration Ephemeral Messages**: Configuration actions now use interaction.update() instead of interaction.reply() to prevent message accumulation
+- **🔧 Fixed Missing Admin Roles Handler**: Added missing admin_roles and notification_role cases to configuration action handler
+- **🔍 Fixed Remaining Pinned Messages Error**: Applied Collection type checking fix to cleanup.js to prevent "pinnedMessages.find is not a function" errors
 
 ### Technical
 - **� Forum Channel Architecture**: Complete forum post creation, voting, and discussion system

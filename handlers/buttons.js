@@ -2189,6 +2189,15 @@ async function handleConfigurationAction(interaction, customId) {
       case 'viewing_channel':
         await configuration.configureViewingChannel(interaction, interaction.guild.id);
         break;
+      case 'admin_roles':
+        await interaction.reply({
+          content: '🔧 **Admin Roles Configuration**\n\nUse `/movie-configure admin-roles add` and `/movie-configure admin-roles remove` commands to manage admin roles.',
+          flags: MessageFlags.Ephemeral
+        });
+        break;
+      case 'notification_role':
+        await configuration.setNotificationRole(interaction, interaction.guild.id);
+        break;
       default:
         await interaction.reply({
           content: `❌ Unknown configuration action: ${action}`,

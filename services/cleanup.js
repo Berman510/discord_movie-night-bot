@@ -364,13 +364,18 @@ async function ensureQuickActionPinned(channel) {
     // First try to find in pinned messages
     try {
       const pinnedMessages = await channel.messages.fetchPins();
-      // Use Collection.find() method directly
-      existingQuickAction = pinnedMessages.find(msg =>
-        msg.author.id === channel.client.user.id &&
-        msg.embeds.length > 0 &&
-        (msg.embeds[0].title?.includes('Ready to recommend') ||
-         msg.embeds[0].title?.includes('No Active Voting Session'))
-      );
+      // Check if pinnedMessages is a Collection and has the find method
+      if (pinnedMessages && typeof pinnedMessages.find === 'function') {
+        existingQuickAction = pinnedMessages.find(msg =>
+          msg.author.id === channel.client.user.id &&
+          msg.embeds.length > 0 &&
+          (msg.embeds[0].title?.includes('Ready to recommend') ||
+           msg.embeds[0].title?.includes('No Active Voting Session'))
+        );
+      } else {
+        const logger = require('../utils/logger');
+        logger.debug('Pinned messages result is not a Collection, skipping pinned search');
+      }
     } catch (error) {
       const logger = require('../utils/logger');
       logger.warn('Error fetching pinned messages:', error.message);
