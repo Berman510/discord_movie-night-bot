@@ -2,6 +2,18 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.13.0-rc93] - 2025-09-08
+### Fixed
+- 🧱 Migration 20: Align session_participants/session_attendees charsets to utf8mb4 (required for composite foreign keys on varchar columns)
+- 🔁 Re-apply supporting indexes and add composite FKs that were missed previously:
+  - session_participants(guild_id, session_id) → movie_sessions(guild_id, id) ON DELETE CASCADE
+  - session_attendees(guild_id, session_id) → movie_sessions(guild_id, id) ON DELETE CASCADE
+  - movies(guild_id, session_id) → movie_sessions(guild_id, id) ON DELETE SET NULL
+  - movie_sessions(guild_id, winner_message_id/associated_movie_id) → movies(guild_id, message_id) ON DELETE SET NULL
+
+### Notes
+- Live DB verification shows zero cross-guild mismatches; this migration ensures MySQL can successfully create the intended composite FKs.
+
 ## [1.13.0-rc92] - 2025-09-08
 ### Fixed
 - 🧰 Migration 19 data backfill: auto-correct legacy cross-guild mismatches so composite FKs can be created cleanly

@@ -969,7 +969,6 @@ class Database {
           if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
             logger.warn('Migration 19 fk_votes_movie warning:', error.message);
           }
-        }
 
         try {
           await this.pool.execute(`
@@ -1045,6 +1044,89 @@ class Database {
         logger.debug('✅ Migration 19: Guild-scoped constraints and FKs applied');
       } catch (error) {
         logger.warn('Migration 19 warning:', error.message);
+      }
+
+      // Migration 20: Align charsets and finalize composite FKs missed in rc91/rc92
+      try {
+        // Ensure session tables use utf8mb4 to match parent tables for FKs
+        try {
+          await this.pool.execute(`
+            ALTER TABLE session_participants CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+          `);
+        } catch (error) {
+          if (!error.message.includes('same collation') && !error.message.includes('doesn\'t exist')) {
+            logger.warn('Migration 20 session_participants charset warning:', error.message);
+          }
+        }
+        try {
+          await this.pool.execute(`
+            ALTER TABLE session_attendees CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+          `);
+        } catch (error) {
+          if (!error.message.includes('same collation') && !error.message.includes('doesn\'t exist')) {
+            logger.warn('Migration 20 session_attendees charset warning:', error.message);
+          }
+        }
+
+        // Helpful supporting indexes (re-apply if missed)
+        try { await this.pool.execute(`ALTER TABLE movie_sessions ADD INDEX idx_ms_gid_winner (guild_id, winner_message_id)`); } catch (e) {}
+        try { await this.pool.execute(`ALTER TABLE movie_sessions ADD INDEX idx_ms_gid_assoc (guild_id, associated_movie_id)`); } catch (e) {}
+        try { await this.pool.execute(`ALTER TABLE movies ADD INDEX idx_movies_gid_sid (guild_id, session_id)`); } catch (e) {}
+
+        // Re-attempt composite FKs
+        try {
+          await this.pool.execute(`
+            ALTER TABLE session_participants
+            ADD CONSTRAINT fk_participants_session
+            FOREIGN KEY (guild_id, session_id)
+            REFERENCES movie_sessions(guild_id, id)
+            ON DELETE CASCADE
+          `);
+        } catch (error) { if (!error.message.includes('Duplicate') && !error.message.includes('exists')) { logger.warn('Migration 20 fk_participants_session warning:', error.message); } }
+
+        try {
+          await this.pool.execute(`
+            ALTER TABLE session_attendees
+            ADD CONSTRAINT fk_attendees_session
+            FOREIGN KEY (guild_id, session_id)
+            REFERENCES movie_sessions(guild_id, id)
+            ON DELETE CASCADE
+          `);
+        } catch (error) { if (!error.message.includes('Duplicate') && !error.message.includes('exists')) { logger.warn('Migration 20 fk_attendees_session warning:', error.message); } }
+
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movies
+            ADD CONSTRAINT fk_movies_session
+            FOREIGN KEY (guild_id, session_id)
+            REFERENCES movie_sessions(guild_id, id)
+            ON DELETE SET NULL
+          `);
+        } catch (error) { if (!error.message.includes('Duplicate') && !error.message.includes('exists')) { logger.warn('Migration 20 fk_movies_session warning:', error.message); } }
+
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movie_sessions
+            ADD CONSTRAINT fk_sessions_winner_movie
+            FOREIGN KEY (guild_id, winner_message_id)
+            REFERENCES movies(guild_id, message_id)
+            ON DELETE SET NULL
+          `);
+        } catch (error) { if (!error.message.includes('Duplicate') && !error.message.includes('exists')) { logger.warn('Migration 20 fk_sessions_winner_movie warning:', error.message); } }
+
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movie_sessions
+            ADD CONSTRAINT fk_sessions_associated_movie
+            FOREIGN KEY (guild_id, associated_movie_id)
+            REFERENCES movies(guild_id, message_id)
+            ON DELETE SET NULL
+          `);
+        } catch (error) { if (!error.message.includes('Duplicate') && !error.message.includes('exists')) { logger.warn('Migration 20 fk_sessions_associated_movie warning:', error.message); } }
+
+        logger.debug('✅ Migration 20: Charsets aligned and composite FKs ensured');
+      } catch (error) {
+        logger.warn('Migration 20 warning:', error.message);
       }
 
       logger.info('✅ Database migrations completed');
