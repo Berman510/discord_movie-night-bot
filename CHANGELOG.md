@@ -2,7 +2,7 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
-## [1.13.0-rc73] - 2025-09-07
+## [1.13.0-rc74] - 2025-09-07
 ### 🎯 Major Release: Forum Channels, Safety Features & Professional Logging
 
 ### Added
@@ -168,6 +168,13 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **🎯 Fixed Forum Sync Behavior**: Sync Channels now properly archives only actual movie posts, not system posts
 - **📊 Enhanced Guild-Aware Logging**: All forum operations now use guild ID in logging for better multi-guild debugging
 - **✅ Text Channel Compatibility Verified**: All forum-specific code properly gated with isForumChannel() checks - text channels unaffected
+- **🔧 CRITICAL: Database-Driven Safe Deletion System**: Completely rewrote forum cleanup to use database-tracked message/thread IDs only
+- **🛡️ Enhanced Safety for Mixed-Use Channels**: Only deletes threads/messages that are tracked in bot database - ignores all other content
+- **🗑️ Proper Deletion vs Archiving**: Forum posts are now properly deleted (not archived) when sessions end or sync occurs
+- **📊 Database-First Approach**: Uses getMoviesByGuild() to identify what to delete, ensuring only bot-created content is affected
+- **🔍 Thread ID Tracking**: Leverages existing thread_id column in database for precise forum thread identification and deletion
+- **⚡ Immediate Cleanup Results**: Forum posts are deleted immediately during sync operations, providing instant visual feedback
+- **🧹 Professional Forum State Management**: Clean transitions between active/inactive sessions with proper content lifecycle management
 
 ### Technical
 - **� Forum Channel Architecture**: Complete forum post creation, voting, and discussion system

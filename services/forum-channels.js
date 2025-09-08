@@ -315,54 +315,76 @@ async function cleanupForumPosts(channel, olderThanDays = 30) {
 }
 
 /**
- * Clear all movie forum posts when session ends (archive non-winners, delete losers)
+ * Clear all movie forum posts when session ends - DATABASE-DRIVEN SAFE DELETION
+ * Only deletes threads/messages that are tracked in our database
  */
 async function clearForumMoviePosts(channel, winnerMovieId = null) {
   try {
     if (!isForumChannel(channel)) return { archived: 0, deleted: 0 };
 
     const logger = require('../utils/logger');
+    const database = require('../database');
     const guildId = channel.guild?.id;
-    logger.debug(`🧹 Clearing forum movie posts in channel: ${channel.name}`, guildId);
+    logger.debug(`🧹 Clearing forum movie posts in channel: ${channel.name} (DATABASE-DRIVEN)`, guildId);
 
-    const moviePosts = await getForumMoviePosts(channel, 100);
-    let archivedCount = 0;
+    // Get all movies from database for this guild and channel
+    const allMovies = await database.getMoviesByGuild(guildId);
+    const channelMovies = allMovies.filter(movie =>
+      movie.channel_id === channel.id &&
+      movie.channel_type === 'forum' &&
+      movie.thread_id // Only process movies with thread IDs
+    );
+
+    logger.debug(`📋 Found ${channelMovies.length} database-tracked forum movies to process`, guildId);
+
     let deletedCount = 0;
+    let skippedCount = 0;
 
-    for (const thread of moviePosts) {
+    for (const movie of channelMovies) {
       try {
-        // Skip recommendation posts and no session posts
-        if (thread.name.includes('Recommend a Movie') || thread.name.includes('🍿') ||
-            thread.name.includes('No Active Voting Session') || thread.name.includes('🚫')) {
-          logger.debug(`📋 Skipping system post: ${thread.name}`, guildId);
-          continue;
-        }
-
         // Check if this is the winner thread
-        const isWinner = winnerMovieId && thread.id === winnerMovieId;
+        const isWinner = winnerMovieId && movie.thread_id === winnerMovieId;
 
         if (isWinner) {
-          // Winner thread - just update status, don't archive yet
-          logger.debug(`🏆 Keeping winner thread: ${thread.name}`, guildId);
+          // Winner thread - keep it
+          logger.debug(`🏆 Keeping winner thread: ${movie.title} (${movie.thread_id})`, guildId);
+          skippedCount++;
           continue;
-        } else {
-          // Non-winner thread - archive it
-          if (!thread.archived) {
-            await archiveForumPost(thread, winnerMovieId ? 'Session ended - movie not selected' : 'Session cancelled - archiving all movies');
-            archivedCount++;
-            logger.debug(`📦 Archived non-winner thread: ${thread.name}`, guildId);
+        }
+
+        // Try to fetch and delete the thread
+        try {
+          const thread = await channel.client.channels.fetch(movie.thread_id);
+          if (thread && thread.parentId === channel.id) {
+            await thread.delete('Movie cleanup - session ended');
+            deletedCount++;
+            logger.info(`🗑️ Deleted forum thread: ${movie.title} (${movie.thread_id})`, guildId);
+          } else {
+            logger.debug(`📋 Thread not found or not in this channel: ${movie.title} (${movie.thread_id})`, guildId);
+          }
+        } catch (threadError) {
+          if (threadError.code === 10003) { // Unknown Channel
+            logger.debug(`📋 Thread already deleted: ${movie.title} (${movie.thread_id})`, guildId);
+          } else {
+            logger.warn(`Error deleting thread ${movie.title} (${movie.thread_id}):`, threadError.message, guildId);
           }
         }
+
+        // Remove movie from database since we deleted its thread
+        await database.deleteMovie(movie.message_id);
+        logger.debug(`🗄️ Removed movie from database: ${movie.title}`, guildId);
+
       } catch (error) {
-        logger.warn(`Error processing forum thread ${thread.name}:`, error.message, guildId);
+        logger.warn(`Error processing movie ${movie.title}:`, error.message, guildId);
       }
     }
 
-    logger.debug(`🧹 Forum cleanup complete: ${archivedCount} archived, ${deletedCount} deleted`, guildId);
-    return { archived: archivedCount, deleted: deletedCount };
+    logger.info(`🧹 Forum cleanup complete: ${deletedCount} deleted, ${skippedCount} kept (winner/system)`, guildId);
+    return { archived: 0, deleted: deletedCount };
 
   } catch (error) {
-    console.error('Error clearing forum movie posts:', error);
+    const logger = require('../utils/logger');
+    logger.error('Error clearing forum movie posts:', error.message, channel.guild?.id);
     return { archived: 0, deleted: 0 };
   }
 }
