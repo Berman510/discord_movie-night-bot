@@ -431,7 +431,8 @@ async function ensureAdminControlPanel(client, guildId) {
         msg.embeds[0].title.includes('Admin Control Panel')
       );
     } catch (error) {
-      console.warn('Error fetching pinned messages:', error.message);
+      const logger = require('../utils/logger');
+      logger.warn('Error fetching pinned messages:', error.message);
     }
 
     // If not found in pinned messages, search recent messages as fallback

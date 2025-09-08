@@ -288,6 +288,13 @@ class Database {
 
       // Migration 4: Update charset to support emojis
       try {
+        // First drop foreign key constraints that might interfere
+        try {
+          await this.pool.execute(`ALTER TABLE votes DROP FOREIGN KEY votes_ibfk_1`);
+        } catch (fkError) {
+          // Foreign key might not exist or have different name, continue
+        }
+
         await this.pool.execute(`
           ALTER TABLE movie_sessions
           CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
@@ -296,9 +303,29 @@ class Database {
           ALTER TABLE movies
           CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
         `);
+        await this.pool.execute(`
+          ALTER TABLE votes
+          CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+        `);
+
+        // Recreate foreign key constraint
+        try {
+          await this.pool.execute(`
+            ALTER TABLE votes
+            ADD CONSTRAINT votes_ibfk_1
+            FOREIGN KEY (message_id) REFERENCES movies(message_id) ON DELETE CASCADE
+          `);
+        } catch (fkError) {
+          // Foreign key might already exist, continue
+        }
+
         console.log('✅ Updated charset to utf8mb4');
       } catch (error) {
-        console.warn('Migration 4 warning:', error.message);
+        // Only log as warning if it's not a critical error
+        if (!error.message.includes('already exists') && !error.message.includes('utf8mb4')) {
+          const logger = require('./utils/logger');
+          logger.warn('Migration 4 warning:', error.message);
+        }
       }
 
       // Migration 5: Add 'scheduled' status to movies enum

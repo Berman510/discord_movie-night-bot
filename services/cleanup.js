@@ -369,7 +369,8 @@ async function ensureQuickActionPinned(channel) {
          msg.embeds[0].title?.includes('No Active Voting Session'))
       );
     } catch (error) {
-      console.warn('Error fetching pinned messages:', error.message);
+      const logger = require('../utils/logger');
+      logger.warn('Error fetching pinned messages:', error.message);
     }
 
     // If not found in pinned messages, search recent messages as fallback

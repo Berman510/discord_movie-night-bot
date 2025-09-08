@@ -2,7 +2,7 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
-## [1.13.0-rc47] - 2025-09-07
+## [1.13.0-rc48] - 2025-09-07
 ### 🎯 Major Release: Forum Channels, Safety Features & Professional Logging
 
 ### Added
@@ -47,6 +47,9 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **💥 Deep Purge setDefaultValues**: Fixed "setDefaultValues is not a function" by using placeholder text instead
 - **🧵 Thread Recreation**: Fixed missing threads after sync by properly recreating movie records and threads
 - **🗃️ Database Foreign Keys**: Fixed foreign key constraint errors during movie record updates
+- **🔧 Guided Setup Ephemeral**: Fixed ephemeral message accumulation during /movie-setup by using interaction.update()
+- **📊 Migration Warnings**: Fixed charset migration warnings and improved logging system usage
+- **📋 Logging System**: Converted console.warn/error calls to use proper logging system with levels
 
 ### Technical
 - **� Forum Channel Architecture**: Complete forum post creation, voting, and discussion system

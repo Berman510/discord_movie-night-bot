@@ -119,10 +119,19 @@ async function showSetupMenuWithMessage(interaction, currentConfig = null, succe
         .setStyle(ButtonStyle.Primary)
     );
 
-  await ephemeralManager.sendEphemeral(interaction, '', {
-    embeds: [embed],
-    components: [menuButtons, menuButtons2]
-  });
+  // Use update if this is a button interaction, otherwise send new
+  if (interaction.isButton() || interaction.isStringSelectMenu()) {
+    await interaction.update({
+      content: '',
+      embeds: [embed],
+      components: [menuButtons, menuButtons2]
+    });
+  } else {
+    await ephemeralManager.sendEphemeral(interaction, '', {
+      embeds: [embed],
+      components: [menuButtons, menuButtons2]
+    });
+  }
 }
 
 /**
@@ -150,7 +159,8 @@ async function showVotingChannelSetup(interaction) {
         .setStyle(ButtonStyle.Secondary)
     );
 
-  await ephemeralManager.sendEphemeral(interaction, '', {
+  await interaction.update({
+    content: '',
     embeds: [embed],
     components: [channelSelect, backButton]
   });
@@ -181,7 +191,8 @@ async function showAdminChannelSetup(interaction) {
         .setStyle(ButtonStyle.Secondary)
     );
 
-  await ephemeralManager.sendEphemeral(interaction, '', {
+  await interaction.update({
+    content: '',
     embeds: [embed],
     components: [channelSelect, backButton]
   });
@@ -212,7 +223,8 @@ async function showViewingChannelSetup(interaction) {
         .setStyle(ButtonStyle.Secondary)
     );
 
-  await ephemeralManager.sendEphemeral(interaction, '', {
+  await interaction.update({
+    content: '',
     embeds: [embed],
     components: [channelSelect, backButton]
   });
@@ -247,7 +259,8 @@ async function showAdminRolesSetup(interaction) {
         .setStyle(ButtonStyle.Secondary)
     );
 
-  await ephemeralManager.sendEphemeral(interaction, '', {
+  await interaction.update({
+    content: '',
     embeds: [embed],
     components: [roleSelect, backButton]
   });
@@ -282,7 +295,8 @@ async function showNotificationRoleSetup(interaction) {
         .setStyle(ButtonStyle.Secondary)
     );
 
-  await ephemeralManager.sendEphemeral(interaction, '', {
+  await interaction.update({
+    content: '',
     embeds: [embed],
     components: [roleSelect, backButton]
   });
