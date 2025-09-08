@@ -2,7 +2,7 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
-## [1.13.0-rc66] - 2025-09-07
+## [1.13.0-rc67] - 2025-09-07
 ### 🎯 Major Release: Forum Channels, Safety Features & Professional Logging
 
 ### Added
@@ -126,6 +126,11 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **🔧 CRITICAL: Fixed Admin Panel Disappearing**: Removed automatic admin panel refresh after session creation that was replacing existing panels
 - **📊 Additional Logging Cleanup**: Fixed more console.log statements including forum sync, event notifications, session creation, and Discord event sync
 - **🛡️ Admin Panel Persistence**: Admin panel now stays visible during session creation and other operations
+- **🔧 CRITICAL: Fixed "Skip to Next Session" for Forum Channels**: Movies skipped to next session now properly archive forum threads instead of failing to delete
+- **📦 Forum Thread Archiving**: Skip to Next Session now archives forum threads instead of attempting deletion, preserving discussion history
+- **🔍 Fixed "Cannot read properties of undefined (reading 'fetch')" Error**: Enhanced error handling in removeMoviePost function
+- **📊 Additional Logging Cleanup**: Fixed forum post title updates, voting actions, button creation debug messages, and error logging
+- **🛡️ Enhanced Forum Channel Support**: Proper handling of forum vs text channels when skipping movies to next session
 
 ### Technical
 - **� Forum Channel Architecture**: Complete forum post creation, voting, and discussion system

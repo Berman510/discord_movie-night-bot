@@ -8,7 +8,8 @@ const { VOTE_EMOJIS } = require('./constants');
 const { TIMEZONE_OPTIONS } = require('../config/timezones');
 
 function createVotingButtons(messageId, upCount = 0, downCount = 0) {
-  console.log(`🔍 DEBUG: Creating voting buttons for message: ${messageId} (up: ${upCount}, down: ${downCount})`);
+  const logger = require('./logger');
+  logger.debug(`🔍 DEBUG: Creating voting buttons for message: ${messageId} (up: ${upCount}, down: ${downCount})`);
   const buttons = [new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`mn:up:${messageId}`)
@@ -21,7 +22,7 @@ function createVotingButtons(messageId, upCount = 0, downCount = 0) {
       .setStyle(ButtonStyle.Danger)
       .setEmoji(VOTE_EMOJIS.down)
   )];
-  console.log(`🔍 DEBUG: Created ${buttons.length} button rows`);
+  logger.debug(`🔍 DEBUG: Created ${buttons.length} button rows`);
   return buttons;
 }
 

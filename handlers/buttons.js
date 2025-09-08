@@ -316,7 +316,8 @@ async function handleVoting(interaction, action, msgId, votes) {
       });
     }
 
-    console.log(`Voting: ${action} for message ${msgId} by user ${userId}`);
+    const logger = require('../utils/logger');
+    logger.debug(`Voting: ${action} for message ${msgId} by user ${userId}`);
 
   } catch (error) {
     console.error('Error handling voting:', error);
@@ -1659,21 +1660,40 @@ async function handleSkipToNext(interaction, guildId, movieId) {
       const adminMirror = require('../services/admin-mirror');
       await adminMirror.removeMovieFromAdminChannel(interaction.client, guildId, movieId);
     } catch (error) {
-      console.warn('Error removing movie from admin channel:', error.message);
+      logger.warn('Error removing movie from admin channel:', error.message);
     }
 
-    // Remove from voting channel
+    // Remove from voting channel (archive if forum, delete if text)
     try {
       const config = await database.getGuildConfig(guildId);
       if (config && config.movie_channel_id) {
-        const cleanup = require('../services/cleanup');
-        await cleanup.removeMoviePost(interaction.client, config.movie_channel_id, movieId);
+        const votingChannel = await interaction.client.channels.fetch(config.movie_channel_id);
+        const forumChannels = require('../services/forum-channels');
+
+        if (forumChannels.isForumChannel(votingChannel)) {
+          // For forum channels, archive the thread
+          if (movie.thread_id) {
+            try {
+              const thread = await votingChannel.threads.fetch(movie.thread_id);
+              if (thread && !thread.archived) {
+                await thread.setArchived(true);
+                logger.debug(`📦 Archived forum thread for skipped movie: ${movie.title}`);
+              }
+            } catch (threadError) {
+              logger.warn(`Error archiving forum thread for ${movie.title}:`, threadError.message);
+            }
+          }
+        } else {
+          // For text channels, delete the message
+          const cleanup = require('../services/cleanup');
+          await cleanup.removeMoviePost(interaction.client, config.movie_channel_id, movieId);
+        }
       }
     } catch (error) {
-      console.warn('Error removing movie from voting channel:', error.message);
+      logger.warn('Error removing movie from voting channel:', error.message);
     }
 
-    console.log(`⏭️ Movie ${movie.title} skipped to next session`);
+    logger.info(`⏭️ Movie ${movie.title} skipped to next session`);
 
   } catch (error) {
     console.error('Error skipping movie to next session:', error);

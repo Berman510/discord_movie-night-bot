@@ -80,7 +80,8 @@ async function updateForumPostTitle(thread, movieTitle, status, upVotes = 0, dow
   try {
     // For forum channels, we'll update the embed content instead of the title
     // to avoid the annoying "changed the post title" messages
-    console.log(`📝 Skipping forum post title update for: ${movieTitle} (votes: +${upVotes}/-${downVotes}) to avoid spam messages`);
+    const logger = require('../utils/logger');
+    logger.debug(`📝 Skipping forum post title update for: ${movieTitle} (votes: +${upVotes}/-${downVotes}) to avoid spam messages`);
 
     // Only update title for major status changes (like when movie is selected as winner)
     const shouldUpdateTitle = ['scheduled', 'watched', 'banned'].includes(status);

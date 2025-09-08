@@ -940,7 +940,8 @@ async function removeMoviePost(client, channelId, movieId) {
 
     return true;
   } catch (error) {
-    console.error('Error removing movie post:', error.message);
+    const logger = require('../utils/logger');
+    logger.error('Error removing movie post:', error.message);
     return false;
   }
 }
