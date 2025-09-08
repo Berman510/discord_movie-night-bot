@@ -529,12 +529,13 @@ async function ensureRecommendationPost(channel, activeSession = null) {
     if (!isForumChannel(channel)) return;
 
     const logger = require('../utils/logger');
-    logger.debug(`📋 Ensuring recommendation post in forum channel: ${channel.name}`);
+    const guildId = channel.guild?.id;
+    logger.debug(`📋 Ensuring recommendation post in forum channel: ${channel.name}`, guildId);
     logger.debug(`📋 Active session provided:`, activeSession ? {
       id: activeSession.id,
       name: activeSession.name,
       status: activeSession.status
-    } : 'null');
+    } : 'null', guildId);
 
     // SIMPLE: Find the pinned post (there should only be one)
     const threads = await channel.threads.fetchActive();
@@ -545,6 +546,7 @@ async function ensureRecommendationPost(channel, activeSession = null) {
     for (const [threadId, thread] of allThreads) {
       if (thread.pinned) {
         pinnedPost = thread;
+        logger.debug(`📋 Found existing pinned post: ${thread.name} (${thread.id})`, guildId);
         break;
       }
     }
@@ -561,21 +563,51 @@ async function ensureRecommendationPost(channel, activeSession = null) {
 
       if (pinnedPost) {
         // Edit existing pinned post
-        if (pinnedPost.archived) await pinnedPost.setArchived(false);
-        await pinnedPost.setName('🚫 No Active Voting Session');
-        const starterMessage = await pinnedPost.fetchStarterMessage();
-        if (starterMessage) {
-          await starterMessage.edit({ embeds: [noSessionEmbed], components: [] });
+        try {
+          if (pinnedPost.archived) await pinnedPost.setArchived(false);
+          await pinnedPost.setName('🚫 No Active Voting Session');
+          const starterMessage = await pinnedPost.fetchStarterMessage();
+          if (starterMessage) {
+            await starterMessage.edit({ embeds: [noSessionEmbed], components: [] });
+          }
+          logger.debug('📋 Updated pinned post to no session', guildId);
+        } catch (editError) {
+          logger.warn(`📋 Error editing existing pinned post: ${editError.message}`, guildId);
+          // If editing fails, try to create a new one after unpinning the old one
+          try {
+            await pinnedPost.unpin();
+            logger.debug('📋 Unpinned old post due to edit failure', guildId);
+          } catch (unpinError) {
+            logger.warn(`📋 Error unpinning old post: ${unpinError.message}`, guildId);
+          }
+          pinnedPost = null; // Force creation of new post
         }
-        logger.debug('📋 Updated pinned post to no session');
-      } else {
+      }
+
+      if (!pinnedPost) {
         // Create new pinned post
-        const forumPost = await channel.threads.create({
-          name: '🚫 No Active Voting Session',
-          message: { embeds: [noSessionEmbed] }
-        });
-        await forumPost.pin();
-        logger.debug('📋 Created new no session post');
+        try {
+          const forumPost = await channel.threads.create({
+            name: '🚫 No Active Voting Session',
+            message: { embeds: [noSessionEmbed] }
+          });
+          await forumPost.pin();
+          logger.debug('📋 Created new no session post', guildId);
+        } catch (createError) {
+          if (createError.code === 30047) {
+            logger.warn('📋 Cannot pin new post (pin limit reached), unpinning others first', guildId);
+            await unpinOtherForumPosts(channel);
+            // Try again after unpinning
+            const forumPost = await channel.threads.create({
+              name: '🚫 No Active Voting Session',
+              message: { embeds: [noSessionEmbed] }
+            });
+            await forumPost.pin();
+            logger.debug('📋 Created new no session post after unpinning others', guildId);
+          } else {
+            throw createError;
+          }
+        }
       }
       return;
     }
@@ -597,34 +629,65 @@ async function ensureRecommendationPost(channel, activeSession = null) {
 
     if (pinnedPost) {
       // Edit existing pinned post
-      if (pinnedPost.archived) await pinnedPost.setArchived(false);
-      await pinnedPost.setName('🍿 Recommend a Movie');
-      const starterMessage = await pinnedPost.fetchStarterMessage();
-      if (starterMessage) {
-        await starterMessage.edit({ embeds: [recommendEmbed], components: [recommendButton] });
+      try {
+        if (pinnedPost.archived) await pinnedPost.setArchived(false);
+        await pinnedPost.setName('🍿 Recommend a Movie');
+        const starterMessage = await pinnedPost.fetchStarterMessage();
+        if (starterMessage) {
+          await starterMessage.edit({ embeds: [recommendEmbed], components: [recommendButton] });
+        }
+        logger.debug('📋 Updated pinned post to recommendation', guildId);
+      } catch (editError) {
+        logger.warn(`📋 Error editing existing pinned post: ${editError.message}`, guildId);
+        // If editing fails, try to create a new one after unpinning the old one
+        try {
+          await pinnedPost.unpin();
+          logger.debug('📋 Unpinned old post due to edit failure', guildId);
+        } catch (unpinError) {
+          logger.warn(`📋 Error unpinning old post: ${unpinError.message}`, guildId);
+        }
+        pinnedPost = null; // Force creation of new post
       }
-      logger.debug('📋 Updated pinned post to recommendation');
-    } else {
+    }
+
+    if (!pinnedPost) {
       // Create new pinned post
-      const forumPost = await channel.threads.create({
-        name: '🍿 Recommend a Movie',
-        message: { embeds: [recommendEmbed], components: [recommendButton] }
-      });
-      await forumPost.pin();
-      logger.debug('📋 Created new recommendation post');
+      try {
+        const forumPost = await channel.threads.create({
+          name: '🍿 Recommend a Movie',
+          message: { embeds: [recommendEmbed], components: [recommendButton] }
+        });
+        await forumPost.pin();
+        logger.debug('📋 Created new recommendation post', guildId);
+      } catch (createError) {
+        if (createError.code === 30047) {
+          logger.warn('📋 Cannot pin new post (pin limit reached), unpinning others first', guildId);
+          await unpinOtherForumPosts(channel);
+          // Try again after unpinning
+          const forumPost = await channel.threads.create({
+            name: '🍿 Recommend a Movie',
+            message: { embeds: [recommendEmbed], components: [recommendButton] }
+          });
+          await forumPost.pin();
+          logger.debug('📋 Created new recommendation post after unpinning others', guildId);
+        } else {
+          throw createError;
+        }
+      }
     }
 
   } catch (error) {
     const logger = require('../utils/logger');
-    logger.error('Error ensuring recommendation post:', error);
-    logger.error('Error details:', {
+    logger.error(`[${error.constructor.name}] Error ensuring recommendation post:`, error.message, channel.guild?.id);
+    logger.error('Error details:', JSON.stringify({
       channelName: channel?.name,
       channelId: channel?.id,
       channelType: channel?.type,
       activeSession: activeSession?.id,
       errorMessage: error.message,
-      errorStack: error.stack
-    });
+      errorCode: error.code,
+      errorStack: error.stack?.split('\n')[0]
+    }), channel.guild?.id);
   }
 }
 

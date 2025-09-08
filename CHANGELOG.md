@@ -2,6 +2,14 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.13.0-rc84] - 2025-09-08
+### Fixed
+- **📋 Forum Channel Pin Management**: Fixed issue where starting new voting sessions in forum channels failed due to Discord pin limits
+- **🔧 Recommendation Post Replacement**: Properly replace "No Active Voting Session" posts with "Recommend a Movie" posts instead of creating duplicates
+- **📌 Automatic Pin Cleanup**: Added automatic unpinning of old posts when pin limits are reached
+- **🐛 Error Logging**: Fixed `[object Object]` error logging by properly serializing error details with JSON.stringify()
+- **🔄 Fallback Logic**: Added robust fallback logic that unpins and recreates posts when editing fails
+
 ## [1.13.0-rc83] - 2025-09-08
 ### Fixed
 - **🔧 Forum Channel Sync**: Fixed "Missing catch or finally after try" error in sync channels operation for forum channels
