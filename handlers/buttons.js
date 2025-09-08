@@ -157,6 +157,12 @@ async function handleButton(interaction) {
       return;
     }
 
+    // Configuration action buttons
+    if (customId.startsWith('config_')) {
+      await handleConfigurationAction(interaction, customId);
+      return;
+    }
+
     // Guided setup buttons
     if (customId.startsWith('setup_')) {
       await handleGuidedSetupButton(interaction, customId);
@@ -2148,6 +2154,40 @@ async function handleCancelSessionConfirmation(interaction) {
 }
 
 /**
+ * Handle configuration action buttons
+ */
+async function handleConfigurationAction(interaction, customId) {
+  const { configuration } = require('../services');
+
+  const action = customId.replace('config_', '');
+
+  try {
+    switch (action) {
+      case 'voting_channel':
+        await configuration.configureMovieChannel(interaction, interaction.guild.id);
+        break;
+      case 'admin_channel':
+        await configuration.configureAdminChannel(interaction, interaction.guild.id);
+        break;
+      case 'viewing_channel':
+        await configuration.configureViewingChannel(interaction, interaction.guild.id);
+        break;
+      default:
+        await interaction.reply({
+          content: `❌ Unknown configuration action: ${action}`,
+          flags: MessageFlags.Ephemeral
+        });
+    }
+  } catch (error) {
+    console.error('Error handling configuration action:', error);
+    await interaction.reply({
+      content: '❌ An error occurred while processing the configuration.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+/**
  * Handle guided setup button interactions
  */
 async function handleGuidedSetupButton(interaction, customId) {
@@ -2182,6 +2222,10 @@ async function handleGuidedSetupButton(interaction, customId) {
       await guidedSetup.showAdminRolesSetup(interaction);
       break;
 
+    case 'setup_moderator_roles':
+      await guidedSetup.showModeratorRolesSetup(interaction);
+      break;
+
     case 'setup_notification_role':
       await guidedSetup.showNotificationRoleSetup(interaction);
       break;
@@ -2190,6 +2234,12 @@ async function handleGuidedSetupButton(interaction, customId) {
       const database = require('../database');
       const config = await database.getGuildConfig(interaction.guild.id);
       await guidedSetup.showSetupMenuWithMessage(interaction, config, '⏭️ **Admin roles skipped** - Only Discord Administrators can manage the bot.');
+      break;
+
+    case 'setup_skip_moderator_roles':
+      const database3 = require('../database');
+      const config3 = await database3.getGuildConfig(interaction.guild.id);
+      await guidedSetup.showSetupMenuWithMessage(interaction, config3, '⏭️ **Moderator roles skipped** - Only admins can moderate movies and sessions.');
       break;
 
     case 'setup_skip_notification_role':
@@ -2287,6 +2337,8 @@ async function handleDeepPurgeCancel(interaction) {
  * Complete setup and initialize channels
  */
 async function completeSetupAndInitialize(interaction) {
+  const { EmbedBuilder } = require('discord.js');
+
   try {
     // Show completion message
     const embed = new EmbedBuilder()
@@ -2401,7 +2453,8 @@ async function handleAdministrationPanel(interaction) {
         .setStyle(ButtonStyle.Success)
     );
 
-  await ephemeralManager.sendEphemeral(interaction, '', {
+  await interaction.update({
+    content: '',
     embeds: [adminEmbed],
     components: [adminButtons]
   });

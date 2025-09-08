@@ -2,7 +2,7 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
-## [1.13.0-rc50] - 2025-09-07
+## [1.13.0-rc51] - 2025-09-07
 ### 🎯 Major Release: Forum Channels, Safety Features & Professional Logging
 
 ### Added
@@ -58,6 +58,10 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **🎯 Setup Channel Initialization**: Setup completion automatically initializes admin panel and voting channel messages
 - **📊 Improved LOG_LEVEL Enforcement**: ERROR level now properly suppresses INFO/DEBUG messages, removed confusing DEBUG_LOGGING option
 - **🧹 Ephemeral Manager Logging**: Converted ephemeral tracking messages to use debug level logging
+- **🔧 Fixed Setup Completion Error**: Added missing EmbedBuilder import in completeSetupAndInitialize function
+- **💬 Fixed Administration Panel Ephemeral**: Admin panel now updates existing ephemeral message instead of creating new ones
+- **🛡️ Added Moderator Roles Setup**: Added moderator roles configuration to guided setup process with proper UI and handlers
+- **🔧 Fixed Missing Configuration Handlers**: Added handlers for config_voting_channel, config_admin_channel, and config_viewing_channel buttons
 
 ### Technical
 - **� Forum Channel Architecture**: Complete forum post creation, voting, and discussion system

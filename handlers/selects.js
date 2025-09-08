@@ -398,6 +398,10 @@ async function handleGuidedSetupSelect(interaction, customId) {
       await guidedSetup.handleRoleSelection(interaction, 'admin');
       break;
 
+    case 'setup_select_moderator_roles':
+      await guidedSetup.handleRoleSelection(interaction, 'moderator');
+      break;
+
     case 'setup_select_notification_role':
       await guidedSetup.handleRoleSelection(interaction, 'notification');
       break;

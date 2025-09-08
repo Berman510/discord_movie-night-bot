@@ -81,6 +81,11 @@ async function showSetupMenuWithMessage(interaction, currentConfig = null, succe
         inline: true
       },
       {
+        name: `${currentConfig.moderator_roles?.length > 0 ? '✅' : '❌'} Moderator Roles`,
+        value: currentConfig.moderator_roles?.length > 0 ? `${currentConfig.moderator_roles.length} role(s)` : 'Not configured',
+        inline: true
+      },
+      {
         name: `${currentConfig.notification_role_id ? '✅' : '❌'} Viewer Role`,
         value: currentConfig.notification_role_id ? `<@&${currentConfig.notification_role_id}>` : 'Not configured',
         inline: true
@@ -110,9 +115,17 @@ async function showSetupMenuWithMessage(interaction, currentConfig = null, succe
         .setLabel('👑 Admin Roles')
         .setStyle(currentConfig.admin_roles?.length > 0 ? ButtonStyle.Success : ButtonStyle.Secondary),
       new ButtonBuilder()
+        .setCustomId('setup_moderator_roles')
+        .setLabel('🛡️ Moderator Roles')
+        .setStyle(currentConfig.moderator_roles?.length > 0 ? ButtonStyle.Success : ButtonStyle.Secondary),
+      new ButtonBuilder()
         .setCustomId('setup_notification_role')
         .setLabel('🔔 Viewer Role')
-        .setStyle(currentConfig.notification_role_id ? ButtonStyle.Success : ButtonStyle.Secondary),
+        .setStyle(currentConfig.notification_role_id ? ButtonStyle.Success : ButtonStyle.Secondary)
+    );
+
+  const menuButtons3 = new ActionRowBuilder()
+    .addComponents(
       new ButtonBuilder()
         .setCustomId('setup_finish')
         .setLabel('✅ Finish Setup')
@@ -124,12 +137,12 @@ async function showSetupMenuWithMessage(interaction, currentConfig = null, succe
     await interaction.update({
       content: '',
       embeds: [embed],
-      components: [menuButtons, menuButtons2]
+      components: [menuButtons, menuButtons2, menuButtons3]
     });
   } else {
     await ephemeralManager.sendEphemeral(interaction, '', {
       embeds: [embed],
-      components: [menuButtons, menuButtons2]
+      components: [menuButtons, menuButtons2, menuButtons3]
     });
   }
 }
@@ -251,6 +264,43 @@ async function showAdminRolesSetup(interaction) {
     .addComponents(
       new ButtonBuilder()
         .setCustomId('setup_skip_admin_roles')
+        .setLabel('⏭️ Skip This Step')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId('setup_back_to_menu')
+        .setLabel('← Back to Menu')
+        .setStyle(ButtonStyle.Secondary)
+    );
+
+  await interaction.update({
+    content: '',
+    embeds: [embed],
+    components: [roleSelect, backButton]
+  });
+}
+
+/**
+ * Show moderator roles selection
+ */
+async function showModeratorRolesSetup(interaction) {
+  const embed = new EmbedBuilder()
+    .setTitle('🛡️ Configure Moderator Roles')
+    .setDescription('Select roles that can moderate movies and sessions.\n\n**Moderators can:**\n• Sync channels and manage movie queue\n• Cancel and reschedule sessions\n• View guild stats and banned movies\n• Access moderation controls\n\n**Note:** Admin roles automatically have moderator permissions.')
+    .setColor(0x5865f2)
+    .setFooter({ text: 'Optional - You can skip this step' });
+
+  const roleSelect = new ActionRowBuilder()
+    .addComponents(
+      new RoleSelectMenuBuilder()
+        .setCustomId('setup_select_moderator_roles')
+        .setPlaceholder('Select roles for movie moderation')
+        .setMaxValues(10)
+    );
+
+  const backButton = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('setup_skip_moderator_roles')
         .setLabel('⏭️ Skip This Step')
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
@@ -418,6 +468,16 @@ async function handleRoleSelection(interaction, roleType) {
         message = `✅ **Admin roles set:** ${roleNames}\n\nThese roles can now manage the bot!`;
         break;
 
+      case 'moderator':
+        // Add all selected roles as moderator roles
+        for (const roleId of selectedRoles) {
+          await database.addModeratorRole(interaction.guild.id, roleId);
+        }
+        success = true;
+        const modRoleNames = selectedRoles.map(id => `<@&${id}>`).join(', ');
+        message = `✅ **Moderator roles set:** ${modRoleNames}\n\nThese roles can now moderate movies and sessions!`;
+        break;
+
       case 'notification':
         const roleId = selectedRoles[0]; // Only one role for notifications
         success = await database.setNotificationRole(interaction.guild.id, roleId);
@@ -445,6 +505,7 @@ module.exports = {
   showAdminChannelSetup,
   showViewingChannelSetup,
   showAdminRolesSetup,
+  showModeratorRolesSetup,
   showNotificationRoleSetup,
   showSetupComplete,
   handleChannelSelection,
