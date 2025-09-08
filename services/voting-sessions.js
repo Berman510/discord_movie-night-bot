@@ -452,10 +452,33 @@ async function createVotingSession(interaction, state) {
             const cleanup = require('./cleanup');
             await cleanup.ensureQuickActionPinned(votingChannel);
           } else if (forumChannels.isForumChannel(votingChannel)) {
-            // Forum channels get recommendation post
+            // Forum channels get recommendation post with retry logic for session creation
             const activeSession = await database.getActiveVotingSession(interaction.guild.id);
-            await forumChannels.ensureRecommendationPost(votingChannel, activeSession);
-            logger.debug(`📋 Forum channel setup complete - movies will appear as individual posts`);
+
+            // Add small delay to allow Discord API to be consistent
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            // Try with retry logic for session creation
+            let retryCount = 0;
+            const maxRetries = 2;
+
+            while (retryCount <= maxRetries) {
+              try {
+                await forumChannels.ensureRecommendationPost(votingChannel, activeSession);
+                logger.debug(`📋 Forum channel setup complete - movies will appear as individual posts`);
+                break; // Success, exit retry loop
+              } catch (error) {
+                retryCount++;
+                if (retryCount > maxRetries) {
+                  logger.warn(`📋 Failed to setup forum recommendation post after ${maxRetries} retries: ${error.message}`);
+                  logger.debug(`📋 Forum channel setup will be completed on next sync operation`);
+                } else {
+                  logger.debug(`📋 Retrying forum setup (attempt ${retryCount + 1}/${maxRetries + 1}) after error: ${error.message}`);
+                  // Wait a bit longer before retry
+                  await new Promise(resolve => setTimeout(resolve, 2000));
+                }
+              }
+            }
           }
         }
       }

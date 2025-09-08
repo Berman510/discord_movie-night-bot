@@ -2,6 +2,14 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.13.0-rc87] - 2025-09-08
+### Fixed
+- **⏱️ Session Creation Timing**: Added delay and retry logic during voting session creation to handle Discord API consistency issues
+- **🔄 Retry Mechanism**: Added 3-attempt retry with progressive delays for forum channel setup during session creation
+- **🔍 Hidden Pin Detection**: Added logic to detect and handle cases where Discord reports pin limits but pinned status isn't visible
+- **🛡️ Graceful Degradation**: Session creation now continues even if forum setup fails, with completion on next sync operation
+- **📋 Improved Reliability**: Reduced likelihood of duplicate recommendation posts during rapid session creation operations
+
 ## [1.13.0-rc86] - 2025-09-08
 ### Fixed
 - **🔧 Discord.js Thread Pinned Status Bug**: Fixed issue where thread.pinned was returning undefined instead of boolean values

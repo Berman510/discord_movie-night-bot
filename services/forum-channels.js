@@ -613,6 +613,23 @@ async function ensureRecommendationPost(channel, activeSession = null) {
       pinnedPost = null; // Force creation of new post
     }
 
+    // Special handling for when no pinned post is detected but Discord says pin limit reached
+    // This can happen during rapid operations when Discord's API is inconsistent
+    if (!pinnedPost && systemPosts.length > 0) {
+      logger.debug(`📋 No pinned post detected but ${systemPosts.length} system posts exist - checking for hidden pins`, guildId);
+
+      // Try to unpin all system posts just in case one is actually pinned but not detected
+      for (const { thread: systemThread } of systemPosts) {
+        try {
+          await systemThread.unpin();
+          logger.debug(`📋 Attempted to unpin potentially hidden pinned post: ${systemThread.name}`, guildId);
+        } catch (unpinError) {
+          // Ignore errors - the post might not actually be pinned
+          logger.debug(`📋 Unpin attempt failed (expected if not pinned): ${systemThread.name}`, guildId);
+        }
+      }
+    }
+
     const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 
     if (!activeSession) {
