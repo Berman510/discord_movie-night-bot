@@ -23,14 +23,14 @@ class Logger {
     // Get log level from environment (default to INFO)
     const envLevel = process.env.LOG_LEVEL?.toUpperCase() || 'INFO';
     this.logLevel = LOG_LEVELS[envLevel] !== undefined ? LOG_LEVELS[envLevel] : LOG_LEVELS.INFO;
-    
-    // Check if debug logging is explicitly enabled
-    this.debugEnabled = process.env.DEBUG_LOGGING === 'true' || envLevel === 'DEBUG';
-    
+
     // Use colors in console (disable in production if needed)
     this.useColors = process.env.LOG_COLORS !== 'false';
-    
-    console.log(`🔧 Logger initialized - Level: ${envLevel} (${this.logLevel}), Debug: ${this.debugEnabled}`);
+
+    // Only show initialization message if not ERROR level
+    if (this.logLevel >= LOG_LEVELS.WARN) {
+      console.log(`🔧 Logger initialized - Level: ${envLevel} (${this.logLevel})`);
+    }
   }
 
   formatMessage(level, message, ...args) {
@@ -67,7 +67,7 @@ class Logger {
   }
 
   debug(message, ...args) {
-    if (this.logLevel >= LOG_LEVELS.DEBUG || this.debugEnabled) {
+    if (this.logLevel >= LOG_LEVELS.DEBUG) {
       console.log(...this.formatMessage('DEBUG', message, ...args));
     }
   }
@@ -95,7 +95,7 @@ class Logger {
 
   // Method to check if debug logging is enabled
   isDebugEnabled() {
-    return this.debugEnabled || this.logLevel >= LOG_LEVELS.DEBUG;
+    return this.logLevel >= LOG_LEVELS.DEBUG;
   }
 
   // Method to change log level at runtime

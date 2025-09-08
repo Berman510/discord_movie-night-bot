@@ -48,7 +48,8 @@ class EphemeralManager {
         timestamp: Date.now()
       });
 
-      console.log(`📝 Tracked ephemeral message for user ${interaction.user.id}: ${response.id}`);
+      const logger = require('./logger');
+      logger.debug(`📝 Tracked ephemeral message for user ${interaction.user.id}: ${response.id}`);
       return response;
     } catch (error) {
       console.warn('Error sending ephemeral message:', error.message);
@@ -89,7 +90,8 @@ class EphemeralManager {
     const previousMessage = this.userEphemeralMessages.get(userId);
     if (!previousMessage) return;
 
-    console.log(`🧹 Cleaning up ephemeral message tracking for user ${userId}: ${previousMessage.messageId}`);
+    const logger = require('./logger');
+    logger.debug(`🧹 Cleaning up ephemeral message tracking for user ${userId}: ${previousMessage.messageId}`);
 
     // Note: We can't actually delete ephemeral messages from different interactions
     // Discord handles ephemeral message cleanup automatically
@@ -97,7 +99,7 @@ class EphemeralManager {
 
     // Remove from tracking
     this.userEphemeralMessages.delete(userId);
-    console.log(`🧹 Removed ephemeral message tracking for user ${userId}`);
+    logger.debug(`🧹 Removed ephemeral message tracking for user ${userId}`);
   }
 
   /**

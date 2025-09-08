@@ -2199,7 +2199,8 @@ async function handleGuidedSetupButton(interaction, customId) {
       break;
 
     case 'setup_finish':
-      await guidedSetup.showSetupComplete(interaction);
+      // Complete setup and initialize channels
+      await completeSetupAndInitialize(interaction);
       break;
 
     case 'setup_create_first_session':
@@ -2280,6 +2281,72 @@ async function handleDeepPurgeCancel(interaction) {
     embeds: [],
     components: []
   });
+}
+
+/**
+ * Complete setup and initialize channels
+ */
+async function completeSetupAndInitialize(interaction) {
+  try {
+    // Show completion message
+    const embed = new EmbedBuilder()
+      .setTitle('🎉 Setup Complete!')
+      .setDescription('Your Movie Night Bot is now configured and ready to use!\n\n**Initializing channels...**')
+      .setColor(0x57f287);
+
+    await interaction.update({
+      content: '',
+      embeds: [embed],
+      components: []
+    });
+
+    // Initialize admin control panel and voting channel
+    const config = await database.getGuildConfig(interaction.guild.id);
+
+    if (config.admin_channel_id) {
+      const adminControls = require('../services/admin-controls');
+      await adminControls.ensureAdminControlPanel(interaction.client, interaction.guild.id);
+    }
+
+    if (config.movie_channel_id) {
+      const cleanup = require('../services/cleanup');
+      const votingChannel = await interaction.client.channels.fetch(config.movie_channel_id);
+      if (votingChannel) {
+        await cleanup.ensureQuickActionPinned(votingChannel);
+      }
+    }
+
+    // Update completion message
+    const finalEmbed = new EmbedBuilder()
+      .setTitle('🎉 Setup Complete!')
+      .setDescription('Your Movie Night Bot is now configured and ready to use!')
+      .setColor(0x57f287)
+      .addFields(
+        {
+          name: '🎬 What\'s Next?',
+          value: '• Use `/movie-night action:create-session` to create your first movie session\n• Users can recommend movies with the 🍿 button in your voting channel\n• Manage everything from your admin channel',
+          inline: false
+        },
+        {
+          name: '📚 Need Help?',
+          value: 'Use `/movie-night action:help` for detailed usage instructions',
+          inline: false
+        }
+      );
+
+    // Send final message as followup since we can't update again
+    await interaction.followUp({
+      embeds: [finalEmbed],
+      flags: MessageFlags.Ephemeral
+    });
+
+  } catch (error) {
+    console.error('Error completing setup:', error);
+    await interaction.followUp({
+      content: '❌ Setup completed but there was an error initializing channels. Please use the Sync Channels button in your admin channel.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
 }
 
 /**

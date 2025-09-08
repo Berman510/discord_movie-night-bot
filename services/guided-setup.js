@@ -337,7 +337,8 @@ async function showSetupComplete(interaction) {
         .setStyle(ButtonStyle.Secondary)
     );
 
-  await ephemeralManager.sendEphemeral(interaction, '', {
+  await interaction.update({
+    content: '',
     embeds: [embed],
     components: [actionButtons]
   });
