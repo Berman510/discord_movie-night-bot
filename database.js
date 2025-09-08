@@ -1536,6 +1536,45 @@ class Database {
       }
 
 
+
+      // Migration 24: Ensure movie_sessions.id is AUTO_INCREMENT and has a PRIMARY KEY
+      try {
+        // 24.1 Ensure AUTO_INCREMENT on movie_sessions.id
+        const [idCol] = await this.pool.execute(`
+          SELECT EXTRA FROM INFORMATION_SCHEMA.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'movie_sessions' AND COLUMN_NAME = 'id'
+        `);
+        const extra = (idCol[0] && (idCol[0].EXTRA || idCol[0].Extra) ? String(idCol[0].EXTRA || idCol[0].Extra).toLowerCase() : '');
+        if (!extra.includes('auto_increment')) {
+          await this.pool.execute(`ALTER TABLE movie_sessions MODIFY COLUMN id INT NOT NULL AUTO_INCREMENT`);
+          logger.debug('✅ Migration 24: Ensured AUTO_INCREMENT on movie_sessions.id');
+        } else {
+          logger.debug('✅ Migration 24: movie_sessions.id already AUTO_INCREMENT');
+        }
+
+        // 24.2 Ensure PRIMARY KEY on id (some older hosts may have lost it)
+        const [pkRows] = await this.pool.execute(`
+          SELECT COUNT(*) AS cnt
+          FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS
+          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'movie_sessions' AND CONSTRAINT_TYPE = 'PRIMARY KEY'
+        `);
+        const hasPk = (pkRows && pkRows[0] && Number(pkRows[0].cnt) > 0);
+        if (!hasPk) {
+          try {
+            await this.pool.execute(`ALTER TABLE movie_sessions ADD PRIMARY KEY (id)`);
+            logger.debug('✅ Migration 24: Added PRIMARY KEY(id) to movie_sessions');
+          } catch (e) {
+            if (!String(e.message || '').toLowerCase().includes('duplicate') && !String(e.message || '').toLowerCase().includes('exists')) {
+              logger.warn('Migration 24 add PK warning:', e.message);
+            }
+          }
+        } else {
+          logger.debug('✅ Migration 24: PRIMARY KEY already present on movie_sessions');
+        }
+      } catch (error) {
+        logger.warn('Migration 24 wrapper warning:', error.message);
+      }
+
       logger.info('✅ Database migrations completed');
 
   }

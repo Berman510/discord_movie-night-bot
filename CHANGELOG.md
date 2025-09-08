@@ -34,6 +34,11 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ### Fixed
 - Migration 23 triggers: remove DECLARE usage and use subqueries in IF conditions to satisfy MariaDB trigger syntax rules (DECLARE must be first). This resolves syntax errors and ensures guild-scope enforcement works.
 
+## [1.13.0-rc104] - 2025-09-08
+### Fixed
+- Migration 24: Ensure movie_sessions.id is AUTO_INCREMENT and has a PRIMARY KEY on hosts where this was missing, preventing "Field 'id' doesn't have a default value" when creating sessions.
+
+
 
 
 
