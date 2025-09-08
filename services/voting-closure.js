@@ -332,7 +332,22 @@ async function selectWinner(client, session, winner, config) {
     const winnerMovieId = winner.movie.id;
     await database.markMoviesForNextSession(session.guild_id, winnerMovieId);
 
-    console.log(`🏆 Automatically selected winner: ${winner.movie.title} for session ${session.name}`);
+    // Ensure "No Active Voting Session" message is posted in voting channel
+    if (config && config.movie_channel_id) {
+      try {
+        const votingChannel = await client.channels.fetch(config.movie_channel_id);
+        if (votingChannel) {
+          const cleanup = require('./cleanup');
+          await cleanup.ensureQuickActionPinned(votingChannel);
+        }
+      } catch (error) {
+        const logger = require('../utils/logger');
+        logger.warn('Error posting no session message after winner selection:', error.message);
+      }
+    }
+
+    const logger = require('../utils/logger');
+    logger.info(`🏆 Automatically selected winner: ${winner.movie.title} for session ${session.name}`);
     
   } catch (error) {
     console.error('Error selecting winner:', error);

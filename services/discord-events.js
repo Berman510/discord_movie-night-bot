@@ -58,6 +58,20 @@ async function createDiscordEvent(guild, sessionData, scheduledDate) {
       enhancedDescription += `\n📺 **Vote in:** <#${config.movie_channel_id}>`;
     }
 
+    // Add movie poster if available (for sessions with associated movies)
+    if (sessionData.associatedMovieId) {
+      try {
+        const database = require('../database');
+        const movie = await database.getMovieByMessageId(sessionData.associatedMovieId);
+        if (movie && movie.imdb_poster) {
+          enhancedDescription += `\n\n🎬 **Featured Movie:** ${movie.title}`;
+          enhancedDescription += `\n🖼️ **Poster:** ${movie.imdb_poster}`;
+        }
+      } catch (error) {
+        console.warn('Could not add movie poster to event description:', error.message);
+      }
+    }
+
     // Add session UID for bidirectional sync (keeping for now)
     const sessionUID = `SESSION_UID:${sessionData.id || 'unknown'}`;
     enhancedDescription += `\n\n🔗 ${sessionUID}`;

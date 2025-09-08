@@ -2,7 +2,7 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
-## [1.13.0-rc55] - 2025-09-07
+## [1.13.0-rc56] - 2025-09-07
 ### 🎯 Major Release: Forum Channels, Safety Features & Professional Logging
 
 ### Added
@@ -79,6 +79,13 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **🍿 Movie Recommendation Logging**: Movie recommendation debug messages and database operations now use proper log levels
 - **💬 Fixed Voting Session Ephemeral Messages**: Voting session creation now updates existing ephemeral message instead of creating new ones
 - **🎭 Fixed Movie Recommendation Ephemeral Messages**: Movie recommendation success now uses interaction.reply() instead of ephemeralManager
+- **🏆 Fixed Winner Selection No Session Message**: After selecting a winner, "No Active Voting Session" message now properly appears in voting channel
+- **📅 Fixed Reschedule Button Implementation**: Reschedule button now uses implemented functionality instead of showing "coming soon" message
+- **🖼️ Added Movie Poster to Discord Events**: Discord events now include movie poster URLs in description when available
+- **📋 Added Multiple Voting Sessions to TODO**: Added comprehensive TODO items for supporting concurrent voting sessions
+- **💬 CRITICAL Ephemeral Message Fixes**: Converted ephemeralManager.sendEphemeral() calls to interaction.reply() and interaction.update() to prevent message accumulation
+- **🧹 Fixed Setup Skip Message**: Setup skip now uses interaction.update() instead of creating new ephemeral message
+- **⚙️ Fixed Configuration Messages**: Configuration error and menu messages now use interaction.reply() instead of ephemeralManager
 
 ### Technical
 - **� Forum Channel Architecture**: Complete forum post creation, voting, and discussion system

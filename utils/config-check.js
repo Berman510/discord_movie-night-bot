@@ -86,8 +86,10 @@ async function sendConfigurationError(interaction, configCheck) {
         .setStyle(ButtonStyle.Primary)
     );
 
-  await ephemeralManager.sendEphemeral(interaction, configCheck.message, {
-    components: [configButton]
+  await interaction.reply({
+    content: configCheck.message,
+    components: [configButton],
+    flags: MessageFlags.Ephemeral
   });
 }
 
@@ -171,10 +173,11 @@ async function handleConfigurationButton(interaction) {
         .setStyle(ButtonStyle.Primary)
     );
 
-  await ephemeralManager.sendEphemeral(interaction,
-    '⚙️ **Bot Configuration**\n\nChoose what you want to configure:',
-    { components: [configOptions, configOptions2] }
-  );
+  await interaction.reply({
+    content: '⚙️ **Bot Configuration**\n\nChoose what you want to configure:',
+    components: [configOptions, configOptions2],
+    flags: MessageFlags.Ephemeral
+  });
 }
 
 module.exports = {

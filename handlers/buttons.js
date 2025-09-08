@@ -657,9 +657,10 @@ async function handleCreateRecommendation(interaction) {
   const activeSession = await database.getActiveVotingSession(interaction.guild.id);
 
   if (!activeSession) {
-    await ephemeralManager.sendEphemeral(interaction,
-      '❌ **No active voting session**\n\nMovie recommendations are only available during active voting sessions. An admin needs to use the "Plan Next Session" button in the admin channel to start a new voting session.'
-    );
+    await interaction.reply({
+      content: '❌ **No active voting session**\n\nMovie recommendations are only available during active voting sessions. An admin needs to use the "Plan Next Session" button in the admin channel to start a new voting session.',
+      flags: MessageFlags.Ephemeral
+    });
     return;
   }
 
@@ -705,9 +706,10 @@ async function handleImdbSelection(interaction) {
     // Retrieve the stored data
     const data = pendingPayloads.get(dataKey);
     if (!data) {
-      await ephemeralManager.sendEphemeral(interaction,
-        '❌ Selection expired. Please try creating the recommendation again.'
-      );
+      await interaction.followUp({
+        content: '❌ Selection expired. Please try creating the recommendation again.',
+        flags: MessageFlags.Ephemeral
+      });
       return;
     }
 
@@ -1503,11 +1505,27 @@ async function handlePickWinner(interaction, guildId, movieId) {
       console.warn('Error updating Discord event with winner:', error.message);
     }
 
+    // Ensure "No Active Voting Session" message is posted in voting channel
+    try {
+      const config = await database.getGuildConfig(interaction.guild.id);
+      if (config && config.movie_channel_id) {
+        const votingChannel = await interaction.client.channels.fetch(config.movie_channel_id);
+        if (votingChannel) {
+          const cleanup = require('../services/cleanup');
+          await cleanup.ensureQuickActionPinned(votingChannel);
+        }
+      }
+    } catch (error) {
+      const logger = require('../utils/logger');
+      logger.warn('Error posting no session message after manual winner selection:', error.message);
+    }
+
     await interaction.editReply({
       content: `🏆 **${movie.title}** has been selected as the winner! Announcement posted, channels cleared, and event updated.`
     });
 
-    console.log(`🏆 Movie ${movie.title} picked as winner by ${interaction.user.tag}`);
+    const logger = require('../utils/logger');
+    logger.info(`🏆 Movie ${movie.title} picked as winner by ${interaction.user.tag}`);
 
   } catch (error) {
     console.error('Error picking winner:', error);
@@ -1915,11 +1933,9 @@ async function handleRescheduleSession(interaction) {
       return;
     }
 
-    // For now, show a simple message - this can be enhanced later with a modal
-    await interaction.reply({
-      content: '🚧 **Reschedule Session**\n\nThis feature is coming soon! For now, you can:\n1. Cancel the current session\n2. Plan a new session with the desired date/time',
-      flags: MessageFlags.Ephemeral
-    });
+    // Use the implemented reschedule functionality
+    const sessions = require('../services/sessions');
+    await sessions.handleSessionReschedule(interaction, activeSession.id, null);
 
   } catch (error) {
     console.error('Error handling reschedule session:', error);
@@ -2197,9 +2213,11 @@ async function handleGuidedSetupButton(interaction, customId) {
       break;
 
     case 'setup_skip':
-      await ephemeralManager.sendEphemeral(interaction,
-        '⏭️ **Setup skipped**\n\nYou can run `/movie-setup-simple` anytime to configure the bot.'
-      );
+      await interaction.update({
+        content: '⏭️ **Setup skipped**\n\nYou can run `/movie-setup-simple` anytime to configure the bot.',
+        embeds: [],
+        components: []
+      });
       break;
 
     case 'setup_back_to_menu':
