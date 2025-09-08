@@ -2,6 +2,14 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.13.0-rc88] - 2025-09-08
+### Fixed
+- **🔧 Aggressive Discord API Bug Workaround**: Added aggressive unpinning approach to handle Discord's pinned status reporting bug
+- **📌 Universal Unpin Strategy**: Modified unpinOtherForumPosts to attempt unpinning ALL threads when pin limits are reported
+- **🛡️ Fallback Creation**: Added fallback logic to create posts without pinning when Discord API is inconsistent
+- **🔄 Multi-Level Retry**: Enhanced error handling with multiple fallback strategies for post creation
+- **📋 API Inconsistency Handling**: Addresses cases where Discord reports pin limits but all threads show pinned: false
+
 ## [1.13.0-rc87] - 2025-09-08
 ### Fixed
 - **⏱️ Session Creation Timing**: Added delay and retry logic during voting session creation to handle Discord API consistency issues

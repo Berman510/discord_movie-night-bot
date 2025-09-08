@@ -504,7 +504,12 @@ async function unpinOtherForumPosts(channel, keepPinnedId = null) {
     logger.debug(`📌 Checking ${allThreads.size} threads for unpinning (keep: ${keepPinnedId})`, guildId);
 
     let unpinnedCount = 0;
+
+    // AGGRESSIVE APPROACH: Try to unpin ALL threads when Discord reports pin limits but no pinned threads found
+    // This handles the Discord API inconsistency where pinned status isn't reported correctly
     for (const [threadId, thread] of allThreads) {
+      if (threadId === keepPinnedId) continue; // Skip the one we want to keep
+
       try {
         // Force fetch the thread to get accurate pinned status
         const freshThread = await channel.client.channels.fetch(threadId, { force: true });
@@ -512,18 +517,24 @@ async function unpinOtherForumPosts(channel, keepPinnedId = null) {
 
         logger.debug(`📌 Thread ${thread.name} (${threadId}) - pinned: ${isPinned}, archived: ${thread.archived}`, guildId);
 
-        if (isPinned && threadId !== keepPinnedId) {
-          try {
-            // First unarchive if needed, then unpin
-            if (freshThread.archived) {
-              await freshThread.setArchived(false);
-              logger.debug(`📌 Unarchived thread before unpinning: ${thread.name}`, guildId);
-            }
-            await freshThread.unpin();
-            unpinnedCount++;
-            logger.debug(`📌 Unpinned thread to make room: ${thread.name}`, guildId);
-          } catch (error) {
-            logger.warn(`Error unpinning thread ${thread.name}:`, error.message, guildId);
+        // Try to unpin regardless of reported status if we're hitting pin limits
+        try {
+          // First unarchive if needed
+          if (freshThread.archived) {
+            await freshThread.setArchived(false);
+            logger.debug(`📌 Unarchived thread before unpinning: ${thread.name}`, guildId);
+          }
+
+          // Always try to unpin - if it's not pinned, this will just fail silently
+          await freshThread.unpin();
+          unpinnedCount++;
+          logger.debug(`📌 Successfully unpinned thread: ${thread.name}`, guildId);
+        } catch (unpinError) {
+          // This is expected if the thread isn't actually pinned
+          if (unpinError.code === 50083) {
+            logger.debug(`📌 Thread not pinned (expected): ${thread.name}`, guildId);
+          } else {
+            logger.debug(`📌 Unpin attempt failed for ${thread.name}: ${unpinError.message}`, guildId);
           }
         }
       } catch (fetchError) {
@@ -531,7 +542,7 @@ async function unpinOtherForumPosts(channel, keepPinnedId = null) {
       }
     }
 
-    logger.debug(`📌 Unpinned ${unpinnedCount} threads`, guildId);
+    logger.debug(`📌 Attempted to unpin all threads, successful unpins: ${unpinnedCount}`, guildId);
     return unpinnedCount;
   } catch (error) {
     const logger = require('../utils/logger');
@@ -675,18 +686,42 @@ async function ensureRecommendationPost(channel, activeSession = null) {
         } catch (createError) {
           if (createError.code === 30047) {
             logger.warn('📋 Cannot pin new post (pin limit reached), unpinning others first', guildId);
-            await unpinOtherForumPosts(channel);
-            // Try again after unpinning
-            try {
-              const forumPost = await channel.threads.create({
-                name: '🚫 No Active Voting Session',
-                message: { embeds: [noSessionEmbed] }
-              });
-              await forumPost.pin();
-              logger.debug('📋 Created new no session post after unpinning others', guildId);
-            } catch (retryError) {
-              logger.error(`📋 Still cannot create no session post after unpinning: ${retryError.message}`, guildId);
-              // Don't throw - just log the error and continue
+            const unpinnedCount = await unpinOtherForumPosts(channel);
+
+            // If we still can't unpin anything, try creating without pinning
+            if (unpinnedCount === 0) {
+              logger.warn('📋 No threads were unpinned - creating no session post without pinning', guildId);
+              try {
+                const forumPost = await channel.threads.create({
+                  name: '🚫 No Active Voting Session',
+                  message: { embeds: [noSessionEmbed] }
+                });
+                logger.debug('📋 Created no session post without pinning due to Discord API issue', guildId);
+              } catch (noPinError) {
+                logger.error(`📋 Cannot create no session post even without pinning: ${noPinError.message}`, guildId);
+              }
+            } else {
+              // Try again after unpinning
+              try {
+                const forumPost = await channel.threads.create({
+                  name: '🚫 No Active Voting Session',
+                  message: { embeds: [noSessionEmbed] }
+                });
+                await forumPost.pin();
+                logger.debug('📋 Created new no session post after unpinning others', guildId);
+              } catch (retryError) {
+                logger.error(`📋 Still cannot create no session post after unpinning: ${retryError.message}`, guildId);
+                // Try without pinning as fallback
+                try {
+                  const forumPost = await channel.threads.create({
+                    name: '🚫 No Active Voting Session',
+                    message: { embeds: [noSessionEmbed] }
+                  });
+                  logger.debug('📋 Created no session post without pinning as fallback', guildId);
+                } catch (fallbackError) {
+                  logger.error(`📋 Complete failure to create no session post: ${fallbackError.message}`, guildId);
+                }
+              }
             }
           } else {
             throw createError;
@@ -746,18 +781,42 @@ async function ensureRecommendationPost(channel, activeSession = null) {
       } catch (createError) {
         if (createError.code === 30047) {
           logger.warn('📋 Cannot pin new post (pin limit reached), unpinning others first', guildId);
-          await unpinOtherForumPosts(channel);
-          // Try again after unpinning
-          try {
-            const forumPost = await channel.threads.create({
-              name: '🍿 Recommend a Movie',
-              message: { embeds: [recommendEmbed], components: [recommendButton] }
-            });
-            await forumPost.pin();
-            logger.debug('📋 Created new recommendation post after unpinning others', guildId);
-          } catch (retryError) {
-            logger.error(`📋 Still cannot create recommendation post after unpinning: ${retryError.message}`, guildId);
-            // Don't throw - just log the error and continue
+          const unpinnedCount = await unpinOtherForumPosts(channel);
+
+          // If we still can't unpin anything, try creating without pinning
+          if (unpinnedCount === 0) {
+            logger.warn('📋 No threads were unpinned - creating recommendation post without pinning', guildId);
+            try {
+              const forumPost = await channel.threads.create({
+                name: '🍿 Recommend a Movie',
+                message: { embeds: [recommendEmbed], components: [recommendButton] }
+              });
+              logger.debug('📋 Created recommendation post without pinning due to Discord API issue', guildId);
+            } catch (noPinError) {
+              logger.error(`📋 Cannot create recommendation post even without pinning: ${noPinError.message}`, guildId);
+            }
+          } else {
+            // Try again after unpinning
+            try {
+              const forumPost = await channel.threads.create({
+                name: '🍿 Recommend a Movie',
+                message: { embeds: [recommendEmbed], components: [recommendButton] }
+              });
+              await forumPost.pin();
+              logger.debug('📋 Created new recommendation post after unpinning others', guildId);
+            } catch (retryError) {
+              logger.error(`📋 Still cannot create recommendation post after unpinning: ${retryError.message}`, guildId);
+              // Try without pinning as fallback
+              try {
+                const forumPost = await channel.threads.create({
+                  name: '🍿 Recommend a Movie',
+                  message: { embeds: [recommendEmbed], components: [recommendButton] }
+                });
+                logger.debug('📋 Created recommendation post without pinning as fallback', guildId);
+              } catch (fallbackError) {
+                logger.error(`📋 Complete failure to create recommendation post: ${fallbackError.message}`, guildId);
+              }
+            }
           }
         } else {
           throw createError;
