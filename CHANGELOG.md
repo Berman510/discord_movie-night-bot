@@ -2,7 +2,7 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
-## [1.13.0-rc65] - 2025-09-07
+## [1.13.0-rc66] - 2025-09-07
 ### 🎯 Major Release: Forum Channels, Safety Features & Professional Logging
 
 ### Added
@@ -123,6 +123,9 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **🔙 Enhanced Back Button**: Back to Moderation button now auto-dismisses ephemeral message after 3 seconds for clean UX
 - **📋 Enhanced Forum Recommendation Post Debugging**: Added comprehensive logging and error details for forum recommendation post creation issues
 - **🔍 Detailed Forum Post Error Tracking**: Added session validation, channel type checking, and stack trace logging for forum post troubleshooting
+- **🔧 CRITICAL: Fixed Admin Panel Disappearing**: Removed automatic admin panel refresh after session creation that was replacing existing panels
+- **📊 Additional Logging Cleanup**: Fixed more console.log statements including forum sync, event notifications, session creation, and Discord event sync
+- **🛡️ Admin Panel Persistence**: Admin panel now stays visible during session creation and other operations
 
 ### Technical
 - **� Forum Channel Architecture**: Complete forum post creation, voting, and discussion system

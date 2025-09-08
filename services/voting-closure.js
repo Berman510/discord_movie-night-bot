@@ -15,7 +15,8 @@ async function checkVotingClosures(client) {
     // Get all active voting sessions
     const activeSessions = await database.getAllActiveVotingSessions();
 
-    console.log(`⏰ Checking ${activeSessions.length} active sessions for voting closure...`);
+    const logger = require('../utils/logger');
+    logger.debug(`⏰ Checking ${activeSessions.length} active sessions for voting closure...`);
 
     for (const session of activeSessions) {
       if (session.voting_end_time) {

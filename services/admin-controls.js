@@ -460,7 +460,8 @@ async function handleSyncChannel(interaction) {
 
           if (forumChannels.isForumChannel(votingChannel)) {
             // For forum channels, we don't clear messages - each movie has its own post
-            console.log(`📋 Syncing forum channel: ${votingChannel.name}`);
+            const logger = require('../utils/logger');
+            logger.debug(`📋 Syncing forum channel: ${votingChannel.name}`);
             // Forum sync will be handled by recreating/updating forum posts below
           } else {
             // Clear existing movie messages in text voting channel (preserve quick action)

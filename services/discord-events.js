@@ -211,7 +211,8 @@ async function notifyRole(guild, event, sessionData) {
       const adminChannel = guild.channels.cache.get(guildConfig.admin_channel_id);
       if (adminChannel && adminChannel.type === 0 && adminChannel.send) {
         notificationChannel = adminChannel;
-        console.log(`📢 Using admin channel for event notification: ${adminChannel.name}`);
+        const logger = require('../utils/logger');
+        logger.debug(`📢 Using admin channel for event notification: ${adminChannel.name}`);
       }
     }
 
@@ -283,7 +284,8 @@ async function notifyRole(guild, event, sessionData) {
 
 async function syncDiscordEventsWithDatabase(guild) {
   try {
-    console.log('🔄 Syncing Discord events with database...');
+    const logger = require('../utils/logger');
+    logger.debug('🔄 Syncing Discord events with database...');
 
     const database = require('../database');
 
@@ -352,7 +354,7 @@ async function syncDiscordEventsWithDatabase(guild) {
       }
     }
 
-    console.log(`✅ Discord event sync complete: ${syncedCount} synced, ${deletedCount} orphaned events deleted`);
+    logger.info(`✅ Discord event sync complete: ${syncedCount} synced, ${deletedCount} orphaned events deleted`);
     return { syncedCount, deletedCount };
 
   } catch (error) {

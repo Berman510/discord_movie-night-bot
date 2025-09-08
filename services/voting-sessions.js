@@ -457,16 +457,8 @@ async function createVotingSession(interaction, state) {
         }
       }
 
-      // Refresh admin control panel to show session management buttons
-      if (config && config.admin_channel_id && client) {
-        try {
-          const adminControls = require('./admin-controls');
-          await adminControls.ensureAdminControlPanel(client, interaction.guild.id);
-        } catch (error) {
-          const logger = require('../utils/logger');
-          logger.warn('Error refreshing admin control panel:', error.message);
-        }
-      }
+      // Note: Admin control panel will be updated automatically by the next sync operation
+      // We don't refresh it here to avoid replacing the existing panel that users might be interacting with
     } catch (error) {
       const logger = require('../utils/logger');
       logger.warn('Error updating channels after session creation:', error.message);
@@ -477,10 +469,12 @@ async function createVotingSession(interaction, state) {
       const sessionScheduler = require('./session-scheduler');
       await sessionScheduler.scheduleVotingEnd(sessionId, state.votingEndDateTime);
     } catch (error) {
-      console.warn('Error scheduling voting end:', error.message);
+      const logger = require('../utils/logger');
+      logger.warn('Error scheduling voting end:', error.message);
     }
 
-    console.log(`🎬 Voting session created: ${state.sessionName} by ${interaction.user.tag}`);
+    const logger = require('../utils/logger');
+    logger.info(`🎬 Voting session created: ${state.sessionName} by ${interaction.user.tag}`);
 
   } catch (error) {
     console.error('Error creating voting session:', error);
