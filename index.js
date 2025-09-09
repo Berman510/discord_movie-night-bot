@@ -5,7 +5,11 @@
  * A modular Discord bot for organizing movie nights with voting, sessions, and IMDb integration
  */
 
-require('dotenv').config();
+try {
+  require('dotenv').config();
+} catch (err) {
+  console.warn('[startup] dotenv not found; proceeding with process.env only');
+}
 
 const { Client, GatewayIntentBits, REST, Routes, InteractionType, MessageFlags, EmbedBuilder } = require('discord.js');
 const logger = require('./utils/logger');
