@@ -2,6 +2,11 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.13.0-rc116] - 2025-09-09
+### Changed
+- README: Added “Next Up (1.13.x Short-Term)” TODOs covering Cancel/Reschedule persistence, ephemeral success auto-expire, guild_id logging sweep, deep purge parity, event polish, admin panel dedupe, and configuration permission docs.
+
+
 ## [1.13.0-rc115] - 2025-09-09
 ### Fixed
 - Event update after winner: pass the session scheduled date to avoid "@ Invalid Date" in event titles; add safe fallback to use existing event start time if none provided.

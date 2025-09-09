@@ -54,6 +54,29 @@ A comprehensive Discord bot for managing movie recommendations, voting, and orga
 
 ---
 
+### 🚀 Next Up (1.13.x Short-Term)
+- [ ] Keep Cancel/Reschedule visible until event start across all flows
+  - Use Discord event scheduledStart as the authoritative source when DB date is ambiguous
+  - Refresh Admin Control Panel after winner selection/reschedule/cancel to reflect current controls
+- [ ] Ephemeral success messages auto-expire/edit
+  - Edit ephemeral confirmations (e.g., “Movie recommendation added!”) to a compact success and auto-expire after ~30s where the interaction context allows
+  - Ensure we still acknowledge interactions within 3s (no modal timeouts)
+- [ ] Logging sweep: include guild_id everywhere
+  - Add standardized logger wrappers and audit hot paths (buttons, sessions, forum-channels, admin-controls, voting-closure)
+- [ ] Deep Purge parity
+  - Explicitly remove any lingering winner announcements
+  - Ensure correct “No Active Voting Session” forum post is (re)created and pinned
+  - Verify both forum and text voting modes
+- [ ] Event polish
+  - Optional: set IMDb poster as the event cover image when available
+  - Ensure role mentions/pings occur at session start where appropriate
+  - Harmonize event naming across all flows
+- [ ] Admin panel dedupe improvements
+  - Beyond throttling, prefer updating an existing per-user ephemeral Admin panel instead of opening a new one when possible
+- [ ] Docs: clarify configuration permissions
+  - Only users with Administrator or Manage Server (Manage Guild) can configure via the UI/commands
+
+
 ## 📋 TODO List
 
 ### 🔄 **Message Tracking System**
