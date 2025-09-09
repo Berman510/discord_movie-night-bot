@@ -1616,10 +1616,29 @@ async function handleChooseWinner(interaction, guildId, movieId) {
     if (activeSession.discord_event_id) {
       try {
         const discordEvents = require('../services/discord-events');
+        const imdb = require('../services/imdb');
+        const database = require('../database');
+        const config = await database.getGuildConfig(guildId);
+
         const updatedName = activeSession.name.replace('TBD (Voting in Progress)', movie.title);
+
+        // Enrich description with IMDb and channel link
+        let imdbData = null;
+        if (movie.imdb_id) {
+          try { imdbData = await imdb.getMovieDetails(movie.imdb_id); } catch {}
+        }
+        const parts = [];
+        parts.push(`Winner: ${movie.title}`);
+        if (movie.where_to_watch) parts.push(`Where: ${movie.where_to_watch}`);
+        if (imdbData?.Year) parts.push(`Year: ${imdbData.Year}`);
+        if (imdbData?.Runtime) parts.push(`Runtime: ${imdbData.Runtime}`);
+        if (imdbData?.Genre) parts.push(`Genre: ${imdbData.Genre}`);
+        if (config?.movie_channel_id) parts.push(`Discuss: <#${config.movie_channel_id}>`);
+        const description = parts.join('\n') + (activeSession.description ? `\n\n${activeSession.description}` : '');
+
         await discordEvents.updateDiscordEvent(interaction.guild, activeSession.discord_event_id, {
           name: updatedName,
-          description: `Winner: ${movie.title}\n${activeSession.description || ''}`
+          description
         });
       } catch (error) {
         console.warn('Error updating Discord event:', error.message);
@@ -1671,8 +1690,8 @@ async function handleChooseWinner(interaction, guildId, movieId) {
         if (votingChannel) {
           const forumChannels = require('../services/forum-channels');
           if (forumChannels.isForumChannel(votingChannel)) {
-            // Forum: remove other threads, post winner announcement, and reset pinned post
-            await forumChannels.clearForumMoviePosts(votingChannel, movie.thread_id);
+            // Forum: remove ALL voting threads (including the winner recommendation), post winner announcement, and reset pinned post
+            await forumChannels.clearForumMoviePosts(votingChannel, null);
             await forumChannels.postForumWinnerAnnouncement(votingChannel, movie, activeSession.name || 'Movie Night', { event: activeSession.discord_event_id || null });
             await forumChannels.ensureRecommendationPost(votingChannel, null);
           } else {
@@ -1694,7 +1713,9 @@ async function handleChooseWinner(interaction, guildId, movieId) {
             if (imdbData?.Year) winnerEmbed.addFields({ name: '📅 Year', value: imdbData.Year, inline: true });
             if (imdbData?.Runtime) winnerEmbed.addFields({ name: '⏱️ Runtime', value: imdbData.Runtime, inline: true });
             if (imdbData?.Genre) winnerEmbed.addFields({ name: '🎬 Genre', value: imdbData.Genre, inline: true });
-            await votingChannel.send({ embeds: [winnerEmbed] });
+
+            const content = config?.notification_role_id ? `<@&${config.notification_role_id}>` : undefined;
+            await votingChannel.send({ content, embeds: [winnerEmbed], allowedMentions: content ? { parse: ['roles'], roles: [config.notification_role_id] } : undefined });
           }
         }
       }

@@ -357,7 +357,6 @@ async function postTieBreakingMovie(adminChannel, movie, winner) {
         { name: '📺 Platform', value: movie.where_to_watch || 'Unknown', inline: true },
         { name: '📊 Votes', value: `👍 ${winner.upVotes} | 👎 ${winner.downVotes} | Score: ${winner.totalScore}` }
       )
-      .setFooter({ text: `Message ID: ${movie.message_id} • UID: ${movie.movie_uid?.substring(0, 8)}...` })
       .setTimestamp();
 
     const row = new ActionRowBuilder()

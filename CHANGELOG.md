@@ -96,6 +96,14 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ## [1.13.0-rc111] - 2025-09-09
 
 ## [1.13.0-rc112] - 2025-09-09
+
+## [1.13.0-rc113] - 2025-09-09
+### Improved
+- Winner flow (forum): clear ALL voting posts including the winner’s original recommendation thread, then post a dedicated winner announcement thread and the No Active Voting Session pin.
+- Winner announcement (forum + text): include IMDb details (Year, Runtime, Genre, Rating where available) and mention the configured notification role if set.
+- Discord Event update: include IMDb details and a link back to the configured voting channel in the event description.
+- Admin tie-break posts: remove Message ID and UID from footer to reduce clutter.
+
 ### Fixed
 - Recommendation modal: prevent Discord modal timeout (“Something went wrong. Try again”) by deferring the reply before IMDb network calls and using followUp when deferred. Also adjusted success/error paths in createMovieWithoutImdb to respect deferred interactions.
 

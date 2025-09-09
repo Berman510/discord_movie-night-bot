@@ -420,6 +420,16 @@ async function postForumWinnerAnnouncement(channel, winnerMovie, sessionName, op
 
     const { EmbedBuilder } = require('discord.js');
 
+    const database = require('../database');
+    const imdb = require('./imdb');
+    const config = await database.getGuildConfig(channel.guild.id);
+
+    // Enrich with IMDb data if available
+    let imdbData = null;
+    if (winnerMovie.imdb_id) {
+      try { imdbData = await imdb.getMovieDetails(winnerMovie.imdb_id); } catch {}
+    }
+
     // Create winner announcement embed
     const winnerEmbed = new EmbedBuilder()
       .setTitle('🏆 Movie Night Winner Announced!')
@@ -431,6 +441,14 @@ async function postForumWinnerAnnouncement(channel, winnerMovie, sessionName, op
         { name: '📅 Session', value: sessionName, inline: false }
       )
       .setTimestamp();
+
+    if (imdbData) {
+      if (imdbData.Year) winnerEmbed.addFields({ name: '📅 Year', value: imdbData.Year, inline: true });
+      if (imdbData.Runtime) winnerEmbed.addFields({ name: '⏱️ Runtime', value: imdbData.Runtime, inline: true });
+      if (imdbData.Genre) winnerEmbed.addFields({ name: '🎬 Genre', value: imdbData.Genre, inline: true });
+      if (imdbData.imdbRating) winnerEmbed.addFields({ name: '⭐ IMDb', value: `${imdbData.imdbRating}/10`, inline: true });
+      if (imdbData.Poster && imdbData.Poster !== 'N/A') winnerEmbed.setThumbnail(imdbData.Poster);
+    }
 
     // Optional event info
     if (options.event) {
@@ -445,11 +463,16 @@ async function postForumWinnerAnnouncement(channel, winnerMovie, sessionName, op
       }
     }
 
+    // Build content with role mention if configured
+    const content = config?.notification_role_id ? `<@&${config.notification_role_id}>` : undefined;
+
     // Create announcement forum post
     const announcementPost = await channel.threads.create({
       name: `🏆 Winner: ${winnerMovie.title}`,
       message: {
-        embeds: [winnerEmbed]
+        content,
+        embeds: [winnerEmbed],
+        allowedMentions: content ? { parse: ['roles'], roles: [config.notification_role_id] } : undefined
       },
       reason: `Winner announcement for ${sessionName}`
     });
