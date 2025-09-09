@@ -84,6 +84,14 @@ client.once('clientReady', async () => {
   } catch (error) {
     logger.error('Error starting session scheduler:', error);
   }
+
+  // Start webhook server (optional)
+  try {
+    const { startWebhookServer } = require('./services/webhook-server');
+    startWebhookServer();
+  } catch (error) {
+    logger.warn('Webhook server failed to start:', error.message);
+  }
 });
 
 // Bot joins a new guild

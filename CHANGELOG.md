@@ -2,6 +2,15 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 ## [1.13.0-rc124] - 2025-09-09
+## [1.13.0-rc125] - 2025-09-09
+### Changed
+- Reschedule: prefill event description with the existing base description only (no auto-added vote/channel/time text), preventing duplicate info when editing.
+- Reschedule: best-effort cleanup of the ephemeral date/time panel after successful update.
+
+### Added
+- Webhook server (optional): built-in minimal HTTP server gated by env. Start by setting `MOVIENIGHT_WEBHOOK_ENABLED=true`. Pick port from `MOVIENIGHT_WEBHOOK_PORTS` or `PORT`. Endpoints: `GET /health`, `GET /info`, `POST /hooks/dashboard` (Bearer token via `MOVIENIGHT_WEBHOOK_TOKEN`).
+
+
 ### Added
 - Database: added movies.poster_url column; migration backfills from stored imdb_data when available. New saves populate poster_url automatically; IMDB updates will also set poster_url.
 

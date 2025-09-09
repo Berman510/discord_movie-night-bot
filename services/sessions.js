@@ -154,11 +154,21 @@ async function showSessionCreationModal(interaction) {
         .setEmoji('📝')
     );
 
-  await interaction.reply({
+  const msg = await interaction.reply({
     embeds: [embed],
     components: [quickDateButtons, thisWeekButtons, weekendButtons],
-    flags: MessageFlags.Ephemeral
+    flags: MessageFlags.Ephemeral,
+    fetchReply: true
   });
+
+  try {
+    if (!global.sessionCreationState) global.sessionCreationState = new Map();
+    const prev = global.sessionCreationState.get(interaction.user.id) || {};
+    global.sessionCreationState.set(interaction.user.id, {
+      ...prev,
+      rootMessageId: msg.id
+    });
+  } catch (_) {}
 }
 
 async function listMovieSessions(interaction) {
@@ -806,7 +816,19 @@ async function showCustomTimeModal(interaction) {
 async function showSessionDetailsModal(interaction, state) {
   // Generate smart templated name and description
   const templatedName = generateSessionName(state);
-  const templatedDescription = await generateSessionDescription(state, interaction);
+
+  // For reschedule, pre-fill ONLY the original base description (no auto-added voting/channel/time text)
+  let templatedDescription;
+  try {
+    const isReschedule = global.sessionRescheduleState && global.sessionRescheduleState.has(interaction.user.id);
+    if (isReschedule) {
+      const resState = global.sessionRescheduleState.get(interaction.user.id);
+      templatedDescription = (resState?.originalSession?.description || '').trim();
+    }
+  } catch (_) {}
+  if (templatedDescription === undefined) {
+    templatedDescription = await generateSessionDescription(state, interaction);
+  }
 
   const modal = new ModalBuilder()
     .setCustomId('session_details_modal')
@@ -1510,6 +1532,16 @@ async function createMovieSessionFromModal(interaction) {
       } else {
         await interaction.reply({ content: msg, flags: MessageFlags.Ephemeral });
       }
+
+      // Best-effort: close the original ephemeral panel if we created one
+      try {
+        if (state.rootMessageId && interaction.webhook && interaction.webhook.deleteMessage) {
+          await interaction.webhook.deleteMessage(state.rootMessageId).catch(async () => {
+            // Fallback: edit message to remove components
+            await interaction.webhook.editMessage(state.rootMessageId, { content: '✅ Rescheduled.', components: [], embeds: [] }).catch(() => {});
+          });
+        }
+      } catch (_) {}
 
       // Clean state
       global.sessionCreationState.delete(userId);
