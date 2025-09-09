@@ -132,6 +132,8 @@ class Database {
       `CREATE TABLE IF NOT EXISTS movies (
         id INT AUTO_INCREMENT PRIMARY KEY,
         message_id VARCHAR(20) UNIQUE NOT NULL,
+        thread_id VARCHAR(20) NULL,
+        channel_type ENUM('text', 'forum') DEFAULT 'text',
         guild_id VARCHAR(20) NOT NULL,
         channel_id VARCHAR(20) NOT NULL,
         title VARCHAR(255) NOT NULL,
@@ -267,6 +269,24 @@ class Database {
     } catch (e) {
       logger.warn('initializeTables ensure next_session warning:', e.message);
     }
+    try {
+      const [forumCols] = await this.pool.execute(`
+        SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'movies' AND COLUMN_NAME IN ('thread_id','channel_type')
+      `);
+      const have = new Set(forumCols.map(r => r.COLUMN_NAME));
+      if (!have.has('thread_id')) {
+        await this.pool.execute(`ALTER TABLE movies ADD COLUMN thread_id VARCHAR(20) NULL AFTER message_id`);
+        logger.debug('✅ Added thread_id column via initializeTables');
+      }
+      if (!have.has('channel_type')) {
+        await this.pool.execute(`ALTER TABLE movies ADD COLUMN channel_type ENUM('text','forum') DEFAULT 'text' AFTER thread_id`);
+        logger.debug('✅ Added channel_type column via initializeTables');
+      }
+    } catch (e) {
+      logger.warn('initializeTables ensure forum columns warning:', e.message);
+    }
+
 
 
     // Run migrations to ensure schema is up to date (can be disabled via env)
