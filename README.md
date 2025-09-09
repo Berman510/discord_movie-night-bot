@@ -104,6 +104,8 @@ A comprehensive Discord bot for managing movie recommendations, voting, and orga
 - [ ] **Automated reminders**: Reminder notifications before voting ends
 - [ ] Repository consolidation: Consider moving bot and dashboard into a single monorepo once WS integration stabilizes (keep separate deployment methods).
 
+- [ ] Monorepo planning: evaluate hosting the bot in AWS (e.g., ECS/Fargate) instead of PebbleHost to reduce operational issues; align CI/CD, secrets (AWS Secrets Manager), and env parity with the dashboard.
+
 
 ---
 
