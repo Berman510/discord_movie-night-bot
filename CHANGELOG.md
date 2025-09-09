@@ -3,6 +3,11 @@
 All notable changes to **Movie Night Bot** will be documented in this file.
 
 
+## [1.13.0-rc129] - 2025-09-09
+### Fixed
+- Database: Migration 26 adds UNIQUE(movie_sessions.guild_id, id) and retries composite foreign keys to resolve errno 150 warnings on MariaDB.
+- Build: refreshed package-lock.json to align with package.json versioning.
+
 ## [1.13.0-rc128] - 2025-09-09
 ### Changed
 - Winner selection flows (Pick Winner, Choose Winner) now require an explicit confirmation step to prevent accidental session closure.
