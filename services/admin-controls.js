@@ -311,11 +311,22 @@ async function ensureAdminControlPanel(client, guildId) {
       return null;
     }
 
-    const adminChannel = await client.channels.fetch(config.admin_channel_id);
+    const adminChannel = await client.channels.fetch(config.admin_channel_id).catch(() => null);
     if (!adminChannel) {
       console.log('Admin channel not found:', config.admin_channel_id);
       return null;
     }
+
+    // Validate bot permissions for this channel before attempting to fetch pins/send
+    try {
+      const { PermissionFlagsBits } = require('discord.js');
+      const perms = adminChannel.permissionsFor(client.user?.id);
+      if (!perms || !perms.has(PermissionFlagsBits.ViewChannel) || !perms.has(PermissionFlagsBits.SendMessages)) {
+        const logger = require('../utils/logger');
+        logger.warn('[Missing Access] Bot lacks ViewChannel or SendMessages in admin channel; skipping ensureAdminControlPanel');
+        return null;
+      }
+    } catch (_) { /* permissive: continue */ }
 
     const guild = client.guilds.cache.get(guildId);
     if (!guild) {

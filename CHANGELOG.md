@@ -2,6 +2,12 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.13.0-rc118] - 2025-09-09
+### Fixed
+- Forum cleanup no longer deletes movie records; threads are removed and DB thread refs are cleared so movies carry over properly after cancel/winner.
+- Admin Control Panel: add channel permission checks; skip and log [Missing Access] instead of erroring; startup only counts panels that were actually created/updated.
+- Events: add session start time using Discord timestamp markdown (<t:…:F>/<t:…:R>) to the event description on update.
+
 ## [1.13.0-rc117] - 2025-09-09
 ### Fixed
 - Admin panel: refresh Admin Control Panel immediately after winner selection (both paths) so Cancel/Reschedule are present until event start.

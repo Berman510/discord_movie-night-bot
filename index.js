@@ -62,8 +62,8 @@ client.once('clientReady', async () => {
       try {
         const config = await database.getGuildConfig(guildId);
         if (config && config.admin_channel_id) {
-          await adminControls.ensureAdminControlPanel(client, guildId);
-          panelsCreated++;
+          const panel = await adminControls.ensureAdminControlPanel(client, guildId);
+          if (panel) panelsCreated++;
         }
       } catch (error) {
         logger.error(`Error initializing admin panel for guild ${guildId}:`, error);
@@ -106,8 +106,12 @@ client.on('guildCreate', async (guild) => {
     const config = await database.getGuildConfig(guild.id);
     if (config && config.admin_channel_id) {
       const adminControls = require('./services/admin-controls');
-      await adminControls.ensureAdminControlPanel(client, guild.id);
-      logger.info(`🔧 Admin control panel initialized for ${guild.name}`);
+      const panel = await adminControls.ensureAdminControlPanel(client, guild.id);
+      if (panel) {
+        logger.info(`🔧 Admin control panel initialized for ${guild.name}`);
+      } else {
+        logger.warn(`⚠️ Skipped admin panel for ${guild.name} (Missing Access or channel not found)`);
+      }
     }
 
   } catch (error) {

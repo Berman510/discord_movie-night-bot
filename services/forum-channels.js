@@ -370,9 +370,14 @@ async function clearForumMoviePosts(channel, winnerMovieId = null) {
           }
         }
 
-        // Remove movie from database since we deleted its thread
-        await database.deleteMovie(movie.message_id);
-        logger.debug(`🗄️ Removed movie from database: ${movie.title}`, guildId);
+        // Do NOT remove movie from database here. Preserve for carryover/records.
+        // Null out the thread reference so we can safely recreate posts next session
+        try {
+          await database.updateMovieThreadId(movie.message_id, null);
+          logger.debug(`🗄️ Cleared thread reference for movie: ${movie.title}`, guildId);
+        } catch (dbErr) {
+          logger.warn(`Error clearing thread reference for ${movie.title}:`, dbErr.message, guildId);
+        }
 
       } catch (error) {
         logger.warn(`Error processing movie ${movie.title}:`, error.message, guildId);

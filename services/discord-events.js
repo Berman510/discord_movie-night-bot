@@ -192,6 +192,10 @@ async function updateDiscordEvent(guild, eventId, sessionData, scheduledDate) {
     }
 
     const effectiveStart = scheduledDate || event.scheduledStartAt || (event.scheduledStartTimestamp ? new Date(event.scheduledStartTimestamp) : null);
+    if (effectiveStart) {
+      const startTs = Math.floor(new Date(effectiveStart).getTime() / 1000);
+      enhancedDescription += `\n\n🎟️ **Session starts:** <t:${startTs}:F> (<t:${startTs}:R>)`;
+    }
     const startTimeStr2 = effectiveStart ? new Date(effectiveStart).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'TBD';
     await event.edit({
       name: `🎬 ${sessionData.name} @ ${startTimeStr2}`,
