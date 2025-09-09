@@ -1597,6 +1597,76 @@ class Database {
         logger.warn('Migration 25 backfill warning (JSON functions may be unsupported):', e.message);
       }
 
+      // Migration 26: Ensure UNIQUE(parent) for composite FKs and retry
+      try {
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movie_sessions
+            ADD UNIQUE KEY uniq_ms_gid_id (guild_id, id)
+          `);
+          logger.debug('✅ Migration 26: Added UNIQUE KEY uniq_ms_gid_id on movie_sessions(guild_id,id)');
+        } catch (e) {
+          const msg = String(e.message || '').toLowerCase();
+          if (msg.includes('duplicate') || msg.includes('exists')) {
+            logger.debug('✅ Migration 26: UNIQUE KEY uniq_ms_gid_id already exists');
+          } else {
+            logger.warn('Migration 26 uniq_ms_gid_id warning:', e.message);
+          }
+        }
+
+        // Retry composite FK: movies(guild_id, session_id) -> movie_sessions(guild_id, id)
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movies
+            ADD CONSTRAINT fk_movies_session
+            FOREIGN KEY (guild_id, session_id)
+            REFERENCES movie_sessions(guild_id, id)
+            ON DELETE SET NULL
+          `);
+        } catch (e) {
+          const msg = String(e.message || '').toLowerCase();
+          if (!msg.includes('duplicate') && !msg.includes('exists')) {
+            logger.warn('Migration 26 fk_movies_session warning:', e.message);
+          }
+        }
+
+        // Retry composite FK: movie_sessions(guild_id, winner_message_id) -> movies(guild_id, message_id)
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movie_sessions
+            ADD CONSTRAINT fk_sessions_winner_movie
+            FOREIGN KEY (guild_id, winner_message_id)
+            REFERENCES movies(guild_id, message_id)
+            ON DELETE SET NULL
+          `);
+        } catch (e) {
+          const msg = String(e.message || '').toLowerCase();
+          if (!msg.includes('duplicate') && !msg.includes('exists')) {
+            logger.warn('Migration 26 fk_sessions_winner_movie warning:', e.message);
+          }
+        }
+
+        // Retry composite FK: movie_sessions(guild_id, associated_movie_id) -> movies(guild_id, message_id)
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movie_sessions
+            ADD CONSTRAINT fk_sessions_associated_movie
+            FOREIGN KEY (guild_id, associated_movie_id)
+            REFERENCES movies(guild_id, message_id)
+            ON DELETE SET NULL
+          `);
+        } catch (e) {
+          const msg = String(e.message || '').toLowerCase();
+          if (!msg.includes('duplicate') && !msg.includes('exists')) {
+            logger.warn('Migration 26 fk_sessions_associated_movie warning:', e.message);
+          }
+        }
+
+        logger.debug('✅ Migration 26: Ensured UNIQUE(parent) and retried composite FKs');
+      } catch (error) {
+        logger.warn('Migration 26 wrapper warning:', error.message);
+      }
+
       logger.info('✅ Database migrations completed');
 
   }
