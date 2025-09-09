@@ -54,7 +54,7 @@ A comprehensive Discord bot for managing movie recommendations, voting, and orga
 
 ---
 
-### 🚀 Next Up (1.13.x Short-Term)
+### 🚀 Next Up (1.14.x Short-Term)
 - [ ] Keep Cancel/Reschedule visible until event start across all flows
   - Use Discord event scheduledStart as the authoritative source when DB date is ambiguous
   - Refresh Admin Control Panel after winner selection/reschedule/cancel to reflect current controls

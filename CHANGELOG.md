@@ -3,6 +3,14 @@
 All notable changes to **Movie Night Bot** will be documented in this file.
 
 
+
+## [1.14.0-rc1] - 2025-09-09
+### Changed
+- DB: Migrations are now opt-in via `DB_MIGRATIONS_ENABLED=true`. Default behavior skips migrations on startup to avoid schema churn.
+- Admin Panel: Pinned-message discovery updated for discord.js v14 (`fetchPinned()`), fixing errors during setup.
+- Cleanup: Avoids text-channel quick-action logic on forum channels; reduces warning noise and uses forum-safe paths.
+
+
 ## [1.13.0-rc129] - 2025-09-09
 ### Fixed
 - Database: Migration 26 adds UNIQUE(movie_sessions.guild_id, id) and retries composite foreign keys to resolve errno 150 warnings on MariaDB.
