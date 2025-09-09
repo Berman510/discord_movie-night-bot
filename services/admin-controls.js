@@ -542,7 +542,8 @@ async function handleSyncChannel(interaction) {
           errors.push('Voting channel not found');
         }
       } catch (error) {
-        errors.push(`Voting channel: ${error.message}`);
+        const where = error && error.stack ? error.stack.split('\n')[0] : '';
+        errors.push(`Voting channel: ${error.message}${where ? ` (${where})` : ''}`);
       }
     }
 
