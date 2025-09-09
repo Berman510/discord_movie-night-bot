@@ -51,16 +51,16 @@ async function checkVotingClosures(client) {
 async function closeVotingForSession(client, session) {
   try {
     const database = require('../database');
-    
+
     // Get all movies in this session
     const movies = await database.getMoviesBySession(session.id);
-    
+
     if (movies.length === 0) {
       const logger = require('../utils/logger');
       logger.info(`No movies found for session ${session.id}`);
       return;
     }
-    
+
     // Calculate vote totals
     const movieVotes = [];
     for (const movie of movies) {
@@ -68,7 +68,7 @@ async function closeVotingForSession(client, session) {
       const upVotes = votes.filter(v => v.vote_type === 'up').length;
       const downVotes = votes.filter(v => v.vote_type === 'down').length;
       const totalScore = upVotes - downVotes;
-      
+
       movieVotes.push({
         movie,
         upVotes,
@@ -76,16 +76,16 @@ async function closeVotingForSession(client, session) {
         totalScore
       });
     }
-    
+
     // Sort by total score (highest first)
     movieVotes.sort((a, b) => b.totalScore - a.totalScore);
-    
+
     // Check for ties at the top
     const topScore = movieVotes[0].totalScore;
     const winners = movieVotes.filter(mv => mv.totalScore === topScore);
-    
+
     const config = await database.getGuildConfig(session.guild_id);
-    
+
     if (winners.length === 1) {
       // Single winner - automatically select
       const winner = winners[0];
@@ -94,7 +94,7 @@ async function closeVotingForSession(client, session) {
       // Tie - require admin selection
       await handleTieBreaking(client, session, winners, config);
     }
-    
+
   } catch (error) {
     console.error('Error closing voting for session:', error);
   }
@@ -106,7 +106,7 @@ async function closeVotingForSession(client, session) {
 async function selectWinner(client, session, winner, config) {
   try {
     const database = require('../database');
-    
+
     // Update movie status to scheduled
     await database.updateMovieStatus(winner.movie.message_id, 'scheduled');
 
@@ -122,7 +122,7 @@ async function selectWinner(client, session, winner, config) {
         console.warn('Error updating forum post for automatic winner:', error.message);
       }
     }
-    
+
     // Clear voting channel based on channel type
     if (config && config.movie_channel_id) {
       const votingChannel = await client.channels.fetch(config.movie_channel_id);
@@ -133,7 +133,7 @@ async function selectWinner(client, session, winner, config) {
           // Forum channel - remove ALL voting threads (including the winner recommendation), then post winner announcement
           await forumChannels.clearForumMoviePosts(votingChannel, null);
           // Pass event info if available
-          const eventOptions = session.discord_event_id ? { event: { id: session.discord_event_id, startTime: session.scheduled_date } } : {};
+          const eventOptions = session.discord_event_id ? { event: { id: session.discord_event_id, startTime: session.scheduled_date }, wonByVotes: true } : { wonByVotes: true };
           await forumChannels.postForumWinnerAnnouncement(votingChannel, winner.movie, session.name, eventOptions);
 
           // Reset pinned post since session is ending
@@ -161,7 +161,7 @@ async function selectWinner(client, session, winner, config) {
             }
           }
         }
-        
+
         // Post winner announcement
         let winnerDescription = `**${winner.movie.title}** has been automatically selected as the winner!`;
 
@@ -207,7 +207,9 @@ async function selectWinner(client, session, winner, config) {
           )
           .setColor(0x57f287)
           .setTimestamp();
-        
+        winnerEmbed.addFields({ name: '\ud83d\udc51 Selected by', value: 'Won by votes', inline: true });
+
+
         if (winner.movie.imdb_id) {
           try {
             const imdb = require('./imdb');
@@ -219,7 +221,7 @@ async function selectWinner(client, session, winner, config) {
             console.warn('Error fetching IMDb data for winner announcement:', error.message);
           }
         }
-        
+
         await votingChannel.send({
           content: config.notification_role_id ? `<@&${config.notification_role_id}>` : null,
           embeds: [winnerEmbed]
@@ -258,6 +260,7 @@ async function selectWinner(client, session, winner, config) {
             .setDescription(`**${winner.movie.title}** was automatically selected as the winner!`)
             .addFields(
               { name: '📊 Final Score', value: `${winner.totalScore} (${winner.upVotes} 👍 - ${winner.downVotes} 👎)`, inline: false },
+              { name: '👑 Selected by', value: 'Won by votes', inline: true },
               { name: '📅 Session', value: session.name, inline: true },
               { name: '⏰ Selected At', value: new Date().toLocaleString(), inline: true }
             )
@@ -335,6 +338,9 @@ async function selectWinner(client, session, winner, config) {
               console.warn('Error fetching IMDB data for event update:', error.message);
             }
           }
+          eventDescription += `
+👤 Selected by: Won by votes`;
+
 
           eventDescription += `📊 Final Score: ${winner.totalScore} (${winner.upVotes} 👍 - ${winner.downVotes} 👎)\n\n`;
           eventDescription += `📅 Join us for movie night!\n\n🔗 SESSION_UID:${session.id}`;
@@ -357,7 +363,7 @@ async function selectWinner(client, session, winner, config) {
     } else {
       console.warn('📅 No Discord event ID found for session');
     }
-    
+
     // Update session status
     await database.updateVotingSessionStatus(session.id, 'completed');
 
@@ -386,7 +392,7 @@ async function selectWinner(client, session, winner, config) {
 
     const logger = require('../utils/logger');
     logger.info(`🏆 Automatically selected winner: ${winner.movie.title} for session ${session.name}`);
-    
+
   } catch (error) {
     console.error('Error selecting winner:', error);
   }
@@ -432,7 +438,7 @@ async function handleTieBreaking(client, session, winners, config) {
         }
       }
     }
-    
+
     // Post tie-breaking options in admin channel
     if (config && config.admin_channel_id) {
       const adminChannel = await client.channels.fetch(config.admin_channel_id);
@@ -440,13 +446,13 @@ async function handleTieBreaking(client, session, winners, config) {
         // Clear existing movie posts
         const messages = await adminChannel.messages.fetch({ limit: 100 });
         const botMessages = messages.filter(msg => msg.author.id === client.user.id);
-        
+
         for (const [messageId, message] of botMessages) {
           try {
-            const isControlPanel = message.embeds.length > 0 && 
-                                  message.embeds[0].title && 
+            const isControlPanel = message.embeds.length > 0 &&
+                                  message.embeds[0].title &&
                                   message.embeds[0].title.includes('Admin Control Panel');
-            
+
             if (!isControlPanel) {
               await message.delete();
             }
@@ -454,7 +460,7 @@ async function handleTieBreaking(client, session, winners, config) {
             console.warn(`Failed to delete admin message ${messageId}:`, error.message);
           }
         }
-        
+
         // Post each tied movie with Select Winner button
         for (const winner of winners) {
           const adminMirror = require('./admin-mirror');
@@ -462,9 +468,9 @@ async function handleTieBreaking(client, session, winners, config) {
         }
       }
     }
-    
+
     console.log(`🤝 Tie detected for session ${session.name}: ${winners.length} movies tied with score ${winners[0].totalScore}`);
-    
+
   } catch (error) {
     console.error('Error handling tie-breaking:', error);
   }

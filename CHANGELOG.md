@@ -1,6 +1,23 @@
 # Changelog
 
 All notable changes to **Movie Night Bot** will be documented in this file.
+
+
+## [1.13.0-rc128] - 2025-09-09
+### Changed
+- Winner selection flows (Pick Winner, Choose Winner) now require an explicit confirmation step to prevent accidental session closure.
+- Winner announcements and Discord Event updates now include which admin selected the winner (mentions the user).
+
+## [1.13.0-rc127] - 2025-09-09
+### Added
+- Dashboard integration via secured webhook actions. New actions handled at `POST /hooks/dashboard`:
+  - `sync_guild` – sync admin panel and voting channel (forum-aware) for a guild
+  - `refresh_admin_panel` – re-render Admin Control Panel in the configured admin channel
+  - `movie_status_changed` – refresh the corresponding Discord post/thread when dashboard updates a movie’s status
+
+### Notes
+- Enable with `MOVIENIGHT_WEBHOOK_ENABLED=true`. Configure `MOVIENIGHT_WEBHOOK_TOKEN` and `MOVIENIGHT_WEBHOOK_PORTS`/`PORT` on the bot host.
+
 ## [1.13.0-rc126] - 2025-09-09
 ### Added
 - Deps: add `jimp` for event cover image composition (16:9 poster banners) when updating Discord Scheduled Events after winner selection.

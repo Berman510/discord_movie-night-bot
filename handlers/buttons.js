@@ -940,10 +940,18 @@ async function handleAdminMovieButtons(interaction, customId) {
         await handleMovieDetails(interaction, guildId, movieId);
         break;
       case 'admin_pick_winner':
+      case 'admin_pick_winner_confirm':
         await handlePickWinner(interaction, guildId, movieId);
         break;
+      case 'admin_pick_winner_cancel':
+        await interaction.reply({ content: '❌ Winner selection cancelled.', flags: MessageFlags.Ephemeral });
+        break;
       case 'admin_choose_winner':
+      case 'admin_choose_winner_confirm':
         await handleChooseWinner(interaction, guildId, movieId);
+        break;
+      case 'admin_choose_winner_cancel':
+        await interaction.reply({ content: '❌ Winner selection cancelled.', flags: MessageFlags.Ephemeral });
         break;
       case 'admin_skip_vote':
         await handleSkipToNext(interaction, guildId, movieId);
@@ -1247,13 +1255,49 @@ async function handleMovieDetails(interaction, guildId, movieId) {
     });
   }
 }
-
 /**
  * Handle picking a movie as winner (new workflow)
  */
 async function handlePickWinner(interaction, guildId, movieId) {
   const database = require('../database');
   const { EmbedBuilder } = require('discord.js');
+
+    // Confirmation gate: if this is the initial click, show a confirmation UI and exit.
+    try {
+      const isConfirm = interaction.customId && interaction.customId.startsWith('admin_pick_winner_confirm');
+      if (!isConfirm) {
+        const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+        // Try to resolve movie title for the confirmation prompt
+        let movieTitle = null;
+        try {
+          const m = await database.getMovieByMessageId(movieId);
+          if (m) movieTitle = m.title;
+        } catch (e) {}
+        if (!movieTitle && interaction.message && interaction.message.embeds?.length > 0) {
+          movieTitle = interaction.message.embeds[0].title?.replace('\ud83c\udfac ', '') || 'this movie';
+        }
+
+        const row = new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId(`admin_pick_winner_confirm:${movieId}`)
+            .setLabel('Yes, pick winner')
+            .setStyle(ButtonStyle.Danger),
+          new ButtonBuilder()
+            .setCustomId(`admin_pick_winner_cancel:${movieId}`)
+            .setLabel('Cancel')
+            .setStyle(ButtonStyle.Secondary)
+        );
+
+        await interaction.reply({
+          content: `\u26a0\ufe0f Are you sure you want to pick ${movieTitle || 'this movie'} as the winner? This will finalize the session and clear voting posts.`,
+          components: [row],
+          flags: MessageFlags.Ephemeral
+        });
+        return;
+      }
+    } catch (e) {
+      // If confirmation UI fails for any reason, fall back to existing flow
+    }
 
   try {
     // Defer the interaction immediately to prevent timeout
@@ -1347,7 +1391,7 @@ async function handlePickWinner(interaction, guildId, movieId) {
           if (forumChannels.isForumChannel(votingChannel)) {
             // Forum channel - remove ALL voting threads (including the winner recommendation), then post winner announcement
             await forumChannels.clearForumMoviePosts(votingChannel, null);
-            await forumChannels.postForumWinnerAnnouncement(votingChannel, movie, 'Movie Night', { event: null });
+            await forumChannels.postForumWinnerAnnouncement(votingChannel, movie, 'Movie Night', { event: null, selectedByUserId: interaction.user.id });
 
             // Reset pinned post since session is ending
             await forumChannels.ensureRecommendationPost(votingChannel, null);
@@ -1395,6 +1439,7 @@ async function handlePickWinner(interaction, guildId, movieId) {
                                     message.embeds[0].title.includes('Admin Control Panel');
 
               if (!isControlPanel) {
+
                 await message.delete();
               }
             } catch (error) {
@@ -1442,10 +1487,19 @@ async function handlePickWinner(interaction, guildId, movieId) {
 
           if (imdbData) {
             if (imdbData.Year) winnerEmbed.addFields({ name: '📅 Year', value: imdbData.Year, inline: true });
+
+
             if (imdbData.Runtime) winnerEmbed.addFields({ name: '⏱️ Runtime', value: imdbData.Runtime, inline: true });
             if (imdbData.Genre) winnerEmbed.addFields({ name: '🎬 Genre', value: imdbData.Genre, inline: true });
             if (imdbData.imdbRating) winnerEmbed.addFields({ name: '⭐ IMDb Rating', value: `${imdbData.imdbRating}/10`, inline: true });
             if (imdbData.Plot) winnerEmbed.addFields({ name: '📖 Plot', value: imdbData.Plot.substring(0, 1024), inline: false });
+          }
+
+          // Always include selector and winner votes
+          winnerEmbed.addFields({ name: '👑 Selected by', value: `<@${interaction.user.id}>`, inline: true });
+          const thisMovie = voteBreakdown.find(v => v.isWinner);
+          if (thisMovie) {
+            winnerEmbed.addFields({ name: '📊 Winner Votes', value: `${thisMovie.upVotes} 👍 - ${thisMovie.downVotes} 👎 (Score: ${thisMovie.score})`, inline: false });
           }
 
           // Add vote breakdown
@@ -1514,7 +1568,7 @@ async function handlePickWinner(interaction, guildId, movieId) {
             updatedDescription += `📖 ${imdbData.Plot}\n\n`;
           }
           updatedDescription += `🗳️ Final Score: ${totalScore} (${upVotes} 👍 - ${downVotes} 👎)\n`;
-          updatedDescription += `👤 Selected by admin\n`;
+          updatedDescription += `👤 Selected by: <@${interaction.user.id}>\n`;
           if (imdbData && imdbData.Poster && imdbData.Poster !== 'N/A') {
             updatedDescription += `🖼️ Poster: ${imdbData.Poster}\n`;
             try {
@@ -1615,6 +1669,43 @@ async function handlePickWinner(interaction, guildId, movieId) {
 async function handleChooseWinner(interaction, guildId, movieId) {
   const database = require('../database');
 
+
+  // Confirmation gate for choose winner: prompt before finalizing
+  try {
+    const isConfirm = interaction.customId && interaction.customId.startsWith('admin_choose_winner_confirm');
+    if (!isConfirm) {
+      const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+      let movieTitle = null;
+      try {
+        const m = await database.getMovieByMessageId(movieId);
+        if (m) movieTitle = m.title;
+      } catch (e) {}
+      if (!movieTitle && interaction.message && interaction.message.embeds?.length > 0) {
+        movieTitle = interaction.message.embeds[0].title?.replace('\ud83c\udfac ', '') || 'this movie';
+      }
+
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`admin_choose_winner_confirm:${movieId}`)
+          .setLabel('Yes, choose winner')
+          .setStyle(ButtonStyle.Danger),
+        new ButtonBuilder()
+          .setCustomId(`admin_choose_winner_cancel:${movieId}`)
+          .setLabel('Cancel')
+          .setStyle(ButtonStyle.Secondary)
+      );
+
+      await interaction.reply({
+        content: `\u26a0\ufe0f Confirm selection: choose ${movieTitle || 'this movie'} as the session winner? This will end voting.`,
+        components: [row],
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+  } catch (e) {
+    // If confirmation UI fails for any reason, proceed with existing flow
+  }
+
   try {
     // Get the active voting session
     const activeSession = await database.getActiveVotingSession(guildId);
@@ -1662,11 +1753,16 @@ async function handleChooseWinner(interaction, guildId, movieId) {
 
         // Enrich description with IMDb and channel link
         let imdbData = null;
+        let counts = null; try { counts = await database.getVoteCounts(movie.message_id); } catch {}
+
         if (movie.imdb_id) {
           try { imdbData = await imdb.getMovieDetails(movie.imdb_id); } catch {}
         }
         const parts = [];
         parts.push(`Winner: ${movie.title}`);
+        parts.push(`Selected by: <@${interaction.user.id}>`);
+        if (counts) parts.push(`Votes: ${counts.up || 0} 👍 - ${counts.down || 0} 👎 (Score: ${(counts.up || 0) - (counts.down || 0)})`);
+
         if (movie.where_to_watch) parts.push(`Where: ${movie.where_to_watch}`);
         if (imdbData?.Year) parts.push(`Year: ${imdbData.Year}`);
         if (imdbData?.Runtime) parts.push(`Runtime: ${imdbData.Runtime}`);
@@ -1739,7 +1835,7 @@ async function handleChooseWinner(interaction, guildId, movieId) {
           if (forumChannels.isForumChannel(votingChannel)) {
             // Forum: remove ALL voting threads (including the winner recommendation), post winner announcement, and reset pinned post
             await forumChannels.clearForumMoviePosts(votingChannel, null);
-            await forumChannels.postForumWinnerAnnouncement(votingChannel, movie, activeSession.name || 'Movie Night', { event: activeSession.discord_event_id || null });
+            await forumChannels.postForumWinnerAnnouncement(votingChannel, movie, activeSession.name || 'Movie Night', { event: activeSession.discord_event_id || null, selectedByUserId: interaction.user.id });
             await forumChannels.ensureRecommendationPost(votingChannel, null);
           } else {
             // Text channel: send a winner announcement embed
@@ -1758,6 +1854,17 @@ async function handleChooseWinner(interaction, guildId, movieId) {
                 { name: '👤 Recommended by', value: `<@${movie.recommended_by}>`, inline: true }
               );
             if (imdbData?.Year) winnerEmbed.addFields({ name: '📅 Year', value: imdbData.Year, inline: true });
+
+            // Always include who selected and winner's vote counts
+            winnerEmbed.addFields({ name: '👑 Selected by', value: `<@${interaction.user.id}>`, inline: true });
+            try {
+              const counts = await database.getVoteCounts(movie.message_id);
+              if (counts) {
+                const score = (counts.up || 0) - (counts.down || 0);
+                winnerEmbed.addFields({ name: '📊 Winner Votes', value: `${counts.up || 0} 👍 - ${counts.down || 0} 👎 (Score: ${score})`, inline: false });
+              }
+            } catch {}
+
             if (imdbData?.Runtime) winnerEmbed.addFields({ name: '⏱️ Runtime', value: imdbData.Runtime, inline: true });
             if (imdbData?.Genre) winnerEmbed.addFields({ name: '🎬 Genre', value: imdbData.Genre, inline: true });
 

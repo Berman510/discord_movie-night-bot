@@ -453,6 +453,22 @@ async function postForumWinnerAnnouncement(channel, winnerMovie, sessionName, op
       )
       .setTimestamp();
 
+    // Selected by and votes summary
+    const { selectedByUserId, wonByVotes } = options || {};
+    try {
+      if (selectedByUserId) {
+        winnerEmbed.addFields({ name: '👑 Selected by', value: `<@${selectedByUserId}>`, inline: true });
+      } else if (wonByVotes) {
+        winnerEmbed.addFields({ name: '👑 Selected by', value: 'Won by votes', inline: true });
+      }
+      const counts = await database.getVoteCounts(winnerMovie.message_id);
+      if (counts) {
+        const score = (counts.up || 0) - (counts.down || 0);
+        winnerEmbed.addFields({ name: '📊 Votes', value: `${counts.up || 0} 👍 - ${counts.down || 0} 👎 (Score: ${score})`, inline: false });
+      }
+    } catch {}
+
+
     if (imdbData) {
       if (imdbData.Year) winnerEmbed.addFields({ name: '📅 Year', value: imdbData.Year, inline: true });
       if (imdbData.Runtime) winnerEmbed.addFields({ name: '⏱️ Runtime', value: imdbData.Runtime, inline: true });

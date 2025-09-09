@@ -102,6 +102,8 @@ A comprehensive Discord bot for managing movie recommendations, voting, and orga
 - [ ] **Advanced analytics**: More detailed voting and attendance statistics
 - [ ] **Movie recommendations API**: Integration with additional movie databases
 - [ ] **Automated reminders**: Reminder notifications before voting ends
+- [ ] Repository consolidation: Consider moving bot and dashboard into a single monorepo once WS integration stabilizes (keep separate deployment methods).
+
 
 ---
 
