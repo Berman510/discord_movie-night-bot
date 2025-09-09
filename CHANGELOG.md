@@ -1,6 +1,14 @@
 # Changelog
 
 All notable changes to **Movie Night Bot** will be documented in this file.
+## [1.13.0-rc126] - 2025-09-09
+### Added
+- Deps: add `jimp` for event cover image composition (16:9 poster banners) when updating Discord Scheduled Events after winner selection.
+
+### Changed
+- Event description builder now prefers stored `poster_url` and falls back to legacy `imdb_poster` field.
+
+
 ## [1.13.0-rc124] - 2025-09-09
 ## [1.13.0-rc125] - 2025-09-09
 ### Changed

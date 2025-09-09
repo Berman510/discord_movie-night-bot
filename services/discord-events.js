@@ -64,9 +64,10 @@ async function createDiscordEvent(guild, sessionData, scheduledDate) {
       try {
         const database = require('../database');
         const movie = await database.getMovieByMessageId(sessionData.associatedMovieId);
-        if (movie && movie.imdb_poster) {
+        const poster = movie?.poster_url || movie?.imdb_poster; // prefer new column, fallback if legacy
+        if (movie && poster) {
           enhancedDescription += `\n\n🎬 **Featured Movie:** ${movie.title}`;
-          enhancedDescription += `\n🖼️ **Poster:** ${movie.imdb_poster}`;
+          enhancedDescription += `\n🖼️ **Poster:** ${poster}`;
         }
       } catch (error) {
         console.warn('Could not add movie poster to event description:', error.message);
