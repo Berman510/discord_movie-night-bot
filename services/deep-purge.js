@@ -397,7 +397,7 @@ async function executeDeepPurge(guildId, categories, reason = null, client = nul
             const forumChannels = require('./forum-channels');
             if (forumChannels.isForumChannel(votingChannel)) {
               // Use forum-aware clear that handles active+archived and system posts; do NOT preserve winner during a deep purge
-              await forumChannels.clearForumMoviePosts(votingChannel, null);
+              await forumChannels.clearForumMoviePosts(votingChannel, null, { deleteWinnerAnnouncements: true });
               // Add system post if configuration still exists
               const configAfterPurge = await database.getGuildConfig(guildId);
               if (configAfterPurge) {

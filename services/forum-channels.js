@@ -318,7 +318,7 @@ async function cleanupForumPosts(channel, olderThanDays = 30) {
  * Clear all movie forum posts when session ends - DATABASE-DRIVEN SAFE DELETION
  * Only deletes threads/messages that are tracked in our database
  */
-async function clearForumMoviePosts(channel, winnerMovieId = null) {
+async function clearForumMoviePosts(channel, winnerMovieId = null, options = {}) {
   try {
     if (!isForumChannel(channel)) return { archived: 0, deleted: 0 };
 
@@ -326,6 +326,8 @@ async function clearForumMoviePosts(channel, winnerMovieId = null) {
     const database = require('../database');
     const guildId = channel.guild?.id;
     logger.debug(`🧹 Clearing forum movie posts in channel: ${channel.name} (DATABASE-DRIVEN)`, guildId);
+
+    const { deleteWinnerAnnouncements = false } = options;
 
     // Get all movies from database for this guild and channel
     const allMovies = await database.getMoviesByGuild(guildId);
@@ -385,7 +387,7 @@ async function clearForumMoviePosts(channel, winnerMovieId = null) {
     }
 
     // ALSO DELETE SYSTEM POSTS regardless of winner - we will re-create the appropriate one after
-    logger.debug(`🧹 Deleting system posts (Recommend/No Session)`, guildId);
+    logger.debug(`🧹 Deleting system posts (Recommend/No Session${deleteWinnerAnnouncements ? '/Winner' : ''})`, guildId);
 
     // Get all threads to find system posts
     const threads = await channel.threads.fetchActive();
@@ -394,8 +396,10 @@ async function clearForumMoviePosts(channel, winnerMovieId = null) {
 
     for (const [threadId, thread] of allThreads) {
       // Delete system posts (No Active Session, Recommend a Movie)
-      if (thread.name.includes('No Active Voting Session') || thread.name.includes('🚫') ||
-          thread.name.includes('Recommend a Movie') || thread.name.includes('🍿')) {
+      const isSystemPost = thread.name.includes('No Active Voting Session') || thread.name.includes('🚫') ||
+                           thread.name.includes('Recommend a Movie') || thread.name.includes('🍿');
+      const isWinnerAnnouncement = thread.name.startsWith('🏆 Winner:');
+      if (isSystemPost || (deleteWinnerAnnouncements && isWinnerAnnouncement)) {
         try {
           await thread.delete('System post cleanup - session ended');
           deletedCount++;
@@ -422,6 +426,8 @@ async function clearForumMoviePosts(channel, winnerMovieId = null) {
 async function postForumWinnerAnnouncement(channel, winnerMovie, sessionName, options = {}) {
   try {
     if (!isForumChannel(channel)) return null;
+
+    const logger = require('../utils/logger');
 
     const { EmbedBuilder } = require('discord.js');
 
@@ -485,10 +491,8 @@ async function postForumWinnerAnnouncement(channel, winnerMovie, sessionName, op
     // Try to pin the announcement
     try {
       await announcementPost.pin();
-      const logger = require('../utils/logger');
       logger.debug(`📌 Pinned winner announcement: ${winnerMovie.title}`);
     } catch (pinError) {
-      const logger = require('../utils/logger');
       if (pinError.code === 30047) {
         logger.warn(`📌 Cannot pin winner announcement (pin limit reached): ${winnerMovie.title}`);
         // Try to unpin other posts to make room
@@ -516,7 +520,6 @@ async function postForumWinnerAnnouncement(channel, winnerMovie, sessionName, op
       }
     }
 
-    const logger = require('../utils/logger');
     logger.info(`🏆 Posted winner announcement in forum: ${winnerMovie.title}`);
     return announcementPost;
 

@@ -1345,11 +1345,11 @@ async function handlePickWinner(interaction, guildId, movieId) {
           const forumChannels = require('../services/forum-channels');
 
           if (forumChannels.isForumChannel(votingChannel)) {
-            // Forum channel - archive non-winner posts and post winner announcement
-            await forumChannels.clearForumMoviePosts(votingChannel, movie.thread_id);
+            // Forum channel - remove ALL voting threads (including the winner recommendation), then post winner announcement
+            await forumChannels.clearForumMoviePosts(votingChannel, null);
             await forumChannels.postForumWinnerAnnouncement(votingChannel, movie, 'Movie Night', { event: null });
 
-            // Archive recommendation post since session is ending
+            // Reset pinned post since session is ending
             await forumChannels.ensureRecommendationPost(votingChannel, null);
           } else {
             // Text channel - delete messages and threads
@@ -1514,6 +1514,9 @@ async function handlePickWinner(interaction, guildId, movieId) {
           }
           updatedDescription += `🗳️ Final Score: ${totalScore} (${upVotes} 👍 - ${downVotes} 👎)\n`;
           updatedDescription += `👤 Selected by admin\n`;
+          if (imdbData && imdbData.Poster && imdbData.Poster !== 'N/A') {
+            updatedDescription += `🖼️ Poster: ${imdbData.Poster}\n`;
+          }
           updatedDescription += `📅 Join us for movie night!\n\n🔗 SESSION_UID:${activeSession.id}`;
 
           await event.edit({
@@ -2248,7 +2251,7 @@ async function handleCancelSessionConfirmation(interaction) {
             logger.debug('📦 Clearing forum channel after session cancellation');
 
             // Clear all movie forum posts (movies already marked for carryover above)
-            await forumChannels.clearForumMoviePosts(votingChannel, null);
+            await forumChannels.clearForumMoviePosts(votingChannel, null, { deleteWinnerAnnouncements: true });
 
             // Remove recommendation post since session is cancelled
             await forumChannels.ensureRecommendationPost(votingChannel, null);

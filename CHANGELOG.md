@@ -4,6 +4,16 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 
 ## [1.13.0-rc118] - 2025-09-09
 ## [1.13.0-rc119] - 2025-09-09
+## [1.13.0-rc120] - 2025-09-09
+### Fixed
+- Forum cleanup after winner/cancel: canceling a session after a winner is chosen now clears the original recommendation thread and any winner announcement threads. `clearForumMoviePosts()` now supports an option to remove winner announcements and is used by Cancel Session and Deep Purge.
+- Winner flows (manual + automatic): forum mode now removes ALL movie threads (including the winner’s original) before posting the dedicated winner announcement, then resets the pinned system post to "No Active Voting Session".
+- Logger TDZ: initialized logger at the top of `postForumWinnerAnnouncement()` to avoid "Cannot access 'logger' before initialization" in some code paths.
+
+### Changed
+- Discord Events: when a winner is chosen (manual or automatic), the event description now includes the IMDb poster URL when available.
+
+
 ### Added
 - Web Dashboard messaging in initial setup, guided setup, and admin panels. Manage the bot (minus voting) at https://movienight.bermanoc.net.
 

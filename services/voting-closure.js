@@ -130,13 +130,13 @@ async function selectWinner(client, session, winner, config) {
         const forumChannels = require('./forum-channels');
 
         if (forumChannels.isForumChannel(votingChannel)) {
-          // Forum channel - archive non-winner posts and post winner announcement
-          await forumChannels.clearForumMoviePosts(votingChannel, winner.movie.thread_id);
+          // Forum channel - remove ALL voting threads (including the winner recommendation), then post winner announcement
+          await forumChannels.clearForumMoviePosts(votingChannel, null);
           // Pass event info if available
           const eventOptions = session.discord_event_id ? { event: { id: session.discord_event_id, startTime: session.scheduled_date } } : {};
           await forumChannels.postForumWinnerAnnouncement(votingChannel, winner.movie, session.name, eventOptions);
 
-          // Archive recommendation post since session is ending
+          // Reset pinned post since session is ending
           await forumChannels.ensureRecommendationPost(votingChannel, null);
         } else {
           // Text channel - delete messages and threads
@@ -306,6 +306,9 @@ async function selectWinner(client, session, winner, config) {
                 }
                 if (imdbData.imdbRating && imdbData.imdbRating !== 'N/A') {
                   eventDescription += `⭐ IMDB Rating: ${imdbData.imdbRating}/10\n`;
+                }
+                if (imdbData.Poster && imdbData.Poster !== 'N/A') {
+                  eventDescription += `🖼️ Poster: ${imdbData.Poster}\n`;
                 }
                 eventDescription += `\n`;
               }
