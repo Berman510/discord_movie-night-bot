@@ -2,6 +2,13 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.13.0-rc117] - 2025-09-09
+### Fixed
+- Admin panel: refresh Admin Control Panel immediately after winner selection (both paths) so Cancel/Reschedule are present until event start.
+- Deep Purge: forum-aware clearing now removes winner announcement threads too (do not preserve winner during deep purge); also delete archived threads in text channels.
+- Event details: enriched event update after winner with IMDb rating and synopsis in the description.
+
+
 ## [1.13.0-rc116] - 2025-09-09
 ### Changed
 - README: Added “Next Up (1.13.x Short-Term)” TODOs covering Cancel/Reschedule persistence, ephemeral success auto-expire, guild_id logging sweep, deep purge parity, event polish, admin panel dedupe, and configuration permission docs.

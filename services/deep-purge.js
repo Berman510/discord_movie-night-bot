@@ -394,32 +394,38 @@ async function executeDeepPurge(guildId, categories, reason = null, client = nul
               }
             }
 
-            // Clear threads
-            const threads = await votingChannel.threads.fetchActive();
-            for (const [threadId, thread] of threads.threads) {
-              try {
-                await thread.delete();
-              } catch (error) {
-                logger.warn(`Failed to delete thread ${threadId}:`, error.message);
-              }
-            }
-
-            // Add system post if configuration still exists
-            const configAfterPurge = await database.getGuildConfig(guildId);
-            if (configAfterPurge) {
-              const forumChannels = require('./forum-channels');
-              const logger = require('../utils/logger');
-              if (forumChannels.isForumChannel(votingChannel)) {
+            const forumChannels = require('./forum-channels');
+            if (forumChannels.isForumChannel(votingChannel)) {
+              // Use forum-aware clear that handles active+archived and system posts; do NOT preserve winner during a deep purge
+              await forumChannels.clearForumMoviePosts(votingChannel, null);
+              // Add system post if configuration still exists
+              const configAfterPurge = await database.getGuildConfig(guildId);
+              if (configAfterPurge) {
                 await forumChannels.ensureRecommendationPost(votingChannel, null);
                 logger.debug('✅ Added No Active Voting Session post in forum after deep purge');
               } else {
+                logger.debug('✅ Forum voting channel cleared, no messages added (configuration cleared)');
+              }
+            } else {
+              // Clear threads (active and archived) for text channels
+              const activeThreads = await votingChannel.threads.fetchActive();
+              for (const [threadId, thread] of activeThreads.threads) {
+                try { await thread.delete(); } catch (error) { logger.warn(`Failed to delete thread ${threadId}:`, error.message); }
+              }
+              const archivedThreads = await votingChannel.threads.fetchArchived({ limit: 50 });
+              for (const [threadId, thread] of archivedThreads.threads) {
+                try { await thread.delete(); } catch (error) { logger.warn(`Failed to delete archived thread ${threadId}:`, error.message); }
+              }
+
+              // Add system post if configuration still exists
+              const configAfterPurge = await database.getGuildConfig(guildId);
+              if (configAfterPurge) {
                 const cleanup = require('./cleanup');
                 await cleanup.ensureQuickActionPinned(votingChannel);
                 logger.debug('✅ Added quick action/no session message after deep purge');
+              } else {
+                logger.debug('✅ Voting channel cleared, no messages added (configuration cleared)');
               }
-            } else {
-              const logger = require('../utils/logger');
-              logger.debug('✅ Voting channel cleared, no messages added (configuration cleared)');
             }
           }
         } catch (error) {

@@ -1556,6 +1556,15 @@ async function handlePickWinner(interaction, guildId, movieId) {
       content: `🏆 **${movie.title}** has been selected as the winner! Announcement posted, channels cleared, and event updated.`
     });
 
+    // Refresh admin control panel to expose Cancel/Reschedule until event start
+    try {
+      const adminControls = require('../services/admin-controls');
+      await adminControls.ensureAdminControlPanel(interaction.client, interaction.guild.id);
+    } catch (e) {
+      const logger = require('../utils/logger');
+      logger.warn('Error refreshing admin control panel after picking winner:', e.message);
+    }
+
     const logger = require('../utils/logger');
     logger.info(`🏆 Movie ${movie.title} picked as winner by ${interaction.user.tag}`);
 
@@ -1636,6 +1645,8 @@ async function handleChooseWinner(interaction, guildId, movieId) {
         if (imdbData?.Year) parts.push(`Year: ${imdbData.Year}`);
         if (imdbData?.Runtime) parts.push(`Runtime: ${imdbData.Runtime}`);
         if (imdbData?.Genre) parts.push(`Genre: ${imdbData.Genre}`);
+        if (imdbData?.imdbRating && imdbData.imdbRating !== 'N/A') parts.push(`IMDb: ${imdbData.imdbRating}/10`);
+        if (imdbData?.Plot && imdbData.Plot !== 'N/A') parts.push(`\nSynopsis: ${imdbData.Plot}`);
         if (config?.movie_channel_id) parts.push(`Discuss: <#${config.movie_channel_id}>`);
         const description = parts.join('\n') + (activeSession.description ? `\n\n${activeSession.description}` : '');
 
@@ -1682,12 +1693,14 @@ async function handleChooseWinner(interaction, guildId, movieId) {
       console.warn('Error cleaning tie-break messages after choosing winner:', error.message);
     }
 
-    // Refresh admin mirror without interacting with the original button interaction
+    // Refresh admin mirror and control panel so Cancel/Reschedule are available
     try {
       const adminMirror = require('../services/admin-mirror');
       await adminMirror.syncAdminChannel(interaction.client, guildId);
+      const adminControls = require('../services/admin-controls');
+      await adminControls.ensureAdminControlPanel(interaction.client, interaction.guild.id);
     } catch (error) {
-      console.warn('Error syncing admin mirror after choosing winner:', error.message);
+      console.warn('Error syncing admin panel/mirror after choosing winner:', error.message);
     }
 
     // Clear voting channel and post winner announcement
