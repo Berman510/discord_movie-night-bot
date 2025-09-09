@@ -1020,7 +1020,7 @@ class Database {
           `);
         } catch (error) {
           if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
-            logger.warn('Migration 19 fk_movies_session warning:', error.message);
+            logger.debug('Migration 19 fk_movies_session skipped/unsupported:', error.message);
           }
         }
 
@@ -1035,7 +1035,7 @@ class Database {
           `);
         } catch (error) {
           if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
-            logger.warn('Migration 19 fk_sessions_winner_movie warning:', error.message);
+            logger.debug('Migration 19 fk_sessions_winner_movie skipped/unsupported:', error.message);
           }
         }
         try {
@@ -1048,7 +1048,7 @@ class Database {
           `);
         } catch (error) {
           if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
-            logger.warn('Migration 19 fk_sessions_associated_movie warning:', error.message);
+            logger.debug('Migration 19 fk_sessions_associated_movie skipped/unsupported:', error.message);
           }
         }
 
@@ -1111,7 +1111,7 @@ class Database {
             REFERENCES movie_sessions(guild_id, id)
             ON DELETE SET NULL
           `);
-        } catch (error) { if (!error.message.includes('Duplicate') && !error.message.includes('exists')) { logger.warn('Migration 20 fk_movies_session warning:', error.message); } }
+        } catch (error) { if (!error.message.includes('Duplicate') && !error.message.includes('exists')) { logger.debug('Migration 20 fk_movies_session skipped/unsupported:', error.message); } }
 
         try {
           await this.pool.execute(`
@@ -1229,7 +1229,7 @@ class Database {
           `);
         } catch (error) {
           if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
-            logger.warn('Migration 21 fk_movies_session warning:', error.message);
+            logger.debug('Migration 21 fk_movies_session skipped/unsupported:', error.message);
           }
         }
 
@@ -1243,7 +1243,7 @@ class Database {
           `);
         } catch (error) {
           if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
-            logger.warn('Migration 21 fk_sessions_winner_movie warning:', error.message);
+            logger.debug('Migration 21 fk_sessions_winner_movie skipped/unsupported:', error.message);
           }
         }
 
@@ -1257,7 +1257,7 @@ class Database {
           `);
         } catch (error) {
           if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
-            logger.warn('Migration 21 fk_sessions_associated_movie warning:', error.message);
+            logger.debug('Migration 21 fk_sessions_associated_movie skipped/unsupported:', error.message);
           }
         }
 
@@ -1322,7 +1322,7 @@ class Database {
           `);
         } catch (error) {
           if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
-            logger.warn('Migration 22 fk_movies_session warning:', error.message);
+            logger.debug('Migration 22 fk_movies_session skipped/unsupported:', error.message);
           }
         }
 
@@ -1336,7 +1336,7 @@ class Database {
           `);
         } catch (error) {
           if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
-            logger.warn('Migration 22 fk_sessions_winner_movie warning:', error.message);
+            logger.debug('Migration 22 fk_sessions_winner_movie skipped/unsupported:', error.message);
           }
         }
 
@@ -1350,7 +1350,7 @@ class Database {
           `);
         } catch (error) {
           if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
-            logger.warn('Migration 22 fk_sessions_associated_movie warning:', error.message);
+            logger.debug('Migration 22 fk_sessions_associated_movie skipped/unsupported:', error.message);
           }
         }
 
@@ -1626,7 +1626,7 @@ class Database {
         } catch (e) {
           const msg = String(e.message || '').toLowerCase();
           if (!msg.includes('duplicate') && !msg.includes('exists')) {
-            logger.warn('Migration 26 fk_movies_session warning:', e.message);
+            logger.debug('Migration 26 fk_movies_session skipped/unsupported:', e.message);
           }
         }
 
@@ -1642,7 +1642,7 @@ class Database {
         } catch (e) {
           const msg = String(e.message || '').toLowerCase();
           if (!msg.includes('duplicate') && !msg.includes('exists')) {
-            logger.warn('Migration 26 fk_sessions_winner_movie warning:', e.message);
+            logger.debug('Migration 26 fk_sessions_winner_movie skipped/unsupported:', e.message);
           }
         }
 
@@ -1658,7 +1658,7 @@ class Database {
         } catch (e) {
           const msg = String(e.message || '').toLowerCase();
           if (!msg.includes('duplicate') && !msg.includes('exists')) {
-            logger.warn('Migration 26 fk_sessions_associated_movie warning:', e.message);
+            logger.debug('Migration 26 fk_sessions_associated_movie skipped/unsupported:', e.message);
           }
         }
 
