@@ -2,6 +2,574 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+
+## [1.13.0-rc129] - 2025-09-09
+### Fixed
+- Database: Migration 26 adds UNIQUE(movie_sessions.guild_id, id) and retries composite foreign keys to resolve errno 150 warnings on MariaDB.
+- Build: refreshed package-lock.json to align with package.json versioning.
+
+## [1.13.0-rc128] - 2025-09-09
+### Changed
+- Winner selection flows (Pick Winner, Choose Winner) now require an explicit confirmation step to prevent accidental session closure.
+- Winner announcements and Discord Event updates now include which admin selected the winner (mentions the user).
+
+## [1.13.0-rc127] - 2025-09-09
+### Added
+- Dashboard integration via secured webhook actions. New actions handled at `POST /hooks/dashboard`:
+  - `sync_guild` – sync admin panel and voting channel (forum-aware) for a guild
+  - `refresh_admin_panel` – re-render Admin Control Panel in the configured admin channel
+  - `movie_status_changed` – refresh the corresponding Discord post/thread when dashboard updates a movie’s status
+
+### Notes
+- Enable with `MOVIENIGHT_WEBHOOK_ENABLED=true`. Configure `MOVIENIGHT_WEBHOOK_TOKEN` and `MOVIENIGHT_WEBHOOK_PORTS`/`PORT` on the bot host.
+
+## [1.13.0-rc126] - 2025-09-09
+### Added
+- Deps: add `jimp` for event cover image composition (16:9 poster banners) when updating Discord Scheduled Events after winner selection.
+
+### Changed
+- Event description builder now prefers stored `poster_url` and falls back to legacy `imdb_poster` field.
+
+
+## [1.13.0-rc124] - 2025-09-09
+## [1.13.0-rc125] - 2025-09-09
+### Changed
+- Reschedule: prefill event description with the existing base description only (no auto-added vote/channel/time text), preventing duplicate info when editing.
+- Reschedule: best-effort cleanup of the ephemeral date/time panel after successful update.
+
+### Added
+- Webhook server (optional): built-in minimal HTTP server gated by env. Start by setting `MOVIENIGHT_WEBHOOK_ENABLED=true`. Pick port from `MOVIENIGHT_WEBHOOK_PORTS` or `PORT`. Endpoints: `GET /health`, `GET /info`, `POST /hooks/dashboard` (Bearer token via `MOVIENIGHT_WEBHOOK_TOKEN`).
+
+
+### Added
+- Database: added movies.poster_url column; migration backfills from stored imdb_data when available. New saves populate poster_url automatically; IMDB updates will also set poster_url.
+
+### Changed
+- Reschedule UX: no longer prompts for timezone or movie selection; it retains the session’s existing timezone and jumps straight to details after picking date/time. Movie association remains unchanged.
+- Plan Next Voting Session modal: date format switched to MM/DD/YYYY (slashes) to match preference.
+
+### Notes
+- Event cover resizing relies on the jimp dependency; the code gracefully falls back to the raw poster if jimp is not installed on the host.
+
+
+## [1.13.0-rc123] - 2025-09-09
+### Fixed
+- Reschedule session: export handler and start flow via existing creation UI; implement reschedule completion to update the existing session (name/description/time/timezone) and edit the Discord Scheduled Event instead of creating a new one. Movie post is updated accordingly.
+- Removed call to missing `showDateSelection()`; now uses `showSessionCreationModal()` for date selection.
+- More robust timezone handling during reschedule.
+
+
+## [1.13.0-rc122] - 2025-09-09
+### Changed
+- Event cover image is now a composed 16:9 banner using Jimp: portrait posters are centered on a 1280x720 canvas with side letterboxing so they don’t appear zoom-cropped in Discord’s banner view.
+
+### Notes
+- Still memory-only; no tmp files. If composition or fetch fails, we fall back gracefully (description keeps the poster URL).
+
+
+
+## [1.13.0-rc118] - 2025-09-09
+## [1.13.0-rc119] - 2025-09-09
+## [1.13.0-rc121] - 2025-09-09
+### Added
+- Event cover image: when a winner is chosen (manual or automatic), the bot now downloads the IMDb poster and uploads it to the Discord Scheduled Event as the cover image. Discord hosts the image; no persistent hosting is required.
+
+### Notes
+- Safe fallbacks: if image fetch fails or is too large, we skip setting the cover image and keep the description link.
+
+
+## [1.13.0-rc120] - 2025-09-09
+### Fixed
+- Forum cleanup after winner/cancel: canceling a session after a winner is chosen now clears the original recommendation thread and any winner announcement threads. `clearForumMoviePosts()` now supports an option to remove winner announcements and is used by Cancel Session and Deep Purge.
+- Winner flows (manual + automatic): forum mode now removes ALL movie threads (including the winner’s original) before posting the dedicated winner announcement, then resets the pinned system post to "No Active Voting Session".
+- Logger TDZ: initialized logger at the top of `postForumWinnerAnnouncement()` to avoid "Cannot access 'logger' before initialization" in some code paths.
+
+### Changed
+- Discord Events: when a winner is chosen (manual or automatic), the event description now includes the IMDb poster URL when available.
+
+
+### Added
+- Web Dashboard messaging in initial setup, guided setup, and admin panels. Manage the bot (minus voting) at https://movienight.bermanoc.net.
+
+
+### Fixed
+- Forum cleanup no longer deletes movie records; threads are removed and DB thread refs are cleared so movies carry over properly after cancel/winner.
+- Admin Control Panel: add channel permission checks; skip and log [Missing Access] instead of erroring; startup only counts panels that were actually created/updated.
+- Events: add session start time using Discord timestamp markdown (<t:…:F>/<t:…:R>) to the event description on update.
+
+## [1.13.0-rc117] - 2025-09-09
+### Fixed
+- Admin panel: refresh Admin Control Panel immediately after winner selection (both paths) so Cancel/Reschedule are present until event start.
+- Deep Purge: forum-aware clearing now removes winner announcement threads too (do not preserve winner during deep purge); also delete archived threads in text channels.
+- Event details: enriched event update after winner with IMDb rating and synopsis in the description.
+
+
+## [1.13.0-rc116] - 2025-09-09
+### Changed
+- README: Added “Next Up (1.13.x Short-Term)” TODOs covering Cancel/Reschedule persistence, ephemeral success auto-expire, guild_id logging sweep, deep purge parity, event polish, admin panel dedupe, and configuration permission docs.
+
+
+## [1.13.0-rc115] - 2025-09-09
+### Fixed
+- Event update after winner: pass the session scheduled date to avoid "@ Invalid Date" in event titles; add safe fallback to use existing event start time if none provided.
+- Admin panel timing: refresh the Admin Control Panel immediately after session creation so Cancel/Reschedule buttons are available before the first recommendation.
+- Timezone: prefer `default_timezone` from guild config (fallback to `timezone`, then UTC) when creating sessions to avoid scheduling drift.
+
+
+## [1.13.0-rc114] - 2025-09-09
+### Fixed
+- Forum winner announcement: corrected allowedMentions to avoid Discord API error (roles list only), restoring winner thread posting and role pings.
+- IMDb title usage: recommendation posts now use the canonical IMDb Title when a match is selected (instead of the user-typed text).
+- Discord Events: event titles now include the start time (e.g., "@ 7:30 PM"); event updates enrich descriptions with IMDb details (Year, Runtime, Genre, Rating, Plot when available).
+- Admin panel UX: throttle duplicate ephemeral "Administration" panels per user (15s) to prevent multiple panels opening back-to-back.
+- Deep Purge (forum-aware): after clearing threads, re-create the correct system post in forum mode (No Active Voting Session) instead of text quick action.
+
+### Notes
+- Follow-ups queued: ensure Cancel/Reschedule buttons remain available until event starts across all winner flows; optional ephemeral auto-expire/edit for success toasts; expand guild_id coverage in logs.
+
+## [1.13.0-rc96] - 2025-09-08
+### Fixed
+- Fully removed the top-level try/catch wrapper around runMigrations() to prevent parser issues on certain Node.js builds. All migration statements remain individually guarded; functionality unchanged.
+
+## [1.13.0-rc97] - 2025-09-08
+### Fixed
+- Moved generateMovieUID implementation into constructor to avoid any parser confusion with class method shorthand on certain Node builds.
+
+## [1.13.0-rc98] - 2025-09-08
+### Fixed
+- Fixed a missing closing brace in Migration 19 (fk_votes_movie catch block) that caused parser to exit class context on some Node builds.
+
+## [1.13.0-rc99] - 2025-09-08
+### Added
+- Migration 21: Automated cleanup of orphaned rows (participants/attendees/movies-session links and session winner/associated references) followed by re-attempting composite FK creation. Fully idempotent and safe; does not remove valid data.
+
+## [1.13.0-rc100] - 2025-09-08
+### Fixed
+- Migration 22: Normalize column definitions (types/collations) for guild_id/message_id/session_id to satisfy MySQL FK requirements and retry FK creation. Includes diagnostics logging of actual column definitions at runtime.
+
+## [1.13.0-rc101] - 2025-09-08
+### Added
+- Improve Migration 22 diagnostics: pretty-print column definitions; add MySQL version and SHOW CREATE TABLE outputs for movies and movie_sessions to pinpoint FK mismatch cause on hosts.
+
+## [1.13.0-rc102] - 2025-09-08
+### Added
+- Migration 23: Add simple single-column FKs and guild-enforcing triggers as a robust fallback on MariaDB hosts. Triggers prevent cross-guild references on insert/update while keeping data intact. Idempotent creation guarded via information_schema.
+
+## [1.13.0-rc103] - 2025-09-08
+### Fixed
+- Migration 23 triggers: remove DECLARE usage and use subqueries in IF conditions to satisfy MariaDB trigger syntax rules (DECLARE must be first). This resolves syntax errors and ensures guild-scope enforcement works.
+
+## [1.13.0-rc104] - 2025-09-08
+### Fixed
+- Migration 24: Ensure movie_sessions.id is AUTO_INCREMENT and has a PRIMARY KEY on hosts where this was missing, preventing "Field 'id' doesn't have a default value" when creating sessions.
+
+
+## [1.13.0-rc105] - 2025-09-08
+### Fixed
+- Forum tie-break: detect forum channels and skip channel.send during tie announcement to avoid `votingChannel.send is not a function` crash; admins still receive tie-break options in admin channel
+- Ephemeral IMDb selection: replace deferUpdate with update+auto-dismiss so the selection popup clears after choosing a movie
+- Forum post duplication: remove redundant follow-up details post; initial forum starter embed now contains full info + buttons
+- Event notification noise (forum mode): skip "New Movie Night Event!" message when voting channel is a forum
+- System post cleanup: remove lingering "No Active Voting Session" thread once a new session begins
+
+
+## [1.13.0-rc106] - 2025-09-08
+### Fixed
+- Tie-break admin UI: add missing admin-mirror.postTieBreakingMovie to render tied movies with a "Choose Winner" button (admin_choose_winner:<message_id>)
+
+
+
+
+## [1.13.0-rc107] - 2025-09-08
+### Fixed
+- IMDb selection buttons: truncate long labels to <= 80 chars to satisfy Discord builder validation
+- Tie-break cleanup: after choosing a winner, remove tie-break candidate messages in admin channel (keep control panel)
+- Sync-after-winner: avoid double-reply error by syncing admin mirror directly instead of using interaction-bound sync handler
+
+
+
+
+
+## [1.13.0-rc108] - 2025-09-09
+### Added
+- IMDb selection: added explicit Cancel button to abort a recommendation after seeing results
+- Forum: tie announcement now appears on the pinned "Recommend a Movie" post and gets cleared after winner selection
+
+### Changed
+- Movie embeds now show vote percentage alongside up/down and score
+- Admin panel: Cancel/Reschedule buttons remain available after winner selection until the event starts
+- Admin mirror: suppress "Mark Watched" button until the scheduled event start time
+
+### Fixed
+- Choosing winner via tie-break now clears forum posts, posts a winner announcement, and resets the pinned post to "No Active Session"
+
+
+## [1.13.0-rc109] - 2025-09-09
+### Fixed
+- Resolve syntax error in forum-channels helper (extra closing braces) causing Sync Channels to fail with "Unexpected token '}'" on voting channel sync
+
+
+## [1.13.0-rc110] - 2025-09-09
+### Fixed
+- Forum sync: Add missing closing brace in services/forum-channels.js (createNoActiveSessionPost) that caused "Unexpected end of input (/home/container/services/forum-channels.js:980)" when clicking Sync Channels in the admin panel.
+
+
+
+
+
+
+## [1.13.0-rc111] - 2025-09-09
+
+## [1.13.0-rc112] - 2025-09-09
+
+## [1.13.0-rc113] - 2025-09-09
+### Improved
+- Winner flow (forum): clear ALL voting posts including the winner’s original recommendation thread, then post a dedicated winner announcement thread and the No Active Voting Session pin.
+- Winner announcement (forum + text): include IMDb details (Year, Runtime, Genre, Rating where available) and mention the configured notification role if set.
+- Discord Event update: include IMDb details and a link back to the configured voting channel in the event description.
+- Admin tie-break posts: remove Message ID and UID from footer to reduce clutter.
+
+### Fixed
+- Recommendation modal: prevent Discord modal timeout (“Something went wrong. Try again”) by deferring the reply before IMDb network calls and using followUp when deferred. Also adjusted success/error paths in createMovieWithoutImdb to respect deferred interactions.
+
+### Fixed
+- IMDb selection: limit the per-row button count to Discord’s 5-component maximum by showing up to 3 results plus “None of these” and “Cancel”. Fixes Invalid Form Body error (data.components[0].components must be 1–5) when submitting recommendations.
+
+## [1.13.0-rc95] - 2025-09-08
+### Fixed
+- Resolve startup crash on some Node runtimes by flattening Migration 19/20 structure (removed outer try/catch wrappers). All statements still guarded individually with warnings; functional behavior unchanged.
+
+
+## [1.13.0-rc94] - 2025-09-08
+### Added
+- Event descriptions now end with a clear CTA linking to the configured voting channel: "Join the conversation and vote for your favorite movie!"
+- Start-of-voting ping: when a voting session is created, the configured notification role is pinged in the voting channel
+- Standalone migration script: `npm run migrate` to apply DB migrations without starting the bot
+
+### Changed
+- Removed `SESSION_UID` from Discord event descriptions (we store `discord_event_id` in DB and sync via that)
+
+### Fixed
+- Addressed a syntax issue in the migration block that could cause startup failure on some Node runtimes
+
+## [1.13.0-rc93] - 2025-09-08
+### Fixed
+- 🧱 Migration 20: Align session_participants/session_attendees charsets to utf8mb4 (required for composite foreign keys on varchar columns)
+- 🔁 Re-apply supporting indexes and add composite FKs that were missed previously:
+  - session_participants(guild_id, session_id) → movie_sessions(guild_id, id) ON DELETE CASCADE
+  - session_attendees(guild_id, session_id) → movie_sessions(guild_id, id) ON DELETE CASCADE
+  - movies(guild_id, session_id) → movie_sessions(guild_id, id) ON DELETE SET NULL
+  - movie_sessions(guild_id, winner_message_id/associated_movie_id) → movies(guild_id, message_id) ON DELETE SET NULL
+
+### Notes
+- Live DB verification shows zero cross-guild mismatches; this migration ensures MySQL can successfully create the intended composite FKs.
+
+## [1.13.0-rc92] - 2025-09-08
+### Fixed
+- 🧰 Migration 19 data backfill: auto-correct legacy cross-guild mismatches so composite FKs can be created cleanly
+  - Align session_participants/session_attendees.guild_id to their movie_session.guild_id
+  - Null movies.session_id when it points to a session in another guild
+  - Null session.winner_message_id/associated_movie_id when message refers to a movie from a different guild
+- 🗂️ Added helpful indexes on movie_sessions for (guild_id, winner_message_id) and (guild_id, associated_movie_id)
+
+### Notes
+- This addresses “Foreign key constraint is incorrectly formed” warnings seen during rc91 deployment.
+
+## [1.13.0-rc91] - 2025-09-08
+### Changed
+- 🛡️ Database hardening: Enforce guild-scoped uniqueness and composite foreign keys across core tables (movies, votes, movie_sessions, session_participants, session_attendees)
+- 🗳️ Votes: UNIQUE(message_id, user_id) → UNIQUE(guild_id, message_id, user_id); composite FK votes(guild_id, message_id) → movies(guild_id, message_id)
+- 🎬 Sessions: Composite FKs for participants/attendees → movie_sessions(guild_id, id); movies(guild_id, session_id) → movie_sessions(guild_id, id); session winner/associated → movies(guild_id, message_id)
+- 🔧 API: incrementWatchCount/getWatchCount now accept optional guildId; button handler passes guildId; removeVote accepts optional guildId
+- 🔁 Migrations: Added Migration 19 with idempotent guards; legacy single-column FKs dropped when present
+
+### Notes
+- All operations are now strictly guild-scoped to prevent any cross-guild data contamination.
+
+## [1.13.0-rc90] - 2025-09-08
+### Fixed
+- **🧷 Single-creation logic**: When no pinned system post is found, create the "No Active Voting Session" thread once, then try to pin and remove duplicates, avoiding multiple creations during the same operation
+- **🧹 System post dedupe**: After creating the system post, scan and delete other system posts (Recommend/No Session) in one pass
+- **📌 Safer pin retry**: If pin limit is hit, unpin others (keeping the new thread) and retry; otherwise proceed without pin
+
+## [1.13.0-rc89] - 2025-09-08
+### Changed
+- **🧹 Forum Session End Cleanup**: Always remove forum system posts (Recommend/No Session) when a winner is chosen, then re-create the proper "No Active Voting Session" post
+- **🏆 Winner Announcement**: Forum winner announcement now supports optional event info (event ID, start time)
+- **🧭 Manual Winner Flow**: Posts "No Active Voting Session" in forum channels (previously only text channels)
+- **🤖 Auto Closure Flow**: Same forum behavior applied to automatic winner selection
+
+## [1.13.0-rc88] - 2025-09-08
+### Fixed
+- **🔧 Aggressive Discord API Bug Workaround**: Added aggressive unpinning approach to handle Discord's pinned status reporting bug
+- **📌 Universal Unpin Strategy**: Modified unpinOtherForumPosts to attempt unpinning ALL threads when pin limits are reported
+- **🛡️ Fallback Creation**: Added fallback logic to create posts without pinning when Discord API is inconsistent
+- **🔄 Multi-Level Retry**: Enhanced error handling with multiple fallback strategies for post creation
+- **📋 API Inconsistency Handling**: Addresses cases where Discord reports pin limits but all threads show pinned: false
+
+## [1.13.0-rc87] - 2025-09-08
+### Fixed
+- **⏱️ Session Creation Timing**: Added delay and retry logic during voting session creation to handle Discord API consistency issues
+- **🔄 Retry Mechanism**: Added 3-attempt retry with progressive delays for forum channel setup during session creation
+- **🔍 Hidden Pin Detection**: Added logic to detect and handle cases where Discord reports pin limits but pinned status isn't visible
+- **🛡️ Graceful Degradation**: Session creation now continues even if forum setup fails, with completion on next sync operation
+- **📋 Improved Reliability**: Reduced likelihood of duplicate recommendation posts during rapid session creation operations
+
+## [1.13.0-rc86] - 2025-09-08
+### Fixed
+- **🔧 Discord.js Thread Pinned Status Bug**: Fixed issue where thread.pinned was returning undefined instead of boolean values
+- **🔄 Force Thread Refresh**: Added force refresh when fetching threads to get accurate pinned status from Discord API
+- **🧹 Duplicate System Post Cleanup**: Added logic to detect and clean up multiple recommendation/no session posts
+- **📌 Improved Unpinning Logic**: Enhanced unpinOtherForumPosts to use force-fetched thread data for accurate pinned detection
+- **🗑️ Automatic Cleanup**: Function now automatically removes duplicate system posts before creating new ones
+
+## [1.13.0-rc85] - 2025-09-08
+### Fixed
+- **🔍 Enhanced Debugging**: Added detailed logging for pinned post detection and thread enumeration in forum channels
+- **📌 Improved Unpinning Logic**: Enhanced unpinOtherForumPosts function with better error handling and logging
+- **🛡️ Error Recovery**: Added try-catch blocks around retry operations to prevent cascading failures
+- **📋 Thread Analysis**: Added comprehensive logging to diagnose why pinned posts aren't being detected properly
+
+## [1.13.0-rc84] - 2025-09-08
+### Fixed
+- **📋 Forum Channel Pin Management**: Fixed issue where starting new voting sessions in forum channels failed due to Discord pin limits
+- **🔧 Recommendation Post Replacement**: Properly replace "No Active Voting Session" posts with "Recommend a Movie" posts instead of creating duplicates
+- **📌 Automatic Pin Cleanup**: Added automatic unpinning of old posts when pin limits are reached
+- **🐛 Error Logging**: Fixed `[object Object]` error logging by properly serializing error details with JSON.stringify()
+- **🔄 Fallback Logic**: Added robust fallback logic that unpins and recreates posts when editing fails
+
+## [1.13.0-rc83] - 2025-09-08
+### Fixed
+- **🔧 Forum Channel Sync**: Fixed "Missing catch or finally after try" error in sync channels operation for forum channels
+- **📋 Syntax Error**: Corrected malformed try-catch block in ensureRecommendationPost function that was causing sync failures
+
+## [1.13.0-rc82] - 2025-09-07
+### 🎯 Major Release: Forum Channels, Safety Features & Professional Logging
+
+### Added
+- **📋 Forum Channel Support**: Full support for Discord forum channels as voting channels
+- **🔒 Deep Purge Safety**: Submit button prevents accidental data deletion operations
+- **📊 Professional Logging**: Configurable log levels (ERROR/WARN/INFO/DEBUG) with colored output
+- **🎬 Interactive Guided Setup**: New `/movie-setup` command with ephemeral-based configuration flow
+- **🌍 Global Command Registration**: Commands now register globally for all servers automatically
+- **⚡ Instant Guild Setup**: Commands register immediately when bot joins new servers
+- **🧹 Automatic Ephemeral Cleanup**: Smart ephemeral message management prevents accumulation
+- **🔧 Configuration Validation**: Commands check configuration before execution with helpful guidance
+- **📋 Permission Guidance**: Setup process includes detailed permission requirements for each channel/role
+- **🎯 Bot Discovery Ready**: Streamlined setup perfect for bot discovery website reviews
+- **👥 Moderation System**: Role-based permission system with moderator and administrator levels
+- **🎬 Enhanced Movie Posts**: Comprehensive movie information with detailed discussion threads
+- **📝 Thread Discussions**: First message in threads contains synopsis, cast, awards, and viewing info
+
+### Enhanced
+- **📋 Forum Integration**: Movies post as forum threads with voting buttons and discussion
+- **🔒 Safety Improvements**: Two-step confirmation for dangerous operations with explicit submit buttons
+- **📊 Environment Logging**: LOG_LEVEL, DEBUG_LOGGING, LOG_COLORS environment variables
+- **⚙️ Setup Experience**: Visual progress indicators, navigation buttons, and clear instructions
+- **🔄 Role Naming**: Dynamic bot role name display instead of hardcoded "Movie Night Bot"
+- **📝 Command Structure**: Consolidated setup commands into single intuitive interface
+- **🎪 Voice Monitoring**: Only logs activity in configured session viewing channels
+- **🔧 Configuration Labels**: "set-voting-channel" instead of generic "set-channel"
+
+### Fixed
+- **🎬 IMDb Data Display**: Movie information now shows immediately on creation (not after first vote)
+- **📋 Forum Channel Selection**: Forum channels now appear in guided setup channel selector
+- **🔧 Discord.js Compatibility**: Fixed deprecated fetchPinned() → fetchPins() and isForumChannel() issues
+- **🔄 Admin Panel Duplication**: Robust message detection prevents multiple admin control panels
+- **🧹 Ephemeral Message Persistence**: All ephemeral messages now auto-cleanup properly
+- **⚡ Command Registration**: No more GUILD_ID requirement for production deployments
+- **🎯 Setup Button Conflicts**: Removed old setup guide handlers causing button failures
+- **📋 Voice Channel Logging**: Eliminated irrelevant voice state change logs
+- **🔧 Function Import Errors**: Fixed multiple "function is not a function" errors in button handlers
+- **💥 Deep Purge Selection**: Fixed issue where selections were lost when clicking away from dropdown
+- **📌 Pinned Message Errors**: Fixed "pinnedMessages.find is not a function" error in admin controls
+- **🧹 Ephemeral Message Cleanup**: Improved ephemeral message management to prevent accumulation
+- **🔧 Discord.js Collection Methods**: Fixed "pinnedMessages.values is not a function" by using Collection.find() directly
+- **💥 Deep Purge setDefaultValues**: Fixed "setDefaultValues is not a function" by using placeholder text instead
+- **🧵 Thread Recreation**: Fixed missing threads after sync by properly recreating movie records and threads
+- **🗃️ Database Foreign Keys**: Fixed foreign key constraint errors during movie record updates
+- **🔧 Guided Setup Ephemeral**: Fixed ephemeral message accumulation during /movie-setup by using interaction.update()
+- **📊 Migration Warnings**: Fixed charset migration warnings and improved logging system usage
+- **📋 Logging System**: Converted console.warn/error calls to use proper logging system with levels
+- **💥 Deep Purge Selection Persistence**: Fixed selections disappearing by encoding categories in button custom IDs
+- **🛡️ Moderator Roles Configuration**: Added moderator roles display to /movie-configure view-settings
+- **🔧 Admin Control Panel Restructure**: Reorganized panel with Sync Channels, Purge Current Queue, Cancel/Reschedule Session, and Administration button
+- **📋 Removed Populate Forums**: Integrated forum population into intelligent Sync Channels button
+- **🔧 Fixed Setup Ephemeral Persistence**: Setup completion now properly updates existing message instead of creating new ones
+- **🎯 Setup Channel Initialization**: Setup completion automatically initializes admin panel and voting channel messages
+- **📊 Improved LOG_LEVEL Enforcement**: ERROR level now properly suppresses INFO/DEBUG messages, removed confusing DEBUG_LOGGING option
+- **🧹 Ephemeral Manager Logging**: Converted ephemeral tracking messages to use debug level logging
+- **🔧 Fixed Setup Completion Error**: Added missing EmbedBuilder import in completeSetupAndInitialize function
+- **💬 Fixed Administration Panel Ephemeral**: Admin panel now updates existing ephemeral message instead of creating new ones
+- **🛡️ Added Moderator Roles Setup**: Added moderator roles configuration to guided setup process with proper UI and handlers
+- **🔧 Fixed Missing Configuration Handlers**: Added handlers for config_voting_channel, config_admin_channel, and config_viewing_channel buttons
+- **📊 Comprehensive Logging System Enforcement**: Converted all console.log/warn/error statements to use proper logger with levels
+- **🎯 Consistent Log Level Enforcement**: All application messages now respect LOG_LEVEL configuration (ERROR, WARN, INFO, DEBUG)
+- **🧹 Cleaned Up Raw Console Output**: Eliminated inconsistent logging where some messages had levels and others didn't
+- **🔧 Fixed Remaining Console Bypass**: Converted database connection, migration, session scheduler, and admin panel messages to use proper logger
+- **📊 Migration Messages to DEBUG Level**: All database migration status messages now use logger.debug() to reduce startup noise
+- **⏰ Session Scheduler Logging**: Converted session scheduler initialization and scheduling messages to use proper log levels
+- **🔧 Fixed Session Scheduler Logger Error**: Added missing logger imports causing "logger is not defined" errors
+- **🗃️ Added Moderator Roles Database Migration**: Added Migration 18 to create moderator_roles JSON column in guild_config table
+- **🛡️ Fixed Moderator Roles Database Operations**: Fixed null handling in addModeratorRole and removeModeratorRole functions
+- **📊 Fixed Remaining Console.error Statements**: Converted database role management errors to use proper logger.error()
+- **💬 Fixed Setup Ephemeral Message Accumulation**: Fixed setup error handlers to use interaction.update() instead of creating new ephemeral messages
+- **🔧 Fixed Pinned Messages Collection Error**: Added proper Collection type checking for pinnedMessages.find() to prevent "is not a function" errors
+- **📊 Comprehensive Console.log Cleanup**: Converted 20+ remaining console.log statements to proper logger with appropriate levels
+- **🎬 Session Creation Logging**: Session times, Discord event creation, and database operations now use debug/info levels appropriately
+- **🍿 Movie Recommendation Logging**: Movie recommendation debug messages and database operations now use proper log levels
+- **💬 Fixed Voting Session Ephemeral Messages**: Voting session creation now updates existing ephemeral message instead of creating new ones
+- **🎭 Fixed Movie Recommendation Ephemeral Messages**: Movie recommendation success now uses interaction.reply() instead of ephemeralManager
+- **🏆 Fixed Winner Selection No Session Message**: After selecting a winner, "No Active Voting Session" message now properly appears in voting channel
+- **📅 Fixed Reschedule Button Implementation**: Reschedule button now uses implemented functionality instead of showing "coming soon" message
+- **🖼️ Added Movie Poster to Discord Events**: Discord events now include movie poster URLs in description when available
+- **📋 Added Multiple Voting Sessions to TODO**: Added comprehensive TODO items for supporting concurrent voting sessions
+- **💬 CRITICAL Ephemeral Message Fixes**: Converted ephemeralManager.sendEphemeral() calls to interaction.reply() and interaction.update() to prevent message accumulation
+- **🧹 Fixed Setup Skip Message**: Setup skip now uses interaction.update() instead of creating new ephemeral message
+- **⚙️ Fixed Configuration Messages**: Configuration error and menu messages now use interaction.reply() instead of ephemeralManager
+- **🗑️ CRITICAL: Fixed Deep Purge No Session Message**: Deep purge now properly adds "No Active Voting Session" message after clearing data
+- **📊 Deep Purge Logging Cleanup**: All deep purge console.log statements converted to proper logger with appropriate levels
+- **🎬 Movie Creation Logging Cleanup**: All movie creation debug messages converted to logger.debug() for proper log level control
+- **🔧 Fixed Configuration Button Error**: Fixed "Cannot read properties of undefined (reading 'getChannel')" error in configuration
+- **📝 Fixed MessageFlags Import**: Added missing MessageFlags import to config-check.js to prevent "MessageFlags is not defined" errors
+- **🧵 Thread Creation Logging**: Thread creation and detailed info messages now use proper log levels
+- **🚀 CRITICAL: Fixed Bot Startup Crash**: Fixed Discord API "Missing Access" error that prevented bot from starting
+- **🛡️ Resilient Command Registration**: Bot now continues startup even if development guild command registration fails
+- **⚠️ Graceful Permission Handling**: Missing permissions for guild command registration are now handled as warnings, not fatal errors
+- **🔍 Enhanced Guild Validation**: Added check to verify bot is in development guild before attempting command registration
+- **📋 Root Cause Analysis**: Issue was caused by GUILD_ID pointing to guild where bot lost permissions (from rc45 GUILD_ID changes)
+- **🔧 CRITICAL: Fixed Configuration System Crashes**: Fixed "Cannot read properties of undefined (reading 'getChannel')" errors in all configuration functions
+- **💬 Fixed Configuration Ephemeral Messages**: Configuration actions now use interaction.update() instead of interaction.reply() to prevent message accumulation
+- **🔧 Fixed Missing Admin Roles Handler**: Added missing admin_roles and notification_role cases to configuration action handler
+- **🔍 Fixed Remaining Pinned Messages Error**: Applied Collection type checking fix to cleanup.js to prevent "pinnedMessages.find is not a function" errors
+- **🎯 CRITICAL: Fixed Configuration Button Flow**: Configuration buttons now show proper channel/role selectors instead of requiring parameters
+- **📋 Interactive Configuration System**: Added ChannelSelectMenuBuilder and RoleSelectMenuBuilder for voting channel, admin channel, viewing channel, and notification role selection
+- **🔧 Fixed GUILD_ID Warning**: Moved development guild command registration after Discord login to ensure guild cache is populated
+- **⚡ Enhanced Configuration UX**: Configuration buttons now provide interactive selection menus with proper validation and feedback
+- **🔧 CRITICAL: Fixed Mock Interaction Object**: Fixed "interaction.update is not a function" error in configuration select handlers
+- **🛠️ Proper Prototype Inheritance**: Changed from spread operator to Object.create() for mock interactions to preserve method inheritance
+- **🔧 Fixed Session Creation Logger Error**: Fixed "logger is not defined" error after voting session creation in voting-sessions.js
+- **🧵 Fixed Thread Creation for Deleted Messages**: Added message existence check before creating threads to prevent "Unknown Message" errors
+- **📊 Enhanced Sync Error Handling**: Improved error handling in thread recreation with proper logger usage and message validation
+- **📊 COMPREHENSIVE: Fixed All Missing Logging Levels**: Converted 15+ remaining console.log statements to proper logger with appropriate levels
+- **⏰ Session Scheduler Logging**: All session recovery, scheduling, and closure messages now use logger.info/debug
+- **🗑️ Discord Event Deletion Logging**: Event deletion messages now use logger.info with proper formatting
+- **✅ Database Operation Logging**: "Marked non-winning movies for next session" now uses logger.info
+- **❌ Session Cancellation Logging**: Session cancellation messages now use logger.info with user attribution
+- **🔧 Fixed Channel Validation Errors**: Added proper validation for undefined channels in cleanup operations to prevent "Cannot read properties of undefined (reading 'fetch')" errors
+- **🔙 Added Back to Moderation Button**: Administration panel now includes "Back to Moderation" button to return to main admin control panel
+- **🛡️ Enhanced Error Handling**: All cleanup and sync operations now validate channel objects before attempting operations
+- **🔒 CRITICAL: Made Administration Panel Ephemeral**: Administration panel now shows as ephemeral message instead of editing shared moderation panel
+- **👥 Fixed Security Issue**: Non-admin moderators can no longer see or access administrator-only buttons in shared channel
+- **🔙 Enhanced Back Button**: Back to Moderation button now auto-dismisses ephemeral message after 3 seconds for clean UX
+- **📋 Enhanced Forum Recommendation Post Debugging**: Added comprehensive logging and error details for forum recommendation post creation issues
+- **🔍 Detailed Forum Post Error Tracking**: Added session validation, channel type checking, and stack trace logging for forum post troubleshooting
+- **🔧 CRITICAL: Fixed Admin Panel Disappearing**: Removed automatic admin panel refresh after session creation that was replacing existing panels
+- **📊 Additional Logging Cleanup**: Fixed more console.log statements including forum sync, event notifications, session creation, and Discord event sync
+- **🛡️ Admin Panel Persistence**: Admin panel now stays visible during session creation and other operations
+- **🔧 CRITICAL: Fixed "Skip to Next Session" for Forum Channels**: Movies skipped to next session now properly archive forum threads instead of failing to delete
+- **📦 Forum Thread Archiving**: Skip to Next Session now archives forum threads instead of attempting deletion, preserving discussion history
+- **🔍 Fixed "Cannot read properties of undefined (reading 'fetch')" Error**: Enhanced error handling in removeMoviePost function
+- **📊 Additional Logging Cleanup**: Fixed forum post title updates, voting actions, button creation debug messages, and error logging
+- **🛡️ Enhanced Forum Channel Support**: Proper handling of forum vs text channels when skipping movies to next session
+- **🔧 CRITICAL: Fixed Session Cancellation for Forum Channels**: Session cancellation now properly archives forum posts and removes recommendation post
+- **📦 Forum Session Cancellation**: Cancelled sessions now archive all movie forum posts and remove "Recommend a Movie" post
+- **⏭️ Auto-Queue Cancelled Movies**: Movies from cancelled sessions are automatically moved to next session queue (like skip to next)
+- **📊 CRITICAL: Fixed Guild Stats Accuracy**: Stats now show accurate counts based on active sessions and queue status
+- **🔢 Enhanced Stats Display**: Added "Current Voting" (active session only) and "Queued for Next" (skip to next queue) fields
+- **🎯 Accurate Vote Counts**: "Current Voting" shows 0 when no active session, "Queued for Next" shows movies waiting for next session
+- **📋 Additional Logging Cleanup**: Fixed "Error clearing voting channel" and Discord event deletion logging
+- **🔧 CRITICAL: Fixed Forum "No Active Session" Message**: Forum channels now show proper "No Active Session" post when no voting session is active
+- **📋 Forum No Session Post**: Creates pinned forum post explaining no active session and how to start one when syncing channels
+- **🔧 CRITICAL: Fixed Admin Panel Disappearing Issue**: Admin panel no longer gets deleted when update fails, preventing disappearance
+- **⚡ Added /admin-panel Slash Command**: New command to restore admin control panel if it disappears (requires Manage Channels permission)
+- **🛡️ Enhanced Admin Panel Persistence**: Improved error handling prevents admin panel deletion during temporary update failures
+- **📊 Additional Critical Logging Cleanup**: Fixed carryover movie logging, next_session flag clearing, and logger initialization errors
+- **🔍 Fixed "Cannot access 'logger' before initialization"**: Resolved logger declaration conflicts in session creation
+- **🔧 CRITICAL: Fixed Forum Pin Limit Error**: Enhanced pin handling when forum channels reach maximum pinned threads (Discord limit: 1)
+- **📌 Smart Pin Management**: Automatically unpins old posts to make room for winner announcements and important posts
+- **🔧 CRITICAL: Fixed "votingChannel.send is not a function"**: Added proper forum vs text channel detection in winner announcements
+- **🏆 Enhanced Winner Announcement Logic**: Forum channels use forum-specific announcement posts, text channels use regular messages
+- **📊 Additional Forum Logging Cleanup**: Fixed forum post archiving, title updates, tag updates, and content updates to use proper logger
+- **🧹 Comprehensive Forum Error Handling**: All forum operations now have proper error handling with appropriate log levels
+- **🔧 CRITICAL: Fixed Forum Posts Not Being Archived**: Sync Channels now properly cleans up old movie posts when no active session
+- **📋 Enhanced Forum Cleanup During Sync**: When no active session exists, all old movie forum posts are archived before showing "No Active Session"
+- **🔍 Enhanced Forum Post Detection**: Improved getForumMoviePosts to fetch more archived threads and provide detailed logging
+- **📊 Better Forum Cleanup Logging**: Added detailed logging to show which posts are found and processed during cleanup operations
+- **🧹 Comprehensive Forum Sync Behavior**: Sync Channels now properly handles forum state transitions between active and inactive sessions
+- **🔧 CRITICAL: Added Guild ID to All Log Lines**: Enhanced logger to include guild ID for multi-guild support and better debugging
+- **📊 Multi-Guild Logging Support**: All log messages now include guild ID in format [GUILD_ID] for easy filtering and debugging
+- **🔍 Fixed "logger is not defined" Error**: Resolved logger declaration conflicts in session creation by moving logger to function scope
+- **📋 Enhanced Session Creation Logging**: Fixed all remaining console.log statements in voting session creation to use proper logger
+- **🎬 Carryover Movie Logging Cleanup**: All carryover movie operations now use proper logger with appropriate levels
+- **🛡️ Improved Logger Architecture**: Enhanced logger to support guild context while maintaining backward compatibility
+- **🔧 CRITICAL: Fixed Forum Post Filtering Logic**: Fixed clearForumMoviePosts to properly skip system posts like "No Active Voting Session"
+- **📋 Enhanced Forum Post Detection**: Improved getForumMoviePosts to exclude system posts from movie post filtering
+- **🧹 Proper System Post Handling**: System posts (🚫 No Active Session, 🍿 Recommend) are now properly excluded from cleanup operations
+- **🎯 Fixed Forum Sync Behavior**: Sync Channels now properly archives only actual movie posts, not system posts
+- **📊 Enhanced Guild-Aware Logging**: All forum operations now use guild ID in logging for better multi-guild debugging
+- **✅ Text Channel Compatibility Verified**: All forum-specific code properly gated with isForumChannel() checks - text channels unaffected
+- **🔧 CRITICAL: Database-Driven Safe Deletion System**: Completely rewrote forum cleanup to use database-tracked message/thread IDs only
+- **🛡️ Enhanced Safety for Mixed-Use Channels**: Only deletes threads/messages that are tracked in bot database - ignores all other content
+- **🗑️ Proper Deletion vs Archiving**: Forum posts are now properly deleted (not archived) when sessions end or sync occurs
+- **📊 Database-First Approach**: Uses getMoviesByGuild() to identify what to delete, ensuring only bot-created content is affected
+- **🔍 Thread ID Tracking**: Leverages existing thread_id column in database for precise forum thread identification and deletion
+- **⚡ Immediate Cleanup Results**: Forum posts are deleted immediately during sync operations, providing instant visual feedback
+- **🧹 Professional Forum State Management**: Clean transitions between active/inactive sessions with proper content lifecycle management
+- **🔧 CRITICAL: Fixed Session Creation Syntax Error**: Resolved malformed try-catch block causing "Unexpected token 'catch'" error
+- **🛡️ Channel Safety Confirmation System**: Added safety checks for existing channels during configuration to prevent conflicts
+- **⚠️ Existing Channel Warning**: Configuration now detects existing content and shows confirmation dialog with safety recommendations
+- **🏗️ Dedicated Category Creation Guide**: Added comprehensive guide for creating dedicated Movie Night category with proper permissions
+- **📋 Enhanced Channel Safety**: Checks for existing messages/threads before allowing channel configuration
+- **🎯 Smart Configuration Flow**: Guides users toward dedicated channels while supporting mixed-use scenarios safely
+- **📊 Comprehensive Permission Documentation**: Detailed permission requirements for each channel type in setup process
+- **🔧 CRITICAL: Fixed Forum Pin Management**: Added unpinOtherForumPosts() to properly manage Discord's 1-pin limit in forum channels
+- **📌 Smart Pin Transitions**: Automatically unpins old posts before pinning new ones to prevent "Maximum number pinned threads" errors
+- **🔄 CRITICAL: Fixed Carryover Movies Missing**: Fixed order of operations in session cancellation to preserve movies for next session
+- **⚡ Database Operation Order Fix**: markMoviesForNextSession() now called BEFORE clearForumMoviePosts() to prevent data loss
+- **🎬 Enhanced Session Cancellation**: Movies from cancelled sessions now properly carry over to next session as intended
+- **📋 Improved Forum State Management**: Better handling of pin transitions between "No Active Session" and "Recommend a Movie" posts
+- **🛡️ Robust Pin Error Handling**: Graceful handling of Discord API pin limit errors with automatic recovery
+- **🔧 HOTFIX: Fixed Duplicate Logger Declaration**: Removed duplicate logger declaration causing "Identifier 'logger' has already been declared" syntax error
+- **🔧 CRITICAL: Fixed Forum Pin Management Logic**: Fixed unpinOtherForumPosts() to properly unpin threads using thread.unpin() instead of setArchived(true)
+- **📌 Proper Thread Unpinning**: Unarchive threads first if needed, then call unpin() to properly remove pin status
+- **📋 Comprehensive Permission Documentation**: Enhanced permission documentation with separate bot and user permissions for each channel type
+- **🎯 Accurate Forum Channel Permissions**: Clarified that users should NOT have "Send Messages" in main forum channel, only in threads
+- **🏗️ Enhanced Category Creation Guide**: Detailed permission setup for forum channels, admin channels, and voice channels with proper restrictions
+- **🛡️ Professional Permission Guidance**: Clear separation of bot permissions vs user permissions for optimal security and functionality
+- **🔧 CRITICAL: Fixed System Posts Not Being Deleted**: Added system post deletion (No Active Session, Recommend a Movie) during forum cleanup when no active session
+- **🗑️ Complete Forum Cleanup**: System posts are now properly deleted during sync operations when no active session exists
+- **⚡ Fixed /admin-panel Command Registration**: Added admin-panel command to command index so it's properly registered and available
+- **🔧 Enhanced Admin Panel Restoration**: Improved admin panel restoration timing with delay to ensure proper restoration after notifications
+- **📋 Comprehensive Forum State Management**: Both movie posts and system posts are now properly cleaned up during sync operations
+- **🔧 FINAL SOLUTION: Simple Pin Post Editing**: Completely rewrote forum post management to edit existing pinned posts instead of create/delete
+- **📌 No More Pin Errors**: Single pinned post that gets edited between "No Active Session" and "Recommend a Movie" states
+- **⚡ Robust Admin Panel Restoration**: Enhanced admin panel restoration with 2-second delay and setTimeout for reliable restoration
+- **🎯 Simple and Reliable**: Eliminated complex pin management, thread creation/deletion - just edit the one pinned post
+- **🛡️ Bulletproof Forum Management**: One pinned post, edit content and title based on session state - no more pin limit errors
+- **🔧 CRITICAL SYNTAX FIX**: Fixed missing closing bracket in voting-sessions.js causing "Missing catch or finally after try" error
+- **⚡ Session Creation Fix**: Added missing closing bracket for try block in channel update logic
+- **🛡️ Syntax Error Resolution**: Fixed malformed try-catch block preventing session creation from completing properly
+- **🔧 FINAL SYNTAX FIX**: Removed extra closing bracket that was added in previous fix causing continued syntax errors
+- **⚡ Bracket Balance Fix**: Properly balanced brackets in try-catch block - removed duplicate closing bracket on line 465
+- **🛡️ Clean Syntax**: Final resolution of "Missing catch or finally after try" error with proper bracket structure
+
+### Technical
+- **� Forum Channel Architecture**: Complete forum post creation, voting, and discussion system
+- **🔒 Safety Architecture**: Two-step confirmation system with global state management
+- **📊 Logging Infrastructure**: Professional logging utility with environment-based configuration
+- **�🔄 Hybrid Registration**: Global + guild-specific registration for best user experience
+- **💾 Memory Management**: Ephemeral messages tracked in memory only (no database bloat)
+- **🎪 Event Handlers**: Added guildCreate/guildDelete handlers for automatic setup
+- **📋 Documentation**: Updated README and .env.example for new registration system
+- **🔧 Discord.js Updates**: Compatibility improvements for newer Discord.js versions
+
+### Environment Variables
+- **LOG_LEVEL**: Set logging verbosity (ERROR/WARN/INFO/DEBUG, default: INFO)
+- **DEBUG_LOGGING**: Force debug mode regardless of LOG_LEVEL (true/false, default: false)
+- **LOG_COLORS**: Enable colored console output (true/false, default: true)
+- **GUILD_ID**: Now optional - only needed for instant development command testing
+
 ## [1.12.1] - 2025-09-07
 ### 🎉 Major Release: Enhanced Administration & Automatic Voting System
 

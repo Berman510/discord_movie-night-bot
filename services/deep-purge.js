@@ -42,11 +42,11 @@ function createDeepPurgeSelectionEmbed(guildName) {
 }
 
 /**
- * Create deep purge selection menu
+ * Create deep purge selection menu with submit button
  */
-function createDeepPurgeSelectionMenu() {
+function createDeepPurgeSelectionMenu(selectedCategories = []) {
   const selectMenu = new StringSelectMenuBuilder()
-    .setCustomId('deep_purge_select')
+    .setCustomId('deep_purge_select_categories')
     .setPlaceholder('Select data categories to remove...')
     .setMinValues(1)
     .setMaxValues(6)
@@ -89,8 +89,90 @@ function createDeepPurgeSelectionMenu() {
       }
     ]);
 
-  const row = new ActionRowBuilder().addComponents(selectMenu);
-  return [row];
+  // Update placeholder to show selected categories
+  if (selectedCategories && selectedCategories.length > 0) {
+    const categoryNames = {
+      movies: 'Movies',
+      sessions: 'Sessions',
+      votes: 'Votes',
+      participants: 'Participants',
+      attendees: 'Attendees',
+      config: 'Configuration'
+    };
+    const selectedNames = selectedCategories.map(cat => categoryNames[cat]).join(', ');
+    selectMenu.setPlaceholder(`Selected: ${selectedNames} (click to change)`);
+  }
+
+  // Encode selected categories in the button ID for persistence
+  const encodedCategories = selectedCategories && selectedCategories.length > 0
+    ? selectedCategories.join(',')
+    : '';
+
+  const submitButton = new ButtonBuilder()
+    .setCustomId(`deep_purge_submit:${encodedCategories}`)
+    .setLabel('🚨 Proceed with Deep Purge')
+    .setStyle(ButtonStyle.Danger);
+
+  const cancelButton = new ButtonBuilder()
+    .setCustomId('deep_purge_cancel')
+    .setLabel('❌ Cancel')
+    .setStyle(ButtonStyle.Secondary);
+
+  const selectRow = new ActionRowBuilder().addComponents(selectMenu);
+  const buttonRow = new ActionRowBuilder().addComponents(submitButton, cancelButton);
+
+  return [selectRow, buttonRow];
+}
+
+/**
+ * Update selection display with current selections
+ */
+function updateSelectionDisplay(selectedCategories) {
+  const embed = new EmbedBuilder()
+    .setTitle('💥 Deep Purge - Select Categories')
+    .setDescription('⚠️ **WARNING: This will permanently delete selected data**\n\nSelect the categories you want to remove, then click the submit button.')
+    .setColor(0xed4245);
+
+  if (selectedCategories && selectedCategories.length > 0) {
+    const categoryEmojis = {
+      movies: '🎬',
+      sessions: '🎪',
+      votes: '🗳️',
+      participants: '👥',
+      attendees: '📊',
+      config: '⚙️'
+    };
+
+    const categoryNames = {
+      movies: 'Movies',
+      sessions: 'Sessions',
+      votes: 'Votes',
+      participants: 'Participants',
+      attendees: 'Attendees',
+      config: 'Configuration'
+    };
+
+    const selectedList = selectedCategories.map(cat =>
+      `${categoryEmojis[cat]} **${categoryNames[cat]}**`
+    ).join('\n');
+
+    embed.addFields({
+      name: `📋 Selected Categories (${selectedCategories.length})`,
+      value: selectedList,
+      inline: false
+    });
+
+    embed.setFooter({ text: 'Click "Proceed with Deep Purge" to continue or "Cancel" to abort.' });
+  } else {
+    embed.addFields({
+      name: '📋 No Categories Selected',
+      value: 'Please select at least one category to purge.',
+      inline: false
+    });
+    embed.setFooter({ text: 'Select categories from the dropdown menu above.' });
+  }
+
+  return embed;
 }
 
 /**
@@ -264,9 +346,10 @@ async function executeDeepPurge(guildId, categories, reason = null, client = nul
     options[category] = true;
   });
 
-  console.log(`🗑️ Executing deep purge for guild ${guildId}:`, categories);
+  const logger = require('../utils/logger');
+  logger.info(`🗑️ Executing deep purge for guild ${guildId}:`, categories);
   if (reason) {
-    console.log(`📝 Purge reason: ${reason}`);
+    logger.info(`📝 Purge reason: ${reason}`);
   }
 
   // Clear Discord content if movies/sessions are being purged
@@ -284,14 +367,14 @@ async function executeDeepPurge(guildId, categories, reason = null, client = nul
             try {
               if (event.name.includes('Movie Night')) {
                 await event.delete();
-                console.log(`🗑️ Deleted Discord event: ${event.name} (${eventId})`);
+                logger.debug(`🗑️ Deleted Discord event: ${event.name} (${eventId})`);
               }
             } catch (error) {
-              console.warn(`Failed to delete Discord event ${eventId}:`, error.message);
+              logger.warn(`Failed to delete Discord event ${eventId}:`, error.message);
             }
           }
         } catch (error) {
-          console.warn('Error deleting Discord events during deep purge:', error.message);
+          logger.warn('Error deleting Discord events during deep purge:', error.message);
         }
       }
 
@@ -307,23 +390,43 @@ async function executeDeepPurge(guildId, categories, reason = null, client = nul
               try {
                 await message.delete();
               } catch (error) {
-                console.warn(`Failed to delete voting message ${messageId}:`, error.message);
+                logger.warn(`Failed to delete voting message ${messageId}:`, error.message);
               }
             }
 
-            // Clear threads
-            const threads = await votingChannel.threads.fetchActive();
-            for (const [threadId, thread] of threads.threads) {
-              try {
-                await thread.delete();
-              } catch (error) {
-                console.warn(`Failed to delete thread ${threadId}:`, error.message);
+            const forumChannels = require('./forum-channels');
+            if (forumChannels.isForumChannel(votingChannel)) {
+              // Use forum-aware clear that handles active+archived and system posts; do NOT preserve winner during a deep purge
+              await forumChannels.clearForumMoviePosts(votingChannel, null, { deleteWinnerAnnouncements: true });
+              // Add system post if configuration still exists
+              const configAfterPurge = await database.getGuildConfig(guildId);
+              if (configAfterPurge) {
+                await forumChannels.ensureRecommendationPost(votingChannel, null);
+                logger.debug('✅ Added No Active Voting Session post in forum after deep purge');
+              } else {
+                logger.debug('✅ Forum voting channel cleared, no messages added (configuration cleared)');
+              }
+            } else {
+              // Clear threads (active and archived) for text channels
+              const activeThreads = await votingChannel.threads.fetchActive();
+              for (const [threadId, thread] of activeThreads.threads) {
+                try { await thread.delete(); } catch (error) { logger.warn(`Failed to delete thread ${threadId}:`, error.message); }
+              }
+              const archivedThreads = await votingChannel.threads.fetchArchived({ limit: 50 });
+              for (const [threadId, thread] of archivedThreads.threads) {
+                try { await thread.delete(); } catch (error) { logger.warn(`Failed to delete archived thread ${threadId}:`, error.message); }
+              }
+
+              // Add system post if configuration still exists
+              const configAfterPurge = await database.getGuildConfig(guildId);
+              if (configAfterPurge) {
+                const cleanup = require('./cleanup');
+                await cleanup.ensureQuickActionPinned(votingChannel);
+                logger.debug('✅ Added quick action/no session message after deep purge');
+              } else {
+                logger.debug('✅ Voting channel cleared, no messages added (configuration cleared)');
               }
             }
-
-            // Add appropriate message based on remaining session state
-            const cleanup = require('./cleanup');
-            await cleanup.ensureQuickActionAtBottom(votingChannel);
           }
         } catch (error) {
           console.warn('Error clearing voting channel during deep purge:', error.message);
@@ -348,28 +451,30 @@ async function executeDeepPurge(guildId, categories, reason = null, client = nul
                   await message.delete();
                 }
               } catch (error) {
-                console.warn(`Failed to delete admin message ${messageId}:`, error.message);
+                logger.warn(`Failed to delete admin message ${messageId}:`, error.message);
               }
             }
 
-            // Ensure admin control panel is at bottom
+            // Update admin panel - will show setup panel if config was cleared
             const adminControls = require('./admin-controls');
             await adminControls.ensureAdminControlPanel(client, guildId);
           }
         } catch (error) {
-          console.warn('Error clearing admin channel during deep purge:', error.message);
+          const logger = require('../utils/logger');
+          logger.warn('Error clearing admin channel during deep purge:', error.message);
         }
       }
     } catch (error) {
-      console.warn('Error during Discord cleanup in deep purge:', error.message);
+      const logger = require('../utils/logger');
+      logger.warn('Error during Discord cleanup in deep purge:', error.message);
     }
   }
 
   const result = await database.deepPurgeGuildData(guildId, options);
 
-  console.log(`✅ Deep purge completed: ${result.deleted} items deleted`);
+  logger.info(`✅ Deep purge completed: ${result.deleted} items deleted`);
   if (result.errors.length > 0) {
-    console.error('Deep purge errors:', result.errors);
+    logger.error('Deep purge errors:', result.errors);
   }
 
   return result;
@@ -419,6 +524,7 @@ function createSuccessEmbed(guildName, result, categories) {
 module.exports = {
   createDeepPurgeSelectionEmbed,
   createDeepPurgeSelectionMenu,
+  updateSelectionDisplay,
   createConfirmationEmbed,
   createConfirmationModal,
   executeDeepPurge,

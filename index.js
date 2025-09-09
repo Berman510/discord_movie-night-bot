@@ -1,13 +1,41 @@
 /**
  * Movie Night Bot — Main Entry Point
  * Version: 1.10.8
- * 
+ *
  * A modular Discord bot for organizing movie nights with voting, sessions, and IMDb integration
  */
+// Ensure production dependencies are installed when running from a clean git pull (e.g., PebbleHost)
+try {
+  require.resolve('discord.js');
+} catch (_) {
+  const fs = require('fs');
+  const path = require('path');
+  const cp = require('child_process');
+  const nm = path.join(__dirname, 'node_modules');
+  try {
+    console.log('[startup] Installing dependencies (npm ci --omit=dev)...');
+    cp.execSync('npm ci --omit=dev', { stdio: 'inherit' });
+    console.log('[startup] Dependencies installed.');
+  } catch (err) {
+    console.warn('[startup] npm ci failed, attempting npm install --only=prod');
+    try {
+      cp.execSync('npm install --only=prod', { stdio: 'inherit' });
+      console.log('[startup] Dependencies installed via npm install.');
+    } catch (err2) {
+      console.error('[startup] Failed to install dependencies automatically. Please run npm install.', err2?.message || err2);
+    }
+  }
+}
 
-require('dotenv').config();
+
+try {
+  require('dotenv').config();
+} catch (err) {
+  console.warn('[startup] dotenv not found; proceeding with process.env only');
+}
 
 const { Client, GatewayIntentBits, REST, Routes, InteractionType, MessageFlags, EmbedBuilder } = require('discord.js');
+const logger = require('./utils/logger');
 const database = require('./database');
 const { commands, registerCommands } = require('./commands');
 const { handleInteraction } = require('./handlers');
@@ -20,12 +48,12 @@ const { DISCORD_TOKEN, CLIENT_ID, GUILD_ID, OMDB_API_KEY } = process.env;
 
 // Validate required environment variables
 if (!DISCORD_TOKEN) {
-  console.error('❌ DISCORD_TOKEN is required');
+  logger.error('❌ DISCORD_TOKEN is required');
   process.exit(1);
 }
 
 if (!CLIENT_ID) {
-  console.error('❌ CLIENT_ID is required');
+  logger.error('❌ CLIENT_ID is required');
   process.exit(1);
 }
 
@@ -45,9 +73,9 @@ global.discordClient = client;
 
 // Bot ready event
 client.once('clientReady', async () => {
-  console.log(`✅ ${client.user.tag} is online!`);
-  console.log(`🎬 Movie Night Bot v${BOT_VERSION} ready`);
-  console.log(`📊 Serving ${client.guilds.cache.size} guilds`);
+  logger.info(`✅ ${client.user.tag} is online!`);
+  logger.info(`🎬 Movie Night Bot v${BOT_VERSION} ready`);
+  logger.info(`📊 Serving ${client.guilds.cache.size} guilds`);
 
   // Set bot status
   client.user.setActivity('🍿 Movie Night', { type: 3 }); // 3 = WATCHING
@@ -61,28 +89,75 @@ client.once('clientReady', async () => {
       try {
         const config = await database.getGuildConfig(guildId);
         if (config && config.admin_channel_id) {
-          await adminControls.ensureAdminControlPanel(client, guildId);
-          panelsCreated++;
+          const panel = await adminControls.ensureAdminControlPanel(client, guildId);
+          if (panel) panelsCreated++;
         }
       } catch (error) {
-        console.error(`Error initializing admin panel for guild ${guildId}:`, error);
+        logger.error(`Error initializing admin panel for guild ${guildId}:`, error);
       }
     }
 
     if (panelsCreated > 0) {
-      console.log(`🔧 Initialized ${panelsCreated} admin control panels`);
+      logger.info(`🔧 Initialized ${panelsCreated} admin control panels`);
     }
   } catch (error) {
-    console.error('Error during admin panel initialization:', error);
+    logger.error('Error during admin panel initialization:', error);
   }
 
-  // Start voting closure checker
+  // Initialize smart session scheduler (replaces old polling system)
   try {
-    const votingClosure = require('./services/voting-closure');
-    votingClosure.startVotingClosureChecker(client);
+    const sessionScheduler = require('./services/session-scheduler');
+    await sessionScheduler.initialize(client);
   } catch (error) {
-    console.error('Error starting voting closure checker:', error);
+    logger.error('Error starting session scheduler:', error);
   }
+
+  // Start webhook server (optional)
+  try {
+    const { startWebhookServer } = require('./services/webhook-server');
+    startWebhookServer();
+  } catch (error) {
+    logger.warn('Webhook server failed to start:', error.message);
+  }
+});
+
+// Bot joins a new guild
+client.on('guildCreate', async (guild) => {
+  logger.info(`🎉 Joined new guild: ${guild.name} (${guild.id})`);
+  logger.info(`📊 Now serving ${client.guilds.cache.size} guilds`);
+
+  try {
+    // Register commands to this specific guild for instant availability
+    logger.info(`⚡ Registering commands to ${guild.name} for instant availability`);
+    try {
+      await registerCommands(DISCORD_TOKEN, CLIENT_ID, guild.id);
+      logger.info(`✅ Commands registered to ${guild.name}`);
+    } catch (commandError) {
+      logger.warn(`⚠️ Failed to register commands to ${guild.name}: ${commandError.message}`);
+      logger.debug('Commands will still be available globally, just not instantly in this guild');
+    }
+
+    // Initialize admin control panel for this guild if it has an admin channel configured
+    const config = await database.getGuildConfig(guild.id);
+    if (config && config.admin_channel_id) {
+      const adminControls = require('./services/admin-controls');
+      const panel = await adminControls.ensureAdminControlPanel(client, guild.id);
+      if (panel) {
+        logger.info(`🔧 Admin control panel initialized for ${guild.name}`);
+      } else {
+        logger.warn(`⚠️ Skipped admin panel for ${guild.name} (Missing Access or channel not found)`);
+      }
+    }
+
+  } catch (error) {
+    logger.error(`❌ Error setting up new guild ${guild.name}:`, error);
+  }
+});
+
+// Bot leaves a guild
+client.on('guildDelete', (guild) => {
+  logger.info(`👋 Left guild: ${guild.name} (${guild.id})`);
+  logger.info(`📊 Now serving ${client.guilds.cache.size} guilds`);
 });
 
 // Handle all interactions
@@ -99,7 +174,7 @@ client.on('interactionCreate', async (interaction) => {
 
   } catch (error) {
     console.error('Error handling interaction:', error);
-    
+
     if (!interaction.replied && !interaction.deferred) {
       await interaction.reply({
         content: '❌ An error occurred while processing your request.',
@@ -135,7 +210,7 @@ process.on('uncaughtException', (error) => {
 
 // Graceful shutdown
 process.on('SIGINT', async () => {
-  console.log('🛑 Received SIGINT, shutting down gracefully...');
+  logger.info('🛑 Received SIGINT, shutting down gracefully...');
 
   if (database.isConnected) {
     await database.close();
@@ -146,7 +221,7 @@ process.on('SIGINT', async () => {
 });
 
 process.on('SIGTERM', async () => {
-  console.log('🛑 Received SIGTERM, shutting down gracefully...');
+  logger.info('🛑 Received SIGTERM, shutting down gracefully...');
 
   if (database.isConnected) {
     await database.close();
@@ -159,34 +234,50 @@ process.on('SIGTERM', async () => {
 // Start the bot
 async function startBot() {
   try {
-    console.log(`🎬 Movie Night Bot v${BOT_VERSION} starting...`);
-    
+    logger.info(`🎬 Movie Night Bot v${BOT_VERSION} starting...`);
+
     // Initialize database
     await database.connect();
-    
-    // Register commands
-    if (GUILD_ID && GUILD_ID.trim()) {
-      // Development mode: Register to specific guilds for instant updates
-      const guildIds = GUILD_ID.split(',').map(id => id.trim()).filter(id => id);
 
-      console.log(`🧪 Development mode: Registering commands to ${guildIds.length} specific guild(s) for instant updates`);
-      for (const guildId of guildIds) {
-        await registerCommands(DISCORD_TOKEN, CLIENT_ID, guildId);
-      }
-    } else {
-      // Production mode: Register globally for all servers
-      console.log(`🌍 Production mode: Registering commands globally (up to 1 hour propagation)`);
-      await registerCommands(DISCORD_TOKEN, CLIENT_ID);
-    }
-    
-    // Login to Discord
+    // Register commands globally for all servers
+    logger.info(`🌍 Registering commands globally for all servers`);
+    await registerCommands(DISCORD_TOKEN, CLIENT_ID);
+
+    // Login to Discord first
     await client.login(DISCORD_TOKEN);
-    
+
+    // Wait a moment for guild cache to populate
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    // Also register to specific development guilds if specified for instant testing
+    if (GUILD_ID && GUILD_ID.trim()) {
+      const guildIds = GUILD_ID.split(',').map(id => id.trim()).filter(id => id);
+      logger.info(`🧪 Also registering to ${guildIds.length} development guild(s) for instant testing`);
+      for (const guildId of guildIds) {
+        try {
+          // Check if bot is actually in the guild before trying to register commands
+          const guild = client.guilds.cache.get(guildId);
+          if (!guild) {
+            logger.warn(`⚠️ Bot is not in development guild ${guildId} - skipping command registration`);
+            continue;
+          }
+
+          await registerCommands(DISCORD_TOKEN, CLIENT_ID, guildId);
+          logger.info(`✅ Commands registered to development guild: ${guild.name}`);
+        } catch (error) {
+          logger.warn(`⚠️ Failed to register commands to development guild ${guildId}: ${error.message}`);
+          logger.debug('This is non-critical - bot will continue with global commands only');
+        }
+      }
+    }
+
+    // Discord login moved above for guild cache population
+
     // Start payload cleanup
     startPayloadCleanup();
-    
+
   } catch (error) {
-    console.error('❌ Failed to start bot:', error);
+    logger.error('❌ Failed to start bot:', error);
     process.exit(1);
   }
 }

@@ -20,7 +20,16 @@ class Database {
       sessions: [],
       guilds: []
     };
+    // Utility: generate a stable UID for a movie title per guild
+    this.generateMovieUID = (guildId, title) => {
+      const crypto = require('crypto');
+      const normalizedTitle = String(title || '').toLowerCase().trim();
+      return crypto.createHash('sha256').update(`${guildId}:${normalizedTitle}`).digest('hex');
+    };
+
   }
+
+
 
   async connect() {
     try {
@@ -59,17 +68,19 @@ class Database {
       });
 
       // Test connection
-      console.log(`🔌 Attempting to connect to MySQL at ${host}:${port}...`);
+      const logger = require('./utils/logger');
+      logger.info(`🔌 Attempting to connect to MySQL at ${host}:${port}...`);
       await this.pool.execute('SELECT 1');
       this.isConnected = true;
-      console.log('✅ Connected to MySQL database');
-      
+      logger.info('✅ Connected to MySQL database');
+
       // Initialize tables
       await this.initializeTables();
       return true;
     } catch (error) {
-      console.error('❌ Database connection failed:', error.message);
-      console.log('🔄 Falling back to JSON storage...');
+      const logger = require('./utils/logger');
+      logger.error('❌ Database connection failed:', error.message);
+      logger.info('🔄 Falling back to JSON storage...');
       return await this.initJsonStorage();
     }
   }
@@ -90,12 +101,14 @@ class Database {
       }
 
       this.isConnected = true;
-      console.log('✅ Connected to JSON file storage');
-      console.log('💡 Tip: Set database credentials in .env for full MySQL features');
+      const logger = require('./utils/logger');
+      logger.info('✅ Connected to JSON file storage');
+      logger.info('💡 Tip: Set database credentials in .env for full MySQL features');
       return true;
     } catch (error) {
-      console.error('❌ JSON storage initialization failed:', error.message);
-      console.log('⚠️  Running in memory-only mode');
+      const logger = require('./utils/logger');
+      logger.error('❌ JSON storage initialization failed:', error.message);
+      logger.warn('⚠️  Running in memory-only mode');
       this.isConnected = false;
       this.useJsonFallback = false;
       return false;
@@ -108,7 +121,8 @@ class Database {
     try {
       await fs.writeFile(this.jsonFile, JSON.stringify(this.data, null, 2));
     } catch (error) {
-      console.error('Failed to save JSON data:', error.message);
+      const logger = require('./utils/logger');
+      logger.error('Failed to save JSON data:', error.message);
     }
   }
 
@@ -126,6 +140,7 @@ class Database {
         recommended_by VARCHAR(20) NOT NULL,
         imdb_id VARCHAR(20) NULL,
         imdb_data JSON NULL,
+        poster_url VARCHAR(500) NULL,
         status ENUM('pending', 'watched', 'planned', 'skipped', 'scheduled', 'banned') DEFAULT 'pending',
         session_id INT NULL,
         is_banned BOOLEAN DEFAULT FALSE,
@@ -179,6 +194,7 @@ class Database {
         guild_id VARCHAR(20) UNIQUE NOT NULL,
         movie_channel_id VARCHAR(20) NULL,
         admin_roles JSON NULL,
+        moderator_roles JSON NULL,
         notification_role_id VARCHAR(20) NULL,
         default_timezone VARCHAR(50) DEFAULT 'UTC',
         session_viewing_channel_id VARCHAR(20) NULL,
@@ -222,23 +238,28 @@ class Database {
       }
     }
 
-    // Run migrations to ensure schema is up to date
-    await this.runMigrations();
-
-    console.log('✅ Database tables initialized');
+    const logger = require('./utils/logger');
+    // Run migrations to ensure schema is up to date (can be disabled via env)
+    if (process.env.DB_MIGRATIONS_ENABLED === 'true') {
+      await this.runMigrations();
+    } else {
+      logger.info('⏭️ Database migrations disabled; skipping (set DB_MIGRATIONS_ENABLED=true to run)');
+    }
+    logger.info('✅ Database tables initialized');
   }
 
   async runMigrations() {
-    console.log('🔄 Running database migrations...');
+    const logger = require('./utils/logger');
+    logger.info('🔄 Running database migrations...');
 
-    try {
+
       // Check current schema first
       const [columns] = await this.pool.execute(`
         SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'guild_config'
       `);
       const columnNames = columns.map(row => row.COLUMN_NAME);
-      console.log('Current guild_config columns:', columnNames);
+      logger.debug('Current guild_config columns:', columnNames);
 
       // Migration 1: Ensure timezone column exists in movie_sessions
       try {
@@ -246,12 +267,12 @@ class Database {
           ALTER TABLE movie_sessions
           ADD COLUMN timezone VARCHAR(50) DEFAULT 'UTC'
         `);
-        console.log('✅ Added timezone column to movie_sessions');
+        logger.debug('✅ Added timezone column to movie_sessions');
       } catch (error) {
         if (error.message.includes('Duplicate column name')) {
-          console.log('✅ timezone column already exists');
+          logger.debug('✅ timezone column already exists');
         } else {
-          console.warn('Migration 1 warning:', error.message);
+          logger.warn('Migration 1 warning:', error.message);
         }
       }
 
@@ -261,12 +282,12 @@ class Database {
           ALTER TABLE movie_sessions
           ADD COLUMN associated_movie_id VARCHAR(255) DEFAULT NULL
         `);
-        console.log('✅ Added associated_movie_id column to movie_sessions');
+        logger.debug('✅ Added associated_movie_id column to movie_sessions');
       } catch (error) {
         if (error.message.includes('Duplicate column name')) {
-          console.log('✅ associated_movie_id column already exists');
+          logger.debug('✅ associated_movie_id column already exists');
         } else {
-          console.warn('Migration 2 warning:', error.message);
+          logger.warn('Migration 2 warning:', error.message);
         }
       }
 
@@ -276,17 +297,24 @@ class Database {
           ALTER TABLE movie_sessions
           ADD COLUMN discord_event_id VARCHAR(255) DEFAULT NULL
         `);
-        console.log('✅ Added discord_event_id column to movie_sessions');
+        logger.debug('✅ Added discord_event_id column to movie_sessions');
       } catch (error) {
         if (error.message.includes('Duplicate column name')) {
-          console.log('✅ discord_event_id column already exists');
+          logger.debug('✅ discord_event_id column already exists');
         } else {
-          console.warn('Migration 3 warning:', error.message);
+          logger.warn('Migration 3 warning:', error.message);
         }
       }
 
       // Migration 4: Update charset to support emojis
       try {
+        // First drop foreign key constraints that might interfere
+        try {
+          await this.pool.execute(`ALTER TABLE votes DROP FOREIGN KEY votes_ibfk_1`);
+        } catch (fkError) {
+          // Foreign key might not exist or have different name, continue
+        }
+
         await this.pool.execute(`
           ALTER TABLE movie_sessions
           CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
@@ -295,9 +323,30 @@ class Database {
           ALTER TABLE movies
           CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
         `);
-        console.log('✅ Updated charset to utf8mb4');
+        await this.pool.execute(`
+          ALTER TABLE votes
+          CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+        `);
+
+        // Recreate foreign key constraint
+        try {
+          await this.pool.execute(`
+            ALTER TABLE votes
+            ADD CONSTRAINT votes_ibfk_1
+            FOREIGN KEY (message_id) REFERENCES movies(message_id) ON DELETE CASCADE
+          `);
+        } catch (fkError) {
+          // Foreign key might already exist, continue
+        }
+
+        const logger = require('./utils/logger');
+        logger.info('✅ Updated charset to utf8mb4');
       } catch (error) {
-        console.warn('Migration 4 warning:', error.message);
+        // Only log as warning if it's not a critical error
+        if (!error.message.includes('already exists') && !error.message.includes('utf8mb4')) {
+          const logger = require('./utils/logger');
+          logger.warn('Migration 4 warning:', error.message);
+        }
       }
 
       // Migration 5: Add 'scheduled' status to movies enum
@@ -306,9 +355,9 @@ class Database {
           ALTER TABLE movies
           MODIFY COLUMN status ENUM('pending', 'watched', 'planned', 'skipped', 'scheduled') DEFAULT 'pending'
         `);
-        console.log('✅ Added scheduled status to movies enum');
+        logger.debug('✅ Added scheduled status to movies enum');
       } catch (error) {
-        console.warn('Migration 5 warning:', error.message);
+        logger.warn('Migration 5 warning:', error.message);
       }
 
       // Migration 6: Add notification_role_id to guild_config
@@ -318,12 +367,12 @@ class Database {
             ALTER TABLE guild_config
             ADD COLUMN notification_role_id VARCHAR(20) DEFAULT NULL
           `);
-          console.log('✅ Added notification_role_id column to guild_config');
+          logger.debug('✅ Added notification_role_id column to guild_config');
         } catch (error) {
-          console.error('❌ Failed to add notification_role_id column:', error.message);
+          logger.error('❌ Failed to add notification_role_id column:', error.message);
         }
       } else {
-        console.log('✅ notification_role_id column already exists');
+        logger.debug('✅ notification_role_id column already exists');
       }
 
       // Migration 7: Ensure watched_at column exists in movies table
@@ -341,9 +390,9 @@ class Database {
             ALTER TABLE movies
             ADD COLUMN watched_at TIMESTAMP NULL
           `);
-          console.log('✅ Added watched_at column to movies');
+          logger.debug('✅ Added watched_at column to movies');
         } else {
-          console.log('✅ watched_at column already exists');
+          logger.debug('✅ watched_at column already exists');
         }
       } catch (error) {
         console.error('❌ Failed to add watched_at column:', error.message);
@@ -364,9 +413,9 @@ class Database {
             ALTER TABLE movies
             ADD COLUMN watch_count INT DEFAULT 0
           `);
-          console.log('✅ Added watch_count column to movies');
+          logger.debug('✅ Added watch_count column to movies');
         } else {
-          console.log('✅ watch_count column already exists');
+          logger.debug('✅ watch_count column already exists');
         }
       } catch (error) {
         console.error('❌ Failed to add watch_count column:', error.message);
@@ -387,9 +436,9 @@ class Database {
             ALTER TABLE guild_config
             ADD COLUMN session_viewing_channel_id VARCHAR(20) NULL
           `);
-          console.log('✅ Added session_viewing_channel_id column to guild_config');
+          logger.debug('✅ Added session_viewing_channel_id column to guild_config');
         } else {
-          console.log('✅ session_viewing_channel_id column already exists');
+          logger.debug('✅ session_viewing_channel_id column already exists');
         }
       } catch (error) {
         console.error('❌ Failed to add session_viewing_channel_id column:', error.message);
@@ -401,9 +450,9 @@ class Database {
           ALTER TABLE movie_sessions
           MODIFY COLUMN status ENUM('planning', 'voting', 'decided', 'active', 'completed', 'cancelled') DEFAULT 'planning'
         `);
-        console.log('✅ Added active status to movie_sessions enum');
+        logger.debug('✅ Added active status to movie_sessions enum');
       } catch (error) {
-        console.warn('Migration 10 warning:', error.message);
+        logger.warn('Migration 10 warning:', error.message);
       }
 
       // Migration 11: Add guild_id columns to votes, session_participants, and session_attendees tables
@@ -437,9 +486,9 @@ class Database {
             ADD INDEX idx_guild_votes (guild_id, vote_type)
           `);
 
-          console.log('✅ Added guild_id column to votes table');
+          logger.debug('✅ Added guild_id column to votes table');
         } else {
-          console.log('✅ guild_id column already exists in votes table');
+          logger.debug('✅ guild_id column already exists in votes table');
         }
 
         // Add guild_id to session_participants table
@@ -471,9 +520,9 @@ class Database {
             ADD INDEX idx_guild_participants (guild_id, user_id)
           `);
 
-          console.log('✅ Added guild_id column to session_participants table');
+          logger.debug('✅ Added guild_id column to session_participants table');
         } else {
-          console.log('✅ guild_id column already exists in session_participants table');
+          logger.debug('✅ guild_id column already exists in session_participants table');
         }
 
         // Add guild_id to session_attendees table
@@ -505,9 +554,9 @@ class Database {
             ADD INDEX idx_guild_attendees (guild_id, user_id)
           `);
 
-          console.log('✅ Added guild_id column to session_attendees table');
+          logger.debug('✅ Added guild_id column to session_attendees table');
         } else {
-          console.log('✅ guild_id column already exists in session_attendees table');
+          logger.debug('✅ guild_id column already exists in session_attendees table');
         }
 
       } catch (error) {
@@ -529,9 +578,9 @@ class Database {
             ALTER TABLE guild_config
             ADD COLUMN admin_channel_id VARCHAR(20) NULL
           `);
-          console.log('✅ Added admin_channel_id column to guild_config');
+          logger.debug('✅ Added admin_channel_id column to guild_config');
         } else {
-          console.log('✅ admin_channel_id column already exists in guild_config');
+          logger.debug('✅ admin_channel_id column already exists in guild_config');
         }
       } catch (error) {
         console.error('❌ Failed to add admin_channel_id column (Migration 12):', error.message);
@@ -571,9 +620,9 @@ class Database {
             ALTER TABLE movies
             MODIFY COLUMN status ENUM('pending', 'watched', 'planned', 'skipped', 'scheduled', 'banned') DEFAULT 'pending'
           `);
-          console.log('✅ Updated status enum to include banned');
+          logger.debug('✅ Updated status enum to include banned');
         } catch (error) {
-          console.warn('Migration 13 status enum warning:', error.message);
+          logger.warn('Migration 13 status enum warning:', error.message);
         }
 
         // Add indexes for new columns
@@ -607,7 +656,7 @@ class Database {
           SET movie_uid = SHA2(CONCAT(guild_id, ':', LOWER(TRIM(title))), 256)
           WHERE movie_uid = '' OR movie_uid IS NULL
         `);
-        console.log('✅ Populated movie_uid for existing movies');
+        logger.debug('✅ Populated movie_uid for existing movies');
 
       } catch (error) {
         console.error('❌ Failed to add movie UID system (Migration 13):', error.message);
@@ -650,9 +699,9 @@ class Database {
             ALTER TABLE movie_sessions
             ADD COLUMN voting_end_time DATETIME NULL AFTER scheduled_date
           `);
-          console.log('✅ Added voting_end_time column to movie_sessions');
+          logger.debug('✅ Added voting_end_time column to movie_sessions');
         } else {
-          console.log('✅ voting_end_time column already exists in movie_sessions');
+          logger.debug('✅ voting_end_time column already exists in movie_sessions');
         }
       } catch (error) {
         console.error('Migration 15 error:', error.message);
@@ -673,26 +722,958 @@ class Database {
             ALTER TABLE movies
             ADD COLUMN next_session BOOLEAN DEFAULT FALSE AFTER session_id
           `);
-          console.log('✅ Added next_session column to movies');
+          logger.debug('✅ Added next_session column to movies');
         } else {
-          console.log('✅ next_session column already exists in movies');
+          logger.debug('✅ next_session column already exists in movies');
         }
       } catch (error) {
         console.error('Migration 16 error:', error.message);
       }
 
-      console.log('✅ Database migrations completed');
-    } catch (error) {
-      console.error('❌ Migration error:', error.message);
-    }
+      // Migration 17: Add forum channel support columns
+      try {
+        const [forumColumns] = await this.pool.execute(`
+          SELECT COLUMN_NAME
+          FROM INFORMATION_SCHEMA.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'movies'
+          AND COLUMN_NAME IN ('thread_id', 'channel_type')
+        `);
+
+        const existingColumns = forumColumns.map(row => row.COLUMN_NAME);
+
+        if (!existingColumns.includes('thread_id')) {
+          await this.pool.execute(`
+            ALTER TABLE movies
+            ADD COLUMN thread_id VARCHAR(20) NULL AFTER message_id
+          `);
+          console.log('✅ Added thread_id column to movies');
+        }
+
+        if (!existingColumns.includes('channel_type')) {
+          await this.pool.execute(`
+            ALTER TABLE movies
+            ADD COLUMN channel_type ENUM('text', 'forum') DEFAULT 'text' AFTER thread_id
+          `);
+          console.log('✅ Added channel_type column to movies');
+        }
+
+        if (existingColumns.length === 0) {
+          logger.debug('✅ Added forum channel support columns to movies');
+        } else {
+          logger.debug('✅ Forum channel support columns already exist in movies');
+        }
+      } catch (error) {
+        console.error('Migration 17 error:', error.message);
+      }
+
+      // Migration 18: Add moderator_roles column to guild_config
+      try {
+        const [guildConfigColumns] = await this.pool.execute(`
+          SELECT COLUMN_NAME
+          FROM INFORMATION_SCHEMA.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'guild_config'
+        `);
+        const guildConfigColumnNames = guildConfigColumns.map(row => row.COLUMN_NAME);
+
+        if (!guildConfigColumnNames.includes('moderator_roles')) {
+          await this.pool.execute(`
+            ALTER TABLE guild_config
+            ADD COLUMN moderator_roles JSON DEFAULT NULL
+          `);
+          logger.debug('✅ Added moderator_roles column to guild_config');
+        } else {
+          logger.debug('✅ moderator_roles column already exists in guild_config');
+        }
+      } catch (error) {
+        logger.warn('Migration 18 warning:', error.message);
+      }
+
+      // Migration 19: Enforce guild-scoped uniqueness and composite foreign keys
+        // 19.1 Ensure composite unique/indexes exist on parent tables
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movies
+            ADD UNIQUE KEY uniq_movies_guild_message (guild_id, message_id)
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.warn('Migration 19 uniq_movies_guild_message warning:', error.message);
+          }
+        }
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movie_sessions
+            ADD INDEX idx_movie_sessions_gid_id (guild_id, id)
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.warn('Migration 19 idx_movie_sessions_gid_id warning:', error.message);
+          }
+        }
+
+        // 19.2 Drop legacy single-column foreign keys (best-effort)
+        try { await this.pool.execute(`ALTER TABLE votes DROP FOREIGN KEY votes_ibfk_1`); } catch (e) {}
+        try { await this.pool.execute(`ALTER TABLE session_participants DROP FOREIGN KEY session_participants_ibfk_1`); } catch (e) {}
+        try { await this.pool.execute(`ALTER TABLE session_attendees DROP FOREIGN KEY session_attendees_ibfk_1`); } catch (e) {}
+
+        // 19.3 Adjust unique constraints to be guild-scoped
+        try {
+          await this.pool.execute(`
+            ALTER TABLE votes
+            DROP INDEX unique_vote
+          `);
+        } catch (error) {}
+        try {
+          await this.pool.execute(`
+            ALTER TABLE votes
+            ADD UNIQUE KEY unique_vote_guild (guild_id, message_id, user_id)
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.warn('Migration 19 unique_vote_guild warning:', error.message);
+          }
+        }
+
+        try {
+          await this.pool.execute(`
+            ALTER TABLE session_participants
+            DROP INDEX unique_participant
+          `);
+        } catch (error) {}
+        try {
+          await this.pool.execute(`
+            ALTER TABLE session_participants
+            ADD UNIQUE KEY unique_participant_guild (guild_id, session_id, user_id)
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.warn('Migration 19 unique_participant_guild warning:', error.message);
+          }
+        }
+
+        try {
+          await this.pool.execute(`
+            ALTER TABLE session_attendees
+            DROP INDEX unique_attendee
+          `);
+        } catch (error) {}
+        try {
+          await this.pool.execute(`
+            ALTER TABLE session_attendees
+            ADD UNIQUE KEY unique_attendee_guild (guild_id, session_id, user_id)
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.warn('Migration 19 unique_attendee_guild warning:', error.message);
+          }
+        }
+
+        // 19.4 Add supporting indexes for composite FKs
+        try {
+          await this.pool.execute(`
+            ALTER TABLE votes
+            ADD INDEX idx_votes_gid_msg (guild_id, message_id)
+          `);
+        } catch (error) {}
+        try {
+          await this.pool.execute(`
+            ALTER TABLE session_participants
+            ADD INDEX idx_participants_gid_sid (guild_id, session_id)
+          `);
+        } catch (error) {}
+        try {
+          await this.pool.execute(`
+            ALTER TABLE session_attendees
+            ADD INDEX idx_attendees_gid_sid (guild_id, session_id)
+          `);
+        } catch (error) {}
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movies
+            ADD INDEX idx_movies_gid_sid (guild_id, session_id)
+          `);
+        } catch (error) {}
+
+
+        // 19.45 Data backfill/correction to satisfy composite FKs
+        try {
+          await this.pool.execute(`
+            UPDATE session_participants sp
+            INNER JOIN movie_sessions ms ON sp.session_id = ms.id
+            SET sp.guild_id = ms.guild_id
+            WHERE sp.guild_id <> ms.guild_id
+          `);
+          logger.debug('Migration 19: Backfilled session_participants.guild_id mismatches');
+        } catch (error) {
+          logger.warn('Migration 19 backfill session_participants warning:', error.message);
+        }
+        try {
+          await this.pool.execute(`
+            UPDATE session_attendees sa
+            INNER JOIN movie_sessions ms ON sa.session_id = ms.id
+            SET sa.guild_id = ms.guild_id
+            WHERE sa.guild_id <> ms.guild_id
+          `);
+          logger.debug('Migration 19: Backfilled session_attendees.guild_id mismatches');
+        } catch (error) {
+          logger.warn('Migration 19 backfill session_attendees warning:', error.message);
+        }
+        try {
+          await this.pool.execute(`
+            UPDATE movies m
+            INNER JOIN movie_sessions ms ON m.session_id = ms.id
+            SET m.session_id = NULL
+            WHERE m.session_id IS NOT NULL AND m.guild_id <> ms.guild_id
+          `);
+          logger.debug('Migration 19: Cleared movies.session_id that pointed across guilds');
+        } catch (error) {
+          logger.warn('Migration 19 backfill movies.session_id warning:', error.message);
+        }
+        try {
+          await this.pool.execute(`
+            UPDATE movie_sessions s
+            INNER JOIN movies m ON s.winner_message_id = m.message_id
+            SET s.winner_message_id = NULL
+            WHERE s.winner_message_id IS NOT NULL AND s.guild_id <> m.guild_id
+          `);
+          logger.debug('Migration 19: Cleared movie_sessions.winner_message_id mismatches');
+        } catch (error) {
+          logger.warn('Migration 19 backfill sessions.winner_message_id warning:', error.message);
+        }
+        try {
+          await this.pool.execute(`
+            UPDATE movie_sessions s
+            INNER JOIN movies m ON s.associated_movie_id = m.message_id
+            SET s.associated_movie_id = NULL
+            WHERE s.associated_movie_id IS NOT NULL AND s.guild_id <> m.guild_id
+          `);
+          logger.debug('Migration 19: Cleared movie_sessions.associated_movie_id mismatches');
+        } catch (error) {
+          logger.warn('Migration 19 backfill sessions.associated_movie_id warning:', error.message);
+        }
+
+        // Helpful supporting indexes on movie_sessions for FKs referencing movies
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movie_sessions
+            ADD INDEX idx_ms_gid_winner (guild_id, winner_message_id)
+          `);
+        } catch (error) {}
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movie_sessions
+            ADD INDEX idx_ms_gid_assoc (guild_id, associated_movie_id)
+          `);
+        } catch (error) {}
+
+        // 19.5 Add composite foreign keys
+        try {
+          await this.pool.execute(`
+            ALTER TABLE votes
+            ADD CONSTRAINT fk_votes_movie
+            FOREIGN KEY (guild_id, message_id)
+            REFERENCES movies(guild_id, message_id)
+            ON DELETE CASCADE
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.warn('Migration 19 fk_votes_movie warning:', error.message);
+          }
+          }
+
+
+        try {
+          await this.pool.execute(`
+            ALTER TABLE session_participants
+            ADD CONSTRAINT fk_participants_session
+            FOREIGN KEY (guild_id, session_id)
+            REFERENCES movie_sessions(guild_id, id)
+            ON DELETE CASCADE
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.warn('Migration 19 fk_participants_session warning:', error.message);
+          }
+        }
+
+        try {
+          await this.pool.execute(`
+            ALTER TABLE session_attendees
+            ADD CONSTRAINT fk_attendees_session
+            FOREIGN KEY (guild_id, session_id)
+            REFERENCES movie_sessions(guild_id, id)
+            ON DELETE CASCADE
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.warn('Migration 19 fk_attendees_session warning:', error.message);
+          }
+        }
+
+        // movies → movie_sessions (nullable)
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movies
+            ADD CONSTRAINT fk_movies_session
+            FOREIGN KEY (guild_id, session_id)
+            REFERENCES movie_sessions(guild_id, id)
+            ON DELETE SET NULL
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.debug('Migration 19 fk_movies_session skipped/unsupported:', error.message);
+          }
+        }
+
+        // movie_sessions → movies for winner/associated
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movie_sessions
+            ADD CONSTRAINT fk_sessions_winner_movie
+            FOREIGN KEY (guild_id, winner_message_id)
+            REFERENCES movies(guild_id, message_id)
+            ON DELETE SET NULL
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.debug('Migration 19 fk_sessions_winner_movie skipped/unsupported:', error.message);
+          }
+        }
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movie_sessions
+            ADD CONSTRAINT fk_sessions_associated_movie
+            FOREIGN KEY (guild_id, associated_movie_id)
+            REFERENCES movies(guild_id, message_id)
+            ON DELETE SET NULL
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.debug('Migration 19 fk_sessions_associated_movie skipped/unsupported:', error.message);
+          }
+        }
+
+        logger.debug('✅ Migration 19: Guild-scoped constraints and FKs applied');
+
+
+      // Migration 20: Align charsets and finalize composite FKs missed in rc91/rc92
+
+        // Ensure session tables use utf8mb4 to match parent tables for FKs
+        try {
+          await this.pool.execute(`
+            ALTER TABLE session_participants CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+          `);
+        } catch (error) {
+          if (!error.message.includes('same collation') && !error.message.includes('doesn\'t exist')) {
+            logger.warn('Migration 20 session_participants charset warning:', error.message);
+          }
+        }
+        try {
+          await this.pool.execute(`
+            ALTER TABLE session_attendees CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+          `);
+        } catch (error) {
+          if (!error.message.includes('same collation') && !error.message.includes('doesn\'t exist')) {
+            logger.warn('Migration 20 session_attendees charset warning:', error.message);
+          }
+        }
+
+        // Helpful supporting indexes (re-apply if missed)
+        try { await this.pool.execute(`ALTER TABLE movie_sessions ADD INDEX idx_ms_gid_winner (guild_id, winner_message_id)`); } catch (e) {}
+        try { await this.pool.execute(`ALTER TABLE movie_sessions ADD INDEX idx_ms_gid_assoc (guild_id, associated_movie_id)`); } catch (e) {}
+        try { await this.pool.execute(`ALTER TABLE movies ADD INDEX idx_movies_gid_sid (guild_id, session_id)`); } catch (e) {}
+
+        // Re-attempt composite FKs
+        try {
+          await this.pool.execute(`
+            ALTER TABLE session_participants
+            ADD CONSTRAINT fk_participants_session
+            FOREIGN KEY (guild_id, session_id)
+            REFERENCES movie_sessions(guild_id, id)
+            ON DELETE CASCADE
+          `);
+        } catch (error) { if (!error.message.includes('Duplicate') && !error.message.includes('exists')) { logger.warn('Migration 20 fk_participants_session warning:', error.message); } }
+
+        try {
+          await this.pool.execute(`
+            ALTER TABLE session_attendees
+            ADD CONSTRAINT fk_attendees_session
+            FOREIGN KEY (guild_id, session_id)
+            REFERENCES movie_sessions(guild_id, id)
+            ON DELETE CASCADE
+          `);
+        } catch (error) { if (!error.message.includes('Duplicate') && !error.message.includes('exists')) { logger.warn('Migration 20 fk_attendees_session warning:', error.message); } }
+
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movies
+            ADD CONSTRAINT fk_movies_session
+            FOREIGN KEY (guild_id, session_id)
+            REFERENCES movie_sessions(guild_id, id)
+            ON DELETE SET NULL
+          `);
+        } catch (error) { if (!error.message.includes('Duplicate') && !error.message.includes('exists')) { logger.debug('Migration 20 fk_movies_session skipped/unsupported:', error.message); } }
+
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movie_sessions
+            ADD CONSTRAINT fk_sessions_winner_movie
+            FOREIGN KEY (guild_id, winner_message_id)
+            REFERENCES movies(guild_id, message_id)
+            ON DELETE SET NULL
+          `);
+        } catch (error) { if (!error.message.includes('Duplicate') && !error.message.includes('exists')) { logger.warn('Migration 20 fk_sessions_winner_movie warning:', error.message); } }
+
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movie_sessions
+            ADD CONSTRAINT fk_sessions_associated_movie
+            FOREIGN KEY (guild_id, associated_movie_id)
+            REFERENCES movies(guild_id, message_id)
+            ON DELETE SET NULL
+          `);
+        } catch (error) { if (!error.message.includes('Duplicate') && !error.message.includes('exists')) { logger.warn('Migration 20 fk_sessions_associated_movie warning:', error.message); } }
+
+        logger.debug('✅ Migration 20: Charsets aligned and composite FKs ensured');
+
+
+      // Migration 21: Clean orphans and re-attempt composite foreign keys
+      try {
+        // 21.1 Remove or correct orphaned references safely
+        try {
+          await this.pool.execute(`
+            DELETE sp FROM session_participants sp
+            LEFT JOIN movie_sessions ms
+              ON ms.guild_id = sp.guild_id AND ms.id = sp.session_id
+            WHERE ms.id IS NULL
+          `);
+        } catch (error) {
+          logger.warn('Migration 21 delete orphan session_participants warning:', error.message);
+        }
+
+        try {
+          await this.pool.execute(`
+            DELETE sa FROM session_attendees sa
+            LEFT JOIN movie_sessions ms
+              ON ms.guild_id = sa.guild_id AND ms.id = sa.session_id
+            WHERE ms.id IS NULL
+          `);
+        } catch (error) {
+          logger.warn('Migration 21 delete orphan session_attendees warning:', error.message);
+        }
+
+        try {
+          await this.pool.execute(`
+            UPDATE movies m
+            LEFT JOIN movie_sessions ms
+              ON ms.guild_id = m.guild_id AND ms.id = m.session_id
+            SET m.session_id = NULL
+            WHERE m.session_id IS NOT NULL AND ms.id IS NULL
+          `);
+        } catch (error) {
+          logger.warn('Migration 21 nullify orphan movies.session_id warning:', error.message);
+        }
+
+        try {
+          await this.pool.execute(`
+            UPDATE movie_sessions s
+            LEFT JOIN movies m1 ON m1.guild_id = s.guild_id AND m1.message_id = s.winner_message_id
+            LEFT JOIN movies m2 ON m2.guild_id = s.guild_id AND m2.message_id = s.associated_movie_id
+            SET s.winner_message_id = CASE WHEN m1.message_id IS NULL THEN NULL ELSE s.winner_message_id END,
+                s.associated_movie_id = CASE WHEN m2.message_id IS NULL THEN NULL ELSE s.associated_movie_id END
+          `);
+        } catch (error) {
+          logger.warn('Migration 21 nullify orphan session winner/associated warnings:', error.message);
+        }
+
+        // 21.2 Re-ensure supporting indexes
+        try { await this.pool.execute(`ALTER TABLE movie_sessions ADD INDEX idx_ms_gid_winner (guild_id, winner_message_id)`); } catch (e) {}
+        try { await this.pool.execute(`ALTER TABLE movie_sessions ADD INDEX idx_ms_gid_assoc (guild_id, associated_movie_id)`); } catch (e) {}
+        try { await this.pool.execute(`ALTER TABLE movies ADD INDEX idx_movies_gid_sid (guild_id, session_id)`); } catch (e) {}
+
+        // 21.3 Re-attempt composite FKs now that orphans are cleared
+        try {
+          await this.pool.execute(`
+            ALTER TABLE session_participants
+            ADD CONSTRAINT fk_participants_session
+            FOREIGN KEY (guild_id, session_id)
+            REFERENCES movie_sessions(guild_id, id)
+            ON DELETE CASCADE
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.warn('Migration 21 fk_participants_session warning:', error.message);
+          }
+        }
+
+        try {
+          await this.pool.execute(`
+            ALTER TABLE session_attendees
+            ADD CONSTRAINT fk_attendees_session
+            FOREIGN KEY (guild_id, session_id)
+            REFERENCES movie_sessions(guild_id, id)
+            ON DELETE CASCADE
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.warn('Migration 21 fk_attendees_session warning:', error.message);
+          }
+        }
+
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movies
+            ADD CONSTRAINT fk_movies_session
+            FOREIGN KEY (guild_id, session_id)
+            REFERENCES movie_sessions(guild_id, id)
+            ON DELETE SET NULL
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.debug('Migration 21 fk_movies_session skipped/unsupported:', error.message);
+          }
+        }
+
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movie_sessions
+            ADD CONSTRAINT fk_sessions_winner_movie
+            FOREIGN KEY (guild_id, winner_message_id)
+            REFERENCES movies(guild_id, message_id)
+            ON DELETE SET NULL
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.debug('Migration 21 fk_sessions_winner_movie skipped/unsupported:', error.message);
+          }
+        }
+
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movie_sessions
+            ADD CONSTRAINT fk_sessions_associated_movie
+            FOREIGN KEY (guild_id, associated_movie_id)
+            REFERENCES movies(guild_id, message_id)
+            ON DELETE SET NULL
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.debug('Migration 21 fk_sessions_associated_movie skipped/unsupported:', error.message);
+          }
+        }
+
+        logger.debug('✅ Migration 21: Orphans cleaned and FKs re-attempted');
+      } catch (error) {
+        logger.warn('Migration 21 wrapper warning:', error.message);
+      }
+
+
+      // Migration 22: Normalize column definitions for FK compatibility and retry
+      try {
+        // 22.1 Normalize VARCHAR columns (guild_id/message_id) to same charset/collation
+        const varcharTargets = [
+          // table, column, nullability
+          ['movies','guild_id','NOT NULL'],
+          ['movies','message_id','NOT NULL'],
+          ['movie_sessions','guild_id','NOT NULL'],
+          ['movie_sessions','winner_message_id','NULL'],
+          ['movie_sessions','associated_movie_id','NULL'],
+          ['session_participants','guild_id','NOT NULL'],
+          ['session_attendees','guild_id','NOT NULL'],
+        ];
+        for (const [tbl, col, nullable] of varcharTargets) {
+          try {
+            await this.pool.execute(`ALTER TABLE ${tbl} MODIFY COLUMN ${col} VARCHAR(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci ${nullable}`);
+          } catch (error) {
+            if (!error.message.includes('check that column/column exists')) {
+              logger.debug(`Migration 22 note (${tbl}.${col}):`, error.message);
+            }
+          }
+        }
+
+        // 22.2 Normalize INT columns (session_id/id) to same signedness/size
+        const intTargets = [
+          ['movies','session_id','INT NULL'],
+          ['session_participants','session_id','INT NOT NULL'],
+          ['session_attendees','session_id','INT NOT NULL'],
+          ['movie_sessions','id','INT NOT NULL'], // keep AUTO_INCREMENT intact
+        ];
+        for (const [tbl, col, defn] of intTargets) {
+          try {
+            await this.pool.execute(`ALTER TABLE ${tbl} MODIFY COLUMN ${col} ${defn}`);
+          } catch (error) {
+            logger.debug(`Migration 22 note (${tbl}.${col}):`, error.message);
+          }
+        }
+
+        // 22.3 Re-ensure supporting indexes
+        try { await this.pool.execute(`ALTER TABLE movies ADD UNIQUE KEY uniq_movies_guild_message (guild_id, message_id)`); } catch (e) {}
+        try { await this.pool.execute(`ALTER TABLE movie_sessions ADD INDEX idx_movie_sessions_gid_id (guild_id, id)`); } catch (e) {}
+        try { await this.pool.execute(`ALTER TABLE movie_sessions ADD INDEX idx_ms_gid_winner (guild_id, winner_message_id)`); } catch (e) {}
+        try { await this.pool.execute(`ALTER TABLE movie_sessions ADD INDEX idx_ms_gid_assoc (guild_id, associated_movie_id)`); } catch (e) {}
+
+        // 22.4 Retry the remaining composite FKs (the ones still warning)
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movies
+            ADD CONSTRAINT fk_movies_session
+            FOREIGN KEY (guild_id, session_id)
+            REFERENCES movie_sessions(guild_id, id)
+            ON DELETE SET NULL
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.debug('Migration 22 fk_movies_session skipped/unsupported:', error.message);
+          }
+        }
+
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movie_sessions
+            ADD CONSTRAINT fk_sessions_winner_movie
+            FOREIGN KEY (guild_id, winner_message_id)
+            REFERENCES movies(guild_id, message_id)
+            ON DELETE SET NULL
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.debug('Migration 22 fk_sessions_winner_movie skipped/unsupported:', error.message);
+          }
+        }
+
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movie_sessions
+            ADD CONSTRAINT fk_sessions_associated_movie
+            FOREIGN KEY (guild_id, associated_movie_id)
+            REFERENCES movies(guild_id, message_id)
+            ON DELETE SET NULL
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.debug('Migration 22 fk_sessions_associated_movie skipped/unsupported:', error.message);
+          }
+        }
+
+        // 22.5 Diagnostic: log column types/collations for future reference
+        try {
+          const [rows] = await this.pool.execute(`
+            SELECT TABLE_NAME, COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, COLLATION_NAME, CHARACTER_SET_NAME
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME IN ('movies','movie_sessions','session_participants','session_attendees')
+              AND COLUMN_NAME IN ('guild_id','message_id','session_id','winner_message_id','associated_movie_id','id')
+            ORDER BY TABLE_NAME, COLUMN_NAME
+          `);
+          logger.debug('Migration 22 diagnostics:', JSON.stringify(rows, null, 2));
+        } catch (e) {
+          logger.debug('Migration 22 diagnostics failed:', e.message);
+        }
+
+        // Extra diagnostics: MySQL version and SHOW CREATE TABLE for involved tables
+        try {
+          const [[ver]] = await this.pool.execute('SELECT @@version AS version, @@version_comment AS comment');
+          logger.debug('Migration 22 MySQL version:', JSON.stringify(ver));
+        } catch (e) {
+          logger.debug('Migration 22 version query failed:', e.message);
+        }
+
+
+
+      // Migration 23: Fallback enforcement via simple FKs + triggers to ensure guild scoping
+      try {
+        // 23.1 Simple FKs (single-column) that MariaDB accepts universally
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movies
+            ADD CONSTRAINT fk_movies_session_simple
+            FOREIGN KEY (session_id) REFERENCES movie_sessions(id)
+            ON DELETE SET NULL
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.warn('Migration 23 fk_movies_session_simple warning:', error.message);
+          }
+        }
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movie_sessions
+            ADD CONSTRAINT fk_sessions_winner_movie_simple
+            FOREIGN KEY (winner_message_id) REFERENCES movies(message_id)
+            ON DELETE SET NULL
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.warn('Migration 23 fk_sessions_winner_movie_simple warning:', error.message);
+          }
+        }
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movie_sessions
+            ADD CONSTRAINT fk_sessions_associated_movie_simple
+            FOREIGN KEY (associated_movie_id) REFERENCES movies(message_id)
+            ON DELETE SET NULL
+          `);
+        } catch (error) {
+          if (!error.message.includes('Duplicate') && !error.message.includes('exists')) {
+            logger.warn('Migration 23 fk_sessions_associated_movie_simple warning:', error.message);
+          }
+        }
+
+        // Helper to create trigger if missing
+        const ensureTrigger = async (name, sql) => {
+          const [exist] = await this.pool.execute(
+            `SELECT TRIGGER_NAME FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA = DATABASE() AND TRIGGER_NAME = ?`,
+            [name]
+          );
+          if (exist.length === 0) {
+            try {
+              await this.pool.execute(sql);
+              logger.debug(`Migration 23: created trigger ${name}`);
+            } catch (e) {
+              logger.warn(`Migration 23 trigger ${name} warning:`, e.message);
+            }
+          }
+        };
+
+        // 23.2 Triggers to enforce guild match for movies.session_id -> movie_sessions.id
+        await ensureTrigger('trg_movies_bi_session_guild', `
+          CREATE TRIGGER trg_movies_bi_session_guild BEFORE INSERT ON movies FOR EACH ROW
+          BEGIN
+            IF NEW.session_id IS NOT NULL THEN
+              IF (SELECT guild_id FROM movie_sessions WHERE id = NEW.session_id) IS NULL THEN
+                SET NEW.session_id = NULL;
+              ELSEIF (SELECT guild_id FROM movie_sessions WHERE id = NEW.session_id) <> NEW.guild_id THEN
+                SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Guild mismatch: movies.session_id references a session in a different guild';
+              END IF;
+            END IF;
+          END
+        `);
+        await ensureTrigger('trg_movies_bu_session_guild', `
+          CREATE TRIGGER trg_movies_bu_session_guild BEFORE UPDATE ON movies FOR EACH ROW
+          BEGIN
+            IF NEW.session_id IS NOT NULL THEN
+              IF (SELECT guild_id FROM movie_sessions WHERE id = NEW.session_id) IS NULL THEN
+                SET NEW.session_id = NULL;
+              ELSEIF (SELECT guild_id FROM movie_sessions WHERE id = NEW.session_id) <> NEW.guild_id THEN
+                SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Guild mismatch: movies.session_id references a session in a different guild';
+              END IF;
+            END IF;
+          END
+        `);
+
+        // 23.3 Triggers to enforce guild match for movie_sessions.winner/associated -> movies.message_id
+        await ensureTrigger('trg_sessions_bi_winner_guild', `
+          CREATE TRIGGER trg_sessions_bi_winner_guild BEFORE INSERT ON movie_sessions FOR EACH ROW
+          BEGIN
+            IF NEW.winner_message_id IS NOT NULL THEN
+              IF (SELECT guild_id FROM movies WHERE message_id = NEW.winner_message_id) IS NULL THEN
+                SET NEW.winner_message_id = NULL;
+              ELSEIF (SELECT guild_id FROM movies WHERE message_id = NEW.winner_message_id) <> NEW.guild_id THEN
+                SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Guild mismatch: movie_sessions.winner_message_id references a movie in a different guild';
+              END IF;
+            END IF;
+          END
+        `);
+        await ensureTrigger('trg_sessions_bu_winner_guild', `
+          CREATE TRIGGER trg_sessions_bu_winner_guild BEFORE UPDATE ON movie_sessions FOR EACH ROW
+          BEGIN
+            IF NEW.winner_message_id IS NOT NULL THEN
+              IF (SELECT guild_id FROM movies WHERE message_id = NEW.winner_message_id) IS NULL THEN
+                SET NEW.winner_message_id = NULL;
+              ELSEIF (SELECT guild_id FROM movies WHERE message_id = NEW.winner_message_id) <> NEW.guild_id THEN
+                SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Guild mismatch: movie_sessions.winner_message_id references a movie in a different guild';
+              END IF;
+            END IF;
+          END
+        `);
+        await ensureTrigger('trg_sessions_bi_assoc_guild', `
+          CREATE TRIGGER trg_sessions_bi_assoc_guild BEFORE INSERT ON movie_sessions FOR EACH ROW
+          BEGIN
+            IF NEW.associated_movie_id IS NOT NULL THEN
+              IF (SELECT guild_id FROM movies WHERE message_id = NEW.associated_movie_id) IS NULL THEN
+                SET NEW.associated_movie_id = NULL;
+              ELSEIF (SELECT guild_id FROM movies WHERE message_id = NEW.associated_movie_id) <> NEW.guild_id THEN
+                SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Guild mismatch: movie_sessions.associated_movie_id references a movie in a different guild';
+              END IF;
+            END IF;
+          END
+        `);
+        await ensureTrigger('trg_sessions_bu_assoc_guild', `
+          CREATE TRIGGER trg_sessions_bu_assoc_guild BEFORE UPDATE ON movie_sessions FOR EACH ROW
+          BEGIN
+            IF NEW.associated_movie_id IS NOT NULL THEN
+              IF (SELECT guild_id FROM movies WHERE message_id = NEW.associated_movie_id) IS NULL THEN
+                SET NEW.associated_movie_id = NULL;
+              ELSEIF (SELECT guild_id FROM movies WHERE message_id = NEW.associated_movie_id) <> NEW.guild_id THEN
+                SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Guild mismatch: movie_sessions.associated_movie_id references a movie in a different guild';
+              END IF;
+            END IF;
+          END
+        `);
+
+        logger.debug('✅ Migration 23: Simple FKs added and guild-scope triggers ensured');
+      } catch (error) {
+        logger.warn('Migration 23 wrapper warning:', error.message);
+      }
+
+
+        try {
+          const [crt1] = await this.pool.execute('SHOW CREATE TABLE movies');
+          logger.debug('Migration 22 SHOW CREATE TABLE movies:', JSON.stringify(crt1[0] || crt1));
+        } catch (e) {
+          logger.debug('Migration 22 SHOW CREATE TABLE movies failed:', e.message);
+        }
+        try {
+          const [crt2] = await this.pool.execute('SHOW CREATE TABLE movie_sessions');
+          logger.debug('Migration 22 SHOW CREATE TABLE movie_sessions:', JSON.stringify(crt2[0] || crt2));
+        } catch (e) {
+          logger.debug('Migration 22 SHOW CREATE TABLE movie_sessions failed:', e.message);
+        }
+
+
+        logger.debug('✅ Migration 22: Column normalization and FK retry complete');
+      } catch (error) {
+        logger.warn('Migration 22 wrapper warning:', error.message);
+      }
+
+
+
+      // Migration 24: Ensure movie_sessions.id is AUTO_INCREMENT and has a PRIMARY KEY
+      try {
+        // 24.1 Ensure AUTO_INCREMENT on movie_sessions.id
+        const [idCol] = await this.pool.execute(`
+          SELECT EXTRA FROM INFORMATION_SCHEMA.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'movie_sessions' AND COLUMN_NAME = 'id'
+        `);
+        const extra = (idCol[0] && (idCol[0].EXTRA || idCol[0].Extra) ? String(idCol[0].EXTRA || idCol[0].Extra).toLowerCase() : '');
+        if (!extra.includes('auto_increment')) {
+          await this.pool.execute(`ALTER TABLE movie_sessions MODIFY COLUMN id INT NOT NULL AUTO_INCREMENT`);
+          logger.debug('✅ Migration 24: Ensured AUTO_INCREMENT on movie_sessions.id');
+        } else {
+          logger.debug('✅ Migration 24: movie_sessions.id already AUTO_INCREMENT');
+        }
+
+        // 24.2 Ensure PRIMARY KEY on id (some older hosts may have lost it)
+        const [pkRows] = await this.pool.execute(`
+          SELECT COUNT(*) AS cnt
+          FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS
+          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'movie_sessions' AND CONSTRAINT_TYPE = 'PRIMARY KEY'
+        `);
+        const hasPk = (pkRows && pkRows[0] && Number(pkRows[0].cnt) > 0);
+        if (!hasPk) {
+          try {
+            await this.pool.execute(`ALTER TABLE movie_sessions ADD PRIMARY KEY (id)`);
+            logger.debug('✅ Migration 24: Added PRIMARY KEY(id) to movie_sessions');
+          } catch (e) {
+            if (!String(e.message || '').toLowerCase().includes('duplicate') && !String(e.message || '').toLowerCase().includes('exists')) {
+              logger.warn('Migration 24 add PK warning:', e.message);
+            }
+          }
+        } else {
+          logger.debug('✅ Migration 24: PRIMARY KEY already present on movie_sessions');
+        }
+      } catch (error) {
+        logger.warn('Migration 24 wrapper warning:', error.message);
+      }
+
+      // 25. Add poster_url column to movies and backfill from imdb_data
+      try {
+        await this.pool.execute(`ALTER TABLE movies ADD COLUMN poster_url VARCHAR(500) NULL`);
+        logger.debug('✅ Migration 25: Added poster_url to movies');
+      } catch (e) {
+        if (!String(e.message || '').toLowerCase().includes('duplicate') && !String(e.message || '').toLowerCase().includes('exists')) {
+          logger.warn('Migration 25 add poster_url warning:', e.message);
+        }
+      }
+      // 25.1 Backfill poster_url from imdb_data JSON when available
+      try {
+        await this.pool.execute(`
+          UPDATE movies
+          SET poster_url = JSON_UNQUOTE(JSON_EXTRACT(imdb_data, '$.Poster'))
+          WHERE poster_url IS NULL AND imdb_data IS NOT NULL
+        `);
+        logger.debug('✅ Migration 25: Backfilled poster_url from imdb_data');
+      } catch (e) {
+        logger.warn('Migration 25 backfill warning (JSON functions may be unsupported):', e.message);
+      }
+
+      // Migration 26: Ensure UNIQUE(parent) for composite FKs and retry
+      try {
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movie_sessions
+            ADD UNIQUE KEY uniq_ms_gid_id (guild_id, id)
+          `);
+          logger.debug('✅ Migration 26: Added UNIQUE KEY uniq_ms_gid_id on movie_sessions(guild_id,id)');
+        } catch (e) {
+          const msg = String(e.message || '').toLowerCase();
+          if (msg.includes('duplicate') || msg.includes('exists')) {
+            logger.debug('✅ Migration 26: UNIQUE KEY uniq_ms_gid_id already exists');
+          } else {
+            logger.warn('Migration 26 uniq_ms_gid_id warning:', e.message);
+          }
+        }
+
+        // Retry composite FK: movies(guild_id, session_id) -> movie_sessions(guild_id, id)
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movies
+            ADD CONSTRAINT fk_movies_session
+            FOREIGN KEY (guild_id, session_id)
+            REFERENCES movie_sessions(guild_id, id)
+            ON DELETE SET NULL
+          `);
+        } catch (e) {
+          const msg = String(e.message || '').toLowerCase();
+          if (!msg.includes('duplicate') && !msg.includes('exists')) {
+            logger.debug('Migration 26 fk_movies_session skipped/unsupported:', e.message);
+          }
+        }
+
+        // Retry composite FK: movie_sessions(guild_id, winner_message_id) -> movies(guild_id, message_id)
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movie_sessions
+            ADD CONSTRAINT fk_sessions_winner_movie
+            FOREIGN KEY (guild_id, winner_message_id)
+            REFERENCES movies(guild_id, message_id)
+            ON DELETE SET NULL
+          `);
+        } catch (e) {
+          const msg = String(e.message || '').toLowerCase();
+          if (!msg.includes('duplicate') && !msg.includes('exists')) {
+            logger.debug('Migration 26 fk_sessions_winner_movie skipped/unsupported:', e.message);
+          }
+        }
+
+        // Retry composite FK: movie_sessions(guild_id, associated_movie_id) -> movies(guild_id, message_id)
+        try {
+          await this.pool.execute(`
+            ALTER TABLE movie_sessions
+            ADD CONSTRAINT fk_sessions_associated_movie
+            FOREIGN KEY (guild_id, associated_movie_id)
+            REFERENCES movies(guild_id, message_id)
+            ON DELETE SET NULL
+          `);
+        } catch (e) {
+          const msg = String(e.message || '').toLowerCase();
+          if (!msg.includes('duplicate') && !msg.includes('exists')) {
+            logger.debug('Migration 26 fk_sessions_associated_movie skipped/unsupported:', e.message);
+          }
+        }
+
+        logger.debug('✅ Migration 26: Ensured UNIQUE(parent) and retried composite FKs');
+      } catch (error) {
+        logger.warn('Migration 26 wrapper warning:', error.message);
+      }
+
+      logger.info('✅ Database migrations completed');
+
   }
 
-  // Movie UID generation
-  generateMovieUID(guildId, title) {
-    const crypto = require('crypto');
-    const normalizedTitle = title.toLowerCase().trim();
-    return crypto.createHash('sha256').update(`${guildId}:${normalizedTitle}`).digest('hex');
-  }
 
   // Movie operations
   async saveMovie(movieData) {
@@ -713,6 +1694,14 @@ class Database {
           throw new Error('MOVIE_BANNED');
         }
 
+        // Extract poster URL from imdbData if available (JSON fallback)
+        let posterUrl = null;
+        try {
+          const imdbData = movieData.imdbData;
+          const poster = imdbData && typeof imdbData === 'string' ? JSON.parse(imdbData).Poster : (imdbData ? imdbData.Poster : null);
+          if (poster && poster !== 'N/A') posterUrl = poster;
+        } catch (e) {}
+
         const movie = {
           id: Date.now(), // Simple ID generation
           message_id: movieData.messageId,
@@ -724,6 +1713,7 @@ class Database {
           recommended_by: movieData.recommendedBy,
           imdb_id: movieData.imdbId || null,
           imdb_data: movieData.imdbData || null,
+          poster_url: posterUrl,
           status: 'pending',
           is_banned: false,
           watch_count: 0,
@@ -765,9 +1755,20 @@ class Database {
         console.warn('Error checking for active voting session:', error.message);
       }
 
+
+      // Extract poster URL from imdbData if available
+      let posterUrl = null;
+      try {
+        const imdbData = movieData.imdbData;
+        const poster = imdbData && typeof imdbData === 'string' ? JSON.parse(imdbData).Poster : (imdbData ? imdbData.Poster : null);
+        if (poster && poster !== 'N/A') posterUrl = poster;
+      } catch (e) {
+        // ignore parse errors
+      }
+
       const [result] = await this.pool.execute(
-        `INSERT INTO movies (message_id, guild_id, channel_id, title, movie_uid, where_to_watch, recommended_by, imdb_id, imdb_data, session_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO movies (message_id, guild_id, channel_id, title, movie_uid, where_to_watch, recommended_by, imdb_id, imdb_data, poster_url, session_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           movieData.messageId,
           movieData.guildId,
@@ -778,6 +1779,7 @@ class Database {
           movieData.recommendedBy,
           movieData.imdbId || null,
           movieData.imdbData ? JSON.stringify(movieData.imdbData) : null,
+          posterUrl,
           sessionId
         ]
       );
@@ -851,14 +1853,22 @@ class Database {
     }
   }
 
-  async removeVote(messageId, userId) {
+  async removeVote(messageId, userId, guildId = null) {
     if (!this.isConnected) return false;
 
     try {
-      await this.pool.execute(
-        `DELETE FROM votes WHERE message_id = ? AND user_id = ?`,
-        [messageId, userId]
-      );
+      if (guildId) {
+        await this.pool.execute(
+          `DELETE FROM votes WHERE message_id = ? AND user_id = ? AND guild_id = ?`,
+          [messageId, userId, guildId]
+        );
+      } else {
+        // Fallback without guild filter (kept for backward compatibility)
+        await this.pool.execute(
+          `DELETE FROM votes WHERE message_id = ? AND user_id = ?`,
+          [messageId, userId]
+        );
+      }
       return true;
     } catch (error) {
       console.error('Error removing vote:', error.message);
@@ -898,16 +1908,16 @@ class Database {
 
   async getVoteCounts(messageId) {
     if (!this.isConnected) return { up: 0, down: 0, voters: { up: [], down: [] } };
-    
+
     try {
       const [rows] = await this.pool.execute(
         `SELECT vote_type, user_id FROM votes WHERE message_id = ?`,
         [messageId]
       );
-      
+
       const up = rows.filter(r => r.vote_type === 'up');
       const down = rows.filter(r => r.vote_type === 'down');
-      
+
       return {
         up: up.length,
         down: down.length,
@@ -967,15 +1977,15 @@ class Database {
 
   async getTopMovies(guildId, limit = 5) {
     if (!this.isConnected) return [];
-    
+
     try {
       const [rows] = await this.pool.execute(
-        `SELECT m.*, 
+        `SELECT m.*,
          (SELECT COUNT(*) FROM votes v WHERE v.message_id = m.message_id AND v.vote_type = 'up') as up_votes,
          (SELECT COUNT(*) FROM votes v WHERE v.message_id = m.message_id AND v.vote_type = 'down') as down_votes,
-         ((SELECT COUNT(*) FROM votes v WHERE v.message_id = m.message_id AND v.vote_type = 'up') - 
+         ((SELECT COUNT(*) FROM votes v WHERE v.message_id = m.message_id AND v.vote_type = 'up') -
           (SELECT COUNT(*) FROM votes v WHERE v.message_id = m.message_id AND v.vote_type = 'down')) as score
-         FROM movies m 
+         FROM movies m
          WHERE m.guild_id = ? AND m.status = 'pending'
          ORDER BY score DESC, m.created_at ASC
          LIMIT ?`,
@@ -1122,6 +2132,7 @@ class Database {
 
       const config = rows[0];
       config.admin_roles = config.admin_roles ? JSON.parse(config.admin_roles) : [];
+      config.moderator_roles = config.moderator_roles ? JSON.parse(config.moderator_roles) : [];
       return config;
     } catch (error) {
       console.error('Error getting guild config:', error.message);
@@ -1161,7 +2172,8 @@ class Database {
       }
       return true;
     } catch (error) {
-      console.error('Error adding admin role:', error.message);
+      const logger = require('./utils/logger');
+      logger.error('Error adding admin role:', error.message);
       return false;
     }
   }
@@ -1180,7 +2192,60 @@ class Database {
       );
       return true;
     } catch (error) {
-      console.error('Error removing admin role:', error.message);
+      const logger = require('./utils/logger');
+      logger.error('Error removing admin role:', error.message);
+      return false;
+    }
+  }
+
+  async addModeratorRole(guildId, roleId) {
+    if (!this.isConnected) return false;
+
+    try {
+      const config = await this.getGuildConfig(guildId);
+      if (!config) return false;
+
+      // Initialize moderator_roles if it doesn't exist
+      if (!config.moderator_roles) {
+        config.moderator_roles = [];
+      }
+
+      if (!config.moderator_roles.includes(roleId)) {
+        config.moderator_roles.push(roleId);
+        await this.pool.execute(
+          `UPDATE guild_config SET moderator_roles = ? WHERE guild_id = ?`,
+          [JSON.stringify(config.moderator_roles), guildId]
+        );
+      }
+      return true;
+    } catch (error) {
+      const logger = require('./utils/logger');
+      logger.error('Error adding moderator role:', error.message);
+      return false;
+    }
+  }
+
+  async removeModeratorRole(guildId, roleId) {
+    if (!this.isConnected) return false;
+
+    try {
+      const config = await this.getGuildConfig(guildId);
+      if (!config) return false;
+
+      // Initialize moderator_roles if it doesn't exist
+      if (!config.moderator_roles) {
+        config.moderator_roles = [];
+      }
+
+      config.moderator_roles = config.moderator_roles.filter(id => id !== roleId);
+      await this.pool.execute(
+        `UPDATE guild_config SET moderator_roles = ? WHERE guild_id = ?`,
+        [JSON.stringify(config.moderator_roles), guildId]
+      );
+      return true;
+    } catch (error) {
+      const logger = require('./utils/logger');
+      logger.error('Error removing moderator role:', error.message);
       return false;
     }
   }
@@ -1248,6 +2313,22 @@ class Database {
     }
   }
 
+
+  async updateMovieSessionDetails(sessionId, { name, description, scheduledDate, timezone }) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `UPDATE movie_sessions SET name = ?, description = ?, scheduled_date = ?, timezone = ? WHERE id = ?`,
+        [name || null, description || null, scheduledDate || null, timezone || null, sessionId]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error updating movie session details:', error.message);
+      return false;
+    }
+  }
+
   // Voting session management methods
   async getActiveVotingSession(guildId) {
     if (!this.isConnected) return null;
@@ -1297,12 +2378,13 @@ class Database {
     if (!this.isConnected) return false;
 
     try {
-      console.log(`🗄️ Database: Updating session ${sessionId} with event ID ${eventId}`);
+      const logger = require('./utils/logger');
+      logger.debug(`🗄️ Database: Updating session ${sessionId} with event ID ${eventId}`);
       const [result] = await this.pool.execute(
         `UPDATE movie_sessions SET discord_event_id = ? WHERE id = ?`,
         [eventId, sessionId]
       );
-      console.log(`🗄️ Database: Update result - affected rows: ${result.affectedRows}`);
+      logger.debug(`🗄️ Database: Update result - affected rows: ${result.affectedRows}`);
       return result.affectedRows > 0;
     } catch (error) {
       console.error('Error updating voting session event ID:', error.message);
@@ -1469,7 +2551,8 @@ class Database {
       }
 
       await this.pool.execute(query, params);
-      console.log('✅ Marked non-winning movies for next session');
+      const logger = require('./utils/logger');
+      logger.info('✅ Marked non-winning movies for next session');
       return true;
     } catch (error) {
       console.error('Error marking movies for next session:', error.message);
@@ -1500,7 +2583,8 @@ class Database {
         `UPDATE movies SET next_session = FALSE WHERE guild_id = ? AND next_session = TRUE`,
         [guildId]
       );
-      console.log('✅ Cleared next_session flags');
+      const logger = require('./utils/logger');
+      logger.debug('✅ Cleared next_session flags');
       return true;
     } catch (error) {
       console.error('Error clearing next_session flags:', error.message);
@@ -1542,14 +2626,123 @@ class Database {
     if (!this.isConnected) return false;
 
     try {
+      // Extract poster URL if present
+      let posterUrl = null;
+      try {
+        const dataObj = typeof imdbData === 'string' ? JSON.parse(imdbData) : imdbData;
+        const poster = dataObj?.Poster;
+        if (poster && poster !== 'N/A') posterUrl = poster;
+      } catch (e) {
+        // ignore parse errors
+      }
+
       await this.pool.execute(
-        `UPDATE movies SET imdb_data = ? WHERE message_id = ?`,
-        [imdbData, messageId]
+        `UPDATE movies SET imdb_data = ?, poster_url = COALESCE(?, poster_url) WHERE message_id = ?`,
+        [typeof imdbData === 'string' ? imdbData : JSON.stringify(imdbData), posterUrl, messageId]
       );
       return true;
     } catch (error) {
       console.error('Error updating movie IMDB data:', error.message);
       return false;
+    }
+  }
+
+  // Forum Channel Support Functions
+
+  async addForumMovie(guildId, title, whereToWatch, recommendedBy, messageId, threadId, channelId, imdbId = null, imdbData = null) {
+    if (!this.isConnected) return false;
+
+    try {
+      // Generate movie UID
+      const movieUID = this.generateMovieUID(guildId, title);
+
+      // Get active session ID
+      const activeSession = await this.getActiveVotingSession(guildId);
+      const sessionId = activeSession ? activeSession.id : null;
+
+
+      // Extract poster URL from imdbData if available
+      let posterUrl = null;
+      try {
+        const poster = imdbData && typeof imdbData === 'string' ? JSON.parse(imdbData).Poster : (imdbData ? imdbData.Poster : null);
+        if (poster && poster !== 'N/A') posterUrl = poster;
+      } catch (e) {}
+
+      const [result] = await this.pool.execute(
+        `INSERT INTO movies (guild_id, channel_id, title, movie_uid, where_to_watch, recommended_by, message_id, thread_id, channel_type, imdb_id, imdb_data, poster_url, status, session_id, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'forum', ?, ?, ?, 'pending', ?, NOW())`,
+        [guildId, channelId, title, movieUID, whereToWatch, recommendedBy, messageId, threadId, imdbId, imdbData ? JSON.stringify(imdbData) : null, posterUrl, sessionId]
+      );
+      return result.insertId;
+    } catch (error) {
+      console.error('Error adding forum movie:', error.message);
+      return false;
+    }
+  }
+
+  async getMovieByThreadId(threadId) {
+    if (!this.isConnected) return null;
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT * FROM movies WHERE thread_id = ?`,
+        [threadId]
+      );
+      return rows.length > 0 ? rows[0] : null;
+    } catch (error) {
+      console.error('Error getting movie by thread ID:', error.message);
+      return null;
+    }
+  }
+
+  async updateMovieThreadId(messageId, threadId) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `UPDATE movies SET thread_id = ? WHERE message_id = ?`,
+        [threadId, messageId]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error updating movie thread ID:', error.message);
+      return false;
+    }
+  }
+
+  async getForumMovies(guildId, limit = 50) {
+    if (!this.isConnected) return [];
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT m.*,
+         (SELECT COUNT(*) FROM votes v WHERE v.message_id = m.message_id AND v.vote_type = 'up') as up_votes,
+         (SELECT COUNT(*) FROM votes v WHERE v.message_id = m.message_id AND v.vote_type = 'down') as down_votes
+         FROM movies m
+         WHERE m.guild_id = ? AND m.channel_type = 'forum'
+         ORDER BY m.created_at DESC
+         LIMIT ?`,
+        [guildId, limit]
+      );
+      return rows;
+    } catch (error) {
+      console.error('Error getting forum movies:', error.message);
+      return [];
+    }
+  }
+
+  async getChannelType(guildId) {
+    if (!this.isConnected) return 'text';
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT channel_type FROM movies WHERE guild_id = ? ORDER BY created_at DESC LIMIT 1`,
+        [guildId]
+      );
+      return rows.length > 0 ? rows[0].channel_type : 'text';
+    } catch (error) {
+      console.error('Error getting channel type:', error.message);
+      return 'text';
     }
   }
 
@@ -1737,19 +2930,23 @@ class Database {
   async getMovieStats(guildId) {
     if (!this.isConnected) return {
       totalMovies: 0, watchedMovies: 0, plannedMovies: 0,
-      pendingMovies: 0, activeUsers: 0, totalSessions: 0
+      pendingMovies: 0, queuedMovies: 0, activeUsers: 0, totalSessions: 0
     };
 
     try {
+      // Get active session to filter current voting movies
+      const activeSession = await this.getActiveVotingSession(guildId);
+
       const [movieStats] = await this.pool.execute(
         `SELECT
           COUNT(*) as total,
           SUM(CASE WHEN status = 'watched' THEN 1 ELSE 0 END) as watched,
           SUM(CASE WHEN status = 'planned' THEN 1 ELSE 0 END) as planned,
-          SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+          SUM(CASE WHEN status = 'pending' AND session_id = ? THEN 1 ELSE 0 END) as pending_in_session,
+          SUM(CASE WHEN next_session = 1 THEN 1 ELSE 0 END) as queued_for_next,
           COUNT(DISTINCT recommended_by) as active_users
          FROM movies WHERE guild_id = ?`,
-        [guildId]
+        [activeSession?.id || 0, guildId]
       );
 
       // Count only sessions with active Discord events (scheduled sessions)
@@ -1763,15 +2960,17 @@ class Database {
         totalMovies: movieStats[0].total || 0,
         watchedMovies: movieStats[0].watched || 0,
         plannedMovies: movieStats[0].planned || 0,
-        pendingMovies: movieStats[0].pending || 0,
+        pendingMovies: activeSession ? (movieStats[0].pending_in_session || 0) : 0,
+        queuedMovies: movieStats[0].queued_for_next || 0,
         activeUsers: movieStats[0].active_users || 0,
         totalSessions: sessionStats[0].total_sessions || 0
       };
     } catch (error) {
-      console.error('Error getting movie stats:', error.message);
+      const logger = require('./utils/logger');
+      logger.error('Error getting movie stats:', error.message);
       return {
         totalMovies: 0, watchedMovies: 0, plannedMovies: 0,
-        pendingMovies: 0, activeUsers: 0, totalSessions: 0
+        pendingMovies: 0, queuedMovies: 0, activeUsers: 0, totalSessions: 0
       };
     }
   }
@@ -2061,6 +3260,45 @@ class Database {
     }
   }
 
+  // Get upcoming decided/planned session (event scheduled but voting done)
+  async getUpcomingDecidedSession(guildId) {
+    if (!this.isConnected) return null;
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT * FROM movie_sessions
+         WHERE guild_id = ?
+           AND status IN ('decided', 'planning', 'active')
+           AND scheduled_date IS NOT NULL
+           AND scheduled_date > NOW()
+         ORDER BY scheduled_date ASC
+         LIMIT 1`,
+        [guildId]
+      );
+      return rows.length > 0 ? rows[0] : null;
+    } catch (error) {
+      console.error('Error getting upcoming decided session:', error.message);
+      return null;
+    }
+  }
+
+  // Get session by winner movie message_id
+  async getSessionByWinnerMessageId(guildId, messageId) {
+    if (!this.isConnected) return null;
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT * FROM movie_sessions
+         WHERE guild_id = ? AND winner_message_id = ?
+         ORDER BY created_at DESC
+         LIMIT 1`,
+        [guildId, messageId]
+      );
+      return rows.length > 0 ? rows[0] : null;
+    } catch (error) {
+      console.error('Error getting session by winner message ID:', error.message);
+      return null;
+    }
+  }
+
   async updateSessionEventId(sessionId, eventId) {
     if (!this.isConnected) return false;
 
@@ -2182,14 +3420,17 @@ class Database {
     }
   }
 
-  async incrementWatchCount(messageId) {
+  async incrementWatchCount(messageId, guildId = null) {
     if (!this.isConnected) return false;
 
     try {
-      await this.pool.execute(
-        `UPDATE movies SET watch_count = watch_count + 1 WHERE message_id = ?`,
-        [messageId]
-      );
+      let query = `UPDATE movies SET watch_count = watch_count + 1 WHERE message_id = ?`;
+      const params = [messageId];
+      if (guildId) {
+        query += ` AND guild_id = ?`;
+        params.push(guildId);
+      }
+      await this.pool.execute(query, params);
       return true;
     } catch (error) {
       console.error('Error incrementing watch count:', error.message);
@@ -2197,14 +3438,17 @@ class Database {
     }
   }
 
-  async getWatchCount(messageId) {
+  async getWatchCount(messageId, guildId = null) {
     if (!this.isConnected) return 0;
 
     try {
-      const [rows] = await this.pool.execute(
-        `SELECT watch_count FROM movies WHERE message_id = ?`,
-        [messageId]
-      );
+      let query = `SELECT watch_count FROM movies WHERE message_id = ?`;
+      const params = [messageId];
+      if (guildId) {
+        query += ` AND guild_id = ?`;
+        params.push(guildId);
+      }
+      const [rows] = await this.pool.execute(query, params);
       return rows.length > 0 ? rows[0].watch_count || 0 : 0;
     } catch (error) {
       console.error('Error getting watch count:', error.message);
@@ -2251,7 +3495,8 @@ class Database {
 
       } else {
         // Global cleanup (ADMIN ONLY - should rarely be used)
-        console.warn('⚠️ PERFORMING GLOBAL DATABASE CLEANUP - This affects ALL guilds!');
+        const logger = require('./utils/logger');
+        logger.warn('⚠️ PERFORMING GLOBAL DATABASE CLEANUP - This affects ALL guilds!');
 
         // Clean up votes for non-existent movies (global)
         const [orphanedVotes] = await this.pool.execute(`
@@ -2260,7 +3505,7 @@ class Database {
           WHERE m.message_id IS NULL
         `);
         results.cleaned += orphanedVotes.affectedRows;
-        console.log(`🧹 Global: Cleaned up ${orphanedVotes.affectedRows} orphaned votes`);
+        logger.info(`🧹 Global: Cleaned up ${orphanedVotes.affectedRows} orphaned votes`);
 
         // Clean up session participants for non-existent sessions (global)
         const [orphanedParticipants] = await this.pool.execute(`

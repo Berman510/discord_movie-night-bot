@@ -96,7 +96,8 @@ async function handleCleanupSync(interaction, movieChannel) {
         secondBatch.forEach((msg, id) => allMessages.set(id, msg));
       }
     } catch (error) {
-      console.warn('Error fetching additional messages:', error.message);
+      const logger = require('../utils/logger');
+      logger.warn('Error fetching additional messages:', error.message);
       // Continue with what we have
     }
     
@@ -123,9 +124,11 @@ async function handleCleanupSync(interaction, movieChannel) {
           try {
             await message.delete();
             orphanedCount++;
-            console.log(`🗑️ Deleted orphaned movie message: ${messageId}`);
+            const logger = require('../utils/logger');
+            logger.debug(`🗑️ Deleted orphaned movie message: ${messageId}`);
           } catch (error) {
-            console.warn(`Failed to delete orphaned message ${messageId}:`, error.message);
+            const logger = require('../utils/logger');
+            logger.warn(`Failed to delete orphaned message ${messageId}:`, error.message);
           }
           continue;
         }
@@ -340,13 +343,142 @@ async function recreateScheduledMovieAtBottom(message, movie, channel) {
   }
 }
 
-async function ensureQuickActionAtBottom(channel) {
-  // Clean up old guide/action messages and ensure only one quick action message at bottom
+async function ensureQuickActionPinned(channel) {
+  // Ensure there's a pinned quick action message for movie recommendations
   try {
+    const database = require('../database');
+
+    // Check if guild has configuration - don't add messages if no config
+    const config = await database.getGuildConfig(channel.guild.id);
+    if (!config) {
+      console.log('No guild configuration found, skipping quick action message');
+      return;
+    }
+
+    // Check if there's an active voting session
+    const activeSession = await database.getActiveVotingSession(channel.guild.id);
+
+    // Find existing quick action message (try pinned first, then recent messages)
+    let existingQuickAction = null;
+
+    // First try to find in pinned messages
+    try {
+      const pinnedMessages = await channel.messages.fetchPins();
+      // Check if pinnedMessages is a Collection and has the find method
+      if (pinnedMessages && typeof pinnedMessages.find === 'function') {
+        existingQuickAction = pinnedMessages.find(msg =>
+          msg.author.id === channel.client.user.id &&
+          msg.embeds.length > 0 &&
+          (msg.embeds[0].title?.includes('Ready to recommend') ||
+           msg.embeds[0].title?.includes('No Active Voting Session'))
+        );
+      } else {
+        const logger = require('../utils/logger');
+        logger.debug('Pinned messages result is not a Collection, skipping pinned search');
+      }
+    } catch (error) {
+      const logger = require('../utils/logger');
+      logger.warn('Error fetching pinned messages:', error.message);
+    }
+
+    // If not found in pinned messages, search recent messages as fallback
+    if (!existingQuickAction) {
+      try {
+        const recentMessages = await channel.messages.fetch({ limit: 20 });
+        existingQuickAction = recentMessages.find(msg =>
+          msg.author.id === channel.client.user.id &&
+          msg.embeds.length > 0 &&
+          (msg.embeds[0].title?.includes('Ready to recommend') ||
+           msg.embeds[0].title?.includes('No Active Voting Session'))
+        );
+      } catch (error) {
+        console.warn('Error fetching recent messages for quick action search:', error.message);
+      }
+    }
+
+    if (!activeSession) {
+      // No active session
+      const { embeds } = require('../utils');
+      const noSessionEmbed = embeds.createNoSessionEmbed();
+
+      if (existingQuickAction) {
+        // Update existing pinned message
+        await existingQuickAction.edit({
+          embeds: [noSessionEmbed],
+          components: []
+        });
+        const logger = require('../utils/logger');
+        logger.debug('✅ Updated pinned no session message');
+      } else {
+        // Create new pinned message
+        const message = await channel.send({
+          embeds: [noSessionEmbed]
+        });
+        await message.pin();
+        const logger = require('../utils/logger');
+        logger.debug('✅ Created and pinned no session message');
+      }
+      return;
+    }
+
+    // Active session exists - ensure recommend button is pinned
+    const { embeds } = require('../utils');
+    const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+
+    const quickActionEmbed = embeds.createQuickActionEmbed(activeSession);
+    const recommendButton = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId('create_recommendation')
+          .setLabel('🍿 Recommend a Movie')
+          .setStyle(ButtonStyle.Primary)
+      );
+
+    if (existingQuickAction) {
+      // Update existing pinned message
+      await existingQuickAction.edit({
+        embeds: [quickActionEmbed],
+        components: [recommendButton]
+      });
+      console.log('✅ Updated pinned quick action message');
+    } else {
+      // Create new pinned message
+      const message = await channel.send({
+        embeds: [quickActionEmbed],
+        components: [recommendButton]
+      });
+      await message.pin();
+      console.log('✅ Created and pinned quick action message');
+    }
+
+  } catch (error) {
+    console.warn('Error ensuring quick action pinned:', error.message);
+    // Fallback to old behavior if pinning fails
+    await ensureQuickActionAtBottom(channel);
+  }
+}
+
+async function ensureQuickActionAtBottom(channel) {
+  // Fallback method: Clean up old guide/action messages and ensure only one quick action message at bottom
+  try {
+    if (!channel || !channel.send) {
+      const logger = require('../utils/logger');
+      logger.warn('Error ensuring quick action at bottom: channel.send is not a function');
+      return;
+    }
+
+    const database = require('../database');
+
+    // Check if guild has configuration - don't add messages if no config
+    const config = await database.getGuildConfig(channel.guild.id);
+    if (!config) {
+      console.log('No guild configuration found, skipping quick action message');
+      return;
+    }
+
     await cleanupOldGuideMessages(channel);
 
     // Check if there's an active voting session
-    const database = require('../database');
     const activeSession = await database.getActiveVotingSession(channel.guild.id);
 
     if (!activeSession) {
@@ -358,7 +490,8 @@ async function ensureQuickActionAtBottom(channel) {
         embeds: [noSessionEmbed]
       });
 
-      console.log('✅ Added no session message at bottom');
+      const logger = require('../utils/logger');
+      logger.debug('✅ Added no session message at bottom');
       return;
     }
 
@@ -380,15 +513,23 @@ async function ensureQuickActionAtBottom(channel) {
       components: [recommendButton]
     });
 
-    console.log('✅ Added quick action message at bottom');
+    const logger = require('../utils/logger');
+    logger.debug('✅ Added quick action message at bottom');
   } catch (error) {
-    console.warn('Error ensuring quick action at bottom:', error.message);
+    const logger = require('../utils/logger');
+    logger.warn('Error ensuring quick action at bottom:', error.message);
   }
 }
 
 async function cleanupOldGuideMessages(channel) {
   // Remove old guide/quick action messages to prevent duplicates
   try {
+    if (!channel || !channel.messages) {
+      const logger = require('../utils/logger');
+      logger.warn('Invalid channel provided to cleanupOldGuideMessages');
+      return;
+    }
+
     const botId = channel.client.user.id;
 
     // Fetch recent messages to find old guide messages
@@ -407,14 +548,17 @@ async function cleanupOldGuideMessages(channel) {
       if (isGuideMessage) {
         try {
           await message.delete();
-          console.log(`🗑️ Cleaned up old guide message: ${messageId}`);
+          const logger = require('../utils/logger');
+          logger.debug(`🗑️ Cleaned up old guide message: ${messageId}`);
         } catch (error) {
-          console.warn(`Failed to delete old guide message ${messageId}:`, error.message);
+          const logger = require('../utils/logger');
+          logger.warn(`Failed to delete old guide message ${messageId}:`, error.message);
         }
       }
     }
   } catch (error) {
-    console.warn('Error cleaning up old guide messages:', error.message);
+    const logger = require('../utils/logger');
+    logger.warn('Error cleaning up old guide messages:', error.message);
   }
 }
 
@@ -624,7 +768,7 @@ async function recreateMoviePost(channel, movie) {
       recommended_by: movie.recommended_by || 'Unknown User',
       status: movie.status || 'pending',
       created_at: movie.created_at
-    }, imdbData);
+    }, imdbData, voteCounts);
 
     // Create voting buttons only (admin buttons require permission checks)
     const movieComponents = components.createVotingButtons(movie.message_id, voteCounts.up, voteCounts.down);
@@ -635,13 +779,16 @@ async function recreateMoviePost(channel, movie) {
       components: movieComponents
     });
 
-    // Create new movie record with new message ID and delete old one
+    // Create new movie record with new message ID and preserve vote data
     try {
-      // Get vote counts from old message
-      const voteCounts = await database.getVoteCounts(movie.message_id);
+      // Get the old vote counts to preserve them
+      const oldVoteCounts = await database.getVoteCounts(movie.message_id);
 
-      // Create new movie record
-      await database.saveMovie({
+      // Delete the old movie record (this will cascade delete votes due to foreign key)
+      await database.deleteMovie(movie.message_id);
+
+      // Create new movie record with the new message ID
+      const movieId = await database.saveMovie({
         messageId: newMessage.id,
         guildId: channel.guild.id,
         channelId: channel.id,
@@ -649,38 +796,36 @@ async function recreateMoviePost(channel, movie) {
         whereToWatch: movie.where_to_watch,
         recommendedBy: movie.recommended_by,
         imdbId: movie.imdb_id,
-        imdbData: movie.imdb_data
+        imdbData: movie.imdb_data,
+        status: movie.status
       });
 
-      // Transfer votes to new message ID
-      if (voteCounts.up > 0 || voteCounts.down > 0) {
-        // Transfer up votes
-        for (const userId of voteCounts.voters.up) {
-          await database.saveVote(newMessage.id, userId, 'up');
-        }
-        // Transfer down votes
-        for (const userId of voteCounts.voters.down) {
-          await database.saveVote(newMessage.id, userId, 'down');
-        }
-        console.log(`🗳️ Transferred ${voteCounts.up} up votes and ${voteCounts.down} down votes`);
+      if (movieId) {
+        console.log(`🔄 Recreated movie record: ${movie.title} (${movie.message_id} → ${newMessage.id})`);
+      } else {
+        console.warn(`Failed to recreate movie record for ${movie.title}`);
+        return false;
       }
-
-      // Delete old movie record (this will cascade delete old votes)
-      await database.deleteMovie(movie.message_id);
-
-      console.log(`🔄 Updated movie record: ${movie.title} (${movie.message_id} → ${newMessage.id})`);
     } catch (dbError) {
-      console.warn(`Failed to update movie record for ${movie.title}:`, dbError.message);
+      console.warn(`Failed to recreate movie record for ${movie.title}:`, dbError.message);
+      return false;
     }
 
     // Create discussion thread for the movie
     try {
       const thread = await newMessage.startThread({
-        name: `${movie.title} — Discussion`,
-        autoArchiveDuration: 1440 // 24 hours
+        name: `💬 ${movie.title}`,
+        autoArchiveDuration: 10080 // 7 days
       });
 
-      await thread.send(`💬 **Discussion thread for ${movie.title}**\n\nShare your thoughts, reviews, or questions about this movie!`);
+      // Add detailed information to the thread
+      const movieCreation = require('./movie-creation');
+      await movieCreation.addDetailedMovieInfoToThread(thread, {
+        title: movie.title,
+        where: movie.where_to_watch,
+        imdbData: imdbData
+      });
+
       console.log(`🧵 Created discussion thread for recreated post: ${movie.title}`);
     } catch (threadError) {
       console.warn(`Failed to create thread for ${movie.title}:`, threadError.message);
@@ -726,6 +871,9 @@ async function recreateMissingThreads(channel, botMessages) {
       // Check if this movie has a thread
       if (!existingThreadTitles.has(movieTitle)) {
         try {
+          // Verify message still exists before creating thread
+          await message.fetch();
+
           // Create missing thread
           const thread = await message.startThread({
             name: `${movieTitle} — Discussion`,
@@ -734,9 +882,15 @@ async function recreateMissingThreads(channel, botMessages) {
 
           await thread.send(`💬 **Discussion thread for ${movieTitle}**\n\nShare your thoughts, reviews, or questions about this movie!`);
           threadsCreated++;
-          console.log(`🧵 Created missing thread for: ${movieTitle}`);
+          const logger = require('../utils/logger');
+          logger.debug(`🧵 Created missing thread for: ${movieTitle}`);
         } catch (error) {
-          console.warn(`Failed to create thread for ${movieTitle}:`, error.message);
+          const logger = require('../utils/logger');
+          if (error.message.includes('Unknown Message')) {
+            logger.debug(`Skipping thread creation for deleted message: ${movieTitle}`);
+          } else {
+            logger.warn(`Failed to create thread for ${movieTitle}:`, error.message);
+          }
         }
       }
     }
@@ -786,7 +940,8 @@ async function removeMoviePost(client, channelId, movieId) {
 
     return true;
   } catch (error) {
-    console.error('Error removing movie post:', error.message);
+    const logger = require('../utils/logger');
+    logger.error('Error removing movie post:', error.message);
     return false;
   }
 }
@@ -796,6 +951,7 @@ module.exports = {
   handleCleanupSync,
   handleCleanupPurge,
   ensureQuickActionAtBottom,
+  ensureQuickActionPinned,
   cleanupOldGuideMessages,
   cleanupOrphanedThreads,
   cleanupAllThreads,

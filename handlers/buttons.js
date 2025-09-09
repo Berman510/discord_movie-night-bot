@@ -15,6 +15,9 @@
  */
 
 const { MessageFlags } = require('discord.js');
+const ephemeralManager = require('../utils/ephemeral-manager');
+const configCheck = require('../utils/config-check');
+const guidedSetup = require('../services/guided-setup');
 const database = require('../database');
 const { sessions } = require('../services');
 const { permissions } = require('../services');
@@ -47,15 +50,22 @@ async function handleButton(interaction) {
       return;
     }
 
-    // Setup guide navigation buttons
-    if (customId.startsWith('setup_')) {
-      await handleSetupGuideButtons(interaction, customId);
-      return;
-    }
+
 
     // Admin movie action buttons
     if (customId.startsWith('admin_') && !customId.startsWith('admin_ctrl_')) {
       await handleAdminMovieButtons(interaction, customId);
+      return;
+    }
+
+    // Deep purge submit/cancel buttons
+    if (customId === 'deep_purge_submit' || customId.startsWith('deep_purge_submit:')) {
+      await handleDeepPurgeSubmit(interaction);
+      return;
+    }
+
+    if (customId === 'deep_purge_cancel') {
+      await handleDeepPurgeCancel(interaction);
       return;
     }
 
@@ -141,6 +151,24 @@ async function handleButton(interaction) {
       return;
     }
 
+    // Configuration button
+    if (customId === 'open_configuration') {
+      await configCheck.handleConfigurationButton(interaction);
+      return;
+    }
+
+    // Configuration action buttons
+    if (customId.startsWith('config_')) {
+      await handleConfigurationAction(interaction, customId);
+      return;
+    }
+
+    // Guided setup buttons
+    if (customId.startsWith('setup_')) {
+      await handleGuidedSetupButton(interaction, customId);
+      return;
+    }
+
     // IMDb selection buttons
     if (customId.startsWith('select_imdb:')) {
       await handleImdbSelection(interaction);
@@ -194,25 +222,46 @@ async function handleVoting(interaction, action, msgId, votes) {
 
     // Handle database voting
     if (database.isConnected) {
+      // First check if the movie exists in the database
+      const movie = await database.getMovieById(msgId, interaction.guild.id);
+      if (!movie) {
+        console.error(`🚨 VOTING ERROR: Movie with message ID ${msgId} not found in database for guild ${interaction.guild.id}`);
+        await interaction.editReply({
+          content: '❌ This movie is not found in the database. Please try refreshing the channel.',
+          flags: require('discord.js').MessageFlags.Ephemeral
+        });
+        return;
+      }
+
       // Check current vote
       const currentVote = await database.getUserVote(msgId, userId);
 
       if (currentVote === action) {
         // Remove vote if clicking same button
-        await database.removeVote(msgId, userId);
+        const removeSuccess = await database.removeVote(msgId, userId, interaction.guild.id);
+        if (!removeSuccess) {
+          console.error(`Failed to remove vote for message ${msgId} by user ${userId}`);
+        }
       } else {
         // Add or change vote
-        await database.saveVote(msgId, userId, action);
+        const saveSuccess = await database.saveVote(msgId, userId, action, interaction.guild.id);
+        if (!saveSuccess) {
+          console.error(`Failed to save vote for message ${msgId} by user ${userId}`);
+          await interaction.editReply({
+            content: '❌ Failed to save your vote. Please try again.',
+            flags: require('discord.js').MessageFlags.Ephemeral
+          });
+          return;
+        }
       }
 
-      // Get updated vote counts and movie data
+      // Get updated vote counts (movie data already retrieved above)
       const voteCounts = await database.getVoteCounts(msgId);
-      const movie = await database.getMovieById(msgId, interaction.guild.id);
 
       // Update message with new vote counts and preserve all buttons
       const { components, embeds } = require('../utils');
       const imdbData = movie && movie.imdb_data ? JSON.parse(movie.imdb_data) : null;
-      const updatedEmbed = movie ? embeds.createMovieEmbed(movie, imdbData) : null;
+      const updatedEmbed = movie ? embeds.createMovieEmbed(movie, imdbData, voteCounts) : null;
       const updatedComponents = components.createVotingButtons(msgId, voteCounts.up, voteCounts.down);
 
       const updateData = { components: updatedComponents };
@@ -221,6 +270,21 @@ async function handleVoting(interaction, action, msgId, votes) {
       }
 
       await interaction.editReply(updateData);
+
+      // Update forum post if this is a forum channel movie
+      if (movie && movie.channel_type === 'forum' && movie.thread_id) {
+        try {
+          const forumChannels = require('../services/forum-channels');
+          const thread = await interaction.client.channels.fetch(movie.thread_id).catch(() => null);
+          if (thread) {
+            // For forum channels, we update the title only for major status changes
+            // Vote count updates are shown in the embed to avoid spam messages
+            await forumChannels.updateForumPostTitle(thread, movie.title, movie.status, voteCounts.up, voteCounts.down);
+          }
+        } catch (error) {
+          console.warn('Error updating forum post after vote:', error.message);
+        }
+      }
     } else {
       // Fallback to in-memory voting
       if (!votes.has(msgId)) {
@@ -252,7 +316,8 @@ async function handleVoting(interaction, action, msgId, votes) {
       });
     }
 
-    console.log(`Voting: ${action} for message ${msgId} by user ${userId}`);
+    const logger = require('../utils/logger');
+    logger.debug(`Voting: ${action} for message ${msgId} by user ${userId}`);
 
   } catch (error) {
     console.error('Error handling voting:', error);
@@ -285,7 +350,7 @@ async function handleStatusChange(interaction, action, msgId) {
 
     // If marking as watched, increment watch count
     if (action === 'watched') {
-      await database.incrementWatchCount(msgId);
+      await database.incrementWatchCount(msgId, interaction.guild.id);
     }
 
     // Get updated movie data
@@ -634,8 +699,12 @@ async function handleImdbSelection(interaction) {
   const [, indexStr, dataKey] = customId.split(':');
 
   try {
-    // Defer the interaction immediately to prevent timeout
-    await interaction.deferUpdate();
+    // Update the original ephemeral selection message so it doesn't linger
+    await interaction.update({
+      content: '⏳ Creating your recommendation...',
+      embeds: [],
+      components: []
+    });
 
     const { pendingPayloads } = require('../utils/constants');
 
@@ -651,7 +720,10 @@ async function handleImdbSelection(interaction) {
 
     const { title, where, imdbResults } = data;
 
-    if (indexStr === 'none') {
+    if (indexStr === 'cancel') {
+      // User cancelled the submission entirely
+      await interaction.update({ content: '🚫 Submission cancelled.', embeds: [], components: [] });
+    } else if (indexStr === 'none') {
       // User selected "None of these" - create without IMDb data
       await createMovieWithoutImdb(interaction, title, where);
     } else {
@@ -663,6 +735,11 @@ async function handleImdbSelection(interaction) {
 
     // Clean up the stored data
     pendingPayloads.delete(dataKey);
+
+    // Auto-dismiss the updated ephemeral selector after a short delay
+    setTimeout(async () => {
+      try { await interaction.deleteReply(); } catch {}
+    }, 3000);
 
   } catch (error) {
     console.error('Error handling IMDb selection:', error);
@@ -681,227 +758,148 @@ async function handleImdbSelection(interaction) {
 }
 
 async function createMovieWithoutImdb(interaction, title, where) {
+  console.log(`🔍 DEBUG: createMovieWithoutImdb (button handler) called with title: ${title}, where: ${where}`);
+
+  // Use the new movie creation service instead of old direct creation
+  const movieCreation = require('../services/movie-creation');
   const database = require('../database');
-  const { embeds, components } = require('../utils');
 
   try {
-    // Create movie embed first
-    const movieData = {
-      title: title,
-      where_to_watch: where,
-      recommended_by: interaction.user.id,
-      status: 'pending'
-    };
-
-    const movieEmbed = embeds.createMovieEmbed(movieData);
-
-    // Create the message first without buttons
-    const message = await interaction.channel.send({
-      embeds: [movieEmbed]
-    });
-
-    // Now create buttons with the actual message ID (voting only - admin uses slash commands)
-    const movieComponents = components.createVotingButtons(message.id);
-
-    // Update the message with the correct buttons
-    await message.edit({
-      embeds: [movieEmbed],
-      components: movieComponents
-    });
-
-    // Now save to database with the message ID
-    const movieId = await database.saveMovie({
-      messageId: message.id,
-      guildId: interaction.guild.id,
-      channelId: interaction.channel.id,
-      title: title,
-      whereToWatch: where,
-      recommendedBy: interaction.user.id,
+    // Create movie using the new unified service
+    const logger = require('../utils/logger');
+    logger.debug(`🔍 DEBUG: About to call movieCreation.createMovieRecommendation from button handler`);
+    const result = await movieCreation.createMovieRecommendation(interaction, {
+      title,
+      where,
       imdbId: null,
       imdbData: null
     });
 
-    if (movieId) {
-      // Post to admin channel if configured
-      try {
-        const movie = await database.getMovieByMessageId(message.id);
-        if (movie) {
-          const adminMirror = require('../services/admin-mirror');
-          await adminMirror.postMovieToAdminChannel(interaction.client, interaction.guild.id, movie);
-        }
-      } catch (error) {
-        console.error('Error posting to admin channel:', error);
-      }
+    logger.debug(`🔍 DEBUG: movieCreation.createMovieRecommendation result from button handler:`, {
+      hasMessage: !!result.message,
+      hasThread: !!result.thread,
+      movieId: result.movieId,
+      messageId: result.message?.id,
+      threadId: result.thread?.id
+    });
 
-      await interaction.update({
-        content: `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added to the queue for voting.`,
-        embeds: [],
-        components: []
-      });
-    } else {
-      // If database save failed, delete the message
-      await message.delete().catch(console.error);
-      await interaction.update({
-        content: '❌ Failed to create movie recommendation.',
-        embeds: [],
-        components: []
-      });
+    const { message, thread, movieId } = result;
+
+    // Post to admin channel if configured (movie creation service handles database save)
+    try {
+      const movie = await database.getMovieByMessageId(message.id);
+      if (movie) {
+        const adminMirror = require('../services/admin-mirror');
+        await adminMirror.postMovieToAdminChannel(interaction.client, interaction.guild.id, movie);
+      }
+    } catch (error) {
+      console.error('Error posting to admin channel:', error);
     }
+
+    // Success message varies by channel type
+    const config = await database.getGuildConfig(interaction.guild.id);
+    const movieChannel = config && config.movie_channel_id ?
+      await interaction.client.channels.fetch(config.movie_channel_id) : null;
+
+    const successMessage = thread
+      ? `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added as a new forum post in ${movieChannel} for voting and discussion.`
+      : `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added to the queue in ${movieChannel} for voting.`;
+
+    await ephemeralManager.sendEphemeral(interaction, successMessage);
 
   } catch (error) {
     console.error('Error creating movie without IMDb:', error);
-    await interaction.update({
-      content: '❌ Error creating movie recommendation.',
-      embeds: [],
-      components: []
-    });
+    try {
+      if (interaction.replied || interaction.deferred) {
+        await ephemeralManager.sendEphemeral(interaction, '❌ Error creating movie recommendation.');
+      } else {
+        await interaction.update({
+          content: '❌ Error creating movie recommendation.',
+          embeds: [],
+          components: []
+        });
+      }
+    } catch (responseError) {
+      console.error('Error responding to interaction:', responseError.message);
+    }
   }
 }
 
 async function createMovieWithImdb(interaction, title, where, imdbData) {
+  console.log(`🔍 DEBUG: createMovieWithImdb (button handler) called with title: ${title}, where: ${where}, imdbId: ${imdbData.imdbID}`);
+
+  // Use the new movie creation service instead of old direct creation
+  const movieCreation = require('../services/movie-creation');
   const database = require('../database');
-  const { embeds, components } = require('../utils');
   const imdb = require('../services/imdb');
 
   try {
     // Fetch detailed movie info from OMDb
     const detailedImdbData = await imdb.getMovieDetails(imdbData.imdbID);
 
-    // Create movie embed with detailed IMDb data
-    const movieData = {
-      title: title,
-      where_to_watch: where,
-      recommended_by: interaction.user.id,
-      status: 'pending',
-      imdb_id: imdbData.imdbID,
-      imdb_data: detailedImdbData || imdbData
-    };
+    // Prefer the canonical IMDb title if available
+    const titleToUse = (detailedImdbData && detailedImdbData.Title) || imdbData.Title || title;
 
-    const movieEmbed = embeds.createMovieEmbed(movieData, detailedImdbData);
-
-    // Create the message first without buttons
-    const message = await interaction.channel.send({
-      embeds: [movieEmbed]
-    });
-
-    // Now create buttons with the actual message ID (voting only - admin uses slash commands)
-    const movieComponents = components.createVotingButtons(message.id);
-
-    // Update the message with the correct buttons
-    await message.edit({
-      embeds: [movieEmbed],
-      components: movieComponents
-    });
-
-    // Now save to database with the message ID
-    console.log(`💾 Saving movie to database: ${title} (${message.id})`);
-    const movieId = await database.saveMovie({
-      messageId: message.id,
-      guildId: interaction.guild.id,
-      channelId: interaction.channel.id,
-      title: title,
-      whereToWatch: where,
-      recommendedBy: interaction.user.id,
+    // Create movie using the new unified service
+    console.log(`🔍 DEBUG: About to call movieCreation.createMovieRecommendation with IMDb data from button handler`);
+    const result = await movieCreation.createMovieRecommendation(interaction, {
+      title: titleToUse,
+      where,
       imdbId: imdbData.imdbID,
       imdbData: detailedImdbData || imdbData
     });
 
-    console.log(`💾 Movie save result: ${movieId ? 'SUCCESS' : 'FAILED'} (ID: ${movieId})`);
-    if (movieId) {
-      // Create a thread for discussion and seed details from IMDb
-      try {
-        const thread = await message.startThread({
-          name: `${title} — Discussion`,
-          autoArchiveDuration: 1440
-        });
+    console.log(`🔍 DEBUG: movieCreation.createMovieRecommendation with IMDb result from button handler:`, {
+      hasMessage: !!result.message,
+      hasThread: !!result.thread,
+      movieId: result.movieId,
+      messageId: result.message?.id,
+      threadId: result.thread?.id
+    });
 
-        const base = `Discussion for **${title}** (recommended by <@${interaction.user.id}>)`;
-        if (detailedImdbData) {
-          const synopsis = detailedImdbData.Plot && detailedImdbData.Plot !== 'N/A' ? detailedImdbData.Plot : 'No synopsis available.';
-          const details = [
-            detailedImdbData.Year && `**Year:** ${detailedImdbData.Year}`,
-            detailedImdbData.Rated && detailedImdbData.Rated !== 'N/A' && `**Rated:** ${detailedImdbData.Rated}`,
-            detailedImdbData.Runtime && detailedImdbData.Runtime !== 'N/A' && `**Runtime:** ${detailedImdbData.Runtime}`,
-            detailedImdbData.Genre && detailedImdbData.Genre !== 'N/A' && `**Genre:** ${detailedImdbData.Genre}`,
-            detailedImdbData.Director && detailedImdbData.Director !== 'N/A' && `**Director:** ${detailedImdbData.Director}`,
-            detailedImdbData.Actors && detailedImdbData.Actors !== 'N/A' && `**Top cast:** ${detailedImdbData.Actors}`,
-          ].filter(Boolean).join('\n');
-          await thread.send({ content: `${base}\n\n**Synopsis:** ${synopsis}\n\n${details}` });
-        } else {
-          await thread.send({ content: `${base}\n\nIMDb details weren't available at creation time.` });
-        }
-      } catch (e) {
-        console.warn('Thread creation failed:', e?.message || e);
+    const { message, thread, movieId } = result;
+
+    // Post to admin channel if configured (movie creation service handles database save)
+    try {
+      const movie = await database.getMovieByMessageId(message.id);
+      if (movie) {
+        const adminMirror = require('../services/admin-mirror');
+        await adminMirror.postMovieToAdminChannel(interaction.client, interaction.guild.id, movie);
       }
-
-      // Post to admin channel if configured
-      try {
-        const movie = await database.getMovieByMessageId(message.id);
-        if (movie) {
-          const adminMirror = require('../services/admin-mirror');
-          await adminMirror.postMovieToAdminChannel(interaction.client, interaction.guild.id, movie);
-        }
-      } catch (error) {
-        console.error('Error posting to admin channel:', error);
-      }
-
-      // Post Quick Action at bottom of channel
-      await cleanup.ensureQuickActionAtBottom(interaction.channel);
-
-      await interaction.editReply({
-        content: `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added to the queue for voting.`,
-        embeds: [],
-        components: []
-      });
-    } else {
-      // If database save failed, delete the message
-      await message.delete().catch(console.error);
-      await interaction.editReply({
-        content: '❌ Failed to create movie recommendation.',
-        embeds: [],
-        components: []
-      });
+    } catch (error) {
+      console.error('Error posting to admin channel:', error);
     }
+
+    // Success message varies by channel type
+    const config = await database.getGuildConfig(interaction.guild.id);
+    const movieChannel = config && config.movie_channel_id ?
+      await interaction.client.channels.fetch(config.movie_channel_id) : null;
+
+    const successMessage = thread
+      ? `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added as a new forum post in ${movieChannel} for voting and discussion.`
+      : `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added to the queue in ${movieChannel} for voting.`;
+
+    await ephemeralManager.sendEphemeral(interaction, successMessage);
 
   } catch (error) {
     console.error('Error creating movie with IMDb:', error);
-    await interaction.update({
-      content: '❌ Error creating movie recommendation.',
-      embeds: [],
-      components: []
-    });
+    try {
+      if (interaction.replied || interaction.deferred) {
+        await ephemeralManager.sendEphemeral(interaction, '❌ Error creating movie recommendation.');
+      } else {
+        await interaction.update({
+          content: '❌ Error creating movie recommendation.',
+          embeds: [],
+          components: []
+        });
+      }
+    } catch (responseError) {
+      console.error('Error responding to interaction:', responseError.message);
+    }
   }
 }
 
-/**
- * Handle setup guide navigation buttons
- */
-async function handleSetupGuideButtons(interaction, customId) {
-  const setupGuide = require('../services/setup-guide');
 
-  switch (customId) {
-    case 'setup_channels':
-      await setupGuide.showChannelSetup(interaction);
-      break;
-    case 'setup_roles':
-      await setupGuide.showRoleSetup(interaction);
-      break;
-    case 'setup_permissions':
-      await setupGuide.showPermissionSetup(interaction);
-      break;
-    case 'setup_configuration':
-      await setupGuide.showConfigurationSetup(interaction);
-      break;
-    case 'setup_guide_back':
-      await setupGuide.showSetupGuide(interaction);
-      break;
-    default:
-      await interaction.reply({
-        content: '❌ Unknown setup guide action.',
-        flags: MessageFlags.Ephemeral
-      });
-  }
-}
 
 /**
  * Handle admin movie action buttons
@@ -942,10 +940,18 @@ async function handleAdminMovieButtons(interaction, customId) {
         await handleMovieDetails(interaction, guildId, movieId);
         break;
       case 'admin_pick_winner':
+      case 'admin_pick_winner_confirm':
         await handlePickWinner(interaction, guildId, movieId);
         break;
+      case 'admin_pick_winner_cancel':
+        await interaction.reply({ content: '❌ Winner selection cancelled.', flags: MessageFlags.Ephemeral });
+        break;
       case 'admin_choose_winner':
+      case 'admin_choose_winner_confirm':
         await handleChooseWinner(interaction, guildId, movieId);
+        break;
+      case 'admin_choose_winner_cancel':
+        await interaction.reply({ content: '❌ Winner selection cancelled.', flags: MessageFlags.Ephemeral });
         break;
       case 'admin_skip_vote':
         await handleSkipToNext(interaction, guildId, movieId);
@@ -989,6 +995,32 @@ async function handleScheduleMovie(interaction, guildId, movieId) {
     // Update movie status to scheduled
     await database.updateMovieStatus(movieId, 'scheduled');
 
+    // Update forum post if this is a forum channel movie
+    if (movie.channel_type === 'forum' && movie.thread_id) {
+      try {
+        const forumChannels = require('../services/forum-channels');
+        const thread = await interaction.client.channels.fetch(movie.thread_id).catch(() => null);
+        if (thread) {
+          await forumChannels.updateForumPostContent(thread, movie, 'scheduled');
+        }
+      } catch (error) {
+        console.warn('Error updating forum post for winner:', error.message);
+      }
+    }
+
+    // Update forum post if this is a forum channel movie
+    if (movie.channel_type === 'forum' && movie.thread_id) {
+      try {
+        const forumChannels = require('../services/forum-channels');
+        const thread = await interaction.client.channels.fetch(movie.thread_id).catch(() => null);
+        if (thread) {
+          await forumChannels.updateForumPostContent(thread, movie, 'scheduled');
+        }
+      } catch (error) {
+        console.warn('Error updating forum post for winner:', error.message);
+      }
+    }
+
     // Create a movie session
     const sessionData = {
       guildId: guildId,
@@ -997,7 +1029,7 @@ async function handleScheduleMovie(interaction, guildId, movieId) {
       movieMessageId: movieId
     };
 
-    const sessionId = await sessions.createMovieSession(sessionData);
+    const sessionId = await database.createMovieSession(sessionData);
 
     await interaction.reply({
       content: `✅ **${movie.title}** has been scheduled! Session ID: ${sessionId}`,
@@ -1223,13 +1255,49 @@ async function handleMovieDetails(interaction, guildId, movieId) {
     });
   }
 }
-
 /**
  * Handle picking a movie as winner (new workflow)
  */
 async function handlePickWinner(interaction, guildId, movieId) {
   const database = require('../database');
   const { EmbedBuilder } = require('discord.js');
+
+    // Confirmation gate: if this is the initial click, show a confirmation UI and exit.
+    try {
+      const isConfirm = interaction.customId && interaction.customId.startsWith('admin_pick_winner_confirm');
+      if (!isConfirm) {
+        const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+        // Try to resolve movie title for the confirmation prompt
+        let movieTitle = null;
+        try {
+          const m = await database.getMovieByMessageId(movieId);
+          if (m) movieTitle = m.title;
+        } catch (e) {}
+        if (!movieTitle && interaction.message && interaction.message.embeds?.length > 0) {
+          movieTitle = interaction.message.embeds[0].title?.replace('\ud83c\udfac ', '') || 'this movie';
+        }
+
+        const row = new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId(`admin_pick_winner_confirm:${movieId}`)
+            .setLabel('Yes, pick winner')
+            .setStyle(ButtonStyle.Danger),
+          new ButtonBuilder()
+            .setCustomId(`admin_pick_winner_cancel:${movieId}`)
+            .setLabel('Cancel')
+            .setStyle(ButtonStyle.Secondary)
+        );
+
+        await interaction.reply({
+          content: `\u26a0\ufe0f Are you sure you want to pick ${movieTitle || 'this movie'} as the winner? This will finalize the session and clear voting posts.`,
+          components: [row],
+          flags: MessageFlags.Ephemeral
+        });
+        return;
+      }
+    } catch (e) {
+      // If confirmation UI fails for any reason, fall back to existing flow
+    }
 
   try {
     // Defer the interaction immediately to prevent timeout
@@ -1313,30 +1381,41 @@ async function handlePickWinner(interaction, guildId, movieId) {
     // Clear all movie posts and threads from both channels
     const config = await database.getGuildConfig(guildId);
 
-    // Clear voting channel manually (don't use handleCleanupPurge as it tries to reply)
+    // Clear voting channel based on channel type
     if (config.movie_channel_id) {
       try {
         const votingChannel = await interaction.client.channels.fetch(config.movie_channel_id);
         if (votingChannel) {
-          // Clear all movie messages and threads
-          const messages = await votingChannel.messages.fetch({ limit: 100 });
-          const botMessages = messages.filter(msg => msg.author.id === interaction.client.user.id);
+          const forumChannels = require('../services/forum-channels');
 
-          for (const [messageId, message] of botMessages) {
-            try {
-              await message.delete();
-            } catch (error) {
-              console.warn(`Failed to delete voting message ${messageId}:`, error.message);
+          if (forumChannels.isForumChannel(votingChannel)) {
+            // Forum channel - remove ALL voting threads (including the winner recommendation), then post winner announcement
+            await forumChannels.clearForumMoviePosts(votingChannel, null);
+            await forumChannels.postForumWinnerAnnouncement(votingChannel, movie, 'Movie Night', { event: null, selectedByUserId: interaction.user.id });
+
+            // Reset pinned post since session is ending
+            await forumChannels.ensureRecommendationPost(votingChannel, null);
+          } else {
+            // Text channel - delete messages and threads
+            const messages = await votingChannel.messages.fetch({ limit: 100 });
+            const botMessages = messages.filter(msg => msg.author.id === interaction.client.user.id);
+
+            for (const [messageId, message] of botMessages) {
+              try {
+                await message.delete();
+              } catch (error) {
+                console.warn(`Failed to delete voting message ${messageId}:`, error.message);
+              }
             }
-          }
 
-          // Clear threads
-          const threads = await votingChannel.threads.fetchActive();
-          for (const [threadId, thread] of threads.threads) {
-            try {
-              await thread.delete();
-            } catch (error) {
-              console.warn(`Failed to delete thread ${threadId}:`, error.message);
+            // Clear threads
+            const threads = await votingChannel.threads.fetchActive();
+            for (const [threadId, thread] of threads.threads) {
+              try {
+                await thread.delete();
+              } catch (error) {
+                console.warn(`Failed to delete thread ${threadId}:`, error.message);
+              }
             }
           }
         }
@@ -1360,6 +1439,7 @@ async function handlePickWinner(interaction, guildId, movieId) {
                                     message.embeds[0].title.includes('Admin Control Panel');
 
               if (!isControlPanel) {
+
                 await message.delete();
               }
             } catch (error) {
@@ -1407,10 +1487,19 @@ async function handlePickWinner(interaction, guildId, movieId) {
 
           if (imdbData) {
             if (imdbData.Year) winnerEmbed.addFields({ name: '📅 Year', value: imdbData.Year, inline: true });
+
+
             if (imdbData.Runtime) winnerEmbed.addFields({ name: '⏱️ Runtime', value: imdbData.Runtime, inline: true });
             if (imdbData.Genre) winnerEmbed.addFields({ name: '🎬 Genre', value: imdbData.Genre, inline: true });
             if (imdbData.imdbRating) winnerEmbed.addFields({ name: '⭐ IMDb Rating', value: `${imdbData.imdbRating}/10`, inline: true });
             if (imdbData.Plot) winnerEmbed.addFields({ name: '📖 Plot', value: imdbData.Plot.substring(0, 1024), inline: false });
+          }
+
+          // Always include selector and winner votes
+          winnerEmbed.addFields({ name: '👑 Selected by', value: `<@${interaction.user.id}>`, inline: true });
+          const thisMovie = voteBreakdown.find(v => v.isWinner);
+          if (thisMovie) {
+            winnerEmbed.addFields({ name: '📊 Winner Votes', value: `${thisMovie.upVotes} 👍 - ${thisMovie.downVotes} 👎 (Score: ${thisMovie.score})`, inline: false });
           }
 
           // Add vote breakdown
@@ -1434,13 +1523,23 @@ async function handlePickWinner(interaction, guildId, movieId) {
             content = `<@&${config.notification_role_id}>`;
           }
 
-          await votingChannel.send({
-            content: content,
-            embeds: [winnerEmbed]
-          });
+          // Check if this is a forum channel
+          const forumChannels = require('../services/forum-channels');
+          if (forumChannels.isForumChannel(votingChannel)) {
+            // Forum channels handle winner announcements differently
+            // This is already handled above in the forum-specific section
+            logger.debug('Skipping text channel winner announcement for forum channel');
+          } else {
+            // Text channel - send winner announcement
+            await votingChannel.send({
+              content: content,
+              embeds: [winnerEmbed]
+            });
+          }
         }
       } catch (error) {
-        console.warn('Error posting winner announcement:', error.message);
+        const logger = require('../utils/logger');
+        logger.warn('Error posting winner announcement:', error.message);
       }
     }
 
@@ -1464,17 +1563,43 @@ async function handlePickWinner(interaction, guildId, movieId) {
           const imdbData = movie.imdb_id ? await require('../services/imdb').getMovieDetails(movie.imdb_id) : null;
 
           let updatedDescription = `🏆 **WINNER SELECTED: ${movie.title}**\n\n`;
+          let posterBuffer = null;
           if (imdbData && imdbData.Plot && imdbData.Plot !== 'N/A') {
             updatedDescription += `📖 ${imdbData.Plot}\n\n`;
           }
           updatedDescription += `🗳️ Final Score: ${totalScore} (${upVotes} 👍 - ${downVotes} 👎)\n`;
-          updatedDescription += `👤 Selected by admin\n`;
+          updatedDescription += `👤 Selected by: <@${interaction.user.id}>\n`;
+          if (imdbData && imdbData.Poster && imdbData.Poster !== 'N/A') {
+            updatedDescription += `🖼️ Poster: ${imdbData.Poster}\n`;
+            try {
+              const res = await fetch(imdbData.Poster);
+              if (res.ok) {
+                const len = Number(res.headers.get('content-length') || '0');
+                if (!len || len < 8000000) {
+                  const arr = await res.arrayBuffer();
+                  posterBuffer = Buffer.from(arr);
+                  try {
+                    const { composeEventCoverFromPoster } = require('../services/image-utils');
+                    posterBuffer = await composeEventCoverFromPoster(posterBuffer);
+                  } catch (composeErr) {
+                    console.warn('Poster composition failed (manual), will upload raw poster:', composeErr.message);
+                  }
+                }
+              }
+            } catch (imgErr) {
+              console.warn('Could not fetch poster image for event cover (manual):', imgErr.message);
+            }
+          }
           updatedDescription += `📅 Join us for movie night!\n\n🔗 SESSION_UID:${activeSession.id}`;
 
-          await event.edit({
+          const editPayload = {
             name: `🎬 ${activeSession.name} - ${movie.title}`,
             description: updatedDescription
-          });
+          };
+          if (posterBuffer) {
+            editPayload.image = posterBuffer;
+          }
+          await event.edit(editPayload);
 
           console.log(`📅 Successfully updated Discord event with manual winner: ${movie.title} (Score: ${totalScore})`);
         } else {
@@ -1487,11 +1612,41 @@ async function handlePickWinner(interaction, guildId, movieId) {
       console.warn('Error updating Discord event with winner:', error.message);
     }
 
+    // Ensure "No Active Voting Session" message is posted in voting channel
+    try {
+      const config = await database.getGuildConfig(interaction.guild.id);
+      if (config && config.movie_channel_id) {
+        const votingChannel = await interaction.client.channels.fetch(config.movie_channel_id);
+        if (votingChannel) {
+          const forumChannels = require('../services/forum-channels');
+          const cleanup = require('../services/cleanup');
+          if (forumChannels.isForumChannel(votingChannel)) {
+            await forumChannels.ensureRecommendationPost(votingChannel, null);
+          } else {
+            await cleanup.ensureQuickActionPinned(votingChannel);
+          }
+        }
+      }
+    } catch (error) {
+      const logger = require('../utils/logger');
+      logger.warn('Error posting no session message after manual winner selection:', error.message);
+    }
+
     await interaction.editReply({
       content: `🏆 **${movie.title}** has been selected as the winner! Announcement posted, channels cleared, and event updated.`
     });
 
-    console.log(`🏆 Movie ${movie.title} picked as winner by ${interaction.user.tag}`);
+    // Refresh admin control panel to expose Cancel/Reschedule until event start
+    try {
+      const adminControls = require('../services/admin-controls');
+      await adminControls.ensureAdminControlPanel(interaction.client, interaction.guild.id);
+    } catch (e) {
+      const logger = require('../utils/logger');
+      logger.warn('Error refreshing admin control panel after picking winner:', e.message);
+    }
+
+    const logger = require('../utils/logger');
+    logger.info(`🏆 Movie ${movie.title} picked as winner by ${interaction.user.tag}`);
 
   } catch (error) {
     console.error('Error picking winner:', error);
@@ -1513,6 +1668,43 @@ async function handlePickWinner(interaction, guildId, movieId) {
  */
 async function handleChooseWinner(interaction, guildId, movieId) {
   const database = require('../database');
+
+
+  // Confirmation gate for choose winner: prompt before finalizing
+  try {
+    const isConfirm = interaction.customId && interaction.customId.startsWith('admin_choose_winner_confirm');
+    if (!isConfirm) {
+      const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+      let movieTitle = null;
+      try {
+        const m = await database.getMovieByMessageId(movieId);
+        if (m) movieTitle = m.title;
+      } catch (e) {}
+      if (!movieTitle && interaction.message && interaction.message.embeds?.length > 0) {
+        movieTitle = interaction.message.embeds[0].title?.replace('\ud83c\udfac ', '') || 'this movie';
+      }
+
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`admin_choose_winner_confirm:${movieId}`)
+          .setLabel('Yes, choose winner')
+          .setStyle(ButtonStyle.Danger),
+        new ButtonBuilder()
+          .setCustomId(`admin_choose_winner_cancel:${movieId}`)
+          .setLabel('Cancel')
+          .setStyle(ButtonStyle.Secondary)
+      );
+
+      await interaction.reply({
+        content: `\u26a0\ufe0f Confirm selection: choose ${movieTitle || 'this movie'} as the session winner? This will end voting.`,
+        components: [row],
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+  } catch (e) {
+    // If confirmation UI fails for any reason, proceed with existing flow
+  }
 
   try {
     // Get the active voting session
@@ -1553,11 +1745,42 @@ async function handleChooseWinner(interaction, guildId, movieId) {
     if (activeSession.discord_event_id) {
       try {
         const discordEvents = require('../services/discord-events');
+        const imdb = require('../services/imdb');
+        const database = require('../database');
+        const config = await database.getGuildConfig(guildId);
+
         const updatedName = activeSession.name.replace('TBD (Voting in Progress)', movie.title);
-        await discordEvents.updateDiscordEvent(interaction.guild, activeSession.discord_event_id, {
-          name: updatedName,
-          description: `Winner: ${movie.title}\n${activeSession.description || ''}`
-        });
+
+        // Enrich description with IMDb and channel link
+        let imdbData = null;
+        let counts = null; try { counts = await database.getVoteCounts(movie.message_id); } catch {}
+
+        if (movie.imdb_id) {
+          try { imdbData = await imdb.getMovieDetails(movie.imdb_id); } catch {}
+        }
+        const parts = [];
+        parts.push(`Winner: ${movie.title}`);
+        parts.push(`Selected by: <@${interaction.user.id}>`);
+        if (counts) parts.push(`Votes: ${counts.up || 0} 👍 - ${counts.down || 0} 👎 (Score: ${(counts.up || 0) - (counts.down || 0)})`);
+
+        if (movie.where_to_watch) parts.push(`Where: ${movie.where_to_watch}`);
+        if (imdbData?.Year) parts.push(`Year: ${imdbData.Year}`);
+        if (imdbData?.Runtime) parts.push(`Runtime: ${imdbData.Runtime}`);
+        if (imdbData?.Genre) parts.push(`Genre: ${imdbData.Genre}`);
+        if (imdbData?.imdbRating && imdbData.imdbRating !== 'N/A') parts.push(`IMDb: ${imdbData.imdbRating}/10`);
+        if (imdbData?.Plot && imdbData.Plot !== 'N/A') parts.push(`\nSynopsis: ${imdbData.Plot}`);
+        if (config?.movie_channel_id) parts.push(`Discuss: <#${config.movie_channel_id}>`);
+        const description = parts.join('\n') + (activeSession.description ? `\n\n${activeSession.description}` : '');
+
+        await discordEvents.updateDiscordEvent(
+          interaction.guild,
+          activeSession.discord_event_id,
+          {
+            name: updatedName,
+            description
+          },
+          activeSession.scheduled_date || activeSession.scheduledDate || null
+        );
       } catch (error) {
         console.warn('Error updating Discord event:', error.message);
       }
@@ -1568,12 +1791,90 @@ async function handleChooseWinner(interaction, guildId, movieId) {
       flags: MessageFlags.Ephemeral
     });
 
-    // Sync channels to update the display
+    // Clean up any tie-break messages in admin channel (keep control panel)
     try {
-      const adminControls = require('../services/admin-controls');
-      await adminControls.handleSyncChannel(interaction);
+      const config = await database.getGuildConfig(guildId);
+      if (config && config.admin_channel_id) {
+        const adminChannel = await interaction.client.channels.fetch(config.admin_channel_id).catch(() => null);
+        if (adminChannel) {
+          const messages = await adminChannel.messages.fetch({ limit: 100 });
+          const botMessages = messages.filter(msg => msg.author.id === interaction.client.user.id);
+          for (const [messageId, message] of botMessages) {
+            try {
+              const isControlPanel = message.embeds.length > 0 && message.embeds[0].title && message.embeds[0].title.includes('Admin Control Panel');
+              if (!isControlPanel) {
+                await message.delete();
+              }
+            } catch (e) {
+              console.warn(`Failed to delete admin message ${messageId}:`, e.message);
+            }
+          }
+        }
+      }
     } catch (error) {
-      console.warn('Error syncing channels after choosing winner:', error.message);
+      console.warn('Error cleaning tie-break messages after choosing winner:', error.message);
+    }
+
+    // Refresh admin mirror and control panel so Cancel/Reschedule are available
+    try {
+      const adminMirror = require('../services/admin-mirror');
+      await adminMirror.syncAdminChannel(interaction.client, guildId);
+      const adminControls = require('../services/admin-controls');
+      await adminControls.ensureAdminControlPanel(interaction.client, interaction.guild.id);
+    } catch (error) {
+      console.warn('Error syncing admin panel/mirror after choosing winner:', error.message);
+    }
+
+    // Clear voting channel and post winner announcement
+    try {
+      const config = await database.getGuildConfig(guildId);
+      if (config && config.movie_channel_id) {
+        const votingChannel = await interaction.client.channels.fetch(config.movie_channel_id).catch(() => null);
+        if (votingChannel) {
+          const forumChannels = require('../services/forum-channels');
+          if (forumChannels.isForumChannel(votingChannel)) {
+            // Forum: remove ALL voting threads (including the winner recommendation), post winner announcement, and reset pinned post
+            await forumChannels.clearForumMoviePosts(votingChannel, null);
+            await forumChannels.postForumWinnerAnnouncement(votingChannel, movie, activeSession.name || 'Movie Night', { event: activeSession.discord_event_id || null, selectedByUserId: interaction.user.id });
+            await forumChannels.ensureRecommendationPost(votingChannel, null);
+          } else {
+            // Text channel: send a winner announcement embed
+            const { EmbedBuilder } = require('discord.js');
+            const imdb = require('../services/imdb');
+            let imdbData = null;
+            if (movie.imdb_id) {
+              try { imdbData = await imdb.getMovieDetails(movie.imdb_id); } catch {}
+            }
+            const winnerEmbed = new EmbedBuilder()
+              .setTitle('🏆 Movie Night Winner Announced!')
+              .setDescription(`**${movie.title}** has been selected for our next movie night!`)
+              .setColor(0xffd700)
+              .addFields(
+                { name: '📺 Platform', value: movie.where_to_watch || 'TBD', inline: true },
+                { name: '👤 Recommended by', value: `<@${movie.recommended_by}>`, inline: true }
+              );
+            if (imdbData?.Year) winnerEmbed.addFields({ name: '📅 Year', value: imdbData.Year, inline: true });
+
+            // Always include who selected and winner's vote counts
+            winnerEmbed.addFields({ name: '👑 Selected by', value: `<@${interaction.user.id}>`, inline: true });
+            try {
+              const counts = await database.getVoteCounts(movie.message_id);
+              if (counts) {
+                const score = (counts.up || 0) - (counts.down || 0);
+                winnerEmbed.addFields({ name: '📊 Winner Votes', value: `${counts.up || 0} 👍 - ${counts.down || 0} 👎 (Score: ${score})`, inline: false });
+              }
+            } catch {}
+
+            if (imdbData?.Runtime) winnerEmbed.addFields({ name: '⏱️ Runtime', value: imdbData.Runtime, inline: true });
+            if (imdbData?.Genre) winnerEmbed.addFields({ name: '🎬 Genre', value: imdbData.Genre, inline: true });
+
+            const content = config?.notification_role_id ? `<@&${config.notification_role_id}>` : undefined;
+            await votingChannel.send({ content, embeds: [winnerEmbed], allowedMentions: content ? { parse: ['roles'], roles: [config.notification_role_id] } : undefined });
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Error updating voting channel after choosing winner:', error.message);
     }
 
     console.log(`🏆 Movie ${movie.title} chosen as winner for session ${activeSession.id}`);
@@ -1624,21 +1925,40 @@ async function handleSkipToNext(interaction, guildId, movieId) {
       const adminMirror = require('../services/admin-mirror');
       await adminMirror.removeMovieFromAdminChannel(interaction.client, guildId, movieId);
     } catch (error) {
-      console.warn('Error removing movie from admin channel:', error.message);
+      logger.warn('Error removing movie from admin channel:', error.message);
     }
 
-    // Remove from voting channel
+    // Remove from voting channel (archive if forum, delete if text)
     try {
       const config = await database.getGuildConfig(guildId);
       if (config && config.movie_channel_id) {
-        const cleanup = require('../services/cleanup');
-        await cleanup.removeMoviePost(interaction.client, config.movie_channel_id, movieId);
+        const votingChannel = await interaction.client.channels.fetch(config.movie_channel_id);
+        const forumChannels = require('../services/forum-channels');
+
+        if (forumChannels.isForumChannel(votingChannel)) {
+          // For forum channels, archive the thread
+          if (movie.thread_id) {
+            try {
+              const thread = await votingChannel.threads.fetch(movie.thread_id);
+              if (thread && !thread.archived) {
+                await thread.setArchived(true);
+                logger.debug(`📦 Archived forum thread for skipped movie: ${movie.title}`);
+              }
+            } catch (threadError) {
+              logger.warn(`Error archiving forum thread for ${movie.title}:`, threadError.message);
+            }
+          }
+        } else {
+          // For text channels, delete the message
+          const cleanup = require('../services/cleanup');
+          await cleanup.removeMoviePost(interaction.client, config.movie_channel_id, movieId);
+        }
       }
     } catch (error) {
-      console.warn('Error removing movie from voting channel:', error.message);
+      logger.warn('Error removing movie from voting channel:', error.message);
     }
 
-    console.log(`⏭️ Movie ${movie.title} skipped to next session`);
+    logger.info(`⏭️ Movie ${movie.title} skipped to next session`);
 
   } catch (error) {
     console.error('Error skipping movie to next session:', error);
@@ -1715,11 +2035,20 @@ async function handleAdminControlButtons(interaction, customId) {
       case 'admin_ctrl_refresh':
         await adminControls.handleRefreshPanel(interaction);
         break;
+      case 'admin_ctrl_populate_forum':
+        await handlePopulateForumChannel(interaction);
+        break;
       case 'admin_ctrl_cancel_session':
         await handleCancelSession(interaction);
         break;
       case 'admin_ctrl_reschedule_session':
         await handleRescheduleSession(interaction);
+        break;
+      case 'admin_ctrl_administration':
+        await handleAdministrationPanel(interaction);
+        break;
+      case 'admin_ctrl_back_to_moderation':
+        await handleBackToModerationPanel(interaction);
         break;
       default:
         await interaction.reply({
@@ -1732,6 +2061,64 @@ async function handleAdminControlButtons(interaction, customId) {
     await interaction.reply({
       content: '❌ An error occurred while processing the admin control action.',
       flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+/**
+ * Handle populate forum channel button
+ */
+async function handlePopulateForumChannel(interaction) {
+  try {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+    // Check if voting channel is actually a forum channel
+    const database = require('../database');
+    const config = await database.getGuildConfig(interaction.guild.id);
+
+    if (!config || !config.movie_channel_id) {
+      await interaction.editReply({
+        content: '❌ **No voting channel configured**\n\nPlease configure a voting channel first using `/movie-setup`.'
+      });
+      return;
+    }
+
+    const channel = await interaction.client.channels.fetch(config.movie_channel_id).catch(() => null);
+    if (!channel) {
+      await interaction.editReply({
+        content: '❌ **Voting channel not found**\n\nThe configured voting channel may have been deleted.'
+      });
+      return;
+    }
+
+    if (!channel.isForumChannel()) {
+      await interaction.editReply({
+        content: '❌ **Not a forum channel**\n\nThe "Populate Forum" feature is only available when your voting channel is a forum channel. Your current voting channel is a text channel.'
+      });
+      return;
+    }
+
+    const adminControls = require('../services/admin-controls');
+    const result = await adminControls.populateForumChannel(interaction.client, interaction.guild.id);
+
+    if (result.error) {
+      await interaction.editReply({
+        content: `❌ **Failed to populate forum channel**\n\n${result.error}`
+      });
+    } else if (result.populated === 0) {
+      await interaction.editReply({
+        content: '📋 **Forum channel is up to date**\n\nNo new forum posts needed to be created.'
+      });
+    } else {
+      await interaction.editReply({
+        content: `✅ **Forum channel populated successfully**\n\n📝 Created ${result.populated} forum posts for active movies.`
+      });
+    }
+
+  } catch (error) {
+    console.error('Error handling populate forum channel:', error);
+    await interaction.editReply({
+      content: '❌ Error populating forum channel.'
     });
   }
 }
@@ -1759,8 +2146,8 @@ async function handlePlanVotingSession(interaction) {
 async function handleDeepPurgeInitiation(interaction) {
   const deepPurge = require('../services/deep-purge');
 
-  const embed = deepPurge.createDeepPurgeSelectionEmbed(interaction.guild.name);
-  const components = deepPurge.createDeepPurgeSelectionMenu();
+  const embed = deepPurge.updateSelectionDisplay([]);
+  const components = deepPurge.createDeepPurgeSelectionMenu([]);
 
   await interaction.reply({
     embeds: [embed],
@@ -1835,11 +2222,9 @@ async function handleRescheduleSession(interaction) {
       return;
     }
 
-    // For now, show a simple message - this can be enhanced later with a modal
-    await interaction.reply({
-      content: '🚧 **Reschedule Session**\n\nThis feature is coming soon! For now, you can:\n1. Cancel the current session\n2. Plan a new session with the desired date/time',
-      flags: MessageFlags.Ephemeral
-    });
+    // Use the implemented reschedule functionality
+    const sessions = require('../services/sessions');
+    await sessions.handleSessionReschedule(interaction, activeSession.id, null);
 
   } catch (error) {
     console.error('Error handling reschedule session:', error);
@@ -1974,46 +2359,65 @@ async function handleCancelSessionConfirmation(interaction) {
       }
     }
 
-    // Mark non-winning movies for next session before deleting session
-    await database.markMoviesForNextSession(interaction.guild.id);
+    // CRITICAL: Mark movies for next session BEFORE clearing forum posts
+    // This must happen before clearForumMoviePosts which deletes movies from database
+    await database.markMoviesForNextSession(interaction.guild.id, null);
+    const logger = require('../utils/logger');
+    logger.info('📋 Marked cancelled session movies for next session carryover');
 
     // Delete the session and all associated data
     await database.deleteVotingSession(sessionId);
 
-    // Clear voting channel
+    // Clear voting channel based on channel type
     const config = await database.getGuildConfig(interaction.guild.id);
     if (config && config.movie_channel_id) {
       try {
         const votingChannel = await interaction.client.channels.fetch(config.movie_channel_id);
         if (votingChannel) {
-          // Clear all bot messages
-          const messages = await votingChannel.messages.fetch({ limit: 100 });
-          const botMessages = messages.filter(msg => msg.author.id === interaction.client.user.id);
+          const forumChannels = require('../services/forum-channels');
 
-          for (const [messageId, message] of botMessages) {
-            try {
-              await message.delete();
-            } catch (error) {
-              console.warn(`Failed to delete message ${messageId}:`, error.message);
+          if (forumChannels.isForumChannel(votingChannel)) {
+            // Forum channel - clear movie posts (movies already marked for carryover)
+            logger.debug('📦 Clearing forum channel after session cancellation');
+
+            // Clear all movie forum posts (movies already marked for carryover above)
+            await forumChannels.clearForumMoviePosts(votingChannel, null, { deleteWinnerAnnouncements: true });
+
+            // Remove recommendation post since session is cancelled
+            await forumChannels.ensureRecommendationPost(votingChannel, null);
+          } else {
+            // Text channel - delete all bot messages and threads
+            logger.debug('🗑️ Clearing text channel after session cancellation');
+
+            const messages = await votingChannel.messages.fetch({ limit: 100 });
+            const botMessages = messages.filter(msg => msg.author.id === interaction.client.user.id);
+
+            for (const [messageId, message] of botMessages) {
+              try {
+                await message.delete();
+              } catch (error) {
+                logger.warn(`Failed to delete message ${messageId}:`, error.message);
+              }
             }
-          }
 
-          // Clear threads
-          const threads = await votingChannel.threads.fetchActive();
-          for (const [threadId, thread] of threads.threads) {
-            try {
-              await thread.delete();
-            } catch (error) {
-              console.warn(`Failed to delete thread ${threadId}:`, error.message);
+            // Clear threads
+            const threads = await votingChannel.threads.fetchActive();
+            for (const [threadId, thread] of threads.threads) {
+              try {
+                await thread.delete();
+              } catch (error) {
+                logger.warn(`Failed to delete thread ${threadId}:`, error.message);
+              }
             }
-          }
 
-          // Add no session message
-          const cleanup = require('../services/cleanup');
-          await cleanup.ensureQuickActionAtBottom(votingChannel);
+            // Add no session message
+            const cleanup = require('../services/cleanup');
+            await cleanup.ensureQuickActionAtBottom(votingChannel);
+          }
         }
       } catch (error) {
-        console.warn('Error clearing voting channel:', error.message);
+        const logger = require('../utils/logger');
+        logger.warn('Error clearing voting channel:', error.message);
       }
     }
 
@@ -2054,7 +2458,7 @@ async function handleCancelSessionConfirmation(interaction) {
       components: []
     });
 
-    console.log(`❌ Session ${session.name} cancelled by ${interaction.user.tag}`);
+    logger.info(`❌ Session ${session.name} cancelled by ${interaction.user.tag}`);
 
   } catch (error) {
     console.error('Error handling cancel session confirmation:', error);
@@ -2071,6 +2475,380 @@ async function handleCancelSessionConfirmation(interaction) {
       });
     }
   }
+}
+
+/**
+ * Handle configuration action buttons
+ */
+async function handleConfigurationAction(interaction, customId) {
+  const { configuration } = require('../services');
+
+  const action = customId.replace('config_', '');
+
+  try {
+    switch (action) {
+      case 'voting_channel':
+        await configuration.configureMovieChannel(interaction, interaction.guild.id);
+        break;
+      case 'admin_channel':
+        await configuration.configureAdminChannel(interaction, interaction.guild.id);
+        break;
+      case 'viewing_channel':
+        await configuration.configureViewingChannel(interaction, interaction.guild.id);
+        break;
+      case 'admin_roles':
+        await interaction.reply({
+          content: '🔧 **Admin Roles Configuration**\n\nUse `/movie-configure admin-roles add` and `/movie-configure admin-roles remove` commands to manage admin roles.',
+          flags: MessageFlags.Ephemeral
+        });
+        break;
+      case 'notification_role':
+        await configuration.setNotificationRole(interaction, interaction.guild.id);
+        break;
+      default:
+        await interaction.reply({
+          content: `❌ Unknown configuration action: ${action}`,
+          flags: MessageFlags.Ephemeral
+        });
+    }
+  } catch (error) {
+    console.error('Error handling configuration action:', error);
+    await interaction.reply({
+      content: '❌ An error occurred while processing the configuration.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+/**
+ * Handle guided setup button interactions
+ */
+async function handleGuidedSetupButton(interaction, customId) {
+  switch (customId) {
+    case 'setup_start':
+      await guidedSetup.showSetupMenu(interaction);
+      break;
+
+    case 'setup_skip':
+      await interaction.update({
+        content: '⏭️ **Setup skipped**\n\nYou can run `/movie-setup-simple` anytime to configure the bot.',
+        embeds: [],
+        components: []
+      });
+      break;
+
+    case 'setup_back_to_menu':
+      await guidedSetup.showSetupMenu(interaction);
+      break;
+
+    case 'setup_voting_channel':
+      await guidedSetup.showVotingChannelSetup(interaction);
+      break;
+
+    case 'setup_admin_channel':
+      await guidedSetup.showAdminChannelSetup(interaction);
+      break;
+
+    case 'setup_viewing_channel':
+      await guidedSetup.showViewingChannelSetup(interaction);
+      break;
+
+    case 'setup_admin_roles':
+      await guidedSetup.showAdminRolesSetup(interaction);
+      break;
+
+    case 'setup_moderator_roles':
+      await guidedSetup.showModeratorRolesSetup(interaction);
+      break;
+
+    case 'setup_notification_role':
+      await guidedSetup.showNotificationRoleSetup(interaction);
+      break;
+
+    case 'setup_skip_admin_roles':
+      const database = require('../database');
+      const config = await database.getGuildConfig(interaction.guild.id);
+      await guidedSetup.showSetupMenuWithMessage(interaction, config, '⏭️ **Admin roles skipped** - Only Discord Administrators can manage the bot.');
+      break;
+
+    case 'setup_skip_moderator_roles':
+      const database3 = require('../database');
+      const config3 = await database3.getGuildConfig(interaction.guild.id);
+      await guidedSetup.showSetupMenuWithMessage(interaction, config3, '⏭️ **Moderator roles skipped** - Only admins can moderate movies and sessions.');
+      break;
+
+    case 'setup_skip_notification_role':
+      const database2 = require('../database');
+      const config2 = await database2.getGuildConfig(interaction.guild.id);
+      await guidedSetup.showSetupMenuWithMessage(interaction, config2, '⏭️ **Viewer role skipped** - No role will be pinged for movie sessions.');
+      break;
+
+    case 'setup_finish':
+      // Complete setup and initialize channels
+      await completeSetupAndInitialize(interaction);
+      break;
+
+    case 'setup_create_first_session':
+      // Redirect to voting session creation
+      const votingSessions = require('../services/voting-sessions');
+      await votingSessions.startVotingSessionCreation(interaction);
+      break;
+
+    case 'setup_create_category':
+      await guidedSetup.showCategoryCreationGuide(interaction);
+      break;
+
+    default:
+      // Handle channel confirmation buttons
+      if (customId.startsWith('setup_confirm_channel_')) {
+        const parts = customId.split('_');
+        const channelType = parts[3]; // voting, admin, or viewing
+        const channelId = parts[4];
+        await guidedSetup.handleChannelConfirmation(interaction, channelType, channelId);
+        break;
+      }
+      console.warn('Unknown guided setup button:', customId);
+      break;
+  }
+}
+
+/**
+ * Handle deep purge submit button
+ */
+async function handleDeepPurgeSubmit(interaction) {
+  const { permissions } = require('../services');
+  const deepPurge = require('../services/deep-purge');
+
+  // Check admin permissions
+  const hasPermission = await permissions.checkMovieAdminPermission(interaction);
+  if (!hasPermission) {
+    await interaction.reply({
+      content: '❌ You need Administrator permissions or a configured admin role to use this action.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  // Get selected categories from button ID or global storage
+  let selectedCategories;
+
+  if (interaction.customId.includes(':')) {
+    // Decode from button ID
+    const encodedCategories = interaction.customId.split(':')[1];
+    selectedCategories = encodedCategories ? encodedCategories.split(',') : [];
+  } else {
+    // Fallback to global storage
+    selectedCategories = global.deepPurgeSelections?.get(interaction.user.id);
+  }
+
+  if (!selectedCategories || selectedCategories.length === 0) {
+    await interaction.reply({
+      content: '❌ No categories selected. Please select categories first.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  try {
+    // Create confirmation modal
+    const modal = deepPurge.createConfirmationModal(selectedCategories);
+    await interaction.showModal(modal);
+
+    // Clean up stored selections
+    global.deepPurgeSelections?.delete(interaction.user.id);
+
+  } catch (error) {
+    console.error('Error handling deep purge submit:', error);
+    await interaction.reply({
+      content: '❌ An error occurred while preparing the confirmation.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+/**
+ * Handle deep purge cancel button
+ */
+async function handleDeepPurgeCancel(interaction) {
+  // Clean up stored selections
+  global.deepPurgeSelections?.delete(interaction.user.id);
+
+  await interaction.update({
+    content: '❌ **Deep Purge Cancelled**\n\nNo data was deleted.',
+    embeds: [],
+    components: []
+  });
+}
+
+/**
+ * Complete setup and initialize channels
+ */
+async function completeSetupAndInitialize(interaction) {
+  const { EmbedBuilder } = require('discord.js');
+
+  try {
+    // Show completion message
+    const embed = new EmbedBuilder()
+      .setTitle('🎉 Setup Complete!')
+      .setDescription('Your Movie Night Bot is now configured and ready to use!\n\n**Initializing channels...**')
+      .setColor(0x57f287);
+
+    await interaction.update({
+      content: '',
+      embeds: [embed],
+      components: []
+    });
+
+    // Initialize admin control panel and voting channel
+    const config = await database.getGuildConfig(interaction.guild.id);
+
+    if (config.admin_channel_id) {
+      const adminControls = require('../services/admin-controls');
+      await adminControls.ensureAdminControlPanel(interaction.client, interaction.guild.id);
+    }
+
+    if (config.movie_channel_id) {
+      const cleanup = require('../services/cleanup');
+      const votingChannel = await interaction.client.channels.fetch(config.movie_channel_id);
+      if (votingChannel) {
+        await cleanup.ensureQuickActionPinned(votingChannel);
+      }
+    }
+
+    // Update completion message
+    const finalEmbed = new EmbedBuilder()
+      .setTitle('🎉 Setup Complete!')
+      .setDescription('Your Movie Night Bot is now configured and ready to use!')
+      .setColor(0x57f287)
+      .addFields(
+        {
+          name: '🎬 What\'s Next?',
+          value: '• Use `/movie-night action:create-session` to create your first movie session\n• Users can recommend movies with the 🍿 button in your voting channel\n• Manage everything from your admin channel\n• Or manage via the Web Dashboard: https://movienight.bermanoc.net (minus voting)',
+          inline: false
+        },
+        {
+          name: '📚 Need Help?',
+          value: 'Use `/movie-night action:help` for detailed usage instructions, or visit the Web Dashboard: https://movienight.bermanoc.net',
+          inline: false
+        }
+      );
+
+    // Send final message as followup since we can't update again
+    await interaction.followUp({
+      embeds: [finalEmbed],
+      flags: MessageFlags.Ephemeral
+    });
+
+  } catch (error) {
+    console.error('Error completing setup:', error);
+    await interaction.followUp({
+      content: '❌ Setup completed but there was an error initializing channels. Please use the Sync Channels button in your admin channel.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+/**
+ * Handle administration panel button - shows admin-only controls
+ */
+async function handleAdministrationPanel(interaction) {
+  const permissions = require('../services/permissions');
+
+  // Check if user has admin permission
+  const isAdmin = await permissions.checkMovieAdminPermission(interaction);
+
+  if (!isAdmin) {
+    await ephemeralManager.sendEphemeral(interaction,
+      '❌ **Access Denied**\n\nYou need administrator permissions to access the administration panel.'
+    );
+    return;
+  }
+
+  const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+
+  const adminEmbed = new EmbedBuilder()
+    .setTitle('🔧 Administration Panel')
+    .setDescription('**Administrator-only controls**\n\nThese controls are only available to users with administrator permissions.')
+    .setColor(0xed4245)
+    .addFields(
+      {
+        name: '⚙️ Configuration',
+        value: '• **Configure Bot** - Set up channels, roles, and settings\n• **Deep Purge** - Complete guild data removal with confirmations',
+        inline: false
+      },
+      {
+        name: '📊 Advanced Features',
+        value: '• **Guild Statistics** - Detailed analytics and reports\n• **Role Management** - Configure admin and moderator roles',
+        inline: false
+      },
+      {
+        name: '🌐 Web Dashboard',
+        value: 'Manage the bot (minus voting) at https://movienight.bermanoc.net',
+        inline: false
+      }
+    )
+    .setFooter({ text: 'These actions require administrator permissions' });
+
+  const adminButtons = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('open_configuration')
+        .setLabel('⚙️ Configure Bot')
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId('admin_ctrl_deep_purge')
+        .setLabel('💥 Deep Purge')
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId('admin_ctrl_stats')
+        .setLabel('📊 Guild Stats')
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId('admin_ctrl_back_to_moderation')
+        .setLabel('🔙 Back to Moderation')
+        .setStyle(ButtonStyle.Secondary)
+    );
+
+  // Throttle duplicate admin panel popups per user for 15s
+  const ephemeralManager = require('../utils/ephemeral-manager');
+  if (ephemeralManager.isThrottled('admin_panel', interaction.user.id)) {
+    await ephemeralManager.sendEphemeral(
+      interaction,
+      'ℹ️ Administration panel is already open. Use the buttons there or wait a moment before opening again.'
+    );
+    return;
+  }
+
+  await interaction.reply({
+    embeds: [adminEmbed],
+    components: [adminButtons],
+    flags: MessageFlags.Ephemeral
+  });
+  ephemeralManager.startThrottle('admin_panel', interaction.user.id);
+}
+
+/**
+ * Handle back to moderation panel button
+ */
+async function handleBackToModerationPanel(interaction) {
+  // Refresh the main admin control panel
+  const adminControls = require('../services/admin-controls');
+  await adminControls.ensureAdminControlPanel(interaction.client, interaction.guild.id);
+
+  await interaction.update({
+    content: '✅ **Returned to Moderation Panel**\n\nThe main admin control panel has been refreshed. This message will dismiss automatically.',
+    embeds: [],
+    components: []
+  });
+
+  // Auto-dismiss the ephemeral message after 3 seconds
+  setTimeout(async () => {
+    try {
+      await interaction.deleteReply();
+    } catch (error) {
+      // Message might already be dismissed, ignore error
+    }
+  }, 3000);
 }
 
 module.exports = {

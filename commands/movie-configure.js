@@ -16,19 +16,21 @@ const commands = [
         type: 3, // STRING
         required: true,
         choices: [
-          { name: 'set-channel', value: 'set-channel' },
+          { name: 'set-voting-channel', value: 'set-channel' },
           { name: 'set-viewing-channel', value: 'set-viewing-channel' },
           { name: 'set-admin-channel', value: 'set-admin-channel' },
           { name: 'add-admin-role', value: 'add-admin-role' },
           { name: 'remove-admin-role', value: 'remove-admin-role' },
           { name: 'set-notification-role', value: 'set-notification-role' },
           { name: 'view-settings', value: 'view-settings' },
+          { name: 'debug', value: 'debug' },
+          { name: 'debug-session', value: 'debug-session' },
           { name: 'reset', value: 'reset' }
         ]
       },
       {
         name: 'channel',
-        description: 'Channel to set (for set-channel, set-viewing-channel, or set-admin-channel actions)',
+        description: 'Channel to set (for set-voting-channel, set-viewing-channel, or set-admin-channel actions)',
         type: 7, // CHANNEL
         required: false
       },

@@ -29,6 +29,18 @@ module.exports = {
         return;
       }
 
+      // Handle channel select menu interactions
+      if (interaction.isChannelSelectMenu()) {
+        await selectHandlers.handleSelect(interaction);
+        return;
+      }
+
+      // Handle role select menu interactions
+      if (interaction.isRoleSelectMenu()) {
+        await selectHandlers.handleSelect(interaction);
+        return;
+      }
+
 
 
     } catch (error) {

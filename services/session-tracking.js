@@ -15,24 +15,30 @@ async function handleVoiceStateChange(oldState, newState) {
   const guildId = newState.guild.id;
   const userId = newState.member.id;
 
-  console.log(`🎤 Voice state change: User ${userId} in guild ${guildId}`);
-
   // Get guild configuration to find the viewing channel
   const config = await database.getGuildConfig(guildId);
   if (!config || !config.session_viewing_channel_id) {
-    console.log(`⚠️ No viewing channel configured for guild ${guildId}`);
+    // Only log if there are active sessions that would need monitoring
+    const activeSessionsList = await getActiveSessionsForGuild(guildId);
+    if (activeSessionsList.length > 0) {
+      console.log(`⚠️ No viewing channel configured for guild ${guildId} but has ${activeSessionsList.length} active sessions`);
+    }
     return; // No viewing channel configured
   }
-  
+
   const viewingChannelId = config.session_viewing_channel_id;
-  
-  // Check if user joined the viewing channel
-  if (newState.channelId === viewingChannelId && oldState.channelId !== viewingChannelId) {
+
+  // Only process and log if the change involves the configured viewing channel
+  const joinedViewingChannel = newState.channelId === viewingChannelId && oldState.channelId !== viewingChannelId;
+  const leftViewingChannel = oldState.channelId === viewingChannelId && newState.channelId !== viewingChannelId;
+
+  if (joinedViewingChannel) {
+    console.log(`🎤 User ${userId} joined session viewing channel in guild ${guildId}`);
     await handleUserJoinedViewingChannel(guildId, userId, viewingChannelId);
   }
-  
-  // Check if user left the viewing channel
-  if (oldState.channelId === viewingChannelId && newState.channelId !== viewingChannelId) {
+
+  if (leftViewingChannel) {
+    console.log(`🎤 User ${userId} left session viewing channel in guild ${guildId}`);
     await handleUserLeftViewingChannel(guildId, userId, viewingChannelId);
   }
 }

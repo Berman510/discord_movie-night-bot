@@ -5,6 +5,7 @@
 
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags } = require('discord.js');
 const database = require('../database');
+const ephemeralManager = require('../utils/ephemeral-manager');
 
 /**
  * Start the voting session creation process with date/time selection
@@ -39,13 +40,13 @@ async function showVotingSessionDateModal(interaction) {
     .setTitle('Plan Next Voting Session - Date');
 
   // TODO: Make date/time formats configurable per guild
-  // For now, using US standard formats: MM-DD-YYYY and 12-hour time
+  // For now, using US standard formats: MM/DD/YYYY and 12-hour time
 
   const dateInput = new TextInputBuilder()
     .setCustomId('session_date')
-    .setLabel('Session Date (MM-DD-YYYY)')
+    .setLabel('Session Date (MM/DD/YYYY)')
     .setStyle(TextInputStyle.Short)
-    .setPlaceholder('12-25-2024')
+    .setPlaceholder('12/25/2024')
     .setRequired(true)
     .setMaxLength(10);
 
@@ -103,11 +104,11 @@ async function handleVotingSessionDateModal(interaction) {
   const votingEndTime = interaction.fields.getTextInputValue('voting_end_time') || null;
   const sessionDescription = interaction.fields.getTextInputValue('session_description') || null;
 
-  // Validate date format (MM-DD-YYYY)
-  const dateRegex = /^(0?[1-9]|1[0-2])-(0?[1-9]|[12][0-9]|3[01])-\d{4}$/;
+  // Validate date format (MM/DD/YYYY)
+  const dateRegex = /^(0?[1-9]|1[0-2])\/(0?[1-9]|[12][0-9]|3[01])\/\d{4}$/;
   if (!dateRegex.test(sessionDate)) {
     await interaction.reply({
-      content: '❌ Invalid date format. Please use MM-DD-YYYY format (e.g., 12-25-2024).',
+      content: '❌ Invalid date format. Please use MM/DD/YYYY format (e.g., 12/25/2024).',
       flags: MessageFlags.Ephemeral
     });
     return;
@@ -162,8 +163,8 @@ async function handleVotingSessionDateModal(interaction) {
   const config = await database.getGuildConfig(interaction.guild.id);
   const guildTimezone = config?.timezone || 'America/Los_Angeles';
 
-  // Convert MM-DD-YYYY to YYYY-MM-DD for Date constructor
-  const [month, day, year] = sessionDate.split('-');
+  // Convert MM/DD/YYYY to YYYY-MM-DD for Date constructor
+  const [month, day, year] = sessionDate.split('/');
   const isoDateString = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 
   // Create datetime objects with parsed 24-hour times
@@ -187,9 +188,10 @@ async function handleVotingSessionDateModal(interaction) {
     day: 'numeric'
   })}`;
 
-  console.log(`🕐 Session times (${guildTimezone}):`);
-  console.log(`   Session: ${sessionDateTime.toLocaleString()} (${sessionDateTime.toISOString()})`);
-  console.log(`   Voting ends: ${votingEndDateTime.toLocaleString()} (${votingEndDateTime.toISOString()})`);
+  const logger = require('../utils/logger');
+  logger.debug(`🕐 Session times (${guildTimezone}):`);
+  logger.debug(`   Session: ${sessionDateTime.toLocaleString()} (${sessionDateTime.toISOString()})`);
+  logger.debug(`   Voting ends: ${votingEndDateTime.toLocaleString()} (${votingEndDateTime.toISOString()})`);
 
   // Validate that the dates are in the future
   if (sessionDateTime <= new Date()) {
@@ -241,7 +243,7 @@ async function createVotingSession(interaction, state) {
   try {
     // Get guild configuration for timezone
     const config = await database.getGuildConfig(interaction.guild.id);
-    const guildTimezone = config?.timezone || 'America/Los_Angeles'; // Default to PT
+    const guildTimezone = (config?.default_timezone || config?.timezone || 'UTC'); // Prefer configured default_timezone, fallback to timezone, then UTC
 
     // Create the voting session in the database
     const sessionData = {
@@ -273,21 +275,23 @@ async function createVotingSession(interaction, state) {
         id: sessionId,
         guildId: interaction.guild.id,
         name: state.sessionName,
-        description: state.sessionDescription || 'Join us for movie night voting and viewing!'
+        description: state.sessionDescription || 'Join us for movie night voting and viewing!',
+        votingEndTime: state.votingEndDateTime
       };
 
       const event = await discordEvents.createDiscordEvent(interaction.guild, eventData, state.sessionDateTime);
 
       if (event && event.id) {
         // Update session with Discord event ID
-        console.log(`📅 Saving event ID ${event.id} to session ${sessionId}`);
+        const logger = require('../utils/logger');
+        logger.debug(`📅 Saving event ID ${event.id} to session ${sessionId}`);
         const updateResult = await database.updateVotingSessionEventId(sessionId, event.id);
         if (updateResult) {
-          console.log(`📅 Successfully saved event ID to database`);
+          logger.debug(`📅 Successfully saved event ID to database`);
         } else {
-          console.warn(`📅 Failed to save event ID to database`);
+          logger.warn(`📅 Failed to save event ID to database`);
         }
-        console.log(`📅 Created Discord event: ${event.name} (${event.id})`);
+        logger.info(`📅 Created Discord event: ${event.name} (${event.id})`);
       } else {
         console.warn('Discord event created but no ID returned:', event);
       }
@@ -298,8 +302,8 @@ async function createVotingSession(interaction, state) {
     // Clear the creation state
     global.votingSessionCreationState?.delete(interaction.user.id);
 
-    // Success response
-    await interaction.reply({
+    // Success response - update the existing ephemeral message
+    await interaction.update({
       content: `✅ **Voting session created successfully!**\n\n🎬 **${state.sessionName}**\n📅 ${state.sessionDateTime.toLocaleDateString('en-US', {
         weekday: 'long',
         year: 'numeric',
@@ -312,20 +316,24 @@ async function createVotingSession(interaction, state) {
         hour: '2-digit',
         minute: '2-digit'
       })}\n\n🗳️ Users can now start recommending movies for this session!`,
-      flags: MessageFlags.Ephemeral
+      embeds: [],
+      components: []
     });
+
+    // Initialize logger for this function
+    const logger = require('../utils/logger');
 
     // Handle carryover movies from previous session
     try {
       const carryoverMovies = await database.getNextSessionMovies(interaction.guild.id);
       if (carryoverMovies.length > 0) {
-        console.log(`🔄 Found ${carryoverMovies.length} carryover movies from previous session`);
+        logger.info(`🔄 Found ${carryoverMovies.length} carryover movies from previous session`);
 
         // Update carryover movies with new session ID and reset votes
         for (const movie of carryoverMovies) {
           await database.updateMovieSessionId(movie.message_id, sessionId);
           await database.resetMovieVotes(movie.message_id);
-          console.log(`🔄 Added carryover movie: ${movie.title}`);
+          logger.debug(`🔄 Added carryover movie: ${movie.title}`);
         }
 
         // Clear the next_session flags
@@ -338,25 +346,39 @@ async function createVotingSession(interaction, state) {
     // Update voting channel to show the new session
     try {
       const config = await database.getGuildConfig(interaction.guild.id);
-      if (config && config.movie_channel_id) {
-        const votingChannel = await interaction.client.channels.fetch(config.movie_channel_id);
-        if (votingChannel) {
-          // Clear existing messages first
-          const messages = await votingChannel.messages.fetch({ limit: 100 });
-          const botMessages = messages.filter(msg => msg.author.id === interaction.client.user.id);
+      const client = interaction.client || global.discordClient;
 
-          for (const [messageId, message] of botMessages) {
-            try {
-              await message.delete();
-            } catch (error) {
-              console.warn(`Failed to delete message ${messageId}:`, error.message);
+      if (config && config.movie_channel_id && client) {
+        logger.debug(`📋 Fetching voting channel: ${config.movie_channel_id}`);
+        const votingChannel = await client.channels.fetch(config.movie_channel_id);
+        if (votingChannel) {
+          const forumChannels = require('./forum-channels');
+
+          // Handle forum channels differently than text channels
+          if (forumChannels.isForumChannel(votingChannel)) {
+            console.log(`📋 Voting channel is a forum channel: ${votingChannel.name}`);
+            // For forum channels, we don't clear messages - each movie gets its own post
+            // The carryover movies will be handled below by creating new forum posts
+          } else {
+            // Clear existing messages first (text channels only)
+            const logger = require('../utils/logger');
+            logger.debug(`📋 Clearing existing messages in text channel: ${votingChannel.name}`);
+            const messages = await votingChannel.messages.fetch({ limit: 100 });
+            const botMessages = messages.filter(msg => msg.author.id === client.user.id);
+
+            for (const [messageId, message] of botMessages) {
+              try {
+                await message.delete();
+              } catch (error) {
+                console.warn(`Failed to delete message ${messageId}:`, error.message);
+              }
             }
           }
 
           // Add carryover movies to the voting channel
           const carryoverMovies = await database.getMoviesBySession(sessionId);
           if (carryoverMovies.length > 0) {
-            console.log(`📝 Creating posts for ${carryoverMovies.length} carryover movies`);
+            logger.debug(`📝 Creating posts for ${carryoverMovies.length} carryover movies`);
 
             for (const movie of carryoverMovies) {
               try {
@@ -370,59 +392,139 @@ async function createVotingSession(interaction, state) {
                       // Update movie with fresh IMDB data
                       await database.updateMovieImdbData(movie.message_id, JSON.stringify(imdbData));
                       updatedMovie = { ...movie, imdb_data: JSON.stringify(imdbData) };
-                      console.log(`🎬 Refreshed IMDB data for carryover movie: ${movie.title}`);
+                      logger.debug(`🎬 Refreshed IMDB data for carryover movie: ${movie.title}`);
                     }
                   } catch (error) {
-                    console.warn(`Error refreshing IMDB data for ${movie.title}:`, error.message);
+                    logger.warn(`Error refreshing IMDB data for ${movie.title}:`, error.message);
                   }
                 }
 
-                const { embeds, components } = require('../utils');
-                const movieEmbed = embeds.createMovieEmbed(updatedMovie);
-                const movieComponents = components.createStatusButtons(updatedMovie.message_id, updatedMovie.status);
+                if (forumChannels.isForumChannel(votingChannel)) {
+                  // Create forum post for carryover movie
+                  const { embeds, components } = require('../utils');
+                  const movieEmbed = embeds.createMovieEmbed(updatedMovie);
+                  const movieComponents = components.createVotingButtons(updatedMovie.message_id);
 
-                // Create new message for carryover movie
-                const newMessage = await votingChannel.send({
-                  embeds: [movieEmbed],
-                  components: movieComponents
-                });
+                  const result = await forumChannels.createForumMoviePost(
+                    votingChannel,
+                    { title: updatedMovie.title, embed: movieEmbed },
+                    movieComponents
+                  );
 
-                // Update database with new message ID
-                await database.updateMovieMessageId(updatedMovie.guild_id, updatedMovie.title, newMessage.id);
+                  const { thread, message } = result;
 
-                // Create thread for the movie
-                const thread = await newMessage.startThread({
-                  name: `💬 ${updatedMovie.title}`,
-                  autoArchiveDuration: 10080 // 7 days
-                });
+                  // Update database with new message and thread IDs
+                  await database.updateMovieMessageId(updatedMovie.guild_id, updatedMovie.title, message.id);
+                  await database.updateMovieThreadId(message.id, thread.id);
 
-                console.log(`📝 Created post and thread for carryover movie: ${updatedMovie.title}`);
+                  logger.info(`📝 Created forum post for carryover movie: ${updatedMovie.title} (Thread: ${thread.id})`);
+                } else {
+                  // Create text channel message for carryover movie
+                  const { embeds, components } = require('../utils');
+                  const movieEmbed = embeds.createMovieEmbed(updatedMovie);
+                  const movieComponents = components.createVotingButtons(updatedMovie.message_id);
+
+                  const newMessage = await votingChannel.send({
+                    embeds: [movieEmbed],
+                    components: movieComponents
+                  });
+
+                  // Update database with new message ID
+                  await database.updateMovieMessageId(updatedMovie.guild_id, updatedMovie.title, newMessage.id);
+
+                  // Create thread for the movie
+                  const thread = await newMessage.startThread({
+                    name: `💬 ${updatedMovie.title}`,
+                    autoArchiveDuration: 10080 // 7 days
+                  });
+
+                  console.log(`📝 Created post and thread for carryover movie: ${updatedMovie.title}`);
+                }
               } catch (error) {
-                console.warn(`Error creating post for carryover movie ${movie.title}:`, error.message);
+                logger.warn(`Error creating post for carryover movie ${movie.title}:`, error.message);
               }
             }
           }
 
-          // Add the new session message
-          const cleanup = require('./cleanup');
-          await cleanup.ensureQuickActionAtBottom(votingChannel);
+          // Add the new session message/post
+          if (forumChannels.isTextChannel(votingChannel)) {
+            // Text channels get quick action pinned
+            const cleanup = require('./cleanup');
+            await cleanup.ensureQuickActionPinned(votingChannel);
+          } else if (forumChannels.isForumChannel(votingChannel)) {
+            // Forum channels get recommendation post with retry logic for session creation
+            const activeSession = await database.getActiveVotingSession(interaction.guild.id);
+
+            // Add small delay to allow Discord API to be consistent
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            // Try with retry logic for session creation
+            let retryCount = 0;
+            const maxRetries = 2;
+
+            while (retryCount <= maxRetries) {
+              try {
+                await forumChannels.ensureRecommendationPost(votingChannel, activeSession);
+                logger.debug(`📋 Forum channel setup complete - movies will appear as individual posts`);
+                break; // Success, exit retry loop
+              } catch (error) {
+                retryCount++;
+                if (retryCount > maxRetries) {
+                  logger.warn(`📋 Failed to setup forum recommendation post after ${maxRetries} retries: ${error.message}`);
+                  logger.debug(`📋 Forum channel setup will be completed on next sync operation`);
+                } else {
+                  logger.debug(`📋 Retrying forum setup (attempt ${retryCount + 1}/${maxRetries + 1}) after error: ${error.message}`);
+                  // Wait a bit longer before retry
+                  await new Promise(resolve => setTimeout(resolve, 2000));
+                }
+              }
+            }
+          }
         }
       }
 
-      // Refresh admin control panel to show session management buttons
-      if (config && config.admin_channel_id) {
-        try {
-          const adminControls = require('./admin-controls');
-          await adminControls.ensureAdminControlPanel(interaction.client, interaction.guild.id);
-        } catch (error) {
-          console.warn('Error refreshing admin control panel:', error.message);
+      // Refresh admin control panel immediately so Cancel/Reschedule are available right away
+      try {
+        const adminControls = require('./admin-controls');
+        await adminControls.ensureAdminControlPanel(interaction.client || global.discordClient, interaction.guild.id);
+      } catch (e) {
+        const logger = require('../utils/logger');
+        logger.warn('Error refreshing admin control panel after session creation:', e.message);
+      }
+    } catch (error) {
+      logger.warn('Error updating channels after session creation:', error.message);
+    }
+
+    // Ping notification role that voting has begun (in the configured voting channel)
+    try {
+      const database = require('../database');
+      const config = await database.getGuildConfig(interaction.guild.id);
+      const roleId = await database.getNotificationRole(interaction.guild.id);
+      const client = interaction.client || global.discordClient;
+
+      if (config && config.movie_channel_id && roleId && client) {
+        const votingChannel = await client.channels.fetch(config.movie_channel_id);
+        if (votingChannel && votingChannel.send) {
+          await votingChannel.send({
+            content: `<@&${roleId}> 🗳️ Voting for **${state.sessionName}** has begun! Join the conversation and vote in <#${config.movie_channel_id}>.`
+          });
+          logger.debug('📣 Sent voting start ping to notification role');
         }
       }
     } catch (error) {
-      console.warn('Error updating channels after session creation:', error.message);
+      logger.warn('Error sending voting start ping:', error.message);
     }
 
-    console.log(`🎬 Voting session created: ${state.sessionName} by ${interaction.user.tag}`);
+    // Schedule voting end with smart scheduler
+    try {
+      const sessionScheduler = require('./session-scheduler');
+      await sessionScheduler.scheduleVotingEnd(sessionId, state.votingEndDateTime);
+    } catch (error) {
+      logger.warn('Error scheduling voting end:', error.message);
+    }
+
+    // Log session creation
+    logger.info(`🎬 Voting session created: ${state.sessionName} by ${interaction.user.tag}`);
 
   } catch (error) {
     console.error('Error creating voting session:', error);

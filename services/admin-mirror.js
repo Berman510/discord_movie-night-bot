@@ -70,14 +70,30 @@ async function createAdminActionButtons(movieId, status, isBanned = false, guild
     );
   }
 
-  // Mark as watched button (for scheduled movies)
+  // Mark as watched button (for scheduled movies) — only after event start
   if (status === 'scheduled' && !isBanned) {
-    row.addComponents(
-      new ButtonBuilder()
-        .setCustomId(`admin_watched:${movieId}`)
-        .setLabel('✅ Mark Watched')
-        .setStyle(ButtonStyle.Success)
-    );
+    let canMarkWatched = true;
+    try {
+      if (guildId) {
+        const session = await database.getSessionByWinnerMessageId(guildId, movieId);
+        if (session && session.scheduled_date) {
+          const now = new Date();
+          const start = new Date(session.scheduled_date);
+          canMarkWatched = now >= start; // Only allow after start time
+        }
+      }
+    } catch (e) {
+      console.warn('Error checking session start for watched button:', e.message);
+    }
+
+    if (canMarkWatched) {
+      row.addComponents(
+        new ButtonBuilder()
+          .setCustomId(`admin_watched:${movieId}`)
+          .setLabel('✅ Mark Watched')
+          .setStyle(ButtonStyle.Success)
+      );
+    }
   }
 
   // Skip to Next button (for pending/planned movies)
@@ -188,7 +204,17 @@ async function postMovieToAdminChannel(client, guildId, movie) {
       components: components
     });
 
-    console.log(`📋 Posted movie to admin channel: ${movie.title}`);
+    // Ensure admin control panel stays at the bottom
+    try {
+      const adminControls = require('./admin-controls');
+      await adminControls.ensureAdminControlPanel(client, guildId);
+    } catch (error) {
+      const logger = require('../utils/logger');
+      logger.warn('Error ensuring admin control panel after movie post:', error.message);
+    }
+
+    const logger = require('../utils/logger');
+    logger.debug(`📋 Posted movie to admin channel: ${movie.title}`);
     return adminMessage;
 
   } catch (error) {
@@ -269,14 +295,17 @@ async function syncAdminChannel(client, guildId) {
       const adminControls = require('./admin-controls');
       await adminControls.ensureAdminControlPanel(client, guildId);
     } catch (error) {
-      console.warn('Error ensuring admin control panel after sync:', error.message);
+      const logger = require('../utils/logger');
+      logger.warn('Error ensuring admin control panel after sync:', error.message);
     }
 
-    console.log(`📋 Synced ${syncedCount} movies to admin channel`);
+    const logger = require('../utils/logger');
+    logger.info(`📋 Synced ${syncedCount} movies to admin channel`);
     return { synced: syncedCount, error: null };
 
   } catch (error) {
-    console.error('Error syncing admin channel:', error);
+    const logger = require('../utils/logger');
+    logger.error('Error syncing admin channel:', error);
     return { synced: 0, error: error.message };
   }
 }
@@ -318,10 +347,44 @@ async function removeMovieFromAdminChannel(client, guildId, movieId) {
   }
 }
 
+async function postTieBreakingMovie(adminChannel, movie, winner) {
+  try {
+    const embed = new EmbedBuilder()
+      .setTitle(`🤝 Tie-Break Candidate: ${movie.title}`)
+      .setColor(0xfee75c)
+      .addFields(
+        { name: '👤 Recommended by', value: `<@${movie.recommended_by}>`, inline: true },
+        { name: '📺 Platform', value: movie.where_to_watch || 'Unknown', inline: true },
+        { name: '📊 Votes', value: `👍 ${winner.upVotes} | 👎 ${winner.downVotes} | Score: ${winner.totalScore}` }
+      )
+      .setTimestamp();
+
+    const row = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId(`admin_choose_winner:${movie.message_id}`)
+          .setLabel('🏆 Choose Winner')
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId(`admin_details:${movie.message_id}`)
+          .setLabel('📋 Details')
+          .setStyle(ButtonStyle.Secondary)
+      );
+
+    await adminChannel.send({ embeds: [embed], components: [row] });
+
+    const logger = require('../utils/logger');
+    logger.debug(`🤝 Posted tie-break candidate to admin channel: ${movie.title}`);
+  } catch (error) {
+    console.error('Error posting tie-break movie to admin channel:', error);
+  }
+}
+
 module.exports = {
   createAdminMovieEmbed,
   createAdminActionButtons,
   postMovieToAdminChannel,
   syncAdminChannel,
-  removeMovieFromAdminChannel
+  removeMovieFromAdminChannel,
+  postTieBreakingMovie
 };

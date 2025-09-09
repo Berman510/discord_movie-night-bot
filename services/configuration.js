@@ -15,24 +15,61 @@ const { MessageFlags, EmbedBuilder } = require('discord.js');
 const database = require('../database');
 
 async function configureMovieChannel(interaction, guildId) {
-  const channel = interaction.options.getChannel('channel') || interaction.channel;
+  const channel = interaction.options?.getChannel('channel');
+  const forumChannels = require('./forum-channels');
+
+  // If no channel specified (button interaction), show channel selector
+  if (!channel) {
+    const { ActionRowBuilder, ChannelSelectMenuBuilder, ChannelType } = require('discord.js');
+
+    const channelSelect = new ChannelSelectMenuBuilder()
+      .setCustomId('config_select_voting_channel')
+      .setPlaceholder('Select a channel for movie voting')
+      .setChannelTypes([ChannelType.GuildText, ChannelType.GuildForum]);
+
+    const row = new ActionRowBuilder().addComponents(channelSelect);
+
+    await interaction.update({
+      content: '🎬 **Select Voting Channel**\n\nChoose a Text channel or Forum channel for movie recommendations:',
+      embeds: [],
+      components: [row]
+    });
+    return;
+  }
+
+  // Validate channel type
+  if (!forumChannels.isTextChannel(channel) && !forumChannels.isForumChannel(channel)) {
+    await interaction.update({
+      content: '❌ Movie channel must be a Text channel or Forum channel.',
+      embeds: [],
+      components: []
+    });
+    return;
+  }
 
   const success = await database.setMovieChannel(guildId, channel.id);
   if (success) {
-    await interaction.reply({
-      content: `✅ Movie channel set to ${channel}. Cleanup commands will only work in this channel.`,
-      flags: MessageFlags.Ephemeral
+    const channelType = forumChannels.getChannelTypeString(channel);
+    const description = forumChannels.isForumChannel(channel)
+      ? 'Each movie recommendation will create a new forum post for voting and discussion.'
+      : 'Movie recommendations will be posted as messages with voting buttons and discussion threads.';
+
+    await interaction.update({
+      content: `✅ **Movie channel set to ${channel}**\n\n📋 **Channel Type**: ${channelType}\n🎬 **Behavior**: ${description}\n\n🔧 Cleanup commands will only work in this channel.`,
+      embeds: [],
+      components: []
     });
   } else {
-    await interaction.reply({
+    await interaction.update({
       content: '❌ Failed to set movie channel.',
-      flags: MessageFlags.Ephemeral
+      embeds: [],
+      components: []
     });
   }
 }
 
 async function addAdminRole(interaction, guildId) {
-  const role = interaction.options.getRole('role');
+  const role = interaction.options?.getRole('role');
   
   if (!role) {
     await interaction.reply({
@@ -57,7 +94,7 @@ async function addAdminRole(interaction, guildId) {
 }
 
 async function removeAdminRole(interaction, guildId) {
-  const role = interaction.options.getRole('role');
+  const role = interaction.options?.getRole('role');
   
   if (!role) {
     await interaction.reply({
@@ -82,8 +119,26 @@ async function removeAdminRole(interaction, guildId) {
 }
 
 async function setNotificationRole(interaction, guildId) {
-  const role = interaction.options.getRole('role');
-  
+  const role = interaction.options?.getRole('role');
+
+  // If no role specified (button interaction), show role selector
+  if (!role && interaction.isButton()) {
+    const { ActionRowBuilder, RoleSelectMenuBuilder } = require('discord.js');
+
+    const roleSelect = new RoleSelectMenuBuilder()
+      .setCustomId('config_select_notification_role')
+      .setPlaceholder('Select a role to ping for Discord events');
+
+    const row = new ActionRowBuilder().addComponents(roleSelect);
+
+    await interaction.update({
+      content: '🔔 **Select Notification Role**\n\nChoose a role to ping when Discord events are created, or skip to clear:',
+      embeds: [],
+      components: [row]
+    });
+    return;
+  }
+
   const success = await database.setNotificationRole(guildId, role ? role.id : null);
   if (success) {
     if (role) {
@@ -144,6 +199,13 @@ async function viewSettings(interaction, guildId) {
           inline: false
         },
         {
+          name: '🛡️ Moderator Roles',
+          value: config.moderator_roles && config.moderator_roles.length > 0 ?
+            `${config.moderator_roles.map(id => `<@&${id}>`).join('\n')}\n*These roles can moderate movies and sessions*` :
+            'None configured\n*Only admins can moderate*',
+          inline: false
+        },
+        {
           name: '🔔 Notification Role',
           value: config.notification_role_id ?
             `<@&${config.notification_role_id}>\n*This role gets pinged for Discord events*` :
@@ -191,12 +253,23 @@ async function resetConfiguration(interaction, guildId) {
 }
 
 async function configureViewingChannel(interaction, guildId) {
-  const channel = interaction.options.getChannel('channel');
+  const channel = interaction.options?.getChannel('channel');
 
+  // If no channel specified (button interaction), show channel selector
   if (!channel) {
-    await interaction.reply({
-      content: '❌ Please specify a channel for session viewing.',
-      flags: MessageFlags.Ephemeral
+    const { ActionRowBuilder, ChannelSelectMenuBuilder, ChannelType } = require('discord.js');
+
+    const channelSelect = new ChannelSelectMenuBuilder()
+      .setCustomId('config_select_viewing_channel')
+      .setPlaceholder('Select a channel for session viewing')
+      .setChannelTypes([ChannelType.GuildText]);
+
+    const row = new ActionRowBuilder().addComponents(channelSelect);
+
+    await interaction.update({
+      content: '📺 **Select Viewing Channel**\n\nChoose a Text channel where session viewing will be coordinated:',
+      embeds: [],
+      components: [row]
     });
     return;
   }
@@ -226,12 +299,23 @@ async function configureViewingChannel(interaction, guildId) {
 }
 
 async function configureAdminChannel(interaction, guildId) {
-  const channel = interaction.options.getChannel('channel');
+  const channel = interaction.options?.getChannel('channel');
 
+  // If no channel specified (button interaction), show channel selector
   if (!channel) {
-    await interaction.reply({
-      content: '❌ Please specify a channel for admin operations.',
-      flags: MessageFlags.Ephemeral
+    const { ActionRowBuilder, ChannelSelectMenuBuilder, ChannelType } = require('discord.js');
+
+    const channelSelect = new ChannelSelectMenuBuilder()
+      .setCustomId('config_select_admin_channel')
+      .setPlaceholder('Select a channel for admin operations')
+      .setChannelTypes([ChannelType.GuildText]);
+
+    const row = new ActionRowBuilder().addComponents(channelSelect);
+
+    await interaction.update({
+      content: '🔧 **Select Admin Channel**\n\nChoose a Text channel for admin controls and management:',
+      embeds: [],
+      components: [row]
     });
     return;
   }

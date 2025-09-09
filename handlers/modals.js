@@ -4,6 +4,7 @@
  */
 
 const { MessageFlags } = require('discord.js');
+const ephemeralManager = require('../utils/ephemeral-manager');
 const { sessions } = require('../services');
 const { imdb } = require('../services');
 const cleanup = require('../services/cleanup');
@@ -43,11 +44,7 @@ async function handleModal(interaction) {
       return;
     }
 
-    if (customId === 'voting_session_time_modal') {
-      const votingSessions = require('../services/voting-sessions');
-      await votingSessions.handleVotingSessionTimeModal(interaction);
-      return;
-    }
+    // Note: voting_session_time_modal doesn't exist - time is handled in date modal
 
     // Deep purge confirmation modal
     if (customId.startsWith('deep_purge_confirm:')) {
@@ -77,7 +74,9 @@ async function handleMovieRecommendationModal(interaction) {
   const title = interaction.fields.getTextInputValue('mn:title');
   const where = interaction.fields.getTextInputValue('mn:where');
 
-  console.log(`Movie recommendation: ${title} on ${where}`);
+  const logger = require('../utils/logger');
+  logger.debug(`🔍 DEBUG: handleMovieRecommendationModal called with title: ${title}, where: ${where}`);
+  logger.debug(`Movie recommendation: ${title} on ${where}`);
 
   try {
     // Use the movie recommendation logic from the original backup
@@ -126,6 +125,11 @@ async function handleMovieRecommendationModal(interaction) {
         flags: MessageFlags.Ephemeral
       });
       return;
+    }
+
+    // Defer early for potentially long IMDb/network operations
+    if (!interaction.deferred && !interaction.replied) {
+      try { await interaction.deferReply({ flags: MessageFlags.Ephemeral }); } catch {}
     }
 
     // Search IMDb for the movie
@@ -178,8 +182,8 @@ async function showImdbSelection(interaction, title, where, imdbResults) {
     .setDescription(`Found ${imdbResults.length} matches for **${title}**`)
     .setColor(0x5865f2);
 
-  // Add up to 4 results (to leave room for "None of these" button)
-  const displayResults = imdbResults.slice(0, 4);
+  // Add up to 3 results (to leave room for "None of these" and "Cancel" buttons)
+  const displayResults = imdbResults.slice(0, 3);
   displayResults.forEach((movie, index) => {
     embed.addFields({
       name: `${index + 1}. ${movie.Title} (${movie.Year})`,
@@ -191,106 +195,123 @@ async function showImdbSelection(interaction, title, where, imdbResults) {
   // Create selection buttons with short custom IDs
   const buttons = new ActionRowBuilder();
   displayResults.forEach((movie, index) => {
+    let label = `${index + 1}. ${movie.Title} (${movie.Year})`;
+    if (label.length > 80) {
+      label = label.slice(0, 77) + '...';
+    }
     buttons.addComponents(
       new ButtonBuilder()
         .setCustomId(`select_imdb:${index}:${dataKey}`)
-        .setLabel(`${index + 1}. ${movie.Title} (${movie.Year})`)
+        .setLabel(label)
         .setStyle(ButtonStyle.Primary)
     );
   });
 
-  // Add "None of these" button
+  // Add "None of these" and "Cancel" buttons
   buttons.addComponents(
     new ButtonBuilder()
       .setCustomId(`select_imdb:none:${dataKey}`)
       .setLabel('None of these')
-      .setStyle(ButtonStyle.Secondary)
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(`select_imdb:cancel:${dataKey}`)
+      .setLabel('Cancel')
+      .setStyle(ButtonStyle.Danger)
   );
 
-  await interaction.reply({
+  await ephemeralManager.sendEphemeral(interaction, '', {
     embeds: [embed],
-    components: [buttons],
-    flags: MessageFlags.Ephemeral
+    components: [buttons]
   });
 }
 
 async function createMovieWithoutImdb(interaction, title, where) {
+  const movieCreation = require('../services/movie-creation');
   const database = require('../database');
-  const { embeds, components } = require('../utils');
+
+  console.log(`🔍 DEBUG: createMovieWithoutImdb called with:`, {
+    title,
+    where,
+    guildId: interaction.guild.id,
+    userId: interaction.user.id,
+    channelId: interaction.channel?.id
+  });
 
   try {
-    // Create movie embed first
-    const movieData = {
-      title: title,
-      where_to_watch: where,
-      recommended_by: interaction.user.id,
-      status: 'pending'
-    };
-
-    const movieEmbed = embeds.createMovieEmbed(movieData);
-
-    // Create the message first without buttons
-    const message = await interaction.channel.send({
-      embeds: [movieEmbed]
-    });
-
-    // Now create buttons with the actual message ID (voting only - admin uses slash commands)
-    const movieComponents = components.createVotingButtons(message.id);
-
-    // Update the message with the correct buttons
-    await message.edit({
-      embeds: [movieEmbed],
-      components: movieComponents
-    });
-
-    // Now save to database with the message ID
-    console.log(`💾 Saving movie to database: ${title} (${message.id})`);
-    const movieId = await database.saveMovie({
-      messageId: message.id,
-      guildId: interaction.guild.id,
-      channelId: interaction.channel.id,
-      title: title,
-      whereToWatch: where,
-      recommendedBy: interaction.user.id,
+    // Create movie using the new unified service
+    console.log(`🔍 DEBUG: About to call movieCreation.createMovieRecommendation`);
+    const result = await movieCreation.createMovieRecommendation(interaction, {
+      title,
+      where,
       imdbId: null,
       imdbData: null
     });
 
-    console.log(`💾 Movie save result: ${movieId ? 'SUCCESS' : 'FAILED'} (ID: ${movieId})`);
-    if (movieId) {
-      // Post to admin channel if configured
-      try {
-        const movie = await database.getMovieByMessageId(message.id);
-        if (movie) {
-          const adminMirror = require('../services/admin-mirror');
-          await adminMirror.postMovieToAdminChannel(interaction.client, interaction.guild.id, movie);
-        }
-      } catch (error) {
-        console.error('Error posting to admin channel:', error);
+    console.log(`🔍 DEBUG: movieCreation.createMovieRecommendation result:`, {
+      hasMessage: !!result.message,
+      hasThread: !!result.thread,
+      movieId: result.movieId,
+      messageId: result.message?.id,
+      threadId: result.thread?.id
+    });
+
+    const { message, thread, movieId } = result;
+
+    // Post to admin channel if configured
+    try {
+      const movie = await database.getMovieByMessageId(message.id);
+      if (movie) {
+        const adminMirror = require('../services/admin-mirror');
+        await adminMirror.postMovieToAdminChannel(interaction.client, interaction.guild.id, movie);
       }
+    } catch (error) {
+      console.error('Error posting to admin channel:', error);
+    }
 
-      // Post Quick Action at bottom of channel
-      await cleanup.ensureQuickActionAtBottom(interaction.channel);
+    // Ensure recommendation post/action for the movie channel
+    // Note: We need to get the actual movie channel, not the interaction channel
+    const forumChannels = require('../services/forum-channels');
+    const database = require('../database');
+    const config = await database.getGuildConfig(interaction.guild.id);
 
-      await interaction.reply({
-        content: `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added to the queue for voting.`,
-        flags: MessageFlags.Ephemeral
-      });
+    if (config && config.movie_channel_id) {
+      const movieChannel = await interaction.client.channels.fetch(config.movie_channel_id);
+      if (movieChannel) {
+        if (forumChannels.isTextChannel(movieChannel)) {
+          // Text channels get quick action pinned
+          await cleanup.ensureQuickActionPinned(movieChannel);
+        } else if (forumChannels.isForumChannel(movieChannel)) {
+          // Forum channels get recommendation post
+          const activeSession = await database.getActiveVotingSession(interaction.guild.id);
+          await forumChannels.ensureRecommendationPost(movieChannel, activeSession);
+        }
+      }
+    }
+
+    // Success message varies by channel type (use the actual movie channel)
+    const movieChannel = config && config.movie_channel_id ?
+      await interaction.client.channels.fetch(config.movie_channel_id) : null;
+    const channelType = movieChannel ? forumChannels.getChannelTypeString(movieChannel) : 'Unknown';
+
+    const successMessage = thread
+      ? `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added as a new forum post in ${movieChannel} for voting and discussion.`
+      : `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added to the queue in ${movieChannel} for voting.`;
+
+    if (interaction.deferred || interaction.replied) {
+      await interaction.followUp({ content: successMessage, flags: MessageFlags.Ephemeral });
     } else {
-      // If database save failed, delete the message
-      await message.delete().catch(console.error);
-      await interaction.reply({
-        content: '❌ Failed to create movie recommendation.',
-        flags: MessageFlags.Ephemeral
-      });
+      await interaction.reply({ content: successMessage, flags: MessageFlags.Ephemeral });
     }
 
   } catch (error) {
-    console.error('Error creating movie without IMDb:', error);
-    await interaction.reply({
-      content: '❌ Error creating movie recommendation.',
-      flags: MessageFlags.Ephemeral
-    });
+    const logger = require('../utils/logger');
+    logger.error('🔍 DEBUG: Error in createMovieWithoutImdb:', error);
+    logger.debug('🔍 DEBUG: Error stack:', error.stack);
+    if (interaction.deferred || interaction.replied) {
+      await interaction.followUp({ content: `❌ Failed to create movie recommendation: ${error.message}` , flags: MessageFlags.Ephemeral });
+    } else {
+      await interaction.reply({ content: `❌ Failed to create movie recommendation: ${error.message}`, flags: MessageFlags.Ephemeral });
+    }
   }
 }
 
@@ -342,10 +363,11 @@ async function handleDeepPurgeConfirmation(interaction, customId) {
     });
 
     // Log the purge action
-    console.log(`🗑️ Deep purge executed by ${interaction.user.tag} (${interaction.user.id}) in guild ${interaction.guild.name} (${interaction.guild.id})`);
-    console.log(`📋 Categories: ${categories.join(', ')}`);
-    console.log(`📝 Reason: ${reason || 'No reason provided'}`);
-    console.log(`📊 Result: ${result.deleted} items deleted, ${result.errors.length} errors`);
+    const logger = require('../utils/logger');
+    logger.info(`🗑️ Deep purge executed by ${interaction.user.tag} (${interaction.user.id}) in guild ${interaction.guild.name} (${interaction.guild.id})`);
+    logger.info(`📋 Categories: ${categories.join(', ')}`);
+    logger.info(`📝 Reason: ${reason || 'No reason provided'}`);
+    logger.info(`📊 Result: ${result.deleted} items deleted, ${result.errors.length} errors`);
 
   } catch (error) {
     console.error('Error executing deep purge:', error);

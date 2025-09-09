@@ -6,6 +6,7 @@
 const { MessageFlags, EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
 const database = require('../database');
 const sessions = require('../services/sessions');
+const guidedSetup = require('../services/guided-setup');
 
 async function handleSlashCommand(interaction) {
   const commandName = interaction.commandName;
@@ -56,6 +57,10 @@ async function handleSlashCommand(interaction) {
         await handleMoviePlan(interaction);
         break;
 
+      case 'debug-config':
+        await handleDebugConfig(interaction);
+        break;
+
       default:
         await interaction.reply({
           content: `❌ Unknown command: ${commandName}`,
@@ -76,13 +81,22 @@ async function handleSlashCommand(interaction) {
 
 // Movie recommendation command handler
 async function handleMovieNight(interaction) {
+  // First check if bot is configured
+  const configCheck = require('../utils/config-check');
+  const configStatus = await configCheck.checkConfiguration(interaction.guild.id);
+
+  if (!configStatus.isConfigured) {
+    await configCheck.sendConfigurationError(interaction, configStatus);
+    return;
+  }
+
   // Check if there's an active voting session
   const database = require('../database');
   const activeSession = await database.getActiveVotingSession(interaction.guild.id);
 
   if (!activeSession) {
     await interaction.reply({
-      content: '❌ **No active voting session**\n\nMovie recommendations are only available during active voting sessions. An admin needs to use the "Plan Next Session" button in the admin channel to start a new voting session.',
+      content: '❌ **No active voting session**\n\nMovie recommendations are only available during active voting sessions. An admin needs to use the "Plan Next Session" button in the admin channel to start a new voting session.\n\n💡 **Tip:** Use `/movie-setup` for easy bot configuration.',
       flags: MessageFlags.Ephemeral
     });
     return;
@@ -91,7 +105,7 @@ async function handleMovieNight(interaction) {
   // Show the movie recommendation modal
   const modal = new ModalBuilder()
     .setCustomId('mn:modal')
-    .setTitle(`Recommend Movie for ${activeSession.name}`);
+    .setTitle('🎬 Recommend Movie'); // Keep it short and simple
 
   const titleInput = new TextInputBuilder()
     .setCustomId('mn:title')
@@ -163,9 +177,14 @@ async function handleMovieQueue(interaction) {
       return;
     }
 
+    // Check if we're in a forum channel to adjust description
+    const forumChannels = require('../services/forum-channels');
+    const isForumChannel = forumChannels.isForumChannel(interaction.channel);
+    const channelTypeNote = isForumChannel ? ' (Forum posts)' : '';
+
     const embed = new EmbedBuilder()
       .setTitle(`🍿 ${activeSession.name}`)
-      .setDescription(`Showing ${movies.length} movie recommendations for this voting session`)
+      .setDescription(`Showing ${movies.length} movie recommendations for this voting session${channelTypeNote}`)
       .setColor(0x5865f2);
 
     if (activeSession.scheduled_date) {
@@ -266,6 +285,12 @@ async function handleMovieConfigure(interaction) {
       case 'view-settings':
         await configuration.viewSettings(interaction, guildId);
         break;
+      case 'debug':
+        await handleDebugConfig(interaction);
+        break;
+      case 'debug-session':
+        await handleDebugSession(interaction);
+        break;
       case 'reset':
         await configuration.resetConfiguration(interaction, guildId);
         break;
@@ -295,20 +320,19 @@ async function handleMovieStats(interaction) {
 }
 
 async function handleMovieSetup(interaction) {
-  const { permissions } = require('../services');
+  // Check if user has permission to configure
+  const { PermissionFlagsBits } = require('discord.js');
 
-  // Check admin permissions
-  const hasPermission = await permissions.checkMovieAdminPermission(interaction);
-  if (!hasPermission) {
+  if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator) &&
+      !interaction.member.permissions.has(PermissionFlagsBits.ManageGuild)) {
     await interaction.reply({
-      content: '❌ You need Administrator permissions or a configured admin role to use this command.',
+      content: '❌ **Permission denied**\n\nYou need Administrator or Manage Server permissions to configure the bot.',
       flags: MessageFlags.Ephemeral
     });
     return;
   }
 
-  const setupGuide = require('../services/setup-guide');
-  await setupGuide.showSetupGuide(interaction);
+  await guidedSetup.startGuidedSetup(interaction);
 }
 
 async function handleMovieWatched(interaction) {
@@ -443,6 +467,93 @@ async function handleMoviePlan(interaction) {
   }
 }
 
+/**
+ * Handle debug config command
+ */
+async function handleDebugConfig(interaction) {
+  try {
+    const database = require('../database');
+    const config = await database.getGuildConfig(interaction.guild.id);
+
+    let configInfo = `**Guild ID**: ${interaction.guild.id}\n`;
+
+    if (!config) {
+      configInfo += `**Status**: ❌ No configuration found\n`;
+    } else {
+      configInfo += `**Movie Channel ID**: ${config.movie_channel_id || 'Not set'}\n`;
+      configInfo += `**Admin Channel ID**: ${config.admin_channel_id || 'Not set'}\n`;
+      configInfo += `**Timezone**: ${config.timezone || 'Not set'}\n`;
+
+      if (config.movie_channel_id) {
+        try {
+          const channel = await interaction.client.channels.fetch(config.movie_channel_id);
+          const forumChannels = require('../services/forum-channels');
+          configInfo += `**Movie Channel**: ${channel.name} (${channel.type})\n`;
+          configInfo += `**Is Forum**: ${forumChannels.isForumChannel(channel) ? '✅ Yes' : '❌ No'}\n`;
+          configInfo += `**Is Text**: ${forumChannels.isTextChannel(channel) ? '✅ Yes' : '❌ No'}\n`;
+        } catch (error) {
+          configInfo += `**Movie Channel**: ❌ Channel not found (${error.message})\n`;
+        }
+      }
+    }
+
+    await interaction.reply({
+      content: `🔍 **Debug Configuration**\n\n${configInfo}`,
+      flags: MessageFlags.Ephemeral
+    });
+
+  } catch (error) {
+    console.error('Error in debug config:', error);
+    await interaction.reply({
+      content: `❌ Error getting debug info: ${error.message}`,
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
+/**
+ * Handle debug session command
+ */
+async function handleDebugSession(interaction) {
+  try {
+    const database = require('../database');
+    const activeSession = await database.getActiveVotingSession(interaction.guild.id);
+
+    let sessionInfo = `**Guild ID**: ${interaction.guild.id}\n`;
+
+    if (!activeSession) {
+      sessionInfo += `**Active Session**: ❌ No active voting session found\n`;
+      sessionInfo += `**Status**: Movie recommendations require an active voting session\n`;
+      sessionInfo += `**Solution**: Use "Plan Next Session" button in admin channel\n`;
+    } else {
+      sessionInfo += `**Active Session**: ✅ Session ${activeSession.id}\n`;
+      sessionInfo += `**Session Name**: ${activeSession.name || 'Unnamed'}\n`;
+      sessionInfo += `**Status**: ${activeSession.status}\n`;
+      sessionInfo += `**Created**: ${new Date(activeSession.created_at).toLocaleString()}\n`;
+
+      if (activeSession.scheduled_date) {
+        sessionInfo += `**Scheduled**: ${new Date(activeSession.scheduled_date).toLocaleString()}\n`;
+      }
+
+      if (activeSession.voting_end_time) {
+        sessionInfo += `**Voting Ends**: ${new Date(activeSession.voting_end_time).toLocaleString()}\n`;
+      }
+    }
+
+    await interaction.reply({
+      content: `🔍 **Debug Session Information**\n\n${sessionInfo}`,
+      flags: MessageFlags.Ephemeral
+    });
+
+  } catch (error) {
+    console.error('Error in debug session:', error);
+    await interaction.reply({
+      content: `❌ Error getting session debug info: ${error.message}`,
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
 module.exports = {
   handleSlashCommand,
   handleMovieNight,
@@ -454,5 +565,8 @@ module.exports = {
   handleMovieSetup,
   handleMovieWatched,
   handleMovieSkip,
-  handleMoviePlan
+  handleMoviePlan,
+  handleDebugConfig
 };
+
+

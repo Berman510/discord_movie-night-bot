@@ -20,16 +20,16 @@
  * - Add configuration commands for session viewing channel setup
  */
 
-const { 
-  EmbedBuilder, 
-  ActionRowBuilder, 
-  ButtonBuilder, 
-  ButtonStyle, 
-  ModalBuilder, 
-  TextInputBuilder, 
+const {
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ModalBuilder,
+  TextInputBuilder,
   TextInputStyle,
   StringSelectMenuBuilder,
-  MessageFlags 
+  MessageFlags
 } = require('discord.js');
 
 const database = require('../database');
@@ -154,11 +154,21 @@ async function showSessionCreationModal(interaction) {
         .setEmoji('📝')
     );
 
-  await interaction.reply({
+  const msg = await interaction.reply({
     embeds: [embed],
     components: [quickDateButtons, thisWeekButtons, weekendButtons],
-    flags: MessageFlags.Ephemeral
+    flags: MessageFlags.Ephemeral,
+    fetchReply: true
   });
+
+  try {
+    if (!global.sessionCreationState) global.sessionCreationState = new Map();
+    const prev = global.sessionCreationState.get(interaction.user.id) || {};
+    global.sessionCreationState.set(interaction.user.id, {
+      ...prev,
+      rootMessageId: msg.id
+    });
+  } catch (_) {}
 }
 
 async function listMovieSessions(interaction) {
@@ -587,7 +597,15 @@ async function handleDateSelection(interaction, customId, state) {
       state.selectedDate = null;
       state.dateDisplay = 'No specific date';
       global.sessionCreationState.set(interaction.user.id, state);
-      await showTimezoneSelection(interaction, state);
+      // If rescheduling, skip timezone selection and proceed to details
+      const isReschedule = global.sessionRescheduleState && global.sessionRescheduleState.has(interaction.user.id);
+      if (isReschedule) {
+        if (!state.selectedTimezone) state.selectedTimezone = state.timezone || 'UTC';
+        if (!state.timezoneName) state.timezoneName = state.selectedTimezone;
+        await showSessionDetailsModal(interaction, state);
+      } else {
+        await showTimezoneSelection(interaction, state);
+      }
       return;
   }
 
@@ -690,7 +708,15 @@ async function handleTimeSelection(interaction, customId, state) {
   state.timeDisplay = timeDisplay;
   global.sessionCreationState.set(interaction.user.id, state);
 
-  await showTimezoneSelection(interaction, state);
+  // If this is a reschedule flow, skip timezone selection and go straight to details
+  const isReschedule = global.sessionRescheduleState && global.sessionRescheduleState.has(interaction.user.id);
+  if (isReschedule) {
+    if (!state.selectedTimezone) state.selectedTimezone = state.timezone || 'UTC';
+    if (!state.timezoneName) state.timezoneName = state.selectedTimezone;
+    await showSessionDetailsModal(interaction, state);
+  } else {
+    await showTimezoneSelection(interaction, state);
+  }
 }
 
 async function showTimezoneSelection(interaction, state) {
@@ -790,7 +816,19 @@ async function showCustomTimeModal(interaction) {
 async function showSessionDetailsModal(interaction, state) {
   // Generate smart templated name and description
   const templatedName = generateSessionName(state);
-  const templatedDescription = await generateSessionDescription(state, interaction);
+
+  // For reschedule, pre-fill ONLY the original base description (no auto-added voting/channel/time text)
+  let templatedDescription;
+  try {
+    const isReschedule = global.sessionRescheduleState && global.sessionRescheduleState.has(interaction.user.id);
+    if (isReschedule) {
+      const resState = global.sessionRescheduleState.get(interaction.user.id);
+      templatedDescription = (resState?.originalSession?.description || '').trim();
+    }
+  } catch (_) {}
+  if (templatedDescription === undefined) {
+    templatedDescription = await generateSessionDescription(state, interaction);
+  }
 
   const modal = new ModalBuilder()
     .setCustomId('session_details_modal')
@@ -954,8 +992,29 @@ async function handleSessionReschedule(interaction, sessionId, movieMessageId) {
     originalSession: session
   });
 
-  // Start the reschedule flow (same as session creation)
-  await showDateSelection(interaction, true); // true indicates reschedule mode
+  // Pre-seed creation state to skip movie/timezone selection during reschedule
+  if (!global.sessionCreationState) {
+    global.sessionCreationState = new Map();
+  }
+  const preset = {
+    step: 'date',
+    selectedMovie: session.associated_movie_id || null,
+    movieTitle: null,
+    movieDisplay: null,
+    selectedDate: null,
+    selectedTime: null,
+    selectedTimezone: session.timezone || 'UTC',
+    timezone: session.timezone || 'UTC',
+    timezoneName: session.timezone || 'UTC',
+    sessionName: session.name || null,
+    sessionDescription: session.description || null,
+    isReschedule: true
+  };
+  global.sessionCreationState.set(interaction.user.id, preset);
+
+
+  // Start the reschedule flow using the same creation UI
+  await showSessionCreationModal(interaction);
 }
 
 async function handleSessionCancel(interaction, sessionId, movieMessageId) {
@@ -1411,6 +1470,85 @@ async function createMovieSessionFromModal(interaction) {
       );
     }
 
+    // If this is a reschedule flow, update existing session instead of creating a new one
+    const resMap = global.sessionRescheduleState;
+    const resState = resMap ? resMap.get(userId) : null;
+    const tz = state.selectedTimezone || state.timezone || 'UTC';
+
+    if (resState && resState.sessionId) {
+      const sessionId = resState.sessionId;
+
+      // Update session core details
+      await database.updateMovieSessionDetails(sessionId, {
+        name: sessionName,
+        description: sessionDescription,
+        scheduledDate: scheduledDate,
+        timezone: tz
+      });
+
+      // Update or create Discord scheduled event
+      let discordEventId = resState.originalSession?.discord_event_id || null;
+      if (discordEventId) {
+        await discordEvents.updateDiscordEvent(
+          interaction.guild,
+          discordEventId,
+          { id: sessionId, name: sessionName, description: sessionDescription },
+          scheduledDate
+        );
+      } else if (scheduledDate) {
+        const sessionData = {
+          id: sessionId,
+          guildId: interaction.guild.id,
+          channelId: interaction.channel.id,
+          name: sessionName,
+          description: sessionDescription,
+          createdBy: resState.originalSession?.created_by || interaction.user.id,
+          scheduledDate: scheduledDate,
+          timezone: tz,
+          status: resState.originalSession?.status || 'planning',
+          associatedMovieId: resState.originalSession?.associated_movie_id || state.selectedMovie || null
+        };
+        const newEventId = await discordEvents.createDiscordEvent(interaction.guild, sessionData, scheduledDate);
+        if (newEventId) {
+          await database.updateSessionDiscordEvent(sessionId, newEventId);
+          discordEventId = newEventId;
+        }
+      }
+
+      // Update the movie post if known
+      const movieMessageId = resState.movieMessageId || resState.originalSession?.associated_movie_id || state.selectedMovie || null;
+      if (movieMessageId) {
+        await updateMoviePostForSession(interaction, movieMessageId, sessionId, sessionName, scheduledDate, discordEventId || null);
+      }
+
+      // Acknowledge success
+      const ts = scheduledDate ? Math.floor(new Date(scheduledDate).getTime() / 1000) : null;
+      const msg = ts
+        ? `✅ Session "${sessionName}" rescheduled to <t:${ts}:F>`
+        : `✅ Session "${sessionName}" updated.`;
+
+      if (interaction.deferred || interaction.replied) {
+        await interaction.followUp({ content: msg, flags: MessageFlags.Ephemeral });
+      } else {
+        await interaction.reply({ content: msg, flags: MessageFlags.Ephemeral });
+      }
+
+      // Best-effort: close the original ephemeral panel if we created one
+      try {
+        if (state.rootMessageId && interaction.webhook && interaction.webhook.deleteMessage) {
+          await interaction.webhook.deleteMessage(state.rootMessageId).catch(async () => {
+            // Fallback: edit message to remove components
+            await interaction.webhook.editMessage(state.rootMessageId, { content: '✅ Rescheduled.', components: [], embeds: [] }).catch(() => {});
+          });
+        }
+      } catch (_) {}
+
+      // Clean state
+      global.sessionCreationState.delete(userId);
+      try { global.sessionRescheduleState.delete(userId); } catch {}
+      return;
+    }
+
     // Create session in database
     const sessionData = {
       guildId: interaction.guild.id,
@@ -1419,7 +1557,7 @@ async function createMovieSessionFromModal(interaction) {
       description: sessionDescription,
       createdBy: interaction.user.id,
       scheduledDate: scheduledDate,
-      timezone: state.selectedTimezone || 'UTC',
+      timezone: tz,
       status: 'planning',
       associatedMovieId: state.selectedMovie || null
     };
@@ -1525,6 +1663,8 @@ module.exports = {
   handleSessionCreationButton,
   handleCustomDateTimeModal,
   handleSessionManagement,
+  handleSessionReschedule,
+  handleSessionCancel,
   handleCancelConfirmation,
   createMovieSessionFromModal,
   showTimezoneSelector

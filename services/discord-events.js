@@ -42,14 +42,44 @@ async function createDiscordEvent(guild, sessionData, scheduledDate) {
 
     endTime.setMinutes(endTime.getMinutes() + durationMinutes);
 
-    // Add session UID to description for bidirectional sync
-    const sessionUID = `SESSION_UID:${sessionData.id || 'unknown'}`;
-    const baseDescription = sessionData.description || 'Movie night session - join us for a great movie!';
-    const enhancedDescription = `${baseDescription}\n\n🔗 ${sessionUID}`;
+    // Create enhanced description with voting info and channel link
+    const baseDescription = sessionData.description || 'Join us for movie night voting and viewing!';
+    let enhancedDescription = baseDescription;
+
+    // Add voting information if available
+    if (sessionData.votingEndTime) {
+      const votingEndTimestamp = Math.floor(sessionData.votingEndTime.getTime() / 1000);
+      enhancedDescription += `\n\n🗳️ **Voting ends:** <t:${votingEndTimestamp}:F>`;
+      enhancedDescription += `\n⏰ **Time remaining:** <t:${votingEndTimestamp}:R>`;
+    }
+
+    // Add voting channel link and CTA if available
+    if (config && config.movie_channel_id) {
+      enhancedDescription += `\n📺 **Vote in:** <#${config.movie_channel_id}>`;
+      enhancedDescription += `\n\n👉 Join the conversation and vote for your favorite movie in <#${config.movie_channel_id}>!`;
+    }
+
+    // Add movie poster if available (for sessions with associated movies)
+    if (sessionData.associatedMovieId) {
+      try {
+        const database = require('../database');
+        const movie = await database.getMovieByMessageId(sessionData.associatedMovieId);
+        const poster = movie?.poster_url || movie?.imdb_poster; // prefer new column, fallback if legacy
+        if (movie && poster) {
+          enhancedDescription += `\n\n🎬 **Featured Movie:** ${movie.title}`;
+          enhancedDescription += `\n🖼️ **Poster:** ${poster}`;
+        }
+      } catch (error) {
+        console.warn('Could not add movie poster to event description:', error.message);
+      }
+    }
+
+    // Note: We no longer include a SESSION_UID in the description because we track event IDs in the database
 
     // Determine event type and location
+    const startTimeStr = new Date(scheduledDate).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
     let eventConfig = {
-      name: `🎬 ${sessionData.name}`,
+      name: `🎬 ${sessionData.name} @ ${startTimeStr}`,
       description: enhancedDescription,
       scheduledStartTime: scheduledDate,
       scheduledEndTime: endTime,
@@ -62,13 +92,14 @@ async function createDiscordEvent(guild, sessionData, scheduledDate) {
         // Fetch the channel to verify it exists and get its type
         const channel = await guild.channels.fetch(config.session_viewing_channel_id);
         if (channel) {
-          console.log(`📍 Found session viewing channel: ${channel.name} (${channel.type})`);
+          const logger = require('../utils/logger');
+          logger.debug(`📍 Found session viewing channel: ${channel.name} (${channel.type})`);
 
           // Use appropriate event type based on channel type
           if (channel.type === 2) { // Voice channel
             eventConfig.entityType = GuildScheduledEventEntityType.Voice;
             eventConfig.channel = config.session_viewing_channel_id;
-            console.log(`📍 Setting voice event in channel: #${channel.name}`);
+            logger.debug(`📍 Setting voice event in channel: #${channel.name}`);
           } else if (channel.type === 13) { // Stage channel
             eventConfig.entityType = GuildScheduledEventEntityType.StageInstance;
             eventConfig.channel = config.session_viewing_channel_id;
@@ -103,7 +134,8 @@ async function createDiscordEvent(guild, sessionData, scheduledDate) {
 
     const event = await guild.scheduledEvents.create(eventConfig);
 
-    console.log(`✅ Created Discord event: ${event.name} (ID: ${event.id}) - Duration: ${durationMinutes} minutes`);
+    const logger = require('../utils/logger');
+    logger.info(`✅ Created Discord event: ${event.name} (ID: ${event.id}) - Duration: ${durationMinutes} minutes`);
 
     // Send notification to configured role
     await notifyRole(guild, event, sessionData);
@@ -122,10 +154,54 @@ async function updateDiscordEvent(guild, eventId, sessionData, scheduledDate) {
     const event = await guild.scheduledEvents.fetch(eventId);
     if (!event) return false;
 
+    // Rebuild description similar to creation for consistency
+    const database = require('../database');
+    const config = await database.getGuildConfig(guild.id);
+
+    const baseDescription = sessionData.description || 'Join us for movie night voting and viewing!';
+    let enhancedDescription = baseDescription;
+
+    // Enrich with IMDb details when available
+    try {
+      if (sessionData.associatedMovieId) {
+        const movie = await database.getMovieById(sessionData.associatedMovieId, sessionData.guildId);
+        if (movie && movie.imdb_id) {
+          const imdb = require('./imdb');
+          const imdbData = await imdb.getMovieDetails(movie.imdb_id);
+          if (imdbData) {
+            const parts = [];
+            if (imdbData.Year && imdbData.Year !== 'N/A') parts.push(`📅 Year: ${imdbData.Year}`);
+            if (imdbData.Runtime && imdbData.Runtime !== 'N/A') parts.push(`⏱️ Runtime: ${imdbData.Runtime}`);
+            if (imdbData.Genre && imdbData.Genre !== 'N/A') parts.push(`🎬 Genre: ${imdbData.Genre}`);
+            if (imdbData.imdbRating && imdbData.imdbRating !== 'N/A') parts.push(`⭐ IMDb: ${imdbData.imdbRating}/10`);
+            if (parts.length) enhancedDescription += `\n\n${parts.join(' \n')}`;
+            if (imdbData.Plot && imdbData.Plot !== 'N/A') enhancedDescription += `\n\n📖 ${imdbData.Plot}`;
+          }
+        }
+      }
+    } catch (_) { /* optional enrichment */ }
+
+    if (sessionData.votingEndTime) {
+      const votingEndTimestamp = Math.floor(sessionData.votingEndTime.getTime() / 1000);
+      enhancedDescription += `\n\n🗳️ **Voting ends:** <t:${votingEndTimestamp}:F>`;
+      enhancedDescription += `\n⏰ **Time remaining:** <t:${votingEndTimestamp}:R>`;
+    }
+
+    if (config && config.movie_channel_id) {
+      enhancedDescription += `\n📺 **Vote in:** <#${config.movie_channel_id}>`;
+      enhancedDescription += `\n\n👉 Join the conversation and vote for your favorite movie in <#${config.movie_channel_id}>!`;
+    }
+
+    const effectiveStart = scheduledDate || event.scheduledStartAt || (event.scheduledStartTimestamp ? new Date(event.scheduledStartTimestamp) : null);
+    if (effectiveStart) {
+      const startTs = Math.floor(new Date(effectiveStart).getTime() / 1000);
+      enhancedDescription += `\n\n🎟️ **Session starts:** <t:${startTs}:F> (<t:${startTs}:R>)`;
+    }
+    const startTimeStr2 = effectiveStart ? new Date(effectiveStart).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'TBD';
     await event.edit({
-      name: `🎬 ${sessionData.name}`,
-      description: sessionData.description || 'Movie night session - join us for a great movie!',
-      scheduledStartTime: scheduledDate
+      name: `🎬 ${sessionData.name} @ ${startTimeStr2}`,
+      description: enhancedDescription,
+      scheduledStartTime: effectiveStart || event.scheduledStartAt
     });
 
     console.log(`✅ Updated Discord event: ${event.name} (ID: ${event.id})`);
@@ -144,7 +220,8 @@ async function deleteDiscordEvent(guild, eventId) {
     if (!event) return false;
 
     await event.delete();
-    console.log(`🗑️ Deleted Discord event: ${eventId}`);
+    const logger = require('../utils/logger');
+    logger.info(`🗑️ Deleted Discord event: ${event.name} (${eventId})`);
     return true;
   } catch (error) {
     console.warn('Failed to delete Discord event:', error.message);
@@ -165,27 +242,65 @@ async function notifyRole(guild, event, sessionData) {
     // Find a suitable channel to send the notification
     let notificationChannel = null;
 
-    // Try to use the configured movie channel first
+    // Try to use the configured movie channel first (if it's a text channel)
     const guildConfig = await database.getGuildConfig(guild.id);
     if (guildConfig && guildConfig.movie_channel_id) {
-      notificationChannel = guild.channels.cache.get(guildConfig.movie_channel_id);
+      const movieChannel = guild.channels.cache.get(guildConfig.movie_channel_id);
+      if (movieChannel && movieChannel.type === 0 && movieChannel.send) {
+        notificationChannel = movieChannel;
+      }
+    // If the configured movie channel is a forum, skip sending the notification message entirely
+    try {
+      const forumChannels = require('./forum-channels');
+      const movieChannelForCheck = guildConfig && guildConfig.movie_channel_id ? guild.channels.cache.get(guildConfig.movie_channel_id) : null;
+      if (movieChannelForCheck && forumChannels.isForumChannel(movieChannelForCheck)) {
+        const logger = require('../utils/logger');
+        logger.debug('📢 Skipping event notification message in forum mode');
+        return;
+      }
+    } catch (_) {/* no-op */}
+
+    }
+
+    // If movie channel is forum or not suitable, try admin channel
+    if (!notificationChannel && guildConfig && guildConfig.admin_channel_id) {
+      const adminChannel = guild.channels.cache.get(guildConfig.admin_channel_id);
+      if (adminChannel && adminChannel.type === 0 && adminChannel.send) {
+        notificationChannel = adminChannel;
+        const logger = require('../utils/logger');
+        logger.debug(`📢 Using admin channel for event notification: ${adminChannel.name}`);
+      }
     }
 
     // Fallback to the session channel
     if (!notificationChannel && sessionData.channelId) {
-      notificationChannel = guild.channels.cache.get(sessionData.channelId);
+      const sessionChannel = guild.channels.cache.get(sessionData.channelId);
+      if (sessionChannel && sessionChannel.type === 0 && sessionChannel.send) {
+        notificationChannel = sessionChannel;
+      }
     }
 
-    // Fallback to general channel
+    // Last resort: find any suitable text channel (avoid general if possible)
     if (!notificationChannel) {
       notificationChannel = guild.channels.cache.find(channel =>
-        channel.type === 0 && // TEXT channel
-        channel.permissionsFor(guild.members.me).has(['SendMessages', 'ViewChannel'])
+        channel.type === 0 && // TEXT channel only
+        channel.send && // Has send method
+        channel.permissionsFor(guild.members.me).has(['SendMessages', 'ViewChannel']) &&
+        !channel.name.toLowerCase().includes('general') // Avoid general channel
       );
+
+      // If no non-general channel found, use general as last resort
+      if (!notificationChannel) {
+        notificationChannel = guild.channels.cache.find(channel =>
+          channel.type === 0 && // TEXT channel only
+          channel.send && // Has send method
+          channel.permissionsFor(guild.members.me).has(['SendMessages', 'ViewChannel'])
+        );
+      }
     }
 
-    if (!notificationChannel) {
-      console.warn('No suitable channel found for role notification');
+    if (!notificationChannel || !notificationChannel.send) {
+      console.warn('No suitable text channel found for role notification');
       return;
     }
 
@@ -214,7 +329,22 @@ async function notifyRole(guild, event, sessionData) {
       embeds: [embed]
     });
 
-    console.log(`✅ Notified role ${notificationRoleId} about event ${event.id}`);
+    const logger = require('../utils/logger');
+    logger.debug(`✅ Notified role ${notificationRoleId} about event ${event.id}`);
+
+    // ALWAYS restore admin panel after ANY notification to admin channel
+    if (notificationChannel.id === guildConfig?.admin_channel_id) {
+      // Schedule admin panel restoration after a delay
+      setTimeout(async () => {
+        try {
+          const adminControls = require('./admin-controls');
+          await adminControls.ensureAdminControlPanel(guild.client, guild.id);
+          logger.debug('🔧 Restored admin control panel after event notification');
+        } catch (error) {
+          logger.warn('Error restoring admin control panel after notification:', error.message);
+        }
+      }, 2000); // 2 second delay to ensure notification is fully sent
+    }
 
   } catch (error) {
     console.error('Error notifying role about event:', error);
@@ -224,7 +354,8 @@ async function notifyRole(guild, event, sessionData) {
 
 async function syncDiscordEventsWithDatabase(guild) {
   try {
-    console.log('🔄 Syncing Discord events with database...');
+    const logger = require('../utils/logger');
+    logger.debug('🔄 Syncing Discord events with database...');
 
     const database = require('../database');
 
@@ -248,7 +379,7 @@ async function syncDiscordEventsWithDatabase(guild) {
 
         if (!session) {
           // Session was deleted from database but Discord event still exists
-          console.log(`🗑️ Deleting orphaned Discord event: ${event.name} (Session ${sessionId} not found)`);
+          logger.info(`🗑️ Deleting orphaned Discord event: ${event.name} (Session ${sessionId} not found)`);
 
           try {
             await event.delete();
@@ -293,7 +424,7 @@ async function syncDiscordEventsWithDatabase(guild) {
       }
     }
 
-    console.log(`✅ Discord event sync complete: ${syncedCount} synced, ${deletedCount} orphaned events deleted`);
+    logger.info(`✅ Discord event sync complete: ${syncedCount} synced, ${deletedCount} orphaned events deleted`);
     return { syncedCount, deletedCount };
 
   } catch (error) {

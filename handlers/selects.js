@@ -6,11 +6,77 @@
 const { MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
 const database = require('../database');
 const { TIMEZONE_OPTIONS } = require('../config/timezones');
+const guidedSetup = require('../services/guided-setup');
 
 async function handleSelect(interaction) {
   const customId = interaction.customId;
 
+  // Clean up any previous ephemeral messages for this user
+  const ephemeralManager = require('../utils/ephemeral-manager');
+  await ephemeralManager.forceCleanupUser(interaction.user.id);
+
   try {
+    // Configuration channel/role selections
+    if (customId === 'config_select_voting_channel') {
+      const channelId = interaction.values[0];
+      const channel = interaction.guild.channels.cache.get(channelId);
+      const { configuration } = require('../services');
+
+      // Create a mock interaction with the selected channel
+      const mockInteraction = Object.create(interaction);
+      mockInteraction.options = {
+        getChannel: () => channel
+      };
+
+      await configuration.configureMovieChannel(mockInteraction, interaction.guild.id);
+      return;
+    }
+
+    if (customId === 'config_select_admin_channel') {
+      const channelId = interaction.values[0];
+      const channel = interaction.guild.channels.cache.get(channelId);
+      const { configuration } = require('../services');
+
+      // Create a mock interaction with the selected channel
+      const mockInteraction = Object.create(interaction);
+      mockInteraction.options = {
+        getChannel: () => channel
+      };
+
+      await configuration.configureAdminChannel(mockInteraction, interaction.guild.id);
+      return;
+    }
+
+    if (customId === 'config_select_viewing_channel') {
+      const channelId = interaction.values[0];
+      const channel = interaction.guild.channels.cache.get(channelId);
+      const { configuration } = require('../services');
+
+      // Create a mock interaction with the selected channel
+      const mockInteraction = Object.create(interaction);
+      mockInteraction.options = {
+        getChannel: () => channel
+      };
+
+      await configuration.configureViewingChannel(mockInteraction, interaction.guild.id);
+      return;
+    }
+
+    if (customId === 'config_select_notification_role') {
+      const roleId = interaction.values[0];
+      const role = interaction.guild.roles.cache.get(roleId);
+      const { configuration } = require('../services');
+
+      // Create a mock interaction with the selected role
+      const mockInteraction = Object.create(interaction);
+      mockInteraction.options = {
+        getRole: () => role
+      };
+
+      await configuration.setNotificationRole(mockInteraction, interaction.guild.id);
+      return;
+    }
+
     // Timezone selection for session creation
     if (customId === 'session_timezone_selected') {
       await handleSessionTimezoneSelection(interaction);
@@ -35,9 +101,21 @@ async function handleSelect(interaction) {
       return;
     }
 
-    // Deep purge selection menu
+    // Deep purge category selection (old auto-submit version)
     if (customId === 'deep_purge_select') {
       await handleDeepPurgeSelection(interaction);
+      return;
+    }
+
+    // Deep purge category selection (new version with submit button)
+    if (customId === 'deep_purge_select_categories') {
+      await handleDeepPurgeCategorySelection(interaction);
+      return;
+    }
+
+    // Guided setup select menus
+    if (customId.startsWith('setup_select_')) {
+      await handleGuidedSetupSelect(interaction, customId);
       return;
     }
 
@@ -60,7 +138,7 @@ async function handleSelect(interaction) {
 }
 
 /**
- * Handle deep purge category selection
+ * Handle deep purge category selection (old auto-submit version)
  */
 async function handleDeepPurgeSelection(interaction) {
   const { permissions } = require('../services');
@@ -89,6 +167,50 @@ async function handleDeepPurgeSelection(interaction) {
     if (!interaction.replied && !interaction.deferred) {
       await interaction.reply({
         content: '❌ An error occurred while preparing the deep purge confirmation.',
+        flags: MessageFlags.Ephemeral
+      });
+    }
+  }
+}
+
+/**
+ * Handle deep purge category selection (new version with submit button)
+ */
+async function handleDeepPurgeCategorySelection(interaction) {
+  const { permissions } = require('../services');
+  const deepPurge = require('../services/deep-purge');
+
+  // Check admin permissions
+  const hasPermission = await permissions.checkMovieAdminPermission(interaction);
+  if (!hasPermission) {
+    await interaction.reply({
+      content: '❌ You need Administrator permissions or a configured admin role to use this action.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  const selectedCategories = interaction.values;
+
+  try {
+    // Update the display with selected categories
+    const embed = deepPurge.updateSelectionDisplay(selectedCategories);
+    const components = deepPurge.createDeepPurgeSelectionMenu(selectedCategories);
+
+    // Store selected categories in the interaction for later use
+    global.deepPurgeSelections = global.deepPurgeSelections || new Map();
+    global.deepPurgeSelections.set(interaction.user.id, selectedCategories);
+
+    await interaction.update({
+      embeds: [embed],
+      components: components
+    });
+
+  } catch (error) {
+    console.error('Error handling deep purge category selection:', error);
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: '❌ An error occurred while updating the selection.',
         flags: MessageFlags.Ephemeral
       });
     }
@@ -314,6 +436,41 @@ async function handleImdbSelection(interaction) {
     content: 'IMDb selection processed.',
     flags: MessageFlags.Ephemeral
   });
+}
+
+/**
+ * Handle guided setup select menu interactions
+ */
+async function handleGuidedSetupSelect(interaction, customId) {
+  switch (customId) {
+    case 'setup_select_voting_channel':
+      await guidedSetup.handleChannelSelection(interaction, 'voting');
+      break;
+
+    case 'setup_select_admin_channel':
+      await guidedSetup.handleChannelSelection(interaction, 'admin');
+      break;
+
+    case 'setup_select_viewing_channel':
+      await guidedSetup.handleChannelSelection(interaction, 'viewing');
+      break;
+
+    case 'setup_select_admin_roles':
+      await guidedSetup.handleRoleSelection(interaction, 'admin');
+      break;
+
+    case 'setup_select_moderator_roles':
+      await guidedSetup.handleRoleSelection(interaction, 'moderator');
+      break;
+
+    case 'setup_select_notification_role':
+      await guidedSetup.handleRoleSelection(interaction, 'notification');
+      break;
+
+    default:
+      console.warn('Unknown guided setup select menu:', customId);
+      break;
+  }
 }
 
 module.exports = {

@@ -54,6 +54,61 @@ A comprehensive Discord bot for managing movie recommendations, voting, and orga
 
 ---
 
+### 🚀 Next Up (1.13.x Short-Term)
+- [ ] Keep Cancel/Reschedule visible until event start across all flows
+  - Use Discord event scheduledStart as the authoritative source when DB date is ambiguous
+  - Refresh Admin Control Panel after winner selection/reschedule/cancel to reflect current controls
+- [ ] Ephemeral success messages auto-expire/edit
+  - Edit ephemeral confirmations (e.g., “Movie recommendation added!”) to a compact success and auto-expire after ~30s where the interaction context allows
+  - Ensure we still acknowledge interactions within 3s (no modal timeouts)
+- [ ] Logging sweep: include guild_id everywhere
+  - Add standardized logger wrappers and audit hot paths (buttons, sessions, forum-channels, admin-controls, voting-closure)
+- [ ] Deep Purge parity
+  - Explicitly remove any lingering winner announcements
+  - Ensure correct “No Active Voting Session” forum post is (re)created and pinned
+  - Verify both forum and text voting modes
+- [ ] Event polish
+  - Optional: set IMDb poster as the event cover image when available
+  - Ensure role mentions/pings occur at session start where appropriate
+  - Harmonize event naming across all flows
+- [ ] Admin panel dedupe improvements
+  - Beyond throttling, prefer updating an existing per-user ephemeral Admin panel instead of opening a new one when possible
+- [ ] Docs: clarify configuration permissions
+  - Only users with Administrator or Manage Server (Manage Guild) can configure via the UI/commands
+
+
+## 📋 TODO List
+
+### 🔄 **Message Tracking System**
+- [ ] **Track all bot messages**: Store message IDs for notifications, admin panels, recommendations
+- [ ] **Message update system**: Update tracked messages when sessions are rescheduled
+- [ ] **Bidirectional sync**: Remove SESSION_UID from event descriptions once message tracking is implemented
+- [ ] **Message cleanup**: Proper cleanup of tracked messages when sessions end
+
+### 📅 **Reschedule Functionality**
+- [x] **Reschedule button**: Add reschedule button to admin panel (implemented in sessions.js)
+- [x] **Reschedule modal**: Allow editing session name, description, start time, voting end time (implemented)
+- [ ] **Event updates**: Update Discord events when sessions are rescheduled
+- [ ] **Notification updates**: Update all tracked notification messages with new times
+
+### 🗳️ **Multiple Voting Sessions**
+- [ ] **Concurrent voting sessions**: Support multiple active voting sessions simultaneously
+- [ ] **Session queue management**: Queue system for multiple planned sessions
+- [ ] **Session-specific voting channels**: Separate voting channels or sections for each session
+- [ ] **Session priority system**: Handle overlapping session times and priorities
+
+### 🎯 **Future Enhancements**
+- [ ] **Forum channel tags**: Implement status-based tags for forum posts
+- [ ] **Advanced analytics**: More detailed voting and attendance statistics
+- [ ] **Movie recommendations API**: Integration with additional movie databases
+- [ ] **Automated reminders**: Reminder notifications before voting ends
+- [ ] Repository consolidation: Consider moving bot and dashboard into a single monorepo once WS integration stabilizes (keep separate deployment methods).
+
+- [ ] Monorepo planning: evaluate hosting the bot in AWS (e.g., ECS/Fargate) instead of PebbleHost to reduce operational issues; align CI/CD, secrets (AWS Secrets Manager), and env parity with the dashboard.
+
+
+---
+
 ## Prerequisites
 - Node.js 18+ (fetch built-in).
 - Discord application + bot token.
@@ -103,7 +158,7 @@ Create a `.env` in the project root (copy from `.env.example`):
 ```
 DISCORD_TOKEN=YOUR_BOT_TOKEN
 CLIENT_ID=YOUR_APPLICATION_ID
-# Optional: set for instant (guild) command registration; omit for global
+# Optional: set for additional instant command registration to development servers
 GUILD_ID=YOUR_SERVER_ID
 # Optional: OMDb API key
 OMDB_API_KEY=YOUR_OMDB_API_KEY
@@ -271,6 +326,12 @@ pm2 startup  # follow the printed instructions
 - **Notification Roles:** Configure roles for Discord event notifications and session announcements
 - **View Settings:** `/movie-configure view-settings` shows all current configuration including new features
 
+### Logging Configuration
+- **Log Levels:** `ERROR`, `WARN`, `INFO`, `DEBUG` - Control console output verbosity
+- **Debug Mode:** Enable detailed debugging for troubleshooting and development
+- **Colored Output:** Optional colored console logs for better readability
+- **Environment Variables:** Configure logging behavior via `.env` file
+
 ### Channel Maintenance
 - **Cleanup:** `/movie-cleanup` updates old bot messages to current format (Configured admins only)
 - **Thread Creation:** Automatically creates missing discussion threads for movies up for vote
@@ -289,11 +350,11 @@ pm2 startup  # follow the printed instructions
 ---
 
 ## Troubleshooting
-- **Slash command not appearing**: set `GUILD_ID` in `.env` for instant registration; restart the bot.
+- **Slash command not appearing**: Commands are registered globally and to new guilds automatically. Wait up to 1 hour for global propagation or restart the bot.
 - **“Invalid Form Body … SELECT_COMPONENT_OPTION_VALUE_DUPLICATED”**: fixed by deduping `imdbID` in v1.3.0.
 - **Threads not created**: ensure bot has *Create Public Threads* and *Send Messages in Threads*.
 - **Missing discussion threads**: run `/movie-cleanup` to automatically create threads for movies that are missing them.
-- **Global vs Guild**: remove `GUILD_ID` for public/global; keep it set for instant updates in a test server.
+- **Global vs Guild**: Commands are now registered globally for all servers. `GUILD_ID` is optional for additional development server registration.
 
 ---
 
