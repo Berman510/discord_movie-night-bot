@@ -2687,7 +2687,8 @@ async function completeSetupAndInitialize(interaction) {
   const { EmbedBuilder } = require('discord.js');
 
   try {
-    // Show completion message
+    // Show completion message and keep a handle to the panel message so we can edit it later
+    const panelMsg = interaction.message;
     const embed = new EmbedBuilder()
       .setTitle('🎉 Setup Complete!')
       .setDescription('Your Movie Night Bot is now configured and ready to use!\n\n**Initializing channels...**')
@@ -2698,6 +2699,8 @@ async function completeSetupAndInitialize(interaction) {
       embeds: [embed],
       components: []
     });
+
+    // panelMsg refers to the same message; after update completes we can edit it again safely
 
     // Initialize admin control panel and voting channel
     const config = await database.getGuildConfig(interaction.guild.id);
@@ -2715,7 +2718,7 @@ async function completeSetupAndInitialize(interaction) {
       }
     }
 
-    // Update completion message
+    // Update completion panel in-place (avoid creating a new ephemeral)
     const finalEmbed = new EmbedBuilder()
       .setTitle('🎉 Setup Complete!')
       .setDescription('Your Movie Night Bot is now configured and ready to use!')
@@ -2733,11 +2736,18 @@ async function completeSetupAndInitialize(interaction) {
         }
       );
 
-    // Send final message as followup since we can't update again
-    await interaction.followUp({
-      embeds: [finalEmbed],
-      flags: MessageFlags.Ephemeral
-    });
+    try {
+      await panelMsg.edit({
+        embeds: [finalEmbed],
+        components: []
+      });
+    } catch (e) {
+      // Fallback: if edit fails for any reason, send a single follow-up
+      await interaction.followUp({
+        embeds: [finalEmbed],
+        flags: MessageFlags.Ephemeral
+      });
+    }
 
   } catch (error) {
     console.error('Error completing setup:', error);
