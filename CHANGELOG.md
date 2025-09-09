@@ -94,6 +94,11 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 
 
 ## [1.13.0-rc111] - 2025-09-09
+
+## [1.13.0-rc112] - 2025-09-09
+### Fixed
+- Recommendation modal: prevent Discord modal timeout (“Something went wrong. Try again”) by deferring the reply before IMDb network calls and using followUp when deferred. Also adjusted success/error paths in createMovieWithoutImdb to respect deferred interactions.
+
 ### Fixed
 - IMDb selection: limit the per-row button count to Discord’s 5-component maximum by showing up to 3 results plus “None of these” and “Cancel”. Fixes Invalid Form Body error (data.components[0].components must be 1–5) when submitting recommendations.
 

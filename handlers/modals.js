@@ -127,6 +127,11 @@ async function handleMovieRecommendationModal(interaction) {
       return;
     }
 
+    // Defer early for potentially long IMDb/network operations
+    if (!interaction.deferred && !interaction.replied) {
+      try { await interaction.deferReply({ flags: MessageFlags.Ephemeral }); } catch {}
+    }
+
     // Search IMDb for the movie
     let imdbResults = [];
     try {
@@ -292,19 +297,21 @@ async function createMovieWithoutImdb(interaction, title, where) {
       ? `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added as a new forum post in ${movieChannel} for voting and discussion.`
       : `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added to the queue in ${movieChannel} for voting.`;
 
-    await interaction.reply({
-      content: successMessage,
-      flags: MessageFlags.Ephemeral
-    });
+    if (interaction.deferred || interaction.replied) {
+      await interaction.followUp({ content: successMessage, flags: MessageFlags.Ephemeral });
+    } else {
+      await interaction.reply({ content: successMessage, flags: MessageFlags.Ephemeral });
+    }
 
   } catch (error) {
     const logger = require('../utils/logger');
     logger.error('🔍 DEBUG: Error in createMovieWithoutImdb:', error);
     logger.debug('🔍 DEBUG: Error stack:', error.stack);
-    await interaction.reply({
-      content: `❌ Failed to create movie recommendation: ${error.message}`,
-      flags: MessageFlags.Ephemeral
-    });
+    if (interaction.deferred || interaction.replied) {
+      await interaction.followUp({ content: `❌ Failed to create movie recommendation: ${error.message}` , flags: MessageFlags.Ephemeral });
+    } else {
+      await interaction.reply({ content: `❌ Failed to create movie recommendation: ${error.message}`, flags: MessageFlags.Ephemeral });
+    }
   }
 }
 
