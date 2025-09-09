@@ -1363,7 +1363,15 @@ async function handleCustomDateTimeModal(interaction) {
       state.timeDisplay = formatTime(hour, minute);
       global.sessionCreationState.set(userId, state);
 
-      await showTimezoneSelection(interaction, state);
+      // If this is a reschedule flow, skip timezone selection and go straight to details
+      const isReschedule = global.sessionRescheduleState && global.sessionRescheduleState.has(userId);
+      if (isReschedule) {
+        if (!state.selectedTimezone) state.selectedTimezone = state.timezone || 'UTC';
+        if (!state.timezoneName) state.timezoneName = state.selectedTimezone;
+        await showSessionDetailsModal(interaction, state);
+      } else {
+        await showTimezoneSelection(interaction, state);
+      }
     }
   } catch (error) {
     console.error('Error handling custom date/time modal:', error);

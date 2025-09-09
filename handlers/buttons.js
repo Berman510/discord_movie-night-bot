@@ -116,7 +116,8 @@ async function handleButton(interaction) {
         customId.startsWith('session_movie_time:') ||
         customId.startsWith('session_movie_create:') ||
         customId === 'session_create_final' ||
-        customId === 'session_back_to_timezone') {
+        customId === 'session_back_to_timezone' ||
+        customId === 'session_back_to_movie') {
       await sessions.handleSessionCreationButton(interaction);
       return;
     }
