@@ -4,6 +4,14 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 
 ## [1.13.0-rc118] - 2025-09-09
 ## [1.13.0-rc119] - 2025-09-09
+## [1.13.0-rc121] - 2025-09-09
+### Added
+- Event cover image: when a winner is chosen (manual or automatic), the bot now downloads the IMDb poster and uploads it to the Discord Scheduled Event as the cover image. Discord hosts the image; no persistent hosting is required.
+
+### Notes
+- Safe fallbacks: if image fetch fails or is too large, we skip setting the cover image and keep the description link.
+
+
 ## [1.13.0-rc120] - 2025-09-09
 ### Fixed
 - Forum cleanup after winner/cancel: canceling a session after a winner is chosen now clears the original recommendation thread and any winner announcement threads. `clearForumMoviePosts()` now supports an option to remove winner announcements and is used by Cancel Session and Deep Purge.

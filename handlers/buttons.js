@@ -1509,6 +1509,7 @@ async function handlePickWinner(interaction, guildId, movieId) {
           const imdbData = movie.imdb_id ? await require('../services/imdb').getMovieDetails(movie.imdb_id) : null;
 
           let updatedDescription = `🏆 **WINNER SELECTED: ${movie.title}**\n\n`;
+          let posterBuffer = null;
           if (imdbData && imdbData.Plot && imdbData.Plot !== 'N/A') {
             updatedDescription += `📖 ${imdbData.Plot}\n\n`;
           }
@@ -1516,13 +1517,29 @@ async function handlePickWinner(interaction, guildId, movieId) {
           updatedDescription += `👤 Selected by admin\n`;
           if (imdbData && imdbData.Poster && imdbData.Poster !== 'N/A') {
             updatedDescription += `🖼️ Poster: ${imdbData.Poster}\n`;
+            try {
+              const res = await fetch(imdbData.Poster);
+              if (res.ok) {
+                const len = Number(res.headers.get('content-length') || '0');
+                if (!len || len < 8000000) {
+                  const arr = await res.arrayBuffer();
+                  posterBuffer = Buffer.from(arr);
+                }
+              }
+            } catch (imgErr) {
+              console.warn('Could not fetch poster image for event cover (manual):', imgErr.message);
+            }
           }
           updatedDescription += `📅 Join us for movie night!\n\n🔗 SESSION_UID:${activeSession.id}`;
 
-          await event.edit({
+          const editPayload = {
             name: `🎬 ${activeSession.name} - ${movie.title}`,
             description: updatedDescription
-          });
+          };
+          if (posterBuffer) {
+            editPayload.image = posterBuffer;
+          }
+          await event.edit(editPayload);
 
           console.log(`📅 Successfully updated Discord event with manual winner: ${movie.title} (Score: ${totalScore})`);
         } else {

@@ -286,6 +286,7 @@ async function selectWinner(client, session, winner, config) {
 
           // Get IMDB info for enhanced event description
           let eventDescription = `🏆 **WINNER: ${winner.movie.title}**\n\n`;
+          let posterBuffer = null;
 
           if (winner.movie.imdb_id) {
             try {
@@ -309,6 +310,18 @@ async function selectWinner(client, session, winner, config) {
                 }
                 if (imdbData.Poster && imdbData.Poster !== 'N/A') {
                   eventDescription += `🖼️ Poster: ${imdbData.Poster}\n`;
+                  try {
+                    const res = await fetch(imdbData.Poster);
+                    if (res.ok) {
+                      const len = Number(res.headers.get('content-length') || '0');
+                      if (!len || len < 8000000) { // <8MB safety
+                        const arr = await res.arrayBuffer();
+                        posterBuffer = Buffer.from(arr);
+                      }
+                    }
+                  } catch (imgErr) {
+                    console.warn('Could not fetch poster image for event cover:', imgErr.message);
+                  }
                 }
                 eventDescription += `\n`;
               }
@@ -320,10 +333,14 @@ async function selectWinner(client, session, winner, config) {
           eventDescription += `📊 Final Score: ${winner.totalScore} (${winner.upVotes} 👍 - ${winner.downVotes} 👎)\n\n`;
           eventDescription += `📅 Join us for movie night!\n\n🔗 SESSION_UID:${session.id}`;
 
-          await event.edit({
+          const editPayload = {
             name: `🎬 ${session.name} - ${winner.movie.title}`,
             description: eventDescription
-          });
+          };
+          if (posterBuffer) {
+            editPayload.image = posterBuffer;
+          }
+          await event.edit(editPayload);
           console.log(`📅 Successfully updated Discord event with winner and IMDB info: ${winner.movie.title}`);
         } else {
           console.warn(`📅 Discord event not found: ${session.discord_event_id}`);
