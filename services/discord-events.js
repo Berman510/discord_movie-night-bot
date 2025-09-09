@@ -191,11 +191,12 @@ async function updateDiscordEvent(guild, eventId, sessionData, scheduledDate) {
       enhancedDescription += `\n\n👉 Join the conversation and vote for your favorite movie in <#${config.movie_channel_id}>!`;
     }
 
-    const startTimeStr2 = new Date(scheduledDate).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    const effectiveStart = scheduledDate || event.scheduledStartAt || (event.scheduledStartTimestamp ? new Date(event.scheduledStartTimestamp) : null);
+    const startTimeStr2 = effectiveStart ? new Date(effectiveStart).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'TBD';
     await event.edit({
       name: `🎬 ${sessionData.name} @ ${startTimeStr2}`,
       description: enhancedDescription,
-      scheduledStartTime: scheduledDate
+      scheduledStartTime: effectiveStart || event.scheduledStartAt
     });
 
     console.log(`✅ Updated Discord event: ${event.name} (ID: ${event.id})`);

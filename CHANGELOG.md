@@ -2,6 +2,13 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.13.0-rc115] - 2025-09-09
+### Fixed
+- Event update after winner: pass the session scheduled date to avoid "@ Invalid Date" in event titles; add safe fallback to use existing event start time if none provided.
+- Admin panel timing: refresh the Admin Control Panel immediately after session creation so Cancel/Reschedule buttons are available before the first recommendation.
+- Timezone: prefer `default_timezone` from guild config (fallback to `timezone`, then UTC) when creating sessions to avoid scheduling drift.
+
+
 ## [1.13.0-rc114] - 2025-09-09
 ### Fixed
 - Forum winner announcement: corrected allowedMentions to avoid Discord API error (roles list only), restoring winner thread posting and role pings.

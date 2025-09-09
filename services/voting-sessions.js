@@ -243,7 +243,7 @@ async function createVotingSession(interaction, state) {
   try {
     // Get guild configuration for timezone
     const config = await database.getGuildConfig(interaction.guild.id);
-    const guildTimezone = config?.timezone || 'America/Los_Angeles'; // Default to PT
+    const guildTimezone = (config?.default_timezone || config?.timezone || 'UTC'); // Prefer configured default_timezone, fallback to timezone, then UTC
 
     // Create the voting session in the database
     const sessionData = {
@@ -483,8 +483,14 @@ async function createVotingSession(interaction, state) {
         }
       }
 
-      // Note: Admin control panel will be updated automatically by the next sync operation
-      // We don't refresh it here to avoid replacing the existing panel that users might be interacting with
+      // Refresh admin control panel immediately so Cancel/Reschedule are available right away
+      try {
+        const adminControls = require('./admin-controls');
+        await adminControls.ensureAdminControlPanel(interaction.client || global.discordClient, interaction.guild.id);
+      } catch (e) {
+        const logger = require('../utils/logger');
+        logger.warn('Error refreshing admin control panel after session creation:', e.message);
+      }
     } catch (error) {
       logger.warn('Error updating channels after session creation:', error.message);
     }

@@ -1639,10 +1639,15 @@ async function handleChooseWinner(interaction, guildId, movieId) {
         if (config?.movie_channel_id) parts.push(`Discuss: <#${config.movie_channel_id}>`);
         const description = parts.join('\n') + (activeSession.description ? `\n\n${activeSession.description}` : '');
 
-        await discordEvents.updateDiscordEvent(interaction.guild, activeSession.discord_event_id, {
-          name: updatedName,
-          description
-        });
+        await discordEvents.updateDiscordEvent(
+          interaction.guild,
+          activeSession.discord_event_id,
+          {
+            name: updatedName,
+            description
+          },
+          activeSession.scheduled_date || activeSession.scheduledDate || null
+        );
       } catch (error) {
         console.warn('Error updating Discord event:', error.message);
       }
