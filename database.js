@@ -175,7 +175,9 @@ class Database {
         name VARCHAR(255) NOT NULL,
         description TEXT NULL,
         scheduled_date DATETIME NULL,
+        voting_end_time DATETIME NULL,
         timezone VARCHAR(50) DEFAULT 'UTC',
+        /* kept for backward compatibility with older code paths; not used by current code */
         voting_deadline DATETIME NULL,
         status ENUM('planning', 'voting', 'decided', 'completed', 'cancelled') DEFAULT 'planning',
         winner_message_id VARCHAR(20) NULL,
@@ -239,6 +241,20 @@ class Database {
     }
 
     const logger = require('./utils/logger');
+    // Ensure critical columns exist even when migrations are disabled (fresh installs)
+    try {
+      const [cols] = await this.pool.execute(`
+        SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'movie_sessions' AND COLUMN_NAME = 'voting_end_time'
+      `);
+      if (cols.length === 0) {
+        await this.pool.execute(`ALTER TABLE movie_sessions ADD COLUMN voting_end_time DATETIME NULL AFTER scheduled_date`);
+        logger.debug('✅ Added voting_end_time column via initializeTables');
+      }
+    } catch (e) {
+      logger.warn('initializeTables ensure voting_end_time warning:', e.message);
+    }
+
     // Run migrations to ensure schema is up to date (can be disabled via env)
     if (process.env.DB_MIGRATIONS_ENABLED === 'true') {
       await this.runMigrations();
