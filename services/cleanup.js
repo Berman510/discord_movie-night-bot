@@ -369,7 +369,7 @@ async function ensureQuickActionPinned(channel) {
 
     // First try to find in pinned messages
     try {
-      const pinnedMessages = await channel.messages.fetchPinned();
+      const pinnedMessages = await channel.messages.fetchPins();
       // Check if pinnedMessages is a Collection and has the find method
       if (pinnedMessages && typeof pinnedMessages.find === 'function') {
         existingQuickAction = pinnedMessages.find(msg =>

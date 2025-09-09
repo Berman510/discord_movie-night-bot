@@ -143,6 +143,7 @@ class Database {
         poster_url VARCHAR(500) NULL,
         status ENUM('pending', 'watched', 'planned', 'skipped', 'scheduled', 'banned') DEFAULT 'pending',
         session_id INT NULL,
+        next_session BOOLEAN DEFAULT FALSE,
         is_banned BOOLEAN DEFAULT FALSE,
         watch_count INT DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -254,6 +255,19 @@ class Database {
     } catch (e) {
       logger.warn('initializeTables ensure voting_end_time warning:', e.message);
     }
+    try {
+      const [cols2] = await this.pool.execute(`
+        SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'movies' AND COLUMN_NAME = 'next_session'
+      `);
+      if (cols2.length === 0) {
+        await this.pool.execute(`ALTER TABLE movies ADD COLUMN next_session BOOLEAN DEFAULT FALSE AFTER session_id`);
+        logger.debug('✅ Added next_session column via initializeTables');
+      }
+    } catch (e) {
+      logger.warn('initializeTables ensure next_session warning:', e.message);
+    }
+
 
     // Run migrations to ensure schema is up to date (can be disabled via env)
     if (process.env.DB_MIGRATIONS_ENABLED === 'true') {

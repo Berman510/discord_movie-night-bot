@@ -349,7 +349,7 @@ async function ensureAdminControlPanel(client, guildId) {
 
     // First try to find in pinned messages
     try {
-      const pinnedMessages = await adminChannel.messages.fetchPinned();
+      const pinnedMessages = await adminChannel.messages.fetchPins();
       // Check if pinnedMessages is a Collection and has the find method
       if (pinnedMessages && typeof pinnedMessages.find === 'function') {
         existingPanel = pinnedMessages.find(msg =>
