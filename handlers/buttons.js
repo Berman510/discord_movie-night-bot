@@ -2590,12 +2590,12 @@ async function completeSetupAndInitialize(interaction) {
       .addFields(
         {
           name: '🎬 What\'s Next?',
-          value: '• Use `/movie-night action:create-session` to create your first movie session\n• Users can recommend movies with the 🍿 button in your voting channel\n• Manage everything from your admin channel',
+          value: '• Use `/movie-night action:create-session` to create your first movie session\n• Users can recommend movies with the 🍿 button in your voting channel\n• Manage everything from your admin channel\n• Or manage via the Web Dashboard: https://movienight.bermanoc.net (minus voting)',
           inline: false
         },
         {
           name: '📚 Need Help?',
-          value: 'Use `/movie-night action:help` for detailed usage instructions',
+          value: 'Use `/movie-night action:help` for detailed usage instructions, or visit the Web Dashboard: https://movienight.bermanoc.net',
           inline: false
         }
       );
@@ -2646,6 +2646,11 @@ async function handleAdministrationPanel(interaction) {
       {
         name: '📊 Advanced Features',
         value: '• **Guild Statistics** - Detailed analytics and reports\n• **Role Management** - Configure admin and moderator roles',
+        inline: false
+      },
+      {
+        name: '🌐 Web Dashboard',
+        value: 'Manage the bot (minus voting) at https://movienight.bermanoc.net',
         inline: false
       }
     )

@@ -51,6 +51,11 @@ async function createAdminControlEmbed(guildName, guildId) {
       inline: false
     },
     {
+      name: '🌐 Web Dashboard',
+      value: 'Manage the bot (minus voting) from the dashboard: https://movienight.bermanoc.net',
+      inline: false
+    },
+    {
       name: '⚡ Status',
       value: 'Control panel active and ready for use.',
       inline: false
@@ -108,6 +113,11 @@ async function tryShowSetupPanelInAdminChannels(client, guildId) {
         {
           name: '⚙️ Manual Setup',
           value: 'Or use `/movie-setup` command for step-by-step configuration.',
+          inline: false
+        },
+        {
+          name: '🌐 Web Dashboard',
+          value: 'Prefer a browser? Configure and manage the bot (minus voting) at https://movienight.bermanoc.net',
           inline: false
         }
       )

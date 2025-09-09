@@ -13,7 +13,7 @@ const database = require('../database');
 async function startGuidedSetup(interaction) {
   const embed = new EmbedBuilder()
     .setTitle('🎬 Movie Night Bot - Quick Setup')
-    .setDescription(`Welcome! Let's get your Movie Night Bot configured in just a few steps.\n\n**What we'll set up:**\n• 📺 Voting channel (where movies are recommended)\n• 🔧 Admin channel (for bot management)\n• 🎤 Viewing channel (where you watch movies)\n• 👑 Admin roles (who can manage the bot)\n• 🔔 Viewer role (gets pinged for events)\n\n**Note:** The bot already has its own "${interaction.client.user.displayName}" role with required permissions.`)
+    .setDescription(`Welcome! Let's get your Movie Night Bot configured in just a few steps.\n\n**What we'll set up:**\n• 📺 Voting channel (where movies are recommended)\n• 🔧 Admin channel (for bot management)\n• 🎤 Viewing channel (where you watch movies)\n• 👑 Admin roles (who can manage the bot)\n• 🔔 Viewer role (gets pinged for events)\n\n**Note:** The bot already has its own "${interaction.client.user.displayName}" role with required permissions.\n\n**Prefer a browser?** Manage the bot (minus voting) from the dashboard: https://movienight.bermanoc.net`)
     .setColor(0x5865f2)
     .setFooter({ text: 'This setup takes about 2 minutes' });
 
@@ -50,9 +50,10 @@ async function showSetupMenuWithMessage(interaction, currentConfig = null, succe
     currentConfig = await database.getGuildConfig(interaction.guild.id) || {};
   }
 
-  let description = 'Choose what to configure. ✅ = Configured, ❌ = Not set';
+  const baseDesc = 'Choose what to configure. ✅ = Configured, ❌ = Not set\n\nTip: You can also manage via the Web Dashboard: https://movienight.bermanoc.net (minus voting)';
+  let description = baseDesc;
   if (successMessage) {
-    description = `${successMessage}\n\n${description}`;
+    description = `${successMessage}\n\n${baseDesc}`;
   }
 
   const embed = new EmbedBuilder()
@@ -365,12 +366,12 @@ async function showSetupComplete(interaction) {
     .addFields(
       {
         name: '🎬 What\'s Next?',
-        value: '• Use `/movie-night action:create-session` to create your first movie session\n• Users can recommend movies with the 🍿 button in your voting channel\n• Manage everything from your admin channel',
+        value: '• Use `/movie-night action:create-session` to create your first movie session\n• Users can recommend movies with the 🍿 button in your voting channel\n• Manage everything from your admin channel\n• Or manage via the Web Dashboard: https://movienight.bermanoc.net (minus voting)',
         inline: false
       },
       {
         name: '📚 Need Help?',
-        value: 'Use `/movie-night action:help` for detailed usage instructions',
+        value: 'Use `/movie-night action:help` for detailed usage instructions, or visit the Web Dashboard: https://movienight.bermanoc.net',
         inline: false
       }
     );
@@ -520,7 +521,7 @@ async function configureChannelDirectly(interaction, channel, channelType) {
           }
         }
         message = success ?
-          `✅ **Admin channel set to ${channel}**\n\nAdmin controls will appear here!` :
+          `✅ **Admin channel set to ${channel}**\n\nAdmin controls will appear here!\n\n🌐 You can also manage from the Web Dashboard: https://movienight.bermanoc.net` :
           '❌ Failed to set admin channel.';
         break;
 
