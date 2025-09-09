@@ -1,6 +1,14 @@
 # Changelog
 
 All notable changes to **Movie Night Bot** will be documented in this file.
+## [1.13.0-rc122] - 2025-09-09
+### Changed
+- Event cover image is now a composed 16:9 banner using Jimp: portrait posters are centered on a 1280x720 canvas with side letterboxing so they don’t appear zoom-cropped in Discord’s banner view.
+
+### Notes
+- Still memory-only; no tmp files. If composition or fetch fails, we fall back gracefully (description keeps the poster URL).
+
+
 
 ## [1.13.0-rc118] - 2025-09-09
 ## [1.13.0-rc119] - 2025-09-09

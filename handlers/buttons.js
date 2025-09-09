@@ -1524,6 +1524,12 @@ async function handlePickWinner(interaction, guildId, movieId) {
                 if (!len || len < 8000000) {
                   const arr = await res.arrayBuffer();
                   posterBuffer = Buffer.from(arr);
+                  try {
+                    const { composeEventCoverFromPoster } = require('../services/image-utils');
+                    posterBuffer = await composeEventCoverFromPoster(posterBuffer);
+                  } catch (composeErr) {
+                    console.warn('Poster composition failed (manual), will upload raw poster:', composeErr.message);
+                  }
                 }
               }
             } catch (imgErr) {

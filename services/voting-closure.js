@@ -317,6 +317,12 @@ async function selectWinner(client, session, winner, config) {
                       if (!len || len < 8000000) { // <8MB safety
                         const arr = await res.arrayBuffer();
                         posterBuffer = Buffer.from(arr);
+                        try {
+                          const { composeEventCoverFromPoster } = require('./image-utils');
+                          posterBuffer = await composeEventCoverFromPoster(posterBuffer);
+                        } catch (composeErr) {
+                          console.warn('Poster composition failed, will upload raw poster:', composeErr.message);
+                        }
                       }
                     }
                   } catch (imgErr) {
