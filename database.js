@@ -238,10 +238,13 @@ class Database {
       }
     }
 
-    // Run migrations to ensure schema is up to date
-    await this.runMigrations();
-
     const logger = require('./utils/logger');
+    // Run migrations to ensure schema is up to date (can be disabled via env)
+    if (process.env.DB_MIGRATIONS_ENABLED === 'true') {
+      await this.runMigrations();
+    } else {
+      logger.info('⏭️ Database migrations disabled; skipping (set DB_MIGRATIONS_ENABLED=true to run)');
+    }
     logger.info('✅ Database tables initialized');
   }
 
