@@ -92,6 +92,11 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 
 
 
+
+## [1.13.0-rc111] - 2025-09-09
+### Fixed
+- IMDb selection: limit the per-row button count to Discord’s 5-component maximum by showing up to 3 results plus “None of these” and “Cancel”. Fixes Invalid Form Body error (data.components[0].components must be 1–5) when submitting recommendations.
+
 ## [1.13.0-rc95] - 2025-09-08
 ### Fixed
 - Resolve startup crash on some Node runtimes by flattening Migration 19/20 structure (removed outer try/catch wrappers). All statements still guarded individually with warnings; functional behavior unchanged.
