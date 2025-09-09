@@ -954,8 +954,8 @@ async function handleSessionReschedule(interaction, sessionId, movieMessageId) {
     originalSession: session
   });
 
-  // Start the reschedule flow (same as session creation)
-  await showDateSelection(interaction, true); // true indicates reschedule mode
+  // Start the reschedule flow using the same creation UI
+  await showSessionCreationModal(interaction);
 }
 
 async function handleSessionCancel(interaction, sessionId, movieMessageId) {
@@ -1411,6 +1411,75 @@ async function createMovieSessionFromModal(interaction) {
       );
     }
 
+    // If this is a reschedule flow, update existing session instead of creating a new one
+    const resMap = global.sessionRescheduleState;
+    const resState = resMap ? resMap.get(userId) : null;
+    const tz = state.selectedTimezone || state.timezone || 'UTC';
+
+    if (resState && resState.sessionId) {
+      const sessionId = resState.sessionId;
+
+      // Update session core details
+      await database.updateMovieSessionDetails(sessionId, {
+        name: sessionName,
+        description: sessionDescription,
+        scheduledDate: scheduledDate,
+        timezone: tz
+      });
+
+      // Update or create Discord scheduled event
+      let discordEventId = resState.originalSession?.discord_event_id || null;
+      if (discordEventId) {
+        await discordEvents.updateDiscordEvent(
+          interaction.guild,
+          discordEventId,
+          { id: sessionId, name: sessionName, description: sessionDescription },
+          scheduledDate
+        );
+      } else if (scheduledDate) {
+        const sessionData = {
+          id: sessionId,
+          guildId: interaction.guild.id,
+          channelId: interaction.channel.id,
+          name: sessionName,
+          description: sessionDescription,
+          createdBy: resState.originalSession?.created_by || interaction.user.id,
+          scheduledDate: scheduledDate,
+          timezone: tz,
+          status: resState.originalSession?.status || 'planning',
+          associatedMovieId: resState.originalSession?.associated_movie_id || state.selectedMovie || null
+        };
+        const newEventId = await discordEvents.createDiscordEvent(interaction.guild, sessionData, scheduledDate);
+        if (newEventId) {
+          await database.updateSessionDiscordEvent(sessionId, newEventId);
+          discordEventId = newEventId;
+        }
+      }
+
+      // Update the movie post if known
+      const movieMessageId = resState.movieMessageId || resState.originalSession?.associated_movie_id || state.selectedMovie || null;
+      if (movieMessageId) {
+        await updateMoviePostForSession(interaction, movieMessageId, sessionId, sessionName, scheduledDate, discordEventId || null);
+      }
+
+      // Acknowledge success
+      const ts = scheduledDate ? Math.floor(new Date(scheduledDate).getTime() / 1000) : null;
+      const msg = ts
+        ? `✅ Session "${sessionName}" rescheduled to <t:${ts}:F>`
+        : `✅ Session "${sessionName}" updated.`;
+
+      if (interaction.deferred || interaction.replied) {
+        await interaction.followUp({ content: msg, flags: MessageFlags.Ephemeral });
+      } else {
+        await interaction.reply({ content: msg, flags: MessageFlags.Ephemeral });
+      }
+
+      // Clean state
+      global.sessionCreationState.delete(userId);
+      try { global.sessionRescheduleState.delete(userId); } catch {}
+      return;
+    }
+
     // Create session in database
     const sessionData = {
       guildId: interaction.guild.id,
@@ -1419,7 +1488,7 @@ async function createMovieSessionFromModal(interaction) {
       description: sessionDescription,
       createdBy: interaction.user.id,
       scheduledDate: scheduledDate,
-      timezone: state.selectedTimezone || 'UTC',
+      timezone: tz,
       status: 'planning',
       associatedMovieId: state.selectedMovie || null
     };
@@ -1525,6 +1594,8 @@ module.exports = {
   handleSessionCreationButton,
   handleCustomDateTimeModal,
   handleSessionManagement,
+  handleSessionReschedule,
+  handleSessionCancel,
   handleCancelConfirmation,
   createMovieSessionFromModal,
   showTimezoneSelector

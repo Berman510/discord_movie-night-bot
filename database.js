@@ -2197,6 +2197,22 @@ class Database {
     }
   }
 
+
+  async updateMovieSessionDetails(sessionId, { name, description, scheduledDate, timezone }) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `UPDATE movie_sessions SET name = ?, description = ?, scheduled_date = ?, timezone = ? WHERE id = ?`,
+        [name || null, description || null, scheduledDate || null, timezone || null, sessionId]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error updating movie session details:', error.message);
+      return false;
+    }
+  }
+
   // Voting session management methods
   async getActiveVotingSession(guildId) {
     if (!this.isConnected) return null;

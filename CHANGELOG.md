@@ -1,6 +1,13 @@
 # Changelog
 
 All notable changes to **Movie Night Bot** will be documented in this file.
+## [1.13.0-rc123] - 2025-09-09
+### Fixed
+- Reschedule session: export handler and start flow via existing creation UI; implement reschedule completion to update the existing session (name/description/time/timezone) and edit the Discord Scheduled Event instead of creating a new one. Movie post is updated accordingly.
+- Removed call to missing `showDateSelection()`; now uses `showSessionCreationModal()` for date selection.
+- More robust timezone handling during reschedule.
+
+
 ## [1.13.0-rc122] - 2025-09-09
 ### Changed
 - Event cover image is now a composed 16:9 banner using Jimp: portrait posters are centered on a 1280x720 canvas with side letterboxing so they don’t appear zoom-cropped in Discord’s banner view.
