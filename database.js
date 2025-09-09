@@ -140,6 +140,7 @@ class Database {
         recommended_by VARCHAR(20) NOT NULL,
         imdb_id VARCHAR(20) NULL,
         imdb_data JSON NULL,
+        poster_url VARCHAR(500) NULL,
         status ENUM('pending', 'watched', 'planned', 'skipped', 'scheduled', 'banned') DEFAULT 'pending',
         session_id INT NULL,
         is_banned BOOLEAN DEFAULT FALSE,
@@ -1575,6 +1576,27 @@ class Database {
         logger.warn('Migration 24 wrapper warning:', error.message);
       }
 
+      // 25. Add poster_url column to movies and backfill from imdb_data
+      try {
+        await this.pool.execute(`ALTER TABLE movies ADD COLUMN poster_url VARCHAR(500) NULL`);
+        logger.debug('✅ Migration 25: Added poster_url to movies');
+      } catch (e) {
+        if (!String(e.message || '').toLowerCase().includes('duplicate') && !String(e.message || '').toLowerCase().includes('exists')) {
+          logger.warn('Migration 25 add poster_url warning:', e.message);
+        }
+      }
+      // 25.1 Backfill poster_url from imdb_data JSON when available
+      try {
+        await this.pool.execute(`
+          UPDATE movies
+          SET poster_url = JSON_UNQUOTE(JSON_EXTRACT(imdb_data, '$.Poster'))
+          WHERE poster_url IS NULL AND imdb_data IS NOT NULL
+        `);
+        logger.debug('✅ Migration 25: Backfilled poster_url from imdb_data');
+      } catch (e) {
+        logger.warn('Migration 25 backfill warning (JSON functions may be unsupported):', e.message);
+      }
+
       logger.info('✅ Database migrations completed');
 
   }
@@ -1599,6 +1621,14 @@ class Database {
           throw new Error('MOVIE_BANNED');
         }
 
+        // Extract poster URL from imdbData if available (JSON fallback)
+        let posterUrl = null;
+        try {
+          const imdbData = movieData.imdbData;
+          const poster = imdbData && typeof imdbData === 'string' ? JSON.parse(imdbData).Poster : (imdbData ? imdbData.Poster : null);
+          if (poster && poster !== 'N/A') posterUrl = poster;
+        } catch (e) {}
+
         const movie = {
           id: Date.now(), // Simple ID generation
           message_id: movieData.messageId,
@@ -1610,6 +1640,7 @@ class Database {
           recommended_by: movieData.recommendedBy,
           imdb_id: movieData.imdbId || null,
           imdb_data: movieData.imdbData || null,
+          poster_url: posterUrl,
           status: 'pending',
           is_banned: false,
           watch_count: 0,
@@ -1651,9 +1682,20 @@ class Database {
         console.warn('Error checking for active voting session:', error.message);
       }
 
+
+      // Extract poster URL from imdbData if available
+      let posterUrl = null;
+      try {
+        const imdbData = movieData.imdbData;
+        const poster = imdbData && typeof imdbData === 'string' ? JSON.parse(imdbData).Poster : (imdbData ? imdbData.Poster : null);
+        if (poster && poster !== 'N/A') posterUrl = poster;
+      } catch (e) {
+        // ignore parse errors
+      }
+
       const [result] = await this.pool.execute(
-        `INSERT INTO movies (message_id, guild_id, channel_id, title, movie_uid, where_to_watch, recommended_by, imdb_id, imdb_data, session_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO movies (message_id, guild_id, channel_id, title, movie_uid, where_to_watch, recommended_by, imdb_id, imdb_data, poster_url, session_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           movieData.messageId,
           movieData.guildId,
@@ -1664,6 +1706,7 @@ class Database {
           movieData.recommendedBy,
           movieData.imdbId || null,
           movieData.imdbData ? JSON.stringify(movieData.imdbData) : null,
+          posterUrl,
           sessionId
         ]
       );
@@ -2510,9 +2553,19 @@ class Database {
     if (!this.isConnected) return false;
 
     try {
+      // Extract poster URL if present
+      let posterUrl = null;
+      try {
+        const dataObj = typeof imdbData === 'string' ? JSON.parse(imdbData) : imdbData;
+        const poster = dataObj?.Poster;
+        if (poster && poster !== 'N/A') posterUrl = poster;
+      } catch (e) {
+        // ignore parse errors
+      }
+
       await this.pool.execute(
-        `UPDATE movies SET imdb_data = ? WHERE message_id = ?`,
-        [imdbData, messageId]
+        `UPDATE movies SET imdb_data = ?, poster_url = COALESCE(?, poster_url) WHERE message_id = ?`,
+        [typeof imdbData === 'string' ? imdbData : JSON.stringify(imdbData), posterUrl, messageId]
       );
       return true;
     } catch (error) {
@@ -2534,10 +2587,18 @@ class Database {
       const activeSession = await this.getActiveVotingSession(guildId);
       const sessionId = activeSession ? activeSession.id : null;
 
+
+      // Extract poster URL from imdbData if available
+      let posterUrl = null;
+      try {
+        const poster = imdbData && typeof imdbData === 'string' ? JSON.parse(imdbData).Poster : (imdbData ? imdbData.Poster : null);
+        if (poster && poster !== 'N/A') posterUrl = poster;
+      } catch (e) {}
+
       const [result] = await this.pool.execute(
-        `INSERT INTO movies (guild_id, channel_id, title, movie_uid, where_to_watch, recommended_by, message_id, thread_id, channel_type, imdb_id, imdb_data, status, session_id, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'forum', ?, ?, 'pending', ?, NOW())`,
-        [guildId, channelId, title, movieUID, whereToWatch, recommendedBy, messageId, threadId, imdbId, imdbData ? JSON.stringify(imdbData) : null, sessionId]
+        `INSERT INTO movies (guild_id, channel_id, title, movie_uid, where_to_watch, recommended_by, message_id, thread_id, channel_type, imdb_id, imdb_data, poster_url, status, session_id, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'forum', ?, ?, ?, 'pending', ?, NOW())`,
+        [guildId, channelId, title, movieUID, whereToWatch, recommendedBy, messageId, threadId, imdbId, imdbData ? JSON.stringify(imdbData) : null, posterUrl, sessionId]
       );
       return result.insertId;
     } catch (error) {

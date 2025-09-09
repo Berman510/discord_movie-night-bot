@@ -40,13 +40,13 @@ async function showVotingSessionDateModal(interaction) {
     .setTitle('Plan Next Voting Session - Date');
 
   // TODO: Make date/time formats configurable per guild
-  // For now, using US standard formats: MM-DD-YYYY and 12-hour time
+  // For now, using US standard formats: MM/DD/YYYY and 12-hour time
 
   const dateInput = new TextInputBuilder()
     .setCustomId('session_date')
-    .setLabel('Session Date (MM-DD-YYYY)')
+    .setLabel('Session Date (MM/DD/YYYY)')
     .setStyle(TextInputStyle.Short)
-    .setPlaceholder('12-25-2024')
+    .setPlaceholder('12/25/2024')
     .setRequired(true)
     .setMaxLength(10);
 
@@ -104,11 +104,11 @@ async function handleVotingSessionDateModal(interaction) {
   const votingEndTime = interaction.fields.getTextInputValue('voting_end_time') || null;
   const sessionDescription = interaction.fields.getTextInputValue('session_description') || null;
 
-  // Validate date format (MM-DD-YYYY)
-  const dateRegex = /^(0?[1-9]|1[0-2])-(0?[1-9]|[12][0-9]|3[01])-\d{4}$/;
+  // Validate date format (MM/DD/YYYY)
+  const dateRegex = /^(0?[1-9]|1[0-2])\/(0?[1-9]|[12][0-9]|3[01])\/\d{4}$/;
   if (!dateRegex.test(sessionDate)) {
     await interaction.reply({
-      content: '❌ Invalid date format. Please use MM-DD-YYYY format (e.g., 12-25-2024).',
+      content: '❌ Invalid date format. Please use MM/DD/YYYY format (e.g., 12/25/2024).',
       flags: MessageFlags.Ephemeral
     });
     return;
@@ -163,8 +163,8 @@ async function handleVotingSessionDateModal(interaction) {
   const config = await database.getGuildConfig(interaction.guild.id);
   const guildTimezone = config?.timezone || 'America/Los_Angeles';
 
-  // Convert MM-DD-YYYY to YYYY-MM-DD for Date constructor
-  const [month, day, year] = sessionDate.split('-');
+  // Convert MM/DD/YYYY to YYYY-MM-DD for Date constructor
+  const [month, day, year] = sessionDate.split('/');
   const isoDateString = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 
   // Create datetime objects with parsed 24-hour times

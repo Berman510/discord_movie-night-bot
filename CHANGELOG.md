@@ -1,6 +1,18 @@
 # Changelog
 
 All notable changes to **Movie Night Bot** will be documented in this file.
+## [1.13.0-rc124] - 2025-09-09
+### Added
+- Database: added movies.poster_url column; migration backfills from stored imdb_data when available. New saves populate poster_url automatically; IMDB updates will also set poster_url.
+
+### Changed
+- Reschedule UX: no longer prompts for timezone or movie selection; it retains the session’s existing timezone and jumps straight to details after picking date/time. Movie association remains unchanged.
+- Plan Next Voting Session modal: date format switched to MM/DD/YYYY (slashes) to match preference.
+
+### Notes
+- Event cover resizing relies on the jimp dependency; the code gracefully falls back to the raw poster if jimp is not installed on the host.
+
+
 ## [1.13.0-rc123] - 2025-09-09
 ### Fixed
 - Reschedule session: export handler and start flow via existing creation UI; implement reschedule completion to update the existing session (name/description/time/timezone) and edit the Discord Scheduled Event instead of creating a new one. Movie post is updated accordingly.

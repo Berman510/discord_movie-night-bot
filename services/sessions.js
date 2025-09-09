@@ -20,16 +20,16 @@
  * - Add configuration commands for session viewing channel setup
  */
 
-const { 
-  EmbedBuilder, 
-  ActionRowBuilder, 
-  ButtonBuilder, 
-  ButtonStyle, 
-  ModalBuilder, 
-  TextInputBuilder, 
+const {
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ModalBuilder,
+  TextInputBuilder,
   TextInputStyle,
   StringSelectMenuBuilder,
-  MessageFlags 
+  MessageFlags
 } = require('discord.js');
 
 const database = require('../database');
@@ -587,7 +587,15 @@ async function handleDateSelection(interaction, customId, state) {
       state.selectedDate = null;
       state.dateDisplay = 'No specific date';
       global.sessionCreationState.set(interaction.user.id, state);
-      await showTimezoneSelection(interaction, state);
+      // If rescheduling, skip timezone selection and proceed to details
+      const isReschedule = global.sessionRescheduleState && global.sessionRescheduleState.has(interaction.user.id);
+      if (isReschedule) {
+        if (!state.selectedTimezone) state.selectedTimezone = state.timezone || 'UTC';
+        if (!state.timezoneName) state.timezoneName = state.selectedTimezone;
+        await showSessionDetailsModal(interaction, state);
+      } else {
+        await showTimezoneSelection(interaction, state);
+      }
       return;
   }
 
@@ -690,7 +698,15 @@ async function handleTimeSelection(interaction, customId, state) {
   state.timeDisplay = timeDisplay;
   global.sessionCreationState.set(interaction.user.id, state);
 
-  await showTimezoneSelection(interaction, state);
+  // If this is a reschedule flow, skip timezone selection and go straight to details
+  const isReschedule = global.sessionRescheduleState && global.sessionRescheduleState.has(interaction.user.id);
+  if (isReschedule) {
+    if (!state.selectedTimezone) state.selectedTimezone = state.timezone || 'UTC';
+    if (!state.timezoneName) state.timezoneName = state.selectedTimezone;
+    await showSessionDetailsModal(interaction, state);
+  } else {
+    await showTimezoneSelection(interaction, state);
+  }
 }
 
 async function showTimezoneSelection(interaction, state) {
@@ -953,6 +969,27 @@ async function handleSessionReschedule(interaction, sessionId, movieMessageId) {
     movieMessageId,
     originalSession: session
   });
+
+  // Pre-seed creation state to skip movie/timezone selection during reschedule
+  if (!global.sessionCreationState) {
+    global.sessionCreationState = new Map();
+  }
+  const preset = {
+    step: 'date',
+    selectedMovie: session.associated_movie_id || null,
+    movieTitle: null,
+    movieDisplay: null,
+    selectedDate: null,
+    selectedTime: null,
+    selectedTimezone: session.timezone || 'UTC',
+    timezone: session.timezone || 'UTC',
+    timezoneName: session.timezone || 'UTC',
+    sessionName: session.name || null,
+    sessionDescription: session.description || null,
+    isReschedule: true
+  };
+  global.sessionCreationState.set(interaction.user.id, preset);
+
 
   // Start the reschedule flow using the same creation UI
   await showSessionCreationModal(interaction);
