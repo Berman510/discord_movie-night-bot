@@ -837,10 +837,13 @@ async function createMovieWithImdb(interaction, title, where, imdbData) {
     // Fetch detailed movie info from OMDb
     const detailedImdbData = await imdb.getMovieDetails(imdbData.imdbID);
 
+    // Prefer the canonical IMDb title if available
+    const titleToUse = (detailedImdbData && detailedImdbData.Title) || imdbData.Title || title;
+
     // Create movie using the new unified service
     console.log(`🔍 DEBUG: About to call movieCreation.createMovieRecommendation with IMDb data from button handler`);
     const result = await movieCreation.createMovieRecommendation(interaction, {
-      title,
+      title: titleToUse,
       where,
       imdbId: imdbData.imdbID,
       imdbData: detailedImdbData || imdbData
@@ -2650,11 +2653,22 @@ async function handleAdministrationPanel(interaction) {
         .setStyle(ButtonStyle.Secondary)
     );
 
+  // Throttle duplicate admin panel popups per user for 15s
+  const ephemeralManager = require('../utils/ephemeral-manager');
+  if (ephemeralManager.isThrottled('admin_panel', interaction.user.id)) {
+    await ephemeralManager.sendEphemeral(
+      interaction,
+      'ℹ️ Administration panel is already open. Use the buttons there or wait a moment before opening again.'
+    );
+    return;
+  }
+
   await interaction.reply({
     embeds: [adminEmbed],
     components: [adminButtons],
     flags: MessageFlags.Ephemeral
   });
+  ephemeralManager.startThrottle('admin_panel', interaction.user.id);
 }
 
 /**

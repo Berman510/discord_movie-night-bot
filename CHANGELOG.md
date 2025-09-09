@@ -2,6 +2,17 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.13.0-rc114] - 2025-09-09
+### Fixed
+- Forum winner announcement: corrected allowedMentions to avoid Discord API error (roles list only), restoring winner thread posting and role pings.
+- IMDb title usage: recommendation posts now use the canonical IMDb Title when a match is selected (instead of the user-typed text).
+- Discord Events: event titles now include the start time (e.g., "@ 7:30 PM"); event updates enrich descriptions with IMDb details (Year, Runtime, Genre, Rating, Plot when available).
+- Admin panel UX: throttle duplicate ephemeral "Administration" panels per user (15s) to prevent multiple panels opening back-to-back.
+- Deep Purge (forum-aware): after clearing threads, re-create the correct system post in forum mode (No Active Voting Session) instead of text quick action.
+
+### Notes
+- Follow-ups queued: ensure Cancel/Reschedule buttons remain available until event starts across all winner flows; optional ephemeral auto-expire/edit for success toasts; expand guild_id coverage in logs.
+
 ## [1.13.0-rc96] - 2025-09-08
 ### Fixed
 - Fully removed the top-level try/catch wrapper around runMigrations() to prevent parser issues on certain Node.js builds. All migration statements remain individually guarded; functionality unchanged.

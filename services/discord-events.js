@@ -76,8 +76,9 @@ async function createDiscordEvent(guild, sessionData, scheduledDate) {
     // Note: We no longer include a SESSION_UID in the description because we track event IDs in the database
 
     // Determine event type and location
+    const startTimeStr = new Date(scheduledDate).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
     let eventConfig = {
-      name: `🎬 ${sessionData.name}`,
+      name: `🎬 ${sessionData.name} @ ${startTimeStr}`,
       description: enhancedDescription,
       scheduledStartTime: scheduledDate,
       scheduledEndTime: endTime,
@@ -159,6 +160,26 @@ async function updateDiscordEvent(guild, eventId, sessionData, scheduledDate) {
     const baseDescription = sessionData.description || 'Join us for movie night voting and viewing!';
     let enhancedDescription = baseDescription;
 
+    // Enrich with IMDb details when available
+    try {
+      if (sessionData.associatedMovieId) {
+        const movie = await database.getMovieById(sessionData.associatedMovieId, sessionData.guildId);
+        if (movie && movie.imdb_id) {
+          const imdb = require('./imdb');
+          const imdbData = await imdb.getMovieDetails(movie.imdb_id);
+          if (imdbData) {
+            const parts = [];
+            if (imdbData.Year && imdbData.Year !== 'N/A') parts.push(`📅 Year: ${imdbData.Year}`);
+            if (imdbData.Runtime && imdbData.Runtime !== 'N/A') parts.push(`⏱️ Runtime: ${imdbData.Runtime}`);
+            if (imdbData.Genre && imdbData.Genre !== 'N/A') parts.push(`🎬 Genre: ${imdbData.Genre}`);
+            if (imdbData.imdbRating && imdbData.imdbRating !== 'N/A') parts.push(`⭐ IMDb: ${imdbData.imdbRating}/10`);
+            if (parts.length) enhancedDescription += `\n\n${parts.join(' \n')}`;
+            if (imdbData.Plot && imdbData.Plot !== 'N/A') enhancedDescription += `\n\n📖 ${imdbData.Plot}`;
+          }
+        }
+      }
+    } catch (_) { /* optional enrichment */ }
+
     if (sessionData.votingEndTime) {
       const votingEndTimestamp = Math.floor(sessionData.votingEndTime.getTime() / 1000);
       enhancedDescription += `\n\n🗳️ **Voting ends:** <t:${votingEndTimestamp}:F>`;
@@ -170,8 +191,9 @@ async function updateDiscordEvent(guild, eventId, sessionData, scheduledDate) {
       enhancedDescription += `\n\n👉 Join the conversation and vote for your favorite movie in <#${config.movie_channel_id}>!`;
     }
 
+    const startTimeStr2 = new Date(scheduledDate).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
     await event.edit({
-      name: `🎬 ${sessionData.name}`,
+      name: `🎬 ${sessionData.name} @ ${startTimeStr2}`,
       description: enhancedDescription,
       scheduledStartTime: scheduledDate
     });

@@ -404,14 +404,19 @@ async function executeDeepPurge(guildId, categories, reason = null, client = nul
               }
             }
 
-            // Don't add any messages - configuration was cleared
-            // Add "No Active Voting Session" message if configuration still exists
+            // Add system post if configuration still exists
             const configAfterPurge = await database.getGuildConfig(guildId);
             if (configAfterPurge) {
-              const cleanup = require('./cleanup');
-              await cleanup.ensureQuickActionPinned(votingChannel);
+              const forumChannels = require('./forum-channels');
               const logger = require('../utils/logger');
-              logger.debug('✅ Added no session message after deep purge');
+              if (forumChannels.isForumChannel(votingChannel)) {
+                await forumChannels.ensureRecommendationPost(votingChannel, null);
+                logger.debug('✅ Added No Active Voting Session post in forum after deep purge');
+              } else {
+                const cleanup = require('./cleanup');
+                await cleanup.ensureQuickActionPinned(votingChannel);
+                logger.debug('✅ Added quick action/no session message after deep purge');
+              }
             } else {
               const logger = require('../utils/logger');
               logger.debug('✅ Voting channel cleared, no messages added (configuration cleared)');

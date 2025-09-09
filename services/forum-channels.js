@@ -472,7 +472,7 @@ async function postForumWinnerAnnouncement(channel, winnerMovie, sessionName, op
       message: {
         content,
         embeds: [winnerEmbed],
-        allowedMentions: content ? { parse: ['roles'], roles: [config.notification_role_id] } : undefined
+        allowedMentions: content ? { roles: [config.notification_role_id] } : undefined
       },
       reason: `Winner announcement for ${sessionName}`
     });
