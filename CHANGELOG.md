@@ -65,6 +65,20 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 
 
 
+## [1.13.0-rc108] - 2025-09-09
+### Added
+- IMDb selection: added explicit Cancel button to abort a recommendation after seeing results
+- Forum: tie announcement now appears on the pinned "Recommend a Movie" post and gets cleared after winner selection
+
+### Changed
+- Movie embeds now show vote percentage alongside up/down and score
+- Admin panel: Cancel/Reschedule buttons remain available after winner selection until the event starts
+- Admin mirror: suppress "Mark Watched" button until the scheduled event start time
+
+### Fixed
+- Choosing winner via tie-break now clears forum posts, posts a winner announcement, and resets the pinned post to "No Active Session"
+
+
 
 
 

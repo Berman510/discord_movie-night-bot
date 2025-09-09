@@ -70,14 +70,30 @@ async function createAdminActionButtons(movieId, status, isBanned = false, guild
     );
   }
 
-  // Mark as watched button (for scheduled movies)
+  // Mark as watched button (for scheduled movies) — only after event start
   if (status === 'scheduled' && !isBanned) {
-    row.addComponents(
-      new ButtonBuilder()
-        .setCustomId(`admin_watched:${movieId}`)
-        .setLabel('✅ Mark Watched')
-        .setStyle(ButtonStyle.Success)
-    );
+    let canMarkWatched = true;
+    try {
+      if (guildId) {
+        const session = await database.getSessionByWinnerMessageId(guildId, movieId);
+        if (session && session.scheduled_date) {
+          const now = new Date();
+          const start = new Date(session.scheduled_date);
+          canMarkWatched = now >= start; // Only allow after start time
+        }
+      }
+    } catch (e) {
+      console.warn('Error checking session start for watched button:', e.message);
+    }
+
+    if (canMarkWatched) {
+      row.addComponents(
+        new ButtonBuilder()
+          .setCustomId(`admin_watched:${movieId}`)
+          .setLabel('✅ Mark Watched')
+          .setStyle(ButtonStyle.Success)
+      );
+    }
   }
 
   // Skip to Next button (for pending/planned movies)

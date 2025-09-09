@@ -14,9 +14,13 @@ function createMovieEmbed(movie, imdbData = null, voteCounts = null) {
 
   // Add vote counts prominently if provided (especially useful for forum channels)
   if (voteCounts && (voteCounts.up > 0 || voteCounts.down > 0)) {
-    const score = voteCounts.up - voteCounts.down;
+    const up = voteCounts.up || 0;
+    const down = voteCounts.down || 0;
+    const total = up + down;
+    const score = up - down;
     const scoreText = score > 0 ? `+${score}` : score.toString();
-    const voteText = `👍 ${voteCounts.up} • 👎 ${voteCounts.down} • **Score: ${scoreText}**`;
+    const pct = total > 0 ? Math.round((up / total) * 100) : 0;
+    const voteText = `👍 ${up} • 👎 ${down} • **Score: ${scoreText}** • ${pct}% positive`;
     embed.addFields({ name: '🗳️ Votes', value: voteText, inline: false });
   }
 

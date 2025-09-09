@@ -3110,6 +3110,45 @@ class Database {
     }
   }
 
+  // Get upcoming decided/planned session (event scheduled but voting done)
+  async getUpcomingDecidedSession(guildId) {
+    if (!this.isConnected) return null;
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT * FROM movie_sessions
+         WHERE guild_id = ?
+           AND status IN ('decided', 'planning', 'active')
+           AND scheduled_date IS NOT NULL
+           AND scheduled_date > NOW()
+         ORDER BY scheduled_date ASC
+         LIMIT 1`,
+        [guildId]
+      );
+      return rows.length > 0 ? rows[0] : null;
+    } catch (error) {
+      console.error('Error getting upcoming decided session:', error.message);
+      return null;
+    }
+  }
+
+  // Get session by winner movie message_id
+  async getSessionByWinnerMessageId(guildId, messageId) {
+    if (!this.isConnected) return null;
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT * FROM movie_sessions
+         WHERE guild_id = ? AND winner_message_id = ?
+         ORDER BY created_at DESC
+         LIMIT 1`,
+        [guildId, messageId]
+      );
+      return rows.length > 0 ? rows[0] : null;
+    } catch (error) {
+      console.error('Error getting session by winner message ID:', error.message);
+      return null;
+    }
+  }
+
   async updateSessionEventId(sessionId, eventId) {
     if (!this.isConnected) return false;
 

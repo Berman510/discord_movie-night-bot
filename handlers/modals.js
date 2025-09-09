@@ -202,12 +202,16 @@ async function showImdbSelection(interaction, title, where, imdbResults) {
     );
   });
 
-  // Add "None of these" button
+  // Add "None of these" and "Cancel" buttons
   buttons.addComponents(
     new ButtonBuilder()
       .setCustomId(`select_imdb:none:${dataKey}`)
       .setLabel('None of these')
-      .setStyle(ButtonStyle.Secondary)
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(`select_imdb:cancel:${dataKey}`)
+      .setLabel('Cancel')
+      .setStyle(ButtonStyle.Danger)
   );
 
   await ephemeralManager.sendEphemeral(interaction, '', {

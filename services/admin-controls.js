@@ -217,18 +217,24 @@ async function createAdminControlButtons(guildId = null) {
   const row2 = new ActionRowBuilder();
 
   // Check for active session to determine which buttons to show
-  let hasActiveSession = false;
+  let hasManageableSession = false;
   if (guildId) {
     try {
       const activeSession = await database.getActiveVotingSession(guildId);
-      hasActiveSession = !!activeSession;
+      if (activeSession) {
+        hasManageableSession = true;
+      } else {
+        // Also allow cancel/reschedule after winner selection until event starts
+        const upcoming = await database.getUpcomingDecidedSession(guildId);
+        hasManageableSession = !!upcoming;
+      }
     } catch (error) {
-      console.warn('Error checking active session for admin buttons:', error.message);
+      console.warn('Error checking session state for admin buttons:', error.message);
     }
   }
 
-  if (hasActiveSession) {
-    // Session management buttons for active session
+  if (hasManageableSession) {
+    // Session management buttons for active or scheduled (pre-start) session
     row2.addComponents(
       new ButtonBuilder()
         .setCustomId('admin_ctrl_cancel_session')

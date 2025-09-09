@@ -915,6 +915,50 @@ async function createNoActiveSessionPost(channel) {
     const logger = require('../utils/logger');
     logger.error('Error creating no active session post:', error);
   }
+
+/**
+ * Update the pinned recommendation post with a status note (e.g., tie announcement)
+ */
+async function setPinnedPostStatusNote(channel, title, description) {
+  try {
+    if (!isForumChannel(channel)) return false;
+
+    // Fetch threads to find the pinned recommendation post
+    const active = await channel.threads.fetchActive({ cache: false });
+    const archived = await channel.threads.fetchArchived({ limit: 50, cache: false });
+    const all = new Map([...active.threads, ...archived.threads]);
+
+    let pinnedPost = null;
+    for (const [, t] of all) {
+      const fresh = await channel.client.channels.fetch(t.id).catch(() => null);
+      if (fresh && fresh.pinned) { pinnedPost = fresh; break; }
+      if (t.name.includes('Recommend a Movie') || t.name.includes('🍿')) pinnedPost = fresh || t;
+    }
+    if (!pinnedPost) return false;
+
+    if (pinnedPost.archived) {
+      try { await pinnedPost.setArchived(false); } catch {}
+    }
+
+    const starter = await pinnedPost.fetchStarterMessage();
+    if (!starter) return false;
+
+    const currentEmbeds = starter.embeds || [];
+    const statusEmbed = new (require('discord.js').EmbedBuilder)()
+      .setTitle(title)
+      .setDescription(description)
+      .setColor(0xfee75c);
+
+    await starter.edit({ embeds: [currentEmbeds[0], statusEmbed] });
+    return true;
+  } catch (error) {
+    const logger = require('../utils/logger');
+    logger.warn('Error setting pinned post status note:', error.message);
+    return false;
+  }
+}
+
+  }
 }
 
 module.exports = {
@@ -932,5 +976,6 @@ module.exports = {
   postForumWinnerAnnouncement,
   getMovieStatusTags,
   ensureRecommendationPost,
-  unpinOtherForumPosts
+  unpinOtherForumPosts,
+  setPinnedPostStatusNote
 };

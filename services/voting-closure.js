@@ -392,8 +392,17 @@ async function handleTieBreaking(client, session, winners, config) {
             embeds: [tieEmbed]
           });
         } else {
-          const logger = require('../utils/logger');
-          logger.debug('🤝 Tie detected in forum channel — skipping channel.send, admin panel will handle tie-break');
+          // Forum channel: update the pinned recommendation post with a tie announcement
+          try {
+            const forumChannels = require('./forum-channels');
+            const statusTitle = '🤝 Voting Closed - Tie Detected';
+            const statusDesc = `We have a ${winners.length}-way tie! An admin will select the winner.\n\n` +
+              winners.map(w => `• **${w.movie.title}** — Score: ${w.totalScore}`).join('\n');
+            await forumChannels.setPinnedPostStatusNote(votingChannel, statusTitle, statusDesc);
+          } catch (e) {
+            const logger = require('../utils/logger');
+            logger.debug('Tie in forum: failed to set pinned status note:', e.message);
+          }
         }
       }
     }

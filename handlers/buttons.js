@@ -720,7 +720,10 @@ async function handleImdbSelection(interaction) {
 
     const { title, where, imdbResults } = data;
 
-    if (indexStr === 'none') {
+    if (indexStr === 'cancel') {
+      // User cancelled the submission entirely
+      await interaction.update({ content: '🚫 Submission cancelled.', embeds: [], components: [] });
+    } else if (indexStr === 'none') {
       // User selected "None of these" - create without IMDb data
       await createMovieWithoutImdb(interaction, title, where);
     } else {
@@ -1658,6 +1661,45 @@ async function handleChooseWinner(interaction, guildId, movieId) {
       await adminMirror.syncAdminChannel(interaction.client, guildId);
     } catch (error) {
       console.warn('Error syncing admin mirror after choosing winner:', error.message);
+    }
+
+    // Clear voting channel and post winner announcement
+    try {
+      const config = await database.getGuildConfig(guildId);
+      if (config && config.movie_channel_id) {
+        const votingChannel = await interaction.client.channels.fetch(config.movie_channel_id).catch(() => null);
+        if (votingChannel) {
+          const forumChannels = require('../services/forum-channels');
+          if (forumChannels.isForumChannel(votingChannel)) {
+            // Forum: remove other threads, post winner announcement, and reset pinned post
+            await forumChannels.clearForumMoviePosts(votingChannel, movie.thread_id);
+            await forumChannels.postForumWinnerAnnouncement(votingChannel, movie, activeSession.name || 'Movie Night', { event: activeSession.discord_event_id || null });
+            await forumChannels.ensureRecommendationPost(votingChannel, null);
+          } else {
+            // Text channel: send a winner announcement embed
+            const { EmbedBuilder } = require('discord.js');
+            const imdb = require('../services/imdb');
+            let imdbData = null;
+            if (movie.imdb_id) {
+              try { imdbData = await imdb.getMovieDetails(movie.imdb_id); } catch {}
+            }
+            const winnerEmbed = new EmbedBuilder()
+              .setTitle('🏆 Movie Night Winner Announced!')
+              .setDescription(`**${movie.title}** has been selected for our next movie night!`)
+              .setColor(0xffd700)
+              .addFields(
+                { name: '📺 Platform', value: movie.where_to_watch || 'TBD', inline: true },
+                { name: '👤 Recommended by', value: `<@${movie.recommended_by}>`, inline: true }
+              );
+            if (imdbData?.Year) winnerEmbed.addFields({ name: '📅 Year', value: imdbData.Year, inline: true });
+            if (imdbData?.Runtime) winnerEmbed.addFields({ name: '⏱️ Runtime', value: imdbData.Runtime, inline: true });
+            if (imdbData?.Genre) winnerEmbed.addFields({ name: '🎬 Genre', value: imdbData.Genre, inline: true });
+            await votingChannel.send({ embeds: [winnerEmbed] });
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Error updating voting channel after choosing winner:', error.message);
     }
 
     console.log(`🏆 Movie ${movie.title} chosen as winner for session ${activeSession.id}`);
