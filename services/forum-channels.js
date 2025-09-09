@@ -916,6 +916,8 @@ async function createNoActiveSessionPost(channel) {
     logger.error('Error creating no active session post:', error);
   }
 
+}
+
 /**
  * Update the pinned recommendation post with a status note (e.g., tie announcement)
  */

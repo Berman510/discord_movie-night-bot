@@ -84,6 +84,11 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - Resolve syntax error in forum-channels helper (extra closing braces) causing Sync Channels to fail with "Unexpected token '}'" on voting channel sync
 
 
+## [1.13.0-rc110] - 2025-09-09
+### Fixed
+- Forum sync: Add missing closing brace in services/forum-channels.js (createNoActiveSessionPost) that caused "Unexpected end of input (/home/container/services/forum-channels.js:980)" when clicking Sync Channels in the admin panel.
+
+
 
 
 
