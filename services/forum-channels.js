@@ -958,8 +958,6 @@ async function setPinnedPostStatusNote(channel, title, description) {
   }
 }
 
-  }
-}
 
 module.exports = {
   isForumChannel,

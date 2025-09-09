@@ -79,6 +79,11 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - Choosing winner via tie-break now clears forum posts, posts a winner announcement, and resets the pinned post to "No Active Session"
 
 
+## [1.13.0-rc109] - 2025-09-09
+### Fixed
+- Resolve syntax error in forum-channels helper (extra closing braces) causing Sync Channels to fail with "Unexpected token '}'" on voting channel sync
+
+
 
 
 
