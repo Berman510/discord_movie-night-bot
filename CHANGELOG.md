@@ -4,6 +4,15 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 
 
 
+## [1.14.0-rc2] - 2025-09-09
+### Fixed
+- Reschedule flow now mirrors creation: Date → Time → Details; existing timezone is preserved and no unexpected timezone prompt appears.
+- Removed accidental movie selection step unless user explicitly chooses “Change Movie”.
+- Final details modal (during reschedule of an active voting session) includes optional “Voting Ends” time; updates database and reschedules internal scheduler.
+- Discord Scheduled Event properly updates/creates when rescheduling.
+- Channel messaging refresh: forum recommendation post or text quick action updated after reschedule.
+- Admin Control Panel refreshed post-reschedule so controls reflect current state.
+
 ## [1.14.0-rc1] - 2025-09-09
 ### Changed
 - DB: Migrations are now opt-in via `DB_MIGRATIONS_ENABLED=true`. Default behavior skips migrations on startup to avoid schema churn.

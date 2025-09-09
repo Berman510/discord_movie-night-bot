@@ -2364,14 +2364,22 @@ class Database {
   }
 
 
-  async updateMovieSessionDetails(sessionId, { name, description, scheduledDate, timezone }) {
+  async updateMovieSessionDetails(sessionId, { name, description, scheduledDate, timezone, votingEndTime }) {
     if (!this.isConnected) return false;
 
     try {
-      await this.pool.execute(
-        `UPDATE movie_sessions SET name = ?, description = ?, scheduled_date = ?, timezone = ? WHERE id = ?`,
-        [name || null, description || null, scheduledDate || null, timezone || null, sessionId]
-      );
+      let query = `UPDATE movie_sessions SET name = ?, description = ?, scheduled_date = ?, timezone = ?`;
+      const params = [name || null, description || null, scheduledDate || null, timezone || null];
+
+      if (typeof votingEndTime !== 'undefined') {
+        query += `, voting_end_time = ?`;
+        params.push(votingEndTime || null);
+      }
+
+      query += ` WHERE id = ?`;
+      params.push(sessionId);
+
+      await this.pool.execute(query, params);
       return true;
     } catch (error) {
       console.error('Error updating movie session details:', error.message);

@@ -853,7 +853,28 @@ async function showSessionDetailsModal(interaction, state) {
   const nameRow = new ActionRowBuilder().addComponents(nameInput);
   const descRow = new ActionRowBuilder().addComponents(descriptionInput);
 
-  modal.addComponents(nameRow, descRow);
+  // If rescheduling an active voting session, allow updating the voting end time too
+  let votingRow = null;
+  try {
+    const isReschedule = global.sessionRescheduleState && global.sessionRescheduleState.has(interaction.user.id);
+    const original = isReschedule ? global.sessionRescheduleState.get(interaction.user.id)?.originalSession : null;
+    if (isReschedule && original && String(original.status).toLowerCase() === 'voting') {
+      const votingEndInput = new TextInputBuilder()
+        .setCustomId('reschedule_voting_end_time')
+        .setLabel('Voting Ends (12-hour time, optional)')
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder('e.g., 9:00 PM')
+        .setRequired(false)
+        .setMaxLength(8);
+      votingRow = new ActionRowBuilder().addComponents(votingEndInput);
+    }
+  } catch (_) {}
+
+  if (votingRow) {
+    modal.addComponents(nameRow, descRow, votingRow);
+  } else {
+    modal.addComponents(nameRow, descRow);
+  }
 
   await interaction.showModal(modal);
 }
@@ -1467,6 +1488,25 @@ async function createMovieSessionFromModal(interaction) {
     const sessionName = interaction.fields.getTextInputValue('session_name');
     const sessionDescription = interaction.fields.getTextInputValue('session_description') || null;
 
+    // Optional: voting end time (only present in reschedule flow for active voting)
+    let votingEndInput = '';
+    try {
+      votingEndInput = interaction.fields.getTextInputValue('reschedule_voting_end_time')?.trim() || '';
+    } catch (_) {}
+
+    // Helper to parse 12-hour time like "9:00 PM"
+    function parse12HourTime(str) {
+      const m = str.match(/^\s*(\d{1,2})\s*:\s*(\d{2})\s*(AM|PM)\s*$/i);
+      if (!m) return null;
+      let h = parseInt(m[1], 10);
+      const min = parseInt(m[2], 10);
+      const isPM = /pm/i.test(m[3]);
+      if (h < 1 || h > 12 || min < 0 || min > 59) return null;
+      if (h === 12) h = 0;
+      const hour24 = h + (isPM ? 12 : 0);
+      return { hour: hour24, minute: min };
+    }
+
     // Calculate final date/time in the selected timezone
     let scheduledDate = null;
     if (state.selectedDate && state.selectedTime) {
@@ -1486,13 +1526,30 @@ async function createMovieSessionFromModal(interaction) {
     if (resState && resState.sessionId) {
       const sessionId = resState.sessionId;
 
-      // Update session core details
+      // Determine new voting end time if provided and update session core details
+      let newVotingEndUtc = null;
+      if (votingEndInput) {
+        const parsed = parse12HourTime(votingEndInput);
+        if (parsed) {
+          const baseDate = (state.selectedDate || (resState.originalSession?.scheduled_date ? new Date(resState.originalSession.scheduled_date) : null)) || null;
+          if (baseDate) {
+            newVotingEndUtc = createDateInTimezone(baseDate, parsed.hour, parsed.minute, tz);
+          }
+        }
+      }
       await database.updateMovieSessionDetails(sessionId, {
         name: sessionName,
         description: sessionDescription,
         scheduledDate: scheduledDate,
-        timezone: tz
+        timezone: tz,
+        votingEndTime: newVotingEndUtc || undefined
       });
+      if (newVotingEndUtc) {
+        try {
+          const sessionScheduler = require('./session-scheduler');
+          await sessionScheduler.rescheduleSession(sessionId, newVotingEndUtc);
+        } catch (e) { console.warn('Could not reschedule session scheduler:', e.message); }
+      }
 
       // Update or create Discord scheduled event
       let discordEventId = resState.originalSession?.discord_event_id || null;
@@ -1528,6 +1585,38 @@ async function createMovieSessionFromModal(interaction) {
       if (movieMessageId) {
         await updateMoviePostForSession(interaction, movieMessageId, sessionId, sessionName, scheduledDate, discordEventId || null);
       }
+
+      // Also refresh the recommendation post / quick action message to reflect new times
+      try {
+        const config = await database.getGuildConfig(interaction.guild.id);
+        if (config && config.movie_channel_id) {
+          const channel = await interaction.client.channels.fetch(config.movie_channel_id).catch(() => null);
+          if (channel) {
+            try {
+              const forum = require('./forum-channels');
+              // Heuristic: detect forum channels via available properties (discord.js v14)
+              if (channel.isThreadOnly?.() || (channel.type && String(channel.type).toLowerCase().includes('forum'))) {
+                const activeSession = await database.getActiveVotingSession(interaction.guild.id).catch(() => null);
+                if (activeSession) await forum.ensureRecommendationPost(channel, activeSession);
+              } else {
+                const cleanup = require('./cleanup');
+                await cleanup.ensureQuickActionAtBottom(channel);
+              }
+            } catch (_) {
+              const cleanup = require('./cleanup');
+              await cleanup.ensureQuickActionAtBottom(channel);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Post-refresh after reschedule failed:', e.message);
+      }
+
+      // Refresh admin control panel buttons/state
+      try {
+        const adminControls = require('./admin-controls');
+        await adminControls.ensureAdminControlPanel(interaction.client, interaction.guild.id);
+      } catch (_) {}
 
       // Acknowledge success
       const ts = scheduledDate ? Math.floor(new Date(scheduledDate).getTime() / 1000) : null;

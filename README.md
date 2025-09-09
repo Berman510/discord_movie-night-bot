@@ -88,8 +88,8 @@ A comprehensive Discord bot for managing movie recommendations, voting, and orga
 ### 📅 **Reschedule Functionality**
 - [x] **Reschedule button**: Add reschedule button to admin panel (implemented in sessions.js)
 - [x] **Reschedule modal**: Allow editing session name, description, start time, voting end time (implemented)
-- [ ] **Event updates**: Update Discord events when sessions are rescheduled
-- [ ] **Notification updates**: Update all tracked notification messages with new times
+- [x] **Event updates**: Update Discord events when sessions are rescheduled
+- [x] **Post updates**: Refresh Admin Control Panel and forum recommendation post (or text quick-action) after reschedule
 
 ### 🗳️ **Multiple Voting Sessions**
 - [ ] **Concurrent voting sessions**: Support multiple active voting sessions simultaneously
