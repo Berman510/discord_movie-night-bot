@@ -1,9 +1,32 @@
 /**
  * Movie Night Bot — Main Entry Point
  * Version: 1.10.8
- * 
+ *
  * A modular Discord bot for organizing movie nights with voting, sessions, and IMDb integration
  */
+// Ensure production dependencies are installed when running from a clean git pull (e.g., PebbleHost)
+try {
+  require.resolve('discord.js');
+} catch (_) {
+  const fs = require('fs');
+  const path = require('path');
+  const cp = require('child_process');
+  const nm = path.join(__dirname, 'node_modules');
+  try {
+    console.log('[startup] Installing dependencies (npm ci --omit=dev)...');
+    cp.execSync('npm ci --omit=dev', { stdio: 'inherit' });
+    console.log('[startup] Dependencies installed.');
+  } catch (err) {
+    console.warn('[startup] npm ci failed, attempting npm install --only=prod');
+    try {
+      cp.execSync('npm install --only=prod', { stdio: 'inherit' });
+      console.log('[startup] Dependencies installed via npm install.');
+    } catch (err2) {
+      console.error('[startup] Failed to install dependencies automatically. Please run npm install.', err2?.message || err2);
+    }
+  }
+}
+
 
 try {
   require('dotenv').config();
@@ -151,7 +174,7 @@ client.on('interactionCreate', async (interaction) => {
 
   } catch (error) {
     console.error('Error handling interaction:', error);
-    
+
     if (!interaction.replied && !interaction.deferred) {
       await interaction.reply({
         content: '❌ An error occurred while processing your request.',
