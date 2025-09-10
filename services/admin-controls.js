@@ -581,14 +581,17 @@ async function handleSyncChannel(interaction) {
       await interaction.editReply({
         content: `⚠️ Sync completed with errors:\n${errors.join('\n')}\n\nSynced: ${successParts.join(', ')}`
       });
+      setTimeout(async () => { try { await interaction.deleteReply(); } catch (_) {} }, 8000);
     } else if (successParts.length > 0) {
       await interaction.editReply({
         content: `✅ Successfully synced ${successParts.join(' and ')}.`
       });
+      setTimeout(async () => { try { await interaction.deleteReply(); } catch (_) {} }, 8000);
     } else {
       await interaction.editReply({
         content: '✅ Sync completed. No movies found to sync.'
       });
+      setTimeout(async () => { try { await interaction.deleteReply(); } catch (_) {} }, 8000);
     }
 
   } catch (error) {
@@ -596,6 +599,7 @@ async function handleSyncChannel(interaction) {
     await interaction.editReply({
       content: '❌ An error occurred while syncing the channels.'
     });
+    setTimeout(async () => { try { await interaction.deleteReply(); } catch (_) {} }, 8000);
   }
 }
 

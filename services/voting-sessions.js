@@ -295,6 +295,8 @@ async function handleVotingSessionRescheduleModal(interaction) {
     // Success message
     const ts = Math.floor(startDateTime.getTime() / 1000);
     await interaction.editReply({ content: `✅ Session "${sessionName}" rescheduled to <t:${ts}:F>` });
+    // Auto-dismiss the ephemeral success after 8 seconds
+    setTimeout(async () => { try { await interaction.deleteReply(); } catch (_) {} }, 8000);
 
   } catch (error) {
     console.error('Error handling reschedule modal:', error);

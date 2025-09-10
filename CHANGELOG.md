@@ -5,6 +5,16 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 
 
 
+
+## [1.14.0-rc7] - 2025-09-10
+### Fixed
+- Ephemerals now auto-dismiss:
+  - Reschedule success toast (8s)
+  - Sync Channels result (success/error/empty) (8s)
+  - Pick Winner: confirmation auto-dismisses (30s) and final success (8s)
+  - Choose Winner: confirmation auto-dismisses (30s) and final success (8s)
+  - Cancel Session: final success and cancel-cancel messages (8s)
+
 ## [1.14.0-rc6] - 2025-09-10
 ### Changed
 - Reschedule now uses the exact same modal as “Plan Next Session,” with all fields pre-filled from the current session (Date, Time, Voting Ends, Description).

@@ -1294,6 +1294,8 @@ async function handlePickWinner(interaction, guildId, movieId) {
           components: [row],
           flags: MessageFlags.Ephemeral
         });
+        // Auto-dismiss confirmation after 30s in case user navigates away
+        setTimeout(async () => { try { await interaction.deleteReply(); } catch (_) {} }, 30000);
         return;
       }
     } catch (e) {
@@ -1636,6 +1638,7 @@ async function handlePickWinner(interaction, guildId, movieId) {
     await interaction.editReply({
       content: `🏆 **${movie.title}** has been selected as the winner! Announcement posted, channels cleared, and event updated.`
     });
+    setTimeout(async () => { try { await interaction.deleteReply(); } catch (_) {} }, 8000);
 
     // Refresh admin control panel to expose Cancel/Reschedule until event start
     try {
@@ -1701,6 +1704,8 @@ async function handleChooseWinner(interaction, guildId, movieId) {
         components: [row],
         flags: MessageFlags.Ephemeral
       });
+      // Auto-dismiss confirmation after 30s if no action is taken
+      setTimeout(async () => { try { await interaction.deleteReply(); } catch (_) {} }, 30000);
       return;
     }
   } catch (e) {
@@ -1791,6 +1796,7 @@ async function handleChooseWinner(interaction, guildId, movieId) {
       content: `🏆 **${movie.title}** has been chosen as the winner! The voting session is now complete.`,
       flags: MessageFlags.Ephemeral
     });
+    setTimeout(async () => { try { await interaction.deleteReply(); } catch (_) {} }, 8000);
 
     // Clean up any tie-break messages in admin channel (keep control panel)
     try {

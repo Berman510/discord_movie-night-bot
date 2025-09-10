@@ -1113,6 +1113,7 @@ async function handleCancelConfirmation(interaction) {
       embeds: [],
       components: []
     });
+    setTimeout(async () => { try { await interaction.deleteReply(); } catch (_) {} }, 8000);
     return;
   }
 
@@ -1157,6 +1158,8 @@ async function handleCancelConfirmation(interaction) {
       embeds: [],
       components: []
     });
+    // Auto-dismiss the ephemeral success after 8 seconds
+    setTimeout(async () => { try { await interaction.deleteReply(); } catch (_) {} }, 8000);
 
     console.log(`✅ Cancelled session ${sessionId} and restored movie ${movieMessageId}`);
 
