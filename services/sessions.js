@@ -154,19 +154,21 @@ async function showSessionCreationModal(interaction) {
         .setEmoji('📝')
     );
 
-  const msg = await interaction.reply({
+  await interaction.reply({
     embeds: [embed],
     components: [quickDateButtons, thisWeekButtons, weekendButtons],
-    flags: MessageFlags.Ephemeral,
-    fetchReply: true
+    flags: MessageFlags.Ephemeral
   });
+
+  let msg = null;
+  try { msg = await interaction.fetchReply(); } catch (_) {}
 
   try {
     if (!global.sessionCreationState) global.sessionCreationState = new Map();
     const prev = global.sessionCreationState.get(interaction.user.id) || {};
     global.sessionCreationState.set(interaction.user.id, {
       ...prev,
-      rootMessageId: msg.id
+      rootMessageId: msg?.id
     });
   } catch (_) {}
 }
@@ -894,10 +896,6 @@ function generateSessionName(state) {
     name += ` - ${state.dateDisplay}`;
   }
 
-  // Add timezone
-  if (state.timezoneName && state.timeDisplay) {
-    name += ` ${state.timezoneName.split(' ')[0]}`; // Just the timezone abbreviation
-  }
 
   return name;
 }
@@ -1017,6 +1015,15 @@ async function handleSessionReschedule(interaction, sessionId, movieMessageId) {
   if (!global.sessionCreationState) {
     global.sessionCreationState = new Map();
   }
+  let effectiveTz = session.timezone || null;
+  try {
+    if (!effectiveTz) {
+      const cfg = await database.getGuildConfig(interaction.guild.id);
+      effectiveTz = cfg?.timezone || 'UTC';
+    }
+  } catch (_) {
+    if (!effectiveTz) effectiveTz = 'UTC';
+  }
   const preset = {
     step: 'date',
     selectedMovie: session.associated_movie_id || null,
@@ -1024,9 +1031,9 @@ async function handleSessionReschedule(interaction, sessionId, movieMessageId) {
     movieDisplay: null,
     selectedDate: null,
     selectedTime: null,
-    selectedTimezone: session.timezone || 'UTC',
-    timezone: session.timezone || 'UTC',
-    timezoneName: session.timezone || 'UTC',
+    selectedTimezone: effectiveTz,
+    timezone: effectiveTz,
+    timezoneName: effectiveTz,
     sessionName: session.name || null,
     sessionDescription: session.description || null,
     isReschedule: true
@@ -1384,12 +1391,43 @@ async function handleCustomDateTimeModal(interaction) {
       state.timeDisplay = formatTime(hour, minute);
       global.sessionCreationState.set(userId, state);
 
-      // If this is a reschedule flow, skip timezone selection and go straight to details
+      // If this is a reschedule flow, we cannot open another modal directly from a modal submit.
+      // Instead, present a final review panel with a button to open the details modal next.
       const isReschedule = global.sessionRescheduleState && global.sessionRescheduleState.has(userId);
       if (isReschedule) {
-        if (!state.selectedTimezone) state.selectedTimezone = state.timezone || 'UTC';
-        if (!state.timezoneName) state.timezoneName = state.selectedTimezone;
-        await showSessionDetailsModal(interaction, state);
+        try {
+          if (!state.selectedTimezone) {
+            // Prefer existing state/timezone, then guild config, then UTC
+            const db = require('../database');
+            let tz = state.timezone || null;
+            if (!tz) {
+              try { const cfg = await db.getGuildConfig(interaction.guild.id); tz = cfg?.timezone || 'UTC'; } catch (_) { tz = 'UTC'; }
+            }
+            state.selectedTimezone = tz;
+          }
+          if (!state.timezoneName) state.timezoneName = state.selectedTimezone;
+
+          const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+          const summary = new EmbedBuilder()
+            .setTitle('📋 Review Session Timing')
+            .setDescription('Confirm your date and time, then continue to details.')
+            .setColor(0x5865f2)
+            .addFields(
+              { name: '📅 Date', value: state.dateDisplay || 'No date', inline: true },
+              { name: '🕐 Time', value: state.timeDisplay || 'No time', inline: true },
+              { name: '🌍 Timezone', value: state.timezoneName || 'UTC', inline: true }
+            );
+          const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+              .setCustomId('session_create_final')
+              .setLabel('Continue to Details')
+              .setStyle(ButtonStyle.Primary)
+          );
+          await interaction.reply({ embeds: [summary], components: [row], flags: MessageFlags.Ephemeral });
+        } catch (__) {
+          // Fallback: just acknowledge
+          await interaction.reply({ content: '✅ Time saved. Press Continue to proceed.', flags: MessageFlags.Ephemeral }).catch(() => {});
+        }
       } else {
         await showTimezoneSelection(interaction, state);
       }

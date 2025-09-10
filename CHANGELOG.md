@@ -4,6 +4,14 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 
 
 
+## [1.14.0-rc3] - 2025-09-09
+### Fixed
+- Reschedule: avoid opening a modal from a modal; custom time now shows a review panel with a Continue button before details.
+- Discord Event update: ensure `scheduledEndTime` is updated with a safe duration when start time changes (prevents end-before-start error).
+- Timezone defaults: during reschedule, use the guild-configured timezone when the session has none (no unintended UTC fallback).
+- Naming: removed timezone suffix from generated session name to avoid "UTC" showing in title.
+- Deprecation: stop using `fetchReply` in interaction options; fetch reply separately (removes deprecation warning).
+
 ## [1.14.0-rc2] - 2025-09-09
 ### Fixed
 - Reschedule flow now mirrors creation: Date → Time → Details; existing timezone is preserved and no unexpected timezone prompt appears.
