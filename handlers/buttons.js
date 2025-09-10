@@ -881,8 +881,8 @@ async function createMovieWithImdb(interaction, title, where, imdbData) {
   const imdb = require('../services/imdb');
 
   try {
-    // Fetch detailed movie info from OMDb
-    const detailedImdbData = await imdb.getMovieDetails(imdbData.imdbID);
+    // Fetch detailed movie info (cached)
+    const detailedImdbData = await imdb.getMovieDetailsCached(imdbData.imdbID);
 
     // Prefer the canonical IMDb title if available
     const titleToUse = (detailedImdbData && detailedImdbData.Title) || imdbData.Title || title;
@@ -1608,8 +1608,8 @@ async function handlePickWinner(interaction, guildId, movieId) {
           const downVotes = votes.filter(v => v.vote_type === 'down').length;
           const totalScore = upVotes - downVotes;
 
-          // Get movie details for event update
-          const imdbData = movie.imdb_id ? await require('../services/imdb').getMovieDetails(movie.imdb_id) : null;
+          // Get movie details for event update (cached)
+          const imdbData = movie.imdb_id ? await require('../services/imdb').getMovieDetailsCached(movie.imdb_id) : null;
 
           let updatedDescription = `🏆 **WINNER SELECTED: ${movie.title}**\n\n`;
           let posterBuffer = null;
@@ -1808,7 +1808,7 @@ async function handleChooseWinner(interaction, guildId, movieId) {
         let counts = null; try { counts = await database.getVoteCounts(movie.message_id); } catch {}
 
         if (movie.imdb_id) {
-          try { imdbData = await imdb.getMovieDetails(movie.imdb_id); } catch {}
+          try { imdbData = await imdb.getMovieDetailsCached(movie.imdb_id); } catch {}
         }
         const parts = [];
         parts.push(`Winner: ${movie.title}`);
@@ -1896,7 +1896,7 @@ async function handleChooseWinner(interaction, guildId, movieId) {
             const imdb = require('../services/imdb');
             let imdbData = null;
             if (movie.imdb_id) {
-              try { imdbData = await imdb.getMovieDetails(movie.imdb_id); } catch {}
+              try { imdbData = await imdb.getMovieDetailsCached(movie.imdb_id); } catch {}
             }
             const winnerEmbed = new EmbedBuilder()
               .setTitle('🏆 Movie Night Winner Announced!')

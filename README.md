@@ -124,6 +124,17 @@ A comprehensive Discord bot for managing movie recommendations, voting, and orga
 - (Optional) OMDb API key: <http://www.omdbapi.com/apikey.aspx>
 
 ### Required OAuth Scopes
+
+### IMDb Caching (cross-guild)
+To reduce OMDb usage, the bot caches full IMDb responses globally across servers in a lightweight imdb_cache table.
+- Enabled by default; respects TTL and hard row limit with LRU eviction
+- Deep purge does not clear this cache
+
+Env toggles:
+- IMDB_CACHE_ENABLED=true
+- IMDB_CACHE_TTL_DAYS=90
+- IMDB_CACHE_MAX_ROWS=10000
+
 - `bot`
 - `applications.commands`
 

@@ -13,6 +13,8 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - Clear ephemeral feedback when a user hits their limit, including a list of movies they have already voted on in the session and guidance to unvote to free a slot.
 - Administration panel: new "Vote Caps" configuration with Enable/Disable, Set Ratios/Min (modal), and Reset to Defaults.
 
+- Cross-guild IMDb cache table (imdb_cache) with TTL refresh and hard-limit + LRU eviction; reduces OMDb usage. New env: IMDB_CACHE_ENABLED, IMDB_CACHE_TTL_DAYS, IMDB_CACHE_MAX_ROWS. Excluded from deep purge.
+
 ### Notes
 - Caps are enforced only for movies associated to an active voting session (session_id present).
 - Caps are configurable per guild via Admin → Configure Bot → Vote Caps. Defaults: up 1/3, down 1/5, min 1.
@@ -23,6 +25,8 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - Over-limit warning for vote caps now uses an ephemeral user message; no longer edits the public movie post.
 
 - Recreated/synced/carryover movie posts now include IMDb details immediately (text and forum channels), rather than only after the first button press.
+
+- IMDb calls are now avoided for carryover/sync flows; we use cached imdb_data in DB and only fetch once if missing.
 
 
 

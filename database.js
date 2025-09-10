@@ -1785,6 +1785,29 @@ class Database {
         logger.warn('Migration 27 warning:', e.message);
       }
 
+      // Migration 28: Create global cross-guild IMDb cache table
+      try {
+        await this.pool.execute(`
+          CREATE TABLE IF NOT EXISTS imdb_cache (
+            imdb_id VARCHAR(20) PRIMARY KEY,
+            data JSON NOT NULL,
+            poster_url VARCHAR(500) NULL,
+            title VARCHAR(255) NULL,
+            year VARCHAR(10) NULL,
+            last_refreshed TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            fetch_count INT NOT NULL DEFAULT 1
+          )
+        `);
+        try { await this.pool.execute(`CREATE INDEX IF NOT EXISTS idx_imdb_cache_last_refreshed ON imdb_cache (last_refreshed)`); } catch (e) {}
+        try { await this.pool.execute(`CREATE INDEX IF NOT EXISTS idx_imdb_cache_fetch_count ON imdb_cache (fetch_count)`); } catch (e) {}
+        const logger = require('./utils/logger');
+        logger.debug('✅ Migration 28: imdb_cache table ensured');
+      } catch (e) {
+        const logger = require('./utils/logger');
+        logger.warn('Migration 28 warning (imdb_cache may be unsupported on this DB):', e.message);
+      }
+
+
 
       logger.info('✅ Database migrations completed');
 
@@ -2839,6 +2862,86 @@ class Database {
       return false;
     }
   }
+
+  // IMDb cache helpers (global cross-guild)
+  async getImdbCache(imdbId) {
+    if (!this.isConnected) return null;
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT imdb_id, data, poster_url, title, year, last_refreshed, fetch_count FROM imdb_cache WHERE imdb_id = ?`,
+        [imdbId]
+      );
+      if (rows.length === 0) return null;
+      const row = rows[0];
+      return {
+        imdb_id: row.imdb_id,
+        data: row.data,
+        poster_url: row.poster_url,
+        title: row.title,
+        year: row.year,
+        last_refreshed: row.last_refreshed,
+        fetch_count: row.fetch_count
+      };
+    } catch (e) {
+      console.warn('imdb_cache get error:', e.message);
+      return null;
+    }
+  }
+
+  async upsertImdbCache(imdbId, data) {
+    if (!this.isConnected) return false;
+    try {
+      // Derive poster_url/title/year from payload when available
+      let posterUrl = null, title = null, year = null;
+      try {
+        const obj = typeof data === 'string' ? JSON.parse(data) : data;
+        posterUrl = obj?.Poster && obj.Poster !== 'N/A' ? obj.Poster : null;
+        title = obj?.Title || null;
+        year = obj?.Year || null;
+      } catch {}
+
+      const payload = typeof data === 'string' ? data : JSON.stringify(data);
+      await this.pool.execute(
+        `INSERT INTO imdb_cache (imdb_id, data, poster_url, title, year, last_refreshed, fetch_count)
+         VALUES (?, ?, ?, ?, ?, NOW(), 1)
+         ON DUPLICATE KEY UPDATE
+           data = VALUES(data),
+           poster_url = COALESCE(VALUES(poster_url), poster_url),
+           title = COALESCE(VALUES(title), title),
+           year = COALESCE(VALUES(year), year),
+           last_refreshed = NOW(),
+           fetch_count = fetch_count + 1`,
+        [imdbId, payload, posterUrl, title, year]
+      );
+      return true;
+    } catch (e) {
+      console.warn('imdb_cache upsert error:', e.message);
+      return false;
+    }
+  }
+
+  async evictImdbCacheOverLimit(maxRows = 10000) {
+    if (!this.isConnected) return false;
+    try {
+      const [cntRows] = await this.pool.execute(`SELECT COUNT(*) AS c FROM imdb_cache`);
+      const count = (cntRows && cntRows[0] && cntRows[0].c) ? Number(cntRows[0].c) : 0;
+      if (count <= maxRows) return true;
+      const toDelete = count - maxRows;
+      const [oldest] = await this.pool.execute(
+        `SELECT imdb_id FROM imdb_cache ORDER BY last_refreshed ASC LIMIT ?`,
+        [toDelete]
+      );
+      if (!oldest || oldest.length === 0) return true;
+      const ids = oldest.map(r => r.imdb_id);
+      const placeholders = ids.map(() => '?').join(',');
+      await this.pool.execute(`DELETE FROM imdb_cache WHERE imdb_id IN (${placeholders})`, ids);
+      return true;
+    } catch (e) {
+      console.warn('imdb_cache eviction error:', e.message);
+      return false;
+    }
+  }
+
 
   // Forum Channel Support Functions
 

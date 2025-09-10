@@ -661,16 +661,20 @@ async function createVotingSession(interaction, state) {
                 let updatedMovie = movie;
                 if (movie.imdb_id) {
                   try {
-                    const imdb = require('./imdb');
-                    const imdbData = await imdb.getMovieDetails(movie.imdb_id);
-                    if (imdbData) {
-                      // Update movie with fresh IMDB data
-                      await database.updateMovieImdbData(movie.message_id, JSON.stringify(imdbData));
-                      updatedMovie = { ...movie, imdb_data: JSON.stringify(imdbData) };
-                      logger.debug(`🎬 Refreshed IMDB data for carryover movie: ${movie.title}`);
+                    // Only fetch IMDb data if we do not already have it stored
+                    if (!movie.imdb_data) {
+                      const imdb = require('./imdb');
+                      const imdbData = await imdb.getMovieDetailsCached(movie.imdb_id);
+                      if (imdbData) {
+                        await database.updateMovieImdbData(movie.message_id, JSON.stringify(imdbData));
+                        updatedMovie = { ...movie, imdb_data: JSON.stringify(imdbData) };
+                        logger.debug(`🎬 Cached IMDb data for carryover movie: ${movie.title}`);
+                      }
+                    } else {
+                      updatedMovie = movie;
                     }
                   } catch (error) {
-                    logger.warn(`Error refreshing IMDB data for ${movie.title}:`, error.message);
+                    logger.warn(`IMDb fetch skipped/failed for ${movie.title}:`, error.message);
                   }
                 }
 

@@ -23,7 +23,7 @@ async function createDiscordEvent(guild, sessionData, scheduledDate) {
 
         if (movie && movie.imdb_id) {
           const imdb = require('./imdb');
-          const imdbData = await imdb.getMovieDetails(movie.imdb_id);
+          const imdbData = await imdb.getMovieDetailsCached(movie.imdb_id);
 
           if (imdbData && imdbData.Runtime && imdbData.Runtime !== 'N/A') {
             // Parse runtime (e.g., "97 min" -> 97)
@@ -167,7 +167,7 @@ async function updateDiscordEvent(guild, eventId, sessionData, scheduledDate) {
         const movie = await database.getMovieById(sessionData.associatedMovieId, sessionData.guildId);
         if (movie && movie.imdb_id) {
           const imdb = require('./imdb');
-          const imdbData = await imdb.getMovieDetails(movie.imdb_id);
+          const imdbData = await imdb.getMovieDetailsCached(movie.imdb_id);
           if (imdbData) {
             const parts = [];
             if (imdbData.Year && imdbData.Year !== 'N/A') parts.push(`📅 Year: ${imdbData.Year}`);
