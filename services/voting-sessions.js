@@ -58,9 +58,17 @@ async function showVotingSessionDateModal(interaction) {
     .setRequired(true)
     .setMaxLength(8);
 
+  const votingEndDateInput = new TextInputBuilder()
+    .setCustomId('voting_end_date')
+    .setLabel('Voting Ends Date (MM/DD/YYYY, optional)')
+    .setStyle(TextInputStyle.Short)
+    .setPlaceholder('12/24/2024')
+    .setRequired(false)
+    .setMaxLength(10);
+
   const votingEndInput = new TextInputBuilder()
     .setCustomId('voting_end_time')
-    .setLabel('Voting Ends (12-hour format, same day)')
+    .setLabel('Voting Ends Time (12-hour format)')
     .setStyle(TextInputStyle.Short)
     .setPlaceholder('6:30 PM (1 hour before session)')
     .setRequired(false)
@@ -76,10 +84,11 @@ async function showVotingSessionDateModal(interaction) {
 
   const firstRow = new ActionRowBuilder().addComponents(dateInput);
   const secondRow = new ActionRowBuilder().addComponents(timeInput);
-  const thirdRow = new ActionRowBuilder().addComponents(votingEndInput);
-  const fourthRow = new ActionRowBuilder().addComponents(descriptionInput);
+  const thirdRow = new ActionRowBuilder().addComponents(votingEndDateInput);
+  const fourthRow = new ActionRowBuilder().addComponents(votingEndInput);
+  const fifthRow = new ActionRowBuilder().addComponents(descriptionInput);
 
-  modal.addComponents(firstRow, secondRow, thirdRow, fourthRow);
+  modal.addComponents(firstRow, secondRow, thirdRow, fourthRow, fifthRow);
 
   await interaction.showModal(modal);
 }
@@ -125,9 +134,23 @@ async function showVotingSessionRescheduleModal(interaction, session) {
     .setMaxLength(8)
     .setValue(prefillTime);
 
+  const endMm = String(end.getMonth() + 1).padStart(2, '0');
+  const endDd = String(end.getDate()).padStart(2, '0');
+  const endYyyy = String(end.getFullYear());
+  const prefillVotingEndDate = `${endMm}/${endDd}/${endYyyy}`;
+
+  const votingEndDateInput = new TextInputBuilder()
+    .setCustomId('voting_end_date')
+    .setLabel('Voting Ends Date (MM/DD/YYYY, optional)')
+    .setStyle(TextInputStyle.Short)
+    .setPlaceholder('12/24/2024')
+    .setRequired(false)
+    .setMaxLength(10)
+    .setValue(prefillVotingEndDate);
+
   const votingEndInput = new TextInputBuilder()
     .setCustomId('voting_end_time')
-    .setLabel('Voting Ends (12-hour format, same day)')
+    .setLabel('Voting Ends Time (12-hour format)')
     .setStyle(TextInputStyle.Short)
     .setPlaceholder('6:30 PM (1 hour before session)')
     .setRequired(false)
@@ -146,6 +169,7 @@ async function showVotingSessionRescheduleModal(interaction, session) {
   modal.addComponents(
     new ActionRowBuilder().addComponents(dateInput),
     new ActionRowBuilder().addComponents(timeInput),
+    new ActionRowBuilder().addComponents(votingEndDateInput),
     new ActionRowBuilder().addComponents(votingEndInput),
     new ActionRowBuilder().addComponents(descriptionInput)
   );
@@ -177,6 +201,7 @@ async function handleVotingSessionRescheduleModal(interaction) {
 
     const session_date = interaction.fields.getTextInputValue('session_date');
     const session_time = interaction.fields.getTextInputValue('session_time');
+    const voting_end_date = interaction.fields.getTextInputValue('voting_end_date') || null;
     const voting_end_time = interaction.fields.getTextInputValue('voting_end_time') || null;
     const session_description = interaction.fields.getTextInputValue('session_description') || null;
 
@@ -219,7 +244,16 @@ async function handleVotingSessionRescheduleModal(interaction) {
     const startDateTime = new Date(`${isoDateString}T${String(parsedStart.hours).padStart(2, '0')}:${String(parsedStart.minutes).padStart(2, '0')}:00`);
     let endDateTime = null;
     if (parsedEnd) {
-      endDateTime = new Date(`${isoDateString}T${String(parsedEnd.hours).padStart(2, '0')}:${String(parsedEnd.minutes).padStart(2, '0')}:00`);
+      let endIsoDateString = isoDateString; // default to same day as session
+      if (voting_end_date) {
+        if (!dateRegex.test(voting_end_date)) {
+          await interaction.editReply({ content: '❌ Invalid voting end date. Use MM/DD/YYYY.' });
+          return;
+        }
+        const [vendMonth, vendDay, vendYear] = voting_end_date.split('/');
+        endIsoDateString = `${vendYear}-${vendMonth.padStart(2, '0')}-${vendDay.padStart(2, '0')}`;
+      }
+      endDateTime = new Date(`${endIsoDateString}T${String(parsedEnd.hours).padStart(2, '0')}:${String(parsedEnd.minutes).padStart(2, '0')}:00`);
     } else {
       endDateTime = new Date(startDateTime);
       endDateTime.setHours(endDateTime.getHours() - 1);
@@ -321,6 +355,7 @@ async function handleVotingSessionDateModal(interaction) {
 
   const sessionDate = interaction.fields.getTextInputValue('session_date');
   const sessionTime = interaction.fields.getTextInputValue('session_time');
+  const votingEndDate = interaction.fields.getTextInputValue('voting_end_date') || null;
   const votingEndTime = interaction.fields.getTextInputValue('voting_end_time') || null;
   const sessionDescription = interaction.fields.getTextInputValue('session_description') || null;
 
@@ -390,10 +425,22 @@ async function handleVotingSessionDateModal(interaction) {
   // Create datetime objects with parsed 24-hour times
   const sessionDateTime = new Date(`${isoDateString}T${parsedSessionTime.hours.toString().padStart(2, '0')}:${parsedSessionTime.minutes.toString().padStart(2, '0')}:00`);
 
-  // Parse voting end time (default to 1 hour before session if not provided)
+  // Parse voting end date/time (default to 1 hour before session if not provided)
   let votingEndDateTime = null;
   if (parsedVotingEndTime) {
-    votingEndDateTime = new Date(`${isoDateString}T${parsedVotingEndTime.hours.toString().padStart(2, '0')}:${parsedVotingEndTime.minutes.toString().padStart(2, '0')}:00`);
+    let endIsoDateString = isoDateString; // default to same day
+    if (votingEndDate) {
+      if (!dateRegex.test(votingEndDate)) {
+        await interaction.reply({
+          content: '❌ Invalid voting end date format. Please use MM/DD/YYYY.',
+          flags: MessageFlags.Ephemeral
+        });
+        return;
+      }
+      const [vendMonth, vendDay, vendYear] = votingEndDate.split('/');
+      endIsoDateString = `${vendYear}-${vendMonth.padStart(2, '0')}-${vendDay.padStart(2, '0')}`;
+    }
+    votingEndDateTime = new Date(`${endIsoDateString}T${parsedVotingEndTime.hours.toString().padStart(2, '0')}:${parsedVotingEndTime.minutes.toString().padStart(2, '0')}:00`);
   } else {
     // Default to 1 hour before session
     votingEndDateTime = new Date(sessionDateTime);
@@ -532,13 +579,14 @@ async function createVotingSession(interaction, state) {
       })}\n⏰ ${state.sessionDateTime.toLocaleTimeString('en-US', {
         hour: '2-digit',
         minute: '2-digit'
-      })}\n🗳️ Voting ends: ${state.votingEndDateTime.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit'
+      })}\n🗳️ Voting ends: ${state.votingEndDateTime.toLocaleString('en-US', {
+        year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
       })}\n\n🗳️ Users can now start recommending movies for this session!`,
       embeds: [],
       components: []
     });
+    // Auto-dismiss the ephemeral success after 8 seconds
+    setTimeout(async () => { try { await interaction.deleteReply(); } catch (_) {} }, 8000);
 
     // Initialize logger for this function
     const logger = require('../utils/logger');
@@ -703,13 +751,20 @@ async function createVotingSession(interaction, state) {
         }
       }
 
-      // Refresh admin control panel immediately so Cancel/Reschedule are available right away
+      // Refresh admin control panel and mirror immediately so admin posts/buttons are available
       try {
         const adminControls = require('./admin-controls');
         await adminControls.ensureAdminControlPanel(interaction.client || global.discordClient, interaction.guild.id);
       } catch (e) {
         const logger = require('../utils/logger');
         logger.warn('Error refreshing admin control panel after session creation:', e.message);
+      }
+      try {
+        const adminMirror = require('./admin-mirror');
+        await adminMirror.syncAdminChannel(interaction.client || global.discordClient, interaction.guild.id);
+      } catch (e) {
+        const logger = require('../utils/logger');
+        logger.warn('Error syncing admin channel after session creation:', e.message);
       }
     } catch (error) {
       logger.warn('Error updating channels after session creation:', error.message);

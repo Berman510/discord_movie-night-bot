@@ -6,6 +6,15 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 
 
 
+## [1.14.0-rc8] - 2025-09-10
+### Added
+- Voting end now supports separate Date + Time on both Create and Reschedule. You can end voting on any prior day/time as long as it’s before the session start. Inputs validated.
+
+### Fixed
+- Admin channel now auto-syncs immediately after creating a session (including carryover movies), so Pick Winner/controls are available without pressing Sync.
+- Creation success ephemeral now auto-dismisses after ~8s.
+
+
 ## [1.14.0-rc7] - 2025-09-10
 ### Fixed
 - Ephemerals now auto-dismiss:
