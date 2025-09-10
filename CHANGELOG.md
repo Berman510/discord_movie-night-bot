@@ -6,6 +6,12 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 
 ## [1.14.0-rc3] - 2025-09-09
 ## [1.14.0-rc4] - 2025-09-09
+## [1.14.0-rc5] - 2025-09-10
+### Fixed
+- Reschedule: stop showing timezone in review; use original session or guild timezone (fallback America/Los_Angeles) instead of UTC so event shows correct local time.
+- Modal/reschedule: compute both start and voting-end using the same effective timezone.
+- Movie add: ephemeral success auto-cleans after 5 seconds to avoid clutter.
+
 ### Fixed
 - Purge Current Queue: handle forum channels correctly (no messages.fetch on forums); cleanly edits the ephemeral “Purging…” message to success.
 - Modal submit (create/reschedule): defer early and use editReply to avoid “Unknown interaction”.

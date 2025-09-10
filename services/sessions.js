@@ -1397,15 +1397,18 @@ async function handleCustomDateTimeModal(interaction) {
       if (isReschedule) {
         try {
           if (!state.selectedTimezone) {
-            // Prefer existing state/timezone, then guild config, then UTC
+            // Prefer original session timezone, then guild config, then sensible default (America/Los_Angeles)
             const db = require('../database');
-            let tz = state.timezone || null;
+            const resState = global.sessionRescheduleState?.get(userId);
+            let tz = resState?.originalSession?.timezone || state.timezone || null;
             if (!tz) {
-              try { const cfg = await db.getGuildConfig(interaction.guild.id); tz = cfg?.timezone || 'UTC'; } catch (_) { tz = 'UTC'; }
+              try {
+                const cfg = await db.getGuildConfig(interaction.guild.id);
+                tz = cfg?.default_timezone || cfg?.timezone || 'America/Los_Angeles';
+              } catch (_) { tz = 'America/Los_Angeles'; }
             }
             state.selectedTimezone = tz;
           }
-          if (!state.timezoneName) state.timezoneName = state.selectedTimezone;
 
           const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
           const summary = new EmbedBuilder()
@@ -1414,8 +1417,7 @@ async function handleCustomDateTimeModal(interaction) {
             .setColor(0x5865f2)
             .addFields(
               { name: '📅 Date', value: state.dateDisplay || 'No date', inline: true },
-              { name: '🕐 Time', value: state.timeDisplay || 'No time', inline: true },
-              { name: '🌍 Timezone', value: state.timezoneName || 'UTC', inline: true }
+              { name: '🕐 Time', value: state.timeDisplay || 'No time', inline: true }
             );
           const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
@@ -1553,11 +1555,20 @@ async function createMovieSessionFromModal(interaction) {
     // Calculate final date/time in the selected timezone
     let scheduledDate = null;
     if (state.selectedDate && state.selectedTime) {
+      // Determine effective timezone again with safe defaults
+      let tz = state.selectedTimezone;
+      try {
+        const resState = global.sessionRescheduleState?.get(userId);
+        const cfg = await database.getGuildConfig(interaction.guild.id);
+        tz = tz || resState?.originalSession?.timezone || cfg?.default_timezone || cfg?.timezone || 'America/Los_Angeles';
+      } catch (_) {
+        tz = tz || 'America/Los_Angeles';
+      }
       scheduledDate = createDateInTimezone(
         state.selectedDate,
         state.selectedTime.hour,
         state.selectedTime.minute,
-        state.selectedTimezone || 'UTC'
+        tz
       );
     }
 
@@ -1576,7 +1587,13 @@ async function createMovieSessionFromModal(interaction) {
         if (parsed) {
           const baseDate = (state.selectedDate || (resState.originalSession?.scheduled_date ? new Date(resState.originalSession.scheduled_date) : null)) || null;
           if (baseDate) {
-            newVotingEndUtc = createDateInTimezone(baseDate, parsed.hour, parsed.minute, tz);
+            // Ensure we use the same effective timezone as scheduledDate
+            let tzEff = state.selectedTimezone;
+            try {
+              const cfg = await database.getGuildConfig(interaction.guild.id);
+              tzEff = tzEff || resState?.originalSession?.timezone || cfg?.default_timezone || cfg?.timezone || 'America/Los_Angeles';
+            } catch (_) { tzEff = tzEff || 'America/Los_Angeles'; }
+            newVotingEndUtc = createDateInTimezone(baseDate, parsed.hour, parsed.minute, tzEff);
           }
         }
       }
