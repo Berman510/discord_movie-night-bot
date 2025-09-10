@@ -183,8 +183,18 @@ async function updateForumPostContent(thread, movie, newStatus) {
     // Get current vote counts
     const voteCounts = await database.getVoteCounts(movie.message_id);
 
-    // Create updated embed
-    const movieEmbed = embeds.createMovieEmbed(movie, null, voteCounts);
+    // Create updated embed (include IMDb data if available)
+    let imdbData = null;
+    try {
+      if (movie.imdb_data) {
+        let parsed = typeof movie.imdb_data === 'string' ? JSON.parse(movie.imdb_data) : movie.imdb_data;
+        if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+        imdbData = parsed;
+      }
+    } catch (e) {
+      console.warn(`Failed to parse IMDb data for ${movie.title}:`, e.message);
+    }
+    const movieEmbed = embeds.createMovieEmbed(movie, imdbData, voteCounts);
 
     // Determine components based on status
     let movieComponents = [];

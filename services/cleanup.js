@@ -327,7 +327,18 @@ async function recreateScheduledMovieAtBottom(message, movie, channel) {
   // Recreate scheduled movie at bottom of channel
   try {
     const { embeds, components } = require('../utils');
-    const movieEmbed = embeds.createMovieEmbed(movie);
+    // Include IMDb data if available (handle single/double-encoded JSON)
+    let imdbData = null;
+    try {
+      if (movie.imdb_data) {
+        let parsed = typeof movie.imdb_data === 'string' ? JSON.parse(movie.imdb_data) : movie.imdb_data;
+        if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+        imdbData = parsed;
+      }
+    } catch (e) {
+      console.warn(`Failed to parse IMDb data for ${movie.title}:`, e.message);
+    }
+    const movieEmbed = embeds.createMovieEmbed(movie, imdbData);
     const movieComponents = components.createStatusButtons(movie.message_id, movie.status);
 
     // Create new message at bottom

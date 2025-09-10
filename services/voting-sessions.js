@@ -677,7 +677,16 @@ async function createVotingSession(interaction, state) {
                 if (forumChannels.isForumChannel(votingChannel)) {
                   // Create forum post for carryover movie WITHOUT components first (we need the new message ID)
                   const { embeds, components } = require('../utils');
-                  const movieEmbed = embeds.createMovieEmbed(updatedMovie);
+                  // Include IMDb data in embed if available
+                  let imdbDataForEmbed = null;
+                  try {
+                    if (updatedMovie.imdb_data) {
+                      let parsed = typeof updatedMovie.imdb_data === 'string' ? JSON.parse(updatedMovie.imdb_data) : updatedMovie.imdb_data;
+                      if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+                      imdbDataForEmbed = parsed;
+                    }
+                  } catch (e) { /* non-fatal */ }
+                  const movieEmbed = embeds.createMovieEmbed(updatedMovie, imdbDataForEmbed);
 
                   const result = await forumChannels.createForumMoviePost(
                     votingChannel,
@@ -704,7 +713,16 @@ async function createVotingSession(interaction, state) {
                 } else {
                   // Create text channel message for carryover movie WITHOUT components first (need new message ID)
                   const { embeds, components } = require('../utils');
-                  const movieEmbed = embeds.createMovieEmbed(updatedMovie);
+                  // Include IMDb data in embed if available
+                  let imdbDataForEmbed = null;
+                  try {
+                    if (updatedMovie.imdb_data) {
+                      let parsed = typeof updatedMovie.imdb_data === 'string' ? JSON.parse(updatedMovie.imdb_data) : updatedMovie.imdb_data;
+                      if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+                      imdbDataForEmbed = parsed;
+                    }
+                  } catch (e) { /* non-fatal */ }
+                  const movieEmbed = embeds.createMovieEmbed(updatedMovie, imdbDataForEmbed);
 
                   const newMessage = await votingChannel.send({
                     embeds: [movieEmbed]

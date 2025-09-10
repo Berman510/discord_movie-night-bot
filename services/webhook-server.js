@@ -196,7 +196,16 @@ function startWebhookServer() {
                   const msg = await channel.messages.fetch(movie.message_id).catch(() => null);
                   if (msg) {
                     const voteCounts = await database.getVoteCounts(movie.message_id);
-                    const movieEmbed = embeds.createMovieEmbed(movie, null, voteCounts);
+                    // Include IMDb data if available when updating embeds
+                    let imdbData = null;
+                    try {
+                      if (movie.imdb_data) {
+                        let parsed = typeof movie.imdb_data === 'string' ? JSON.parse(movie.imdb_data) : movie.imdb_data;
+                        if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+                        imdbData = parsed;
+                      }
+                    } catch (e) { /* non-fatal */ }
+                    const movieEmbed = embeds.createMovieEmbed(movie, imdbData, voteCounts);
                     const rows = ['watched', 'skipped', 'banned'].includes(movie.status)
                       ? []
                       : components.createStatusButtons(movie.message_id, movie.status, voteCounts.up, voteCounts.down);

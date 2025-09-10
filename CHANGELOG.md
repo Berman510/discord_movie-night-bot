@@ -22,6 +22,8 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ### Fixed
 - Over-limit warning for vote caps now uses an ephemeral user message; no longer edits the public movie post.
 
+- Recreated/synced/carryover movie posts now include IMDb details immediately (text and forum channels), rather than only after the first button press.
+
 
 
 
