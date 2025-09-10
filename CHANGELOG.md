@@ -9,101 +9,19 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ## [1.14.0] - 2025-09-10
 ### Highlights
 - Reschedule flow now uses the exact same modal as Plan Next Session with all fields pre-filled; updates Discord event, admin panel, and voting posts.
-- Optional Voting Ends (Date + Time). Defaults to 1 hour before session start if omitted. Inputs accept 12-hour or 24-hour time formats.
-- Ephemeral UX polish: success toasts auto-dismiss (~8s); confirmation prompts auto-expire (~30s).
-- Carryover reliability: voting buttons now reference correct new message IDs; immediate voting works after carryover.
-- Discord Event RSVP tracking: every 5 minutes, Interested users are recorded per session (stored in DB JSON column).
+- Voting Ends (Date + Time) is optional. If omitted, voting ends 1 hour before the session start. Inputs accept 12-hour or 24-hour formats (e.g., 7:30 PM or 19:30) with validation.
+- Ephemeral UX polish: success toasts auto-dismiss (~8s); confirmation prompts auto-expire (~30s); cancel flow success fixed to auto-close.
+- Carryover reliability: voting buttons now reference the correct new message IDs so voting works immediately after carryover.
+- Admin channel auto-syncs after session creation (including carryover) so Pick Winner / controls appear without pressing Sync.
+- Discord Event RSVP tracking: every 5 minutes, Interested users are recorded per session and stored in `movie_sessions.rsvp_user_ids` (JSON column).
+- Discord.js v14 compatibility and modal/timing improvements; consistent timezone handling during reschedule.
 
-### Fixed
-- Forum/text parity and sync robustness across cancel, reschedule, winner, and purge flows.
-- Admin panel visibility and refresh timing; control buttons remain available until event start.
-- Discord.js v14 compatibility, thread handling, and modal timing issues.
-
-
-## [1.14.0-rc11] - 2025-09-10
-### Fixed
-- Modal titles shortened to satisfy Discord’s 45-char max (was causing ExpectedConstraintError). Titles are now concise; guidance remains in placeholders.
-
-
-## [1.14.0-rc10] - 2025-09-10
-### Changed
-- Modal UX (Create & Reschedule): Added clear note that Voting Ends is optional and defaults to 1 hour before the session start.
-- Time inputs now accept both 12-hour and 24-hour formats (e.g., 7:30 PM or 19:30) for session time and voting end time.
-
-
-## [1.14.0-rc9] - 2025-09-10
-### Fixed
-- Cancel Session: success message now auto-dismisses reliably (uses a fresh ephemeral reply + timed deletion instead of updating the prior ephemeral).
-- Voting with carryover movies: buttons now reference the correct new message IDs, fixing “Movie with message ID … not found in database” errors when voting after carryover.
-
-### Added
-- Event RSVPs: every 5 minutes the bot polls Discord Scheduled Events for active sessions and stores the Interested users in `movie_sessions.rsvp_user_ids` (JSON array). Column is added automatically on startup if missing.
-
-
-## [1.14.0-rc8] - 2025-09-10
-### Added
-- Voting end now supports separate Date + Time on both Create and Reschedule. You can end voting on any prior day/time as long as it’s before the session start. Inputs validated.
-
-### Fixed
-- Admin channel now auto-syncs immediately after creating a session (including carryover movies), so Pick Winner/controls are available without pressing Sync.
-- Creation success ephemeral now auto-dismisses after ~8s.
-
-
-## [1.14.0-rc7] - 2025-09-10
-### Fixed
-- Ephemerals now auto-dismiss:
-  - Reschedule success toast (8s)
-  - Sync Channels result (success/error/empty) (8s)
-  - Pick Winner: confirmation auto-dismisses (30s) and final success (8s)
-  - Choose Winner: confirmation auto-dismisses (30s) and final success (8s)
-  - Cancel Session: final success and cancel-cancel messages (8s)
-
-## [1.14.0-rc6] - 2025-09-10
-### Changed
-- Reschedule now uses the exact same modal as “Plan Next Session,” with all fields pre-filled from the current session (Date, Time, Voting Ends, Description).
-
-### Fixed
-- Admin “Reschedule” button opens the prefilled modal directly (no intermediate review panel).
-- On submit, the existing session is updated in-place (DB + Discord Scheduled Event) and channel messaging is refreshed:
-  - Voting channel: system post (forum Recommend/No Active or text quick-action) reflects the new times.
-  - Admin channel: control panel/mirror refreshed so times match the updated session.
-- Modal handling defers early and returns a single ephemeral success message (prevents stuck ephemerals).
-
-## [1.14.0-rc3] - 2025-09-09
-## [1.14.0-rc4] - 2025-09-09
-## [1.14.0-rc5] - 2025-09-10
-### Fixed
-- Reschedule: stop showing timezone in review; use original session or guild timezone (fallback America/Los_Angeles) instead of UTC so event shows correct local time.
-- Modal/reschedule: compute both start and voting-end using the same effective timezone.
-- Movie add: ephemeral success auto-cleans after 5 seconds to avoid clutter.
-
-### Fixed
-- Purge Current Queue: handle forum channels correctly (no messages.fetch on forums); cleanly edits the ephemeral “Purging…” message to success.
-- Modal submit (create/reschedule): defer early and use editReply to avoid “Unknown interaction”.
-- Forum recommendation: reuse existing system post when present instead of creating duplicates; then pin.
-- Admin mirror: when a voting session is active, mirror all movies for that session (includes carryover) so “Pick Winner” buttons appear.
-
-### Fixed
-- Reschedule: avoid opening a modal from a modal; custom time now shows a review panel with a Continue button before details.
-- Discord Event update: ensure `scheduledEndTime` is updated with a safe duration when start time changes (prevents end-before-start error).
-- Timezone defaults: during reschedule, use the guild-configured timezone when the session has none (no unintended UTC fallback).
-- Naming: removed timezone suffix from generated session name to avoid "UTC" showing in title.
-- Deprecation: stop using `fetchReply` in interaction options; fetch reply separately (removes deprecation warning).
-
-## [1.14.0-rc2] - 2025-09-09
-### Fixed
-- Reschedule flow now mirrors creation: Date → Time → Details; existing timezone is preserved and no unexpected timezone prompt appears.
-- Removed accidental movie selection step unless user explicitly chooses “Change Movie”.
-- Final details modal (during reschedule of an active voting session) includes optional “Voting Ends” time; updates database and reschedules internal scheduler.
-- Discord Scheduled Event properly updates/creates when rescheduling.
-- Channel messaging refresh: forum recommendation post or text quick action updated after reschedule.
-- Admin Control Panel refreshed post-reschedule so controls reflect current state.
-
-## [1.14.0-rc1] - 2025-09-09
-### Changed
-- DB: Migrations are now opt-in via `DB_MIGRATIONS_ENABLED=true`. Default behavior skips migrations on startup to avoid schema churn.
-- Admin Panel: Pinned-message discovery updated for discord.js v14 (`fetchPinned()`), fixing errors during setup.
-- Cleanup: Avoids text-channel quick-action logic on forum channels; reduces warning noise and uses forum-safe paths.
+### Fixes and improvements
+- Forum/text parity and robust sync across cancel, reschedule, winner, and purge flows.
+- Modal handling: early defers and editReply to prevent timeouts; respect Discord’s 45-character modal title limit.
+- Purge Current Queue: forum-safe operations; reuse existing system post; cleaner ephemeral updates.
+- Timezone and event updates: removed "UTC" suffix from titles; update scheduledEndTime safely when start changes.
+- Creation/reschedule validation, improved placeholders, and clearer field guidance.
 
 
 ## [1.13.0-rc129] - 2025-09-09
