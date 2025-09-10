@@ -8,10 +8,7 @@
 try {
   require.resolve('discord.js');
 } catch (_) {
-  const fs = require('fs');
-  const path = require('path');
   const cp = require('child_process');
-  const nm = path.join(__dirname, 'node_modules');
   try {
     console.log('[startup] Installing dependencies (npm ci --omit=dev)...');
     cp.execSync('npm ci --omit=dev', { stdio: 'inherit' });
@@ -42,6 +39,7 @@ const { handleInteraction } = require('./handlers');
 const { handleSlashCommand } = require('./handlers/commands');
 const { embeds } = require('./utils');
 const { startPayloadCleanup, BOT_VERSION } = require('./utils/constants');
+const { initWebSocketClient } = require('./services/ws-client');
 
 // Environment variables
 const { DISCORD_TOKEN, CLIENT_ID, GUILD_ID, OMDB_API_KEY } = process.env;
@@ -272,6 +270,9 @@ async function startBot() {
     }
 
     // Discord login moved above for guild cache population
+
+    // Initialize WebSocket client to dashboard (no-op if disabled)
+    try { initWebSocketClient(logger); } catch (e) { logger.warn(`WS init failed: ${e?.message || e}`); }
 
     // Start payload cleanup
     startPayloadCleanup();
