@@ -233,6 +233,117 @@ function initWebSocketClient(logger) {
             }
             return;
           }
+
+          if (msg.type === 'plan_session') {
+            const guildId = msg?.payload?.guildId;
+            const startTs = msg?.payload?.startTs;
+            const votingEndTs = msg?.payload?.votingEndTs;
+            const name = msg?.payload?.name;
+            const description = msg?.payload?.description;
+            if (!guildId || !startTs) return;
+
+            const client = global.discordClient;
+            if (!client) return;
+
+            const database = require('../database');
+            const adminControls = require('./admin-controls');
+            const discordEvents = require('./discord-events');
+            const sessionScheduler = require('./session-scheduler');
+
+            try {
+              const guild = client.guilds.cache.get(guildId) || await client.guilds.fetch(String(guildId)).catch(() => null);
+              if (!guild) return;
+
+              const config = await database.getGuildConfig(guildId).catch(() => null);
+              const scheduledDate = new Date(Number(startTs));
+              const votingEnd = (typeof votingEndTs === 'number') ? new Date(Number(votingEndTs)) : new Date(scheduledDate.getTime() - 60 * 60 * 1000);
+              const sessionName = name || 'Movie Night';
+              const tz = (config && (config.timezone || config.guild_timezone)) || 'UTC';
+
+              // Create Discord event first (optional)
+              let event = null;
+              try { event = await discordEvents.createDiscordEvent(guild, { name: sessionName, description }, scheduledDate); } catch (_) {}
+
+              // Create DB session
+              const sessionId = await database.createVotingSession({
+                guildId,
+                channelId: config?.movie_channel_id || null,
+                name: sessionName,
+                description: description || null,
+                scheduledDate,
+                votingEndTime: votingEnd,
+                timezone: tz,
+                discordEventId: event?.id || null,
+                createdBy: 'dashboard'
+              });
+
+              // Schedule voting end if within window
+              if (sessionId && votingEnd) {
+                try { await sessionScheduler.scheduleVotingEnd(sessionId, votingEnd); } catch (_) {}
+              }
+
+              // Refresh admin panel
+              try { await adminControls.ensureAdminControlPanel(client, guildId); } catch (_) {}
+            } catch (e) {
+              logger?.warn?.('WS plan_session error:', e?.message || e);
+            }
+            return;
+          }
+
+          if (msg.type === 'reschedule_session') {
+            const guildId = msg?.payload?.guildId;
+            const sessionId = msg?.payload?.sessionId;
+            const startTs = msg?.payload?.startTs;
+            const votingEndTs = msg?.payload?.votingEndTs;
+            const name = msg?.payload?.name;
+            const description = msg?.payload?.description;
+            if (!guildId || !sessionId) return;
+
+            const client = global.discordClient;
+            if (!client) return;
+
+            const database = require('../database');
+            const adminControls = require('./admin-controls');
+            const discordEvents = require('./discord-events');
+            const sessionScheduler = require('./session-scheduler');
+
+            try {
+              const guild = client.guilds.cache.get(guildId) || await client.guilds.fetch(String(guildId)).catch(() => null);
+              if (!guild) return;
+              const session = await database.getSessionById(sessionId).catch(() => null);
+              if (!session || String(session.guild_id) !== String(guildId)) return;
+
+              const scheduledDate = (typeof startTs === 'number') ? new Date(Number(startTs)) : (session.scheduled_date ? new Date(session.scheduled_date) : null);
+              const votingEnd = (typeof votingEndTs !== 'undefined') ? (votingEndTs ? new Date(Number(votingEndTs)) : null) : (session.voting_end_time ? new Date(session.voting_end_time) : null);
+              const newName = name || session.name;
+              const newDesc = (typeof description !== 'undefined') ? description : session.description;
+
+              await database.updateMovieSessionDetails(sessionId, {
+                name: newName,
+                description: newDesc,
+                scheduledDate,
+                timezone: session.timezone || 'UTC',
+                votingEndTime: votingEnd
+              });
+
+              if (session.discord_event_id) {
+                try { await discordEvents.updateDiscordEvent(guild, session.discord_event_id, { name: newName, description: newDesc }, scheduledDate); } catch (_) {}
+              } else if (scheduledDate) {
+                try {
+                  const ev = await discordEvents.createDiscordEvent(guild, { name: newName, description: newDesc }, scheduledDate);
+                  if (ev?.id) { try { await database.updateVotingSessionEventId(sessionId, ev.id); } catch (_) {} }
+                } catch (_) {}
+              }
+
+              try { sessionScheduler.clearSessionTimeout(sessionId); } catch (_) {}
+              if (votingEnd) { try { await sessionScheduler.scheduleVotingEnd(sessionId, votingEnd); } catch (_) {} }
+
+              try { await adminControls.ensureAdminControlPanel(client, guildId); } catch (_) {}
+            } catch (e) {
+              logger?.warn?.('WS reschedule_session error:', e?.message || e);
+            }
+            return;
+          }
         } catch (e) {
           logger?.warn?.(`WS handler error: ${e?.message || e}`);
         }
