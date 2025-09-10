@@ -12,6 +12,11 @@ const { URL } = require('url');
 const logger = require('../utils/logger');
 
 function pickPort() {
+  // Prefer single explicit port if provided (PebbleHost exposes a fixed assigned port)
+  const single = parseInt(process.env.MOVIENIGHT_WEBHOOK_PORT, 10);
+  if (Number.isInteger(single) && single > 0 && single < 65536) return single;
+
+  // Backward-compatible: allow a comma-separated list via MOVIENIGHT_WEBHOOK_PORTS or PORT
   const portsEnv = process.env.MOVIENIGHT_WEBHOOK_PORTS || process.env.PORT || '';
   const candidates = `${portsEnv}`
     .split(',')

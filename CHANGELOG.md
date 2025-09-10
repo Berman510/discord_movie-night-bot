@@ -5,6 +5,15 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 
 
 
+## [1.14.1-rc2] - 2025-09-10
+### Added
+- WebSocket: dashboard→bot session controls over WS
+  - `plan_session` creates a new voting session (Discord event + DB + scheduler)
+  - `reschedule_session` updates existing session/event and reschedules voting end
+- Webhook server: support `MOVIENIGHT_WEBHOOK_PORT` to bind PebbleHost-assigned fixed port (still optional; WS is preferred)
+
+
+
 ## [1.14.1] - 2025-09-10
 ### Added
 - Asymmetric per-session vote caps to keep voting decisive and reduce "vote for everything":
