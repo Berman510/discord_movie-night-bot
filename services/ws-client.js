@@ -157,6 +157,82 @@ function initWebSocketClient(logger) {
             }
             return;
           }
+          if (msg.type === 'cancel_session') {
+            const guildId = msg?.payload?.guildId;
+            let sessionId = msg?.payload?.sessionId || null;
+            if (!guildId) return;
+
+            const client = global.discordClient;
+            if (!client) return;
+
+            const database = require('../database');
+            const forumChannels = require('./forum-channels');
+            const { embeds, components } = require('../utils');
+
+            try {
+              // Determine target session
+              let session = null;
+              if (sessionId) {
+                session = await database.getSessionById(sessionId);
+              } else {
+                const sessions = await database.getMovieSessions(guildId, null, 1);
+                session = Array.isArray(sessions) && sessions.length > 0 ? sessions[0] : null;
+                sessionId = session?.id || null;
+              }
+              if (!sessionId || !session) return;
+
+              // Find associated movie if any
+              const movie = await database.getMovieBySessionId(sessionId).catch(() => null);
+
+              // Update DB: mark session cancelled and clear movie association/status
+              try {
+                await database.updateSessionStatus(sessionId, 'cancelled');
+              } catch (_) {}
+
+              if (movie && movie.message_id) {
+                try { await database.updateMovieStatus(movie.message_id, 'planned'); } catch (_) {}
+                try { await database.updateMovieSessionId(movie.message_id, null); } catch (_) {}
+
+                // Update Discord message/thread
+                try {
+                  if (movie.channel_type === 'forum' && movie.thread_id) {
+                    const thread = await client.channels.fetch(movie.thread_id).catch(() => null);
+                    if (thread) {
+                      await forumChannels.updateForumPostContent(thread, { ...movie, status: 'planned' }, 'planned');
+                      await forumChannels.updateForumPostTags(thread, 'planned');
+                    }
+                  } else if (movie.channel_id) {
+                    const channel = await client.channels.fetch(movie.channel_id).catch(() => null);
+                    if (channel && channel.messages) {
+                      const msgObj = await channel.messages.fetch(movie.message_id).catch(() => null);
+                      if (msgObj) {
+                        const voteCounts = await database.getVoteCounts(movie.message_id);
+                        let imdbData = null;
+                        try {
+                          if (movie.imdb_data) {
+                            let parsed = typeof movie.imdb_data === 'string' ? JSON.parse(movie.imdb_data) : movie.imdb_data;
+                            if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+                            imdbData = parsed;
+                          }
+                        } catch (_) {}
+                        const movieEmbed = embeds.createMovieEmbed({ ...movie, status: 'planned' }, imdbData, voteCounts);
+                        const rows = components.createStatusButtons(movie.message_id, 'planned', voteCounts.up, voteCounts.down);
+                        await msgObj.edit({ embeds: [movieEmbed], components: rows });
+                      }
+                    }
+                  }
+                } catch (e) {
+                  logger?.warn?.('WS cancel_session: discord message update error:', e?.message || e);
+                }
+              }
+
+              // Delete session record
+              try { await database.deleteMovieSession(sessionId); } catch (_) {}
+            } catch (e) {
+              logger?.warn?.('WS cancel_session error:', e?.message || e);
+            }
+            return;
+          }
         } catch (e) {
           logger?.warn?.(`WS handler error: ${e?.message || e}`);
         }
