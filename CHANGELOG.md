@@ -6,6 +6,11 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 
 
 
+## [1.14.1-rc5] - 2025-09-10
+### Changed
+- Permissions: Moderators can now use the “Details” button in the moderation/admin channel. Admin remains required for mutating actions (ban/unban, schedule, remove, pick winner, etc.).
+
+
 ## [1.14.1-rc4] - 2025-09-10
 ### Added
 - Database: viewer_roles JSON column on guild_config

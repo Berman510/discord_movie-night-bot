@@ -956,18 +956,30 @@ async function handleAdminMovieButtons(interaction, customId) {
   const database = require('../database');
   const adminMirror = require('../services/admin-mirror');
 
-  // Check admin permissions
-  const hasPermission = await permissions.checkMovieAdminPermission(interaction);
-  if (!hasPermission) {
-    await interaction.reply({
-      content: '❌ You need Administrator permissions or a configured admin role to use this action.',
-      flags: MessageFlags.Ephemeral
-    });
-    return;
-  }
-
+  // Parse first so we can gate per-action
   const [action, movieId] = customId.split(':');
   const guildId = interaction.guild.id;
+
+  // Permission gating: mods can view details; admin required for mutating actions
+  if (action === 'admin_details') {
+    const canView = await permissions.checkMovieModeratorPermission(interaction);
+    if (!canView) {
+      await interaction.reply({
+        content: '❌ You need Administrator or configured moderator/admin role to view details.',
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+  } else {
+    const hasPermission = await permissions.checkMovieAdminPermission(interaction);
+    if (!hasPermission) {
+      await interaction.reply({
+        content: '❌ You need Administrator permissions or a configured admin role to use this action.',
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+  }
 
   try {
     switch (action) {
