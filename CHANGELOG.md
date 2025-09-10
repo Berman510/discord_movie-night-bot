@@ -6,6 +6,12 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 
 
 
+## [1.14.0-rc10] - 2025-09-10
+### Changed
+- Modal UX (Create & Reschedule): Added clear note that Voting Ends is optional and defaults to 1 hour before the session start.
+- Time inputs now accept both 12-hour and 24-hour formats (e.g., 7:30 PM or 19:30) for session time and voting end time.
+
+
 ## [1.14.0-rc9] - 2025-09-10
 ### Fixed
 - Cancel Session: success message now auto-dismisses reliably (uses a fresh ephemeral reply + timed deletion instead of updating the prior ephemeral).

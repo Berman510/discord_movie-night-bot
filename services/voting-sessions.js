@@ -37,40 +37,40 @@ async function startVotingSessionCreation(interaction) {
 async function showVotingSessionDateModal(interaction) {
   const modal = new ModalBuilder()
     .setCustomId('voting_session_date_modal')
-    .setTitle('Plan Next Voting Session - Date');
+    .setTitle('Plan Next Session (voting end defaults to 1h before)');
 
   // TODO: Make date/time formats configurable per guild
-  // For now, using US standard formats: MM/DD/YYYY and 12-hour time
+  // For now, using US dates (MM/DD/YYYY) and both 12h/24h time inputs
 
   const dateInput = new TextInputBuilder()
     .setCustomId('session_date')
     .setLabel('Session Date (MM/DD/YYYY)')
     .setStyle(TextInputStyle.Short)
-    .setPlaceholder('12/25/2024')
+    .setPlaceholder('12/25/2025')
     .setRequired(true)
     .setMaxLength(10);
 
   const timeInput = new TextInputBuilder()
     .setCustomId('session_time')
-    .setLabel('Session Time (12-hour format)')
+    .setLabel('Session Time (12h or 24h)')
     .setStyle(TextInputStyle.Short)
-    .setPlaceholder('7:30 PM or 07:30 PM')
+    .setPlaceholder('7:30 PM or 19:30')
     .setRequired(true)
     .setMaxLength(8);
 
   const votingEndDateInput = new TextInputBuilder()
     .setCustomId('voting_end_date')
-    .setLabel('Voting Ends Date (MM/DD/YYYY, optional)')
+    .setLabel('Voting Ends Date (MM/DD/YYYY)')
     .setStyle(TextInputStyle.Short)
-    .setPlaceholder('12/24/2024')
+    .setPlaceholder('Optional — MM/DD/YYYY (defaults to 1h before start)')
     .setRequired(false)
     .setMaxLength(10);
 
   const votingEndInput = new TextInputBuilder()
     .setCustomId('voting_end_time')
-    .setLabel('Voting Ends Time (12-hour format)')
+    .setLabel('Voting Ends Time (12h or 24h)')
     .setStyle(TextInputStyle.Short)
-    .setPlaceholder('6:30 PM (1 hour before session)')
+    .setPlaceholder('Optional — e.g., 6:30 PM or 18:30 (defaults to 1h before)')
     .setRequired(false)
     .setMaxLength(8);
 
@@ -114,22 +114,22 @@ async function showVotingSessionRescheduleModal(interaction, session) {
 
   const modal = new ModalBuilder()
     .setCustomId(`voting_session_reschedule_modal:${session.id}`)
-    .setTitle('Reschedule Voting Session');
+    .setTitle('Reschedule Session (voting end defaults to 1h before)');
 
   const dateInput = new TextInputBuilder()
     .setCustomId('session_date')
     .setLabel('Session Date (MM/DD/YYYY)')
     .setStyle(TextInputStyle.Short)
-    .setPlaceholder('12/25/2024')
+    .setPlaceholder('12/25/2025')
     .setRequired(true)
     .setMaxLength(10)
     .setValue(prefillDate);
 
   const timeInput = new TextInputBuilder()
     .setCustomId('session_time')
-    .setLabel('Session Time (12-hour format)')
+    .setLabel('Session Time (12h or 24h)')
     .setStyle(TextInputStyle.Short)
-    .setPlaceholder('7:30 PM or 07:30 PM')
+    .setPlaceholder('7:30 PM or 19:30')
     .setRequired(true)
     .setMaxLength(8)
     .setValue(prefillTime);
@@ -141,18 +141,18 @@ async function showVotingSessionRescheduleModal(interaction, session) {
 
   const votingEndDateInput = new TextInputBuilder()
     .setCustomId('voting_end_date')
-    .setLabel('Voting Ends Date (MM/DD/YYYY, optional)')
+    .setLabel('Voting Ends Date (MM/DD/YYYY)')
     .setStyle(TextInputStyle.Short)
-    .setPlaceholder('12/24/2024')
+    .setPlaceholder('Optional — MM/DD/YYYY (defaults to 1h before start)')
     .setRequired(false)
     .setMaxLength(10)
     .setValue(prefillVotingEndDate);
 
   const votingEndInput = new TextInputBuilder()
     .setCustomId('voting_end_time')
-    .setLabel('Voting Ends Time (12-hour format)')
+    .setLabel('Voting Ends Time (12h or 24h)')
     .setStyle(TextInputStyle.Short)
-    .setPlaceholder('6:30 PM (1 hour before session)')
+    .setPlaceholder('Optional — e.g., 6:30 PM or 18:30 (defaults to 1h before)')
     .setRequired(false)
     .setMaxLength(8)
     .setValue(prefillVotingEnd);
@@ -211,29 +211,39 @@ async function handleVotingSessionRescheduleModal(interaction) {
       return;
     }
 
-    function parseTime12Hour(str) {
-      const timeRegex = /^(0?[1-9]|1[0-2]):([0-5][0-9])\s*(AM|PM)$/i;
-      const m = str.trim().match(timeRegex);
-      if (!m) return null;
-      let hours = parseInt(m[1]);
-      const minutes = parseInt(m[2]);
-      const ampm = m[3].toUpperCase();
-      if (ampm === 'PM' && hours !== 12) hours += 12;
-      if (ampm === 'AM' && hours === 12) hours = 0;
-      return { hours, minutes };
+    function parseTimeFlexible(str) {
+      const t = str.trim();
+      // Try 12-hour first
+      const re12 = /^(0?[1-9]|1[0-2]):([0-5][0-9])\s*(AM|PM)$/i;
+      let m = t.match(re12);
+      if (m) {
+        let hours = parseInt(m[1]);
+        const minutes = parseInt(m[2]);
+        const ampm = m[3].toUpperCase();
+        if (ampm === 'PM' && hours !== 12) hours += 12;
+        if (ampm === 'AM' && hours === 12) hours = 0;
+        return { hours, minutes };
+      }
+      // Try 24-hour HH:MM
+      const re24 = /^([01]?\d|2[0-3]):([0-5]\d)$/;
+      m = t.match(re24);
+      if (m) {
+        return { hours: parseInt(m[1]), minutes: parseInt(m[2]) };
+      }
+      return null;
     }
 
-    const parsedStart = parseTime12Hour(session_time);
+    const parsedStart = parseTimeFlexible(session_time);
     if (!parsedStart) {
-      await interaction.editReply({ content: '❌ Invalid start time. Use 12-hour format (e.g., 7:30 PM).' });
+      await interaction.editReply({ content: '❌ Invalid start time. Use 12h or 24h (e.g., 7:30 PM or 19:30).' });
       return;
     }
 
     let parsedEnd = null;
     if (voting_end_time) {
-      parsedEnd = parseTime12Hour(voting_end_time);
+      parsedEnd = parseTimeFlexible(voting_end_time);
       if (!parsedEnd) {
-        await interaction.editReply({ content: '❌ Invalid voting end time. Use 12-hour format (e.g., 6:30 PM).' });
+        await interaction.editReply({ content: '❌ Invalid voting end time. Use 12h or 24h (e.g., 6:30 PM or 18:30).' });
         return;
       }
     }
@@ -369,34 +379,31 @@ async function handleVotingSessionDateModal(interaction) {
     return;
   }
 
-  // Parse and validate 12-hour time format
-  function parseTime12Hour(timeStr) {
-    // Match formats like: 7:30 PM, 07:30 PM, 7:30PM, 07:30PM
-    const timeRegex = /^(0?[1-9]|1[0-2]):([0-5][0-9])\s*(AM|PM)$/i;
-    const match = timeStr.trim().match(timeRegex);
-
-    if (!match) {
-      return null;
+  // Parse time in either 12-hour (h:mm AM/PM) or 24-hour (HH:MM) format
+  function parseTimeFlexible(timeStr) {
+    const t = timeStr.trim();
+    // 12-hour
+    const re12 = /^(0?[1-9]|1[0-2]):([0-5][0-9])\s*(AM|PM)$/i;
+    let m = t.match(re12);
+    if (m) {
+      let hours = parseInt(m[1]);
+      const minutes = parseInt(m[2]);
+      const ampm = m[3].toUpperCase();
+      if (ampm === 'PM' && hours !== 12) hours += 12;
+      if (ampm === 'AM' && hours === 12) hours = 0;
+      return { hours, minutes };
     }
-
-    let hours = parseInt(match[1]);
-    const minutes = parseInt(match[2]);
-    const ampm = match[3].toUpperCase();
-
-    // Convert to 24-hour format
-    if (ampm === 'PM' && hours !== 12) {
-      hours += 12;
-    } else if (ampm === 'AM' && hours === 12) {
-      hours = 0;
-    }
-
-    return { hours, minutes };
+    // 24-hour
+    const re24 = /^([01]?\d|2[0-3]):([0-5]\d)$/;
+    m = t.match(re24);
+    if (m) return { hours: parseInt(m[1]), minutes: parseInt(m[2]) };
+    return null;
   }
 
-  const parsedSessionTime = parseTime12Hour(sessionTime);
+  const parsedSessionTime = parseTimeFlexible(sessionTime);
   if (!parsedSessionTime) {
     await interaction.reply({
-      content: '❌ Invalid session time format. Please use 12-hour format (e.g., 7:30 PM or 07:30 PM).',
+      content: '❌ Invalid session time format. Use 12h or 24h (e.g., 7:30 PM or 19:30).',
       flags: MessageFlags.Ephemeral
     });
     return;
@@ -404,10 +411,10 @@ async function handleVotingSessionDateModal(interaction) {
 
   let parsedVotingEndTime = null;
   if (votingEndTime) {
-    parsedVotingEndTime = parseTime12Hour(votingEndTime);
+    parsedVotingEndTime = parseTimeFlexible(votingEndTime);
     if (!parsedVotingEndTime) {
       await interaction.reply({
-        content: '❌ Invalid voting end time format. Please use 12-hour format (e.g., 6:30 PM or 06:30 PM).',
+        content: '❌ Invalid voting end time format. Use 12h or 24h (e.g., 6:30 PM or 18:30).',
         flags: MessageFlags.Ephemeral
       });
       return;
