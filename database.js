@@ -258,6 +258,19 @@ class Database {
       logger.warn('initializeTables ensure voting_end_time warning:', e.message);
     }
     try {
+      const [rsvpCols] = await this.pool.execute(`
+        SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'movie_sessions' AND COLUMN_NAME = 'rsvp_user_ids'
+      `);
+      if (rsvpCols.length === 0) {
+        await this.pool.execute(`ALTER TABLE movie_sessions ADD COLUMN rsvp_user_ids JSON NULL AFTER discord_event_id`);
+        logger.debug('✅ Added rsvp_user_ids column via initializeTables');
+      }
+    } catch (e) {
+      logger.warn('initializeTables ensure rsvp_user_ids warning:', e.message);
+    }
+
+    try {
       const [cols2] = await this.pool.execute(`
         SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'movies' AND COLUMN_NAME = 'next_session'
@@ -2505,6 +2518,22 @@ class Database {
       return true;
     } catch (error) {
       console.error('Error deleting voting session:', error.message);
+      return false;
+    }
+  }
+
+  async updateSessionRSVPs(sessionId, userIdsArray) {
+    if (!this.isConnected) return false;
+
+    try {
+      // Store as JSON array for flexibility
+      await this.pool.execute(
+        `UPDATE movie_sessions SET rsvp_user_ids = ? WHERE id = ?`,
+        [JSON.stringify(userIdsArray || []), sessionId]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error updating session RSVPs:', error.message);
       return false;
     }
   }

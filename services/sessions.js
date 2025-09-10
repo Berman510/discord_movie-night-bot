@@ -1108,10 +1108,10 @@ async function handleCancelConfirmation(interaction) {
   const customId = interaction.customId;
 
   if (customId === 'cancel_cancel') {
-    await interaction.update({
+    // Respond with a fresh ephemeral reply so we can auto-dismiss reliably
+    await interaction.reply({
       content: '✅ Session cancellation cancelled.',
-      embeds: [],
-      components: []
+      flags: MessageFlags.Ephemeral
     });
     setTimeout(async () => { try { await interaction.deleteReply(); } catch (_) {} }, 8000);
     return;
@@ -1153,10 +1153,10 @@ async function handleCancelConfirmation(interaction) {
       await restoreMoviePost(interaction, movieMessageId);
     }
 
-    await interaction.update({
+    // Respond with a fresh ephemeral reply so we can auto-dismiss reliably
+    await interaction.reply({
       content: `✅ **Session Cancelled**\n\nSession "${session.name}" has been cancelled and the movie has been returned to "Planned for later" status.`,
-      embeds: [],
-      components: []
+      flags: MessageFlags.Ephemeral
     });
     // Auto-dismiss the ephemeral success after 8 seconds
     setTimeout(async () => { try { await interaction.deleteReply(); } catch (_) {} }, 8000);

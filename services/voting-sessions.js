@@ -668,15 +668,14 @@ async function createVotingSession(interaction, state) {
                 }
 
                 if (forumChannels.isForumChannel(votingChannel)) {
-                  // Create forum post for carryover movie
+                  // Create forum post for carryover movie WITHOUT components first (we need the new message ID)
                   const { embeds, components } = require('../utils');
                   const movieEmbed = embeds.createMovieEmbed(updatedMovie);
-                  const movieComponents = components.createVotingButtons(updatedMovie.message_id);
 
                   const result = await forumChannels.createForumMoviePost(
                     votingChannel,
                     { title: updatedMovie.title, embed: movieEmbed },
-                    movieComponents
+                    []
                   );
 
                   const { thread, message } = result;
@@ -685,20 +684,36 @@ async function createVotingSession(interaction, state) {
                   await database.updateMovieMessageId(updatedMovie.guild_id, updatedMovie.title, message.id);
                   await database.updateMovieThreadId(message.id, thread.id);
 
+                  // Now that we have the new message ID, attach voting buttons referencing the correct ID
+                  try {
+                    const voteCounts = await database.getVoteCounts(message.id);
+                    const movieComponents = components.createVotingButtons(message.id, voteCounts.up, voteCounts.down);
+                    await message.edit({ components: movieComponents });
+                  } catch (e) {
+                    logger.warn(`Error attaching voting buttons to forum post ${message.id}: ${e.message}`);
+                  }
+
                   logger.info(`📝 Created forum post for carryover movie: ${updatedMovie.title} (Thread: ${thread.id})`);
                 } else {
-                  // Create text channel message for carryover movie
+                  // Create text channel message for carryover movie WITHOUT components first (need new message ID)
                   const { embeds, components } = require('../utils');
                   const movieEmbed = embeds.createMovieEmbed(updatedMovie);
-                  const movieComponents = components.createVotingButtons(updatedMovie.message_id);
 
                   const newMessage = await votingChannel.send({
-                    embeds: [movieEmbed],
-                    components: movieComponents
+                    embeds: [movieEmbed]
                   });
 
                   // Update database with new message ID
                   await database.updateMovieMessageId(updatedMovie.guild_id, updatedMovie.title, newMessage.id);
+
+                  // Attach voting buttons that reference the new message ID
+                  try {
+                    const voteCounts = await database.getVoteCounts(newMessage.id);
+                    const movieComponents = components.createVotingButtons(newMessage.id, voteCounts.up, voteCounts.down);
+                    await newMessage.edit({ components: movieComponents });
+                  } catch (e) {
+                    logger.warn(`Error attaching voting buttons to message ${newMessage.id}: ${e.message}`);
+                  }
 
                   // Create thread for the movie
                   const thread = await newMessage.startThread({

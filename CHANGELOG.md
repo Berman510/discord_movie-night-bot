@@ -6,6 +6,15 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 
 
 
+## [1.14.0-rc9] - 2025-09-10
+### Fixed
+- Cancel Session: success message now auto-dismisses reliably (uses a fresh ephemeral reply + timed deletion instead of updating the prior ephemeral).
+- Voting with carryover movies: buttons now reference the correct new message IDs, fixing “Movie with message ID … not found in database” errors when voting after carryover.
+
+### Added
+- Event RSVPs: every 5 minutes the bot polls Discord Scheduled Events for active sessions and stores the Interested users in `movie_sessions.rsvp_user_ids` (JSON array). Column is added automatically on startup if missing.
+
+
 ## [1.14.0-rc8] - 2025-09-10
 ### Added
 - Voting end now supports separate Date + Time on both Create and Reschedule. You can end voting on any prior day/time as long as it’s before the session start. Inputs validated.
