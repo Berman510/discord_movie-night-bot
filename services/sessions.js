@@ -1522,6 +1522,11 @@ async function createMovieSessionFromModal(interaction) {
       return;
     }
 
+    // Defer immediately to avoid interaction timeout while we perform updates
+    if (!interaction.deferred && !interaction.replied) {
+      try { await interaction.deferReply({ flags: MessageFlags.Ephemeral }); } catch (_) {}
+    }
+
     // Get modal inputs
     const sessionName = interaction.fields.getTextInputValue('session_name');
     const sessionDescription = interaction.fields.getTextInputValue('session_description') || null;
@@ -1662,10 +1667,14 @@ async function createMovieSessionFromModal(interaction) {
         ? `✅ Session "${sessionName}" rescheduled to <t:${ts}:F>`
         : `✅ Session "${sessionName}" updated.`;
 
-      if (interaction.deferred || interaction.replied) {
-        await interaction.followUp({ content: msg, flags: MessageFlags.Ephemeral });
-      } else {
-        await interaction.reply({ content: msg, flags: MessageFlags.Ephemeral });
+      try {
+        if (interaction.deferred || interaction.replied) {
+          await interaction.editReply({ content: msg, embeds: [], components: [] });
+        } else {
+          await interaction.reply({ content: msg, flags: MessageFlags.Ephemeral });
+        }
+      } catch (_) {
+        try { await interaction.followUp({ content: msg, flags: MessageFlags.Ephemeral }); } catch {}
       }
 
       // Best-effort: close the original ephemeral panel if we created one
@@ -1739,9 +1748,8 @@ async function createMovieSessionFromModal(interaction) {
       embed.addFields({ name: '📝 Description', value: sessionDescription, inline: false });
     }
 
-    await interaction.reply({
-      embeds: [embed],
-      flags: MessageFlags.Ephemeral
+    await interaction.editReply({
+      embeds: [embed]
     });
 
     // Update the movie post if a movie was selected
@@ -1754,10 +1762,15 @@ async function createMovieSessionFromModal(interaction) {
 
   } catch (error) {
     console.error('Error creating session from modal:', error);
-    await interaction.reply({
-      content: '❌ Failed to create movie session.',
-      flags: MessageFlags.Ephemeral
-    });
+    try {
+      if (interaction.deferred || interaction.replied) {
+        await interaction.editReply({ content: '❌ Failed to create movie session.' });
+      } else {
+        await interaction.reply({ content: '❌ Failed to create movie session.', flags: MessageFlags.Ephemeral });
+      }
+    } catch (_) {
+      try { await interaction.followUp({ content: '❌ Failed to create movie session.', flags: MessageFlags.Ephemeral }); } catch {}
+    }
   }
 }
 

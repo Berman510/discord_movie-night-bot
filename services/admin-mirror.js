@@ -257,15 +257,21 @@ async function syncAdminChannel(client, guildId) {
       }
     }
 
-    // Get all active movies (not watched/skipped unless banned, excluding carryover movies)
-    const movies = await database.getMoviesByStatusExcludingCarryover(guildId, 'pending', 50);
-    const plannedMovies = await database.getMoviesByStatusExcludingCarryover(guildId, 'planned', 50);
-    const scheduledMovies = await database.getMoviesByStatusExcludingCarryover(guildId, 'scheduled', 50);
-    const bannedMovies = await database.getBannedMovies(guildId);
+    // Prefer current voting session movies when a session is active (includes carryover)
+    let allMovies = [];
+    const activeSession = await database.getActiveVotingSession(guildId);
+    if (activeSession) {
+      allMovies = await database.getMoviesForVotingSession(activeSession.id);
+    } else {
+      // Fallback: get general queue excluding carryover
+      const movies = await database.getMoviesByStatusExcludingCarryover(guildId, 'pending', 50);
+      const plannedMovies = await database.getMoviesByStatusExcludingCarryover(guildId, 'planned', 50);
+      const scheduledMovies = await database.getMoviesByStatusExcludingCarryover(guildId, 'scheduled', 50);
+      allMovies = [...movies, ...plannedMovies, ...scheduledMovies];
+    }
 
-    const allMovies = [...movies, ...plannedMovies, ...scheduledMovies];
-    
     // Add banned movies to the list
+    const bannedMovies = await database.getBannedMovies(guildId);
     for (const bannedMovie of bannedMovies) {
       const fullBannedMovie = {
         ...bannedMovie,

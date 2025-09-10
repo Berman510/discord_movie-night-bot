@@ -5,6 +5,13 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 
 
 ## [1.14.0-rc3] - 2025-09-09
+## [1.14.0-rc4] - 2025-09-09
+### Fixed
+- Purge Current Queue: handle forum channels correctly (no messages.fetch on forums); cleanly edits the ephemeral “Purging…” message to success.
+- Modal submit (create/reschedule): defer early and use editReply to avoid “Unknown interaction”.
+- Forum recommendation: reuse existing system post when present instead of creating duplicates; then pin.
+- Admin mirror: when a voting session is active, mirror all movies for that session (includes carryover) so “Pick Winner” buttons appear.
+
 ### Fixed
 - Reschedule: avoid opening a modal from a modal; custom time now shows a review panel with a Continue button before details.
 - Discord Event update: ensure `scheduledEndTime` is updated with a safe duration when start time changes (prevents end-before-start error).

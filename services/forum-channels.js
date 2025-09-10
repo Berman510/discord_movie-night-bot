@@ -808,6 +808,24 @@ async function ensureRecommendationPost(channel, activeSession = null) {
       }
     }
 
+    // If we didn't detect a pinned post but have a system post, reuse it
+    if (!pinnedPost && systemPosts.length >= 1) {
+      try {
+        const reuse = systemPosts[0].thread;
+        if (reuse.archived) await reuse.setArchived(false);
+        await reuse.setName('🍿 Recommend a Movie');
+        const starterMessage = await reuse.fetchStarterMessage();
+        if (starterMessage) {
+          await starterMessage.edit({ embeds: [recommendEmbed], components: [recommendButton] });
+        }
+        try { await reuse.pin(); } catch {}
+        pinnedPost = reuse;
+        logger.debug('📋 Reused existing system post as recommendation post', guildId);
+      } catch (reuseErr) {
+        logger.warn(`📋 Failed to reuse existing system post: ${reuseErr.message}`, guildId);
+      }
+    }
+
     if (!pinnedPost) {
       // Create new pinned post
       try {
