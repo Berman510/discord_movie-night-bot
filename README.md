@@ -26,7 +26,7 @@ A comprehensive Discord bot for managing movie recommendations, voting, and orga
 
 ### 🎪 **Enhanced Session Management**
 - **Discord Event Integration**: Full event creation, updates, and RSVP functionality with channel integration
-- **Timezone Support**: Configurable guild timezones with 12-hour time format (7:30 PM) and US dates (MM-DD-YYYY)
+- **Timezone Support**: Configurable guild timezones with 12-hour or 24-hour time formats (e.g., 7:30 PM or 19:30) and US dates (MM/DD/YYYY)
 - **Session Descriptions**: Themed session messaging with custom descriptions in voting channels
 - **Automatic Event Updates**: Events update with winner information, IMDB details, and vote counts
 - **Event RSVP Tracking**: Every 5 minutes, the bot records users who clicked Interested on the scheduled event (stored per session for analytics)
@@ -52,31 +52,25 @@ A comprehensive Discord bot for managing movie recommendations, voting, and orga
 - **Admin Roles**: Role-based permission system with comprehensive admin controls
 - **Timezone Settings**: Server-wide timezone configuration with automatic voting closure
 - **Notification Roles**: Ping roles for movie night events with Discord event integration
-- **Time Formats**: User-friendly 12-hour time format and US date format (MM-DD-YYYY)
+- **Time Formats**: User-friendly 12-hour or 24-hour time formats and US date format (MM/DD/YYYY)
 
 ---
 
-### 🚀 Next Up (1.14.x Short-Term)
-- [ ] Keep Cancel/Reschedule visible until event start across all flows
-  - Use Discord event scheduledStart as the authoritative source when DB date is ambiguous
-  - Refresh Admin Control Panel after winner selection/reschedule/cancel to reflect current controls
-- [ ] Ephemeral success messages auto-expire/edit
-  - Edit ephemeral confirmations (e.g., “Movie recommendation added!”) to a compact success and auto-expire after ~30s where the interaction context allows
-  - Ensure we still acknowledge interactions within 3s (no modal timeouts)
-- [ ] Logging sweep: include guild_id everywhere
-  - Add standardized logger wrappers and audit hot paths (buttons, sessions, forum-channels, admin-controls, voting-closure)
-- [ ] Deep Purge parity
-  - Explicitly remove any lingering winner announcements
-  - Ensure correct “No Active Voting Session” forum post is (re)created and pinned
-  - Verify both forum and text voting modes
-- [ ] Event polish
-  - Optional: set IMDb poster as the event cover image when available
-  - Ensure role mentions/pings occur at session start where appropriate
-  - Harmonize event naming across all flows
-- [ ] Admin panel dedupe improvements
-  - Beyond throttling, prefer updating an existing per-user ephemeral Admin panel instead of opening a new one when possible
-- [ ] Docs: clarify configuration permissions
-  - Only users with Administrator or Manage Server (Manage Guild) can configure via the UI/commands
+### 🚀 Next Up (1.14.1)
+- [ ] Dashboard: clarify actions
+  - Rename “Planned” → “Plan for later” (move out of active voting, keep in backlog)
+  - Add “Add to Next Session” / “Remove from Next Session” actions
+- [ ] Bi-directional integration with dashboard
+  - Real-time updates via WebSocket bridge; mirror movie status changes in Discord immediately
+  - Sync admin panel and voting posts on dashboard actions
+- [ ] Dashboard UI polish
+  - Tooltips and confirmation dialogs for destructive actions (ban/remove)
+  - Inline status and vote summaries
+- [ ] Analytics
+  - Surface RSVP list/count per session on dashboard (using bot’s stored rsvp_user_ids)
+  - Basic attendance analytics groundwork
+- [ ] Docs
+  - Add dashboard integration section (env vars, WS token, feature list)
 
 
 ## 📋 TODO List
@@ -304,7 +298,7 @@ pm2 startup  # follow the printed instructions
 
 ### Enhanced Movie Night Sessions
 - **Admin Control Panel:** Comprehensive admin interface with "Plan Next Session" button and session management
-- **User-Friendly Formats:** 12-hour time format (7:30 PM) and US date format (MM-DD-YYYY)
+- **User-Friendly Formats:** 12-hour or 24-hour time formats (e.g., 7:30 PM or 19:30) and US date format (MM/DD/YYYY)
 - **Session Descriptions:** Add custom themes like "Holiday Movie Night - Let's watch festive films!"
 - **Automatic Voting Closure:** Sessions automatically close at scheduled voting end times
 - **Intelligent Winner Selection:** Automatic winner selection with tie-breaking interface for admins

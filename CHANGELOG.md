@@ -6,6 +6,20 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 
 
 
+## [1.14.0] - 2025-09-10
+### Highlights
+- Reschedule flow now uses the exact same modal as Plan Next Session with all fields pre-filled; updates Discord event, admin panel, and voting posts.
+- Optional Voting Ends (Date + Time). Defaults to 1 hour before session start if omitted. Inputs accept 12-hour or 24-hour time formats.
+- Ephemeral UX polish: success toasts auto-dismiss (~8s); confirmation prompts auto-expire (~30s).
+- Carryover reliability: voting buttons now reference correct new message IDs; immediate voting works after carryover.
+- Discord Event RSVP tracking: every 5 minutes, Interested users are recorded per session (stored in DB JSON column).
+
+### Fixed
+- Forum/text parity and sync robustness across cancel, reschedule, winner, and purge flows.
+- Admin panel visibility and refresh timing; control buttons remain available until event start.
+- Discord.js v14 compatibility, thread handling, and modal timing issues.
+
+
 ## [1.14.0-rc11] - 2025-09-10
 ### Fixed
 - Modal titles shortened to satisfy Discord’s 45-char max (was causing ExpectedConstraintError). Titles are now concise; guidance remains in placeholders.
