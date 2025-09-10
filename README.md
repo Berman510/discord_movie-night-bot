@@ -201,6 +201,7 @@ MOVIENIGHT_WS_ENABLED=true
 MOVIENIGHT_WS_URL=wss://bot-movienight.bermanoc.net/socket
 MOVIENIGHT_WS_TOKEN=YOUR_LONG_RANDOM_TOKEN
 ```
+Note: for beta use `wss://bot-movienight-beta.bermanoc.net/socket`.
 
 Webhook server (optional fallback; PebbleHost fixed port):
 ```

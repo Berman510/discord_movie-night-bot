@@ -89,6 +89,47 @@ function initWebSocketClient(logger) {
         if (msg.type === 'ack') return;
 
         try {
+          if (msg.type === 'sync_guild') {
+            const guildId = msg?.payload?.guildId;
+            if (!guildId) return;
+            const client = global.discordClient;
+            if (!client) return;
+            const database = require('../database');
+            const adminControls = require('./admin-controls');
+            const forumChannels = require('./forum-channels');
+            const { ensureQuickActionAtBottom, recreateMissingMoviePosts } = require('./cleanup');
+            try {
+              const config = await database.getGuildConfig(guildId);
+              try { await adminControls.ensureAdminControlPanel(client, guildId); } catch (_) {}
+              if (config && config.movie_channel_id) {
+                const votingChannel = await client.channels.fetch(config.movie_channel_id).catch(() => null);
+                if (votingChannel) {
+                  if (forumChannels.isForumChannel(votingChannel)) {
+                    try { await adminControls.populateForumChannel(client, guildId); } catch (_) {}
+                  } else {
+                    try { await recreateMissingMoviePosts(votingChannel, guildId); } catch (_) {}
+                    try { await ensureQuickActionAtBottom(votingChannel); } catch (_) {}
+                  }
+                }
+              }
+            } catch (e) {
+              logger?.warn?.('WS sync_guild error:', e?.message || e);
+            }
+            return;
+          }
+
+          if (msg.type === 'refresh_admin_panel') {
+            const guildId = msg?.payload?.guildId;
+            if (!guildId) return;
+            const client = global.discordClient;
+            if (!client) return;
+            const adminControls = require('./admin-controls');
+            try { await adminControls.ensureAdminControlPanel(client, guildId); } catch (e) {
+              logger?.warn?.('WS refresh_admin_panel error:', e?.message || e);
+            }
+            return;
+          }
+
           if (msg.type === 'ban_movie') {
             const guildId = msg?.payload?.guildId;
             const title = msg?.payload?.title;
