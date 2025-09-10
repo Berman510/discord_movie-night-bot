@@ -2214,18 +2214,22 @@ async function handleRescheduleSession(interaction) {
   const database = require('../database');
 
   try {
-    const activeSession = await database.getActiveVotingSession(interaction.guild.id);
-    if (!activeSession) {
+    // Find a manageable session: active voting session or upcoming decided session
+    let session = await database.getActiveVotingSession(interaction.guild.id);
+    if (!session) {
+      try { session = await database.getUpcomingDecidedSession(interaction.guild.id); } catch {}
+    }
+    if (!session) {
       await interaction.reply({
-        content: '❌ No active voting session to reschedule.',
+        content: '❌ No current session to reschedule. Use "Plan Next Session" to create one first.',
         flags: MessageFlags.Ephemeral
       });
       return;
     }
 
-    // Use the implemented reschedule functionality
-    const sessions = require('../services/sessions');
-    await sessions.handleSessionReschedule(interaction, activeSession.id, null);
+    // Show the exact same modal as Plan Next Session, prefilled with this session's values
+    const votingSessions = require('../services/voting-sessions');
+    await votingSessions.showVotingSessionRescheduleModal(interaction, session);
 
   } catch (error) {
     console.error('Error handling reschedule session:', error);

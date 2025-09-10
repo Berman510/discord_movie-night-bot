@@ -4,6 +4,18 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 
 
 
+
+## [1.14.0-rc6] - 2025-09-10
+### Changed
+- Reschedule now uses the exact same modal as “Plan Next Session,” with all fields pre-filled from the current session (Date, Time, Voting Ends, Description).
+
+### Fixed
+- Admin “Reschedule” button opens the prefilled modal directly (no intermediate review panel).
+- On submit, the existing session is updated in-place (DB + Discord Scheduled Event) and channel messaging is refreshed:
+  - Voting channel: system post (forum Recommend/No Active or text quick-action) reflects the new times.
+  - Admin channel: control panel/mirror refreshed so times match the updated session.
+- Modal handling defers early and returns a single ephemeral success message (prevents stuck ephemerals).
+
 ## [1.14.0-rc3] - 2025-09-09
 ## [1.14.0-rc4] - 2025-09-09
 ## [1.14.0-rc5] - 2025-09-10

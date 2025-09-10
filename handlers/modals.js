@@ -43,6 +43,11 @@ async function handleModal(interaction) {
       await votingSessions.handleVotingSessionDateModal(interaction);
       return;
     }
+    if (customId.startsWith('voting_session_reschedule_modal:')) {
+      const votingSessions = require('../services/voting-sessions');
+      await votingSessions.handleVotingSessionRescheduleModal(interaction);
+      return;
+    }
 
     // Note: voting_session_time_modal doesn't exist - time is handled in date modal
 

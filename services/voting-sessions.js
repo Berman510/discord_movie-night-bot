@@ -84,6 +84,224 @@ async function showVotingSessionDateModal(interaction) {
   await interaction.showModal(modal);
 }
 
+
+/**
+ * Show the same modal as Plan Next Session, prefilled for rescheduling
+ */
+async function showVotingSessionRescheduleModal(interaction, session) {
+  const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
+
+  // Compute prefill values from the existing session
+  const start = session.scheduled_date ? new Date(session.scheduled_date) : new Date();
+  const end = session.voting_end_time ? new Date(session.voting_end_time) : new Date(start.getTime() - 60 * 60 * 1000);
+
+  const mm = String(start.getMonth() + 1).padStart(2, '0');
+  const dd = String(start.getDate()).padStart(2, '0');
+  const yyyy = String(start.getFullYear());
+  const prefillDate = `${mm}/${dd}/${yyyy}`;
+  const prefillTime = start.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+  const prefillVotingEnd = end.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+  const prefillDescription = session.description || '';
+
+  const modal = new ModalBuilder()
+    .setCustomId(`voting_session_reschedule_modal:${session.id}`)
+    .setTitle('Reschedule Voting Session');
+
+  const dateInput = new TextInputBuilder()
+    .setCustomId('session_date')
+    .setLabel('Session Date (MM/DD/YYYY)')
+    .setStyle(TextInputStyle.Short)
+    .setPlaceholder('12/25/2024')
+    .setRequired(true)
+    .setMaxLength(10)
+    .setValue(prefillDate);
+
+  const timeInput = new TextInputBuilder()
+    .setCustomId('session_time')
+    .setLabel('Session Time (12-hour format)')
+    .setStyle(TextInputStyle.Short)
+    .setPlaceholder('7:30 PM or 07:30 PM')
+    .setRequired(true)
+    .setMaxLength(8)
+    .setValue(prefillTime);
+
+  const votingEndInput = new TextInputBuilder()
+    .setCustomId('voting_end_time')
+    .setLabel('Voting Ends (12-hour format, same day)')
+    .setStyle(TextInputStyle.Short)
+    .setPlaceholder('6:30 PM (1 hour before session)')
+    .setRequired(false)
+    .setMaxLength(8)
+    .setValue(prefillVotingEnd);
+
+  const descriptionInput = new TextInputBuilder()
+    .setCustomId('session_description')
+    .setLabel('Session Description (Optional)')
+    .setStyle(TextInputStyle.Paragraph)
+    .setPlaceholder('Join us for a festive movie night!')
+    .setRequired(false)
+    .setMaxLength(500)
+    .setValue(prefillDescription);
+
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(dateInput),
+    new ActionRowBuilder().addComponents(timeInput),
+    new ActionRowBuilder().addComponents(votingEndInput),
+    new ActionRowBuilder().addComponents(descriptionInput)
+  );
+
+  await interaction.showModal(modal);
+}
+
+/**
+ * Handle reschedule modal submit (same validation/creation flow, but updates existing session)
+ */
+async function handleVotingSessionRescheduleModal(interaction) {
+  const { MessageFlags } = require('discord.js');
+  const database = require('../database');
+  const forumChannels = require('./forum-channels');
+  const adminControls = require('./admin-controls');
+  const adminMirror = require('./admin-mirror');
+  const discordEvents = require('./discord-events');
+  const logger = require('../utils/logger');
+
+  // Defer early to avoid timeouts
+  if (!interaction.deferred && !interaction.replied) {
+    try { await interaction.deferReply({ flags: MessageFlags.Ephemeral }); } catch {}
+  }
+
+  try {
+    const [_, sessionIdStr] = interaction.customId.split(':');
+    const sessionId = Number(sessionIdStr);
+    if (!sessionId) throw new Error('Invalid session id');
+
+    const session_date = interaction.fields.getTextInputValue('session_date');
+    const session_time = interaction.fields.getTextInputValue('session_time');
+    const voting_end_time = interaction.fields.getTextInputValue('voting_end_time') || null;
+    const session_description = interaction.fields.getTextInputValue('session_description') || null;
+
+    const dateRegex = /^(0?[1-9]|1[0-2])\/(0?[1-9]|[12][0-9]|3[01])\/\d{4}$/;
+    if (!dateRegex.test(session_date)) {
+      await interaction.editReply({ content: '❌ Invalid date format. Use MM/DD/YYYY.' });
+      return;
+    }
+
+    function parseTime12Hour(str) {
+      const timeRegex = /^(0?[1-9]|1[0-2]):([0-5][0-9])\s*(AM|PM)$/i;
+      const m = str.trim().match(timeRegex);
+      if (!m) return null;
+      let hours = parseInt(m[1]);
+      const minutes = parseInt(m[2]);
+      const ampm = m[3].toUpperCase();
+      if (ampm === 'PM' && hours !== 12) hours += 12;
+      if (ampm === 'AM' && hours === 12) hours = 0;
+      return { hours, minutes };
+    }
+
+    const parsedStart = parseTime12Hour(session_time);
+    if (!parsedStart) {
+      await interaction.editReply({ content: '❌ Invalid start time. Use 12-hour format (e.g., 7:30 PM).' });
+      return;
+    }
+
+    let parsedEnd = null;
+    if (voting_end_time) {
+      parsedEnd = parseTime12Hour(voting_end_time);
+      if (!parsedEnd) {
+        await interaction.editReply({ content: '❌ Invalid voting end time. Use 12-hour format (e.g., 6:30 PM).' });
+        return;
+      }
+    }
+
+    const [month, day, year] = session_date.split('/');
+    const isoDateString = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+
+    const startDateTime = new Date(`${isoDateString}T${String(parsedStart.hours).padStart(2, '0')}:${String(parsedStart.minutes).padStart(2, '0')}:00`);
+    let endDateTime = null;
+    if (parsedEnd) {
+      endDateTime = new Date(`${isoDateString}T${String(parsedEnd.hours).padStart(2, '0')}:${String(parsedEnd.minutes).padStart(2, '0')}:00`);
+    } else {
+      endDateTime = new Date(startDateTime);
+      endDateTime.setHours(endDateTime.getHours() - 1);
+    }
+
+    if (startDateTime <= new Date()) {
+      await interaction.editReply({ content: '❌ Session date/time must be in the future.' });
+      return;
+    }
+    if (endDateTime >= startDateTime) {
+      await interaction.editReply({ content: '❌ Voting must end before the session starts.' });
+      return;
+    }
+
+    // Generate session name like creation flow
+    const sessionName = `Movie Night - ${startDateTime.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
+
+    // Determine timezone preference similar to creation
+    const cfg = await database.getGuildConfig(interaction.guild.id);
+    const tz = cfg?.default_timezone || cfg?.timezone || 'America/Los_Angeles';
+
+    // Update session in DB
+    await database.updateMovieSessionDetails(sessionId, {
+      name: sessionName,
+      description: session_description,
+      scheduledDate: startDateTime,
+      votingEndTime: endDateTime,
+      timezone: tz
+    });
+
+    // Update or create Discord Scheduled Event
+    try {
+      const current = await database.getSessionById(sessionId);
+      let eventId = current?.discord_event_id || null;
+      if (eventId) {
+        await discordEvents.updateDiscordEvent(
+          interaction.guild,
+          eventId,
+          { id: sessionId, name: sessionName, description: session_description, votingEndTime: endDateTime },
+          startDateTime
+        );
+      } else {
+        const newEventId = await discordEvents.createDiscordEvent(interaction.guild, { id: sessionId, guildId: interaction.guild.id, name: sessionName, description: session_description, votingEndTime: endDateTime }, startDateTime);
+        if (newEventId) await database.updateSessionDiscordEvent(sessionId, newEventId);
+      }
+    } catch (e) {
+      logger.warn('Error updating Discord event during reschedule:', e.message);
+    }
+
+    // Update forum/text channels system post
+    try {
+      const config = await database.getGuildConfig(interaction.guild.id);
+      const client = interaction.client || global.discordClient;
+      if (config?.movie_channel_id && client) {
+        const votingChannel = await client.channels.fetch(config.movie_channel_id);
+        if (votingChannel) {
+          if (forumChannels.isForumChannel(votingChannel)) {
+            await forumChannels.ensureRecommendationPost(votingChannel, await database.getActiveVotingSession(interaction.guild.id));
+          } else if (forumChannels.isTextChannel(votingChannel)) {
+            const cleanup = require('./cleanup');
+            await cleanup.ensureQuickActionPinned(votingChannel);
+          }
+        }
+      }
+    } catch (e) {
+      logger.warn('Error updating channel posts during reschedule:', e.message);
+    }
+
+    // Refresh admin control panel and mirror
+    try { await adminControls.ensureAdminControlPanel(interaction.client || global.discordClient, interaction.guild.id); } catch {}
+    try { await adminMirror.syncAdminChannel(interaction.client || global.discordClient, interaction.guild.id); } catch {}
+
+    // Success message
+    const ts = Math.floor(startDateTime.getTime() / 1000);
+    await interaction.editReply({ content: `✅ Session "${sessionName}" rescheduled to <t:${ts}:F>` });
+
+  } catch (error) {
+    console.error('Error handling reschedule modal:', error);
+    try { await interaction.editReply({ content: '❌ Failed to reschedule session.' }); } catch {}
+  }
+}
+
 /**
  * Handle voting session date modal submission
  */
@@ -543,5 +761,7 @@ module.exports = {
   startVotingSessionCreation,
   showVotingSessionDateModal,
   handleVotingSessionDateModal,
-  createVotingSession
+  createVotingSession,
+  showVotingSessionRescheduleModal,
+  handleVotingSessionRescheduleModal
 };
