@@ -237,6 +237,52 @@ async function handleVoting(interaction, action, msgId, votes) {
       // Check current vote
       const currentVote = await database.getUserVote(msgId, userId);
 
+      // Enforce per-session vote caps (configurable; defaults: up ~1/3, down ~1/5)
+      try {
+        const movieSessionId = movie.session_id;
+        if (movieSessionId) {
+          // Only enforce caps when attempting to add/change a vote
+          if (currentVote !== action) {
+            // Read guild config; default to enabled with asymmetric ratios if absent
+            const config = await database.getGuildConfig(interaction.guild.id).catch(() => null);
+            const enabled = config && typeof config.vote_cap_enabled !== 'undefined' ? Boolean(Number(config.vote_cap_enabled)) : true;
+
+            if (enabled) {
+              const ratioUp = config && config.vote_cap_ratio_up != null ? Number(config.vote_cap_ratio_up) : 1/3;
+              const ratioDown = config && config.vote_cap_ratio_down != null ? Number(config.vote_cap_ratio_down) : 1/5;
+              const minCap = config && config.vote_cap_min != null ? Math.max(1, Number(config.vote_cap_min)) : 1;
+
+              const totalInSession = await database.countMoviesInSession(movieSessionId);
+              const upCap = Math.max(minCap, Math.floor(totalInSession * ratioUp));
+              const downCap = Math.max(minCap, Math.floor(totalInSession * ratioDown));
+
+              const type = isUpvote ? 'up' : 'down';
+              const used = await database.countUserVotesInSession(userId, movieSessionId, type);
+              const cap = isUpvote ? upCap : downCap;
+
+              if (used >= cap) {
+                const votesInSession = await database.getUserVotesInSession(userId, movieSessionId);
+                const titles = votesInSession
+                  .filter(v => v.vote_type === type)
+                  .map(v => v.title)
+                  .filter(Boolean);
+
+                const list = titles.length > 0 ? titles.join(' • ').slice(0, 1500) : 'None';
+                const friendly = isUpvote ? `👍 upvotes` : `👎 downvotes`;
+
+                await interaction.editReply({
+                  content: `⚠️ You\'ve reached your ${friendly} limit for this voting session.\n\nSession movies: ${totalInSession}\nAllowed ${friendly}: ${cap}\nYour ${friendly}: ${used}\n\nCurrent ${friendly}: ${list}\n\nTip: Unvote one of the above to free a slot, then try again.`,
+                  flags: require('discord.js').MessageFlags.Ephemeral
+                });
+                return;
+              }
+            }
+          }
+        }
+      } catch (capError) {
+        console.warn('Vote cap check failed, proceeding without cap enforcement:', capError?.message);
+      }
+
       if (currentVote === action) {
         // Remove vote if clicking same button
         const removeSuccess = await database.removeVote(msgId, userId, interaction.guild.id);
@@ -2515,6 +2561,21 @@ async function handleConfigurationAction(interaction, customId) {
         break;
       case 'notification_role':
         await configuration.setNotificationRole(interaction, interaction.guild.id);
+        break;
+      case 'vote_caps':
+        await configuration.configureVoteCaps(interaction, interaction.guild.id);
+        break;
+      case 'vote_caps_enable':
+        await configuration.setVoteCapsEnabled(interaction, interaction.guild.id, true);
+        break;
+      case 'vote_caps_disable':
+        await configuration.setVoteCapsEnabled(interaction, interaction.guild.id, false);
+        break;
+      case 'vote_caps_reset':
+        await configuration.resetVoteCapsDefaults(interaction, interaction.guild.id);
+        break;
+      case 'vote_caps_set':
+        await configuration.openVoteCapsModal(interaction, interaction.guild.id);
         break;
       default:
         await interaction.reply({

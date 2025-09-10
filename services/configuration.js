@@ -70,7 +70,7 @@ async function configureMovieChannel(interaction, guildId) {
 
 async function addAdminRole(interaction, guildId) {
   const role = interaction.options?.getRole('role');
-  
+
   if (!role) {
     await interaction.reply({
       content: '❌ Please specify a role to add as admin.',
@@ -95,7 +95,7 @@ async function addAdminRole(interaction, guildId) {
 
 async function removeAdminRole(interaction, guildId) {
   const role = interaction.options?.getRole('role');
-  
+
   if (!role) {
     await interaction.reply({
       content: '❌ Please specify a role to remove from admin.',
@@ -163,7 +163,7 @@ async function setNotificationRole(interaction, guildId) {
 async function viewSettings(interaction, guildId) {
   try {
     const config = await database.getGuildConfig(guildId);
-    
+
     if (!config) {
       await interaction.reply({
         content: '❌ Failed to retrieve guild configuration.',
@@ -298,6 +298,107 @@ async function configureViewingChannel(interaction, guildId) {
   }
 }
 
+
+async function configureVoteCaps(interaction, guildId) {
+  const cfg = await database.getGuildConfig(guildId).catch(() => null);
+  const enabled = cfg && typeof cfg.vote_cap_enabled !== 'undefined' ? Boolean(Number(cfg.vote_cap_enabled)) : true;
+  const ratioUp = cfg && cfg.vote_cap_ratio_up != null ? Number(cfg.vote_cap_ratio_up) : 1/3;
+  const ratioDown = cfg && cfg.vote_cap_ratio_down != null ? Number(cfg.vote_cap_ratio_down) : 1/5;
+  const minCap = cfg && cfg.vote_cap_min != null ? Number(cfg.vote_cap_min) : 1;
+
+  const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
+  const embed = new EmbedBuilder()
+    .setTitle('⚖️ Vote Caps Settings')
+    .setColor(enabled ? 0x57F287 : 0xED4245)
+    .setDescription('Limit how many movies each user can upvote/downvote per voting session.')
+    .addFields(
+      { name: 'Status', value: enabled ? 'Enabled' : 'Disabled', inline: true },
+      { name: 'Upvote Ratio', value: `${ratioUp}`, inline: true },
+      { name: 'Downvote Ratio', value: `${ratioDown}`, inline: true },
+      { name: 'Minimum Allowed', value: `${minCap}`, inline: true }
+    );
+
+  const row1 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('config_vote_caps_enable').setLabel('Enable').setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId('config_vote_caps_disable').setLabel('Disable').setStyle(ButtonStyle.Danger),
+    new ButtonBuilder().setCustomId('config_vote_caps_set').setLabel('Set Ratios/Min').setStyle(ButtonStyle.Primary)
+  );
+  const row2 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('config_vote_caps_reset').setLabel('Reset to Defaults').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('open_configuration').setLabel('⬅ Back').setStyle(ButtonStyle.Secondary)
+  );
+
+  if (interaction.isButton()) {
+    await interaction.update({ content: '⚙️ Configure: Vote Caps', embeds: [embed], components: [row1, row2] });
+  } else {
+    await interaction.reply({ content: '⚙️ Configure: Vote Caps', embeds: [embed], components: [row1, row2], flags: MessageFlags.Ephemeral });
+  }
+}
+
+async function setVoteCapsEnabled(interaction, guildId, enabled) {
+  await database.updateVoteCaps(guildId, { enabled });
+  await configureVoteCaps(interaction, guildId);
+}
+
+async function resetVoteCapsDefaults(interaction, guildId) {
+  await database.updateVoteCaps(guildId, { enabled: true, ratioUp: 1/3, ratioDown: 1/5, min: 1 });
+  await configureVoteCaps(interaction, guildId);
+}
+
+async function openVoteCapsModal(interaction, guildId) {
+  const cfg = await database.getGuildConfig(guildId).catch(() => null);
+  const ratioUp = cfg && cfg.vote_cap_ratio_up != null ? String(cfg.vote_cap_ratio_up) : '0.3333';
+  const ratioDown = cfg && cfg.vote_cap_ratio_down != null ? String(cfg.vote_cap_ratio_down) : '0.2';
+  const minCap = cfg && cfg.vote_cap_min != null ? String(cfg.vote_cap_min) : '1';
+
+  const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
+  const modal = new ModalBuilder().setCustomId('config_vote_caps_modal').setTitle('Set Vote Caps');
+
+  const upInput = new TextInputBuilder()
+    .setCustomId('ratio_up')
+    .setLabel('Upvote ratio (e.g., 0.3333 for 1/3)')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true)
+    .setValue(ratioUp);
+
+  const downInput = new TextInputBuilder()
+    .setCustomId('ratio_down')
+    .setLabel('Downvote ratio (e.g., 0.2 for 1/5)')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true)
+    .setValue(ratioDown);
+
+  const minInput = new TextInputBuilder()
+    .setCustomId('min_cap')
+    .setLabel('Minimum votes allowed (integer, ≥1)')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true)
+    .setValue(minCap);
+
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(upInput),
+    new ActionRowBuilder().addComponents(downInput),
+    new ActionRowBuilder().addComponents(minInput)
+  );
+
+  await interaction.showModal(modal);
+}
+
+async function applyVoteCapsFromModal(interaction) {
+  const guildId = interaction.guild.id;
+  const ratioUp = Number(interaction.fields.getTextInputValue('ratio_up'));
+  const ratioDown = Number(interaction.fields.getTextInputValue('ratio_down'));
+  const minCap = Math.max(1, parseInt(interaction.fields.getTextInputValue('min_cap'), 10) || 1);
+
+  if (!isFinite(ratioUp) || !isFinite(ratioDown) || ratioUp <= 0 || ratioUp > 1 || ratioDown <= 0 || ratioDown > 1) {
+    await interaction.reply({ content: '❌ Invalid ratios. Use decimals in (0,1], e.g., 0.3333 for 1/3.', flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  await database.updateVoteCaps(guildId, { ratioUp, ratioDown, min: minCap });
+  await interaction.reply({ content: '✅ Vote caps updated.', flags: MessageFlags.Ephemeral });
+}
+
 async function configureAdminChannel(interaction, guildId) {
   const channel = interaction.options?.getChannel('channel');
 
@@ -359,5 +460,11 @@ module.exports = {
   configureViewingChannel,
   configureAdminChannel,
   viewSettings,
-  resetConfiguration
+  resetConfiguration,
+  // Vote caps config
+  configureVoteCaps,
+  setVoteCapsEnabled,
+  resetVoteCapsDefaults,
+  openVoteCapsModal,
+  applyVoteCapsFromModal
 };

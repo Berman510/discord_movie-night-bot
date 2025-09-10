@@ -168,6 +168,10 @@ async function handleConfigurationButton(interaction) {
         .setLabel('👑 Set Admin Roles')
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
+        .setCustomId('config_vote_caps')
+        .setLabel('⚖️ Vote Caps')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
         .setCustomId('config_show_guide')
         .setLabel('📖 Setup Guide')
         .setStyle(ButtonStyle.Primary)

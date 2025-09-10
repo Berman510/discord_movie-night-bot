@@ -56,6 +56,10 @@ A comprehensive Discord bot for managing movie recommendations, voting, and orga
 
 ---
 
+
+### ✅ What's New in 1.14.1
+- Asymmetric per-session vote caps: users can upvote up to max(1, floor(n/3)) and downvote up to max(1, floor(n/5)) movies per session. Friendly ephemeral message appears if a user hits the limit, listing their current votes.
+
 ### 🚀 Next Up (1.14.1)
 - [ ] Dashboard: clarify actions
   - Rename “Planned” → “Plan for later” (move out of active voting, keep in backlog)
@@ -90,6 +94,13 @@ A comprehensive Discord bot for managing movie recommendations, voting, and orga
 ### 🗳️ **Multiple Voting Sessions**
 - [ ] **Concurrent voting sessions**: Support multiple active voting sessions simultaneously
 - [ ] **Session queue management**: Queue system for multiple planned sessions
+
+### 🗳️ Vote Caps Configuration
+- [ ] Make vote caps configurable by admin roles:
+  - Global per-guild defaults (enable/disable, upvote ratio default 1/3, downvote ratio default 1/5, min votes default 1)
+  - Optional per-session overrides by the admin/mod who creates the session
+  - Document settings in README and expose via slash commands/admin panel
+
 - [ ] **Session-specific voting channels**: Separate voting channels or sections for each session
 - [ ] **Session priority system**: Handle overlapping session times and priorities
 
@@ -98,6 +109,8 @@ A comprehensive Discord bot for managing movie recommendations, voting, and orga
 - [ ] **Advanced analytics**: More detailed voting and attendance statistics
 - [ ] **Movie recommendations API**: Integration with additional movie databases
 - [ ] **Automated reminders**: Reminder notifications before voting ends
+- [ ] Vote caps: allow overrides configurable by admin roles globally and by admin/mods per voting session (UI in Administration panel)
+
 - [ ] Repository consolidation: Consider moving bot and dashboard into a single monorepo once WS integration stabilizes (keep separate deployment methods).
 
 - [ ] Monorepo planning: evaluate hosting the bot in AWS (e.g., ECS/Fargate) instead of PebbleHost to reduce operational issues; align CI/CD, secrets (AWS Secrets Manager), and env parity with the dashboard.
@@ -229,12 +242,16 @@ If you don't want to set up MySQL, the bot can use a local JSON file for persist
 - **Scalability:** Handles large amounts of data efficiently
 - **History:** Complete viewing history and recommendation tracking
 
+- **Advanced Rules:** Per-session vote caps (up ~1/3, down ~1/5 by default) with admin-configurable ratios in the Administration panel; requires database. In memory-only mode, voting remains open (no caps).
+
 ### Memory-Only Mode (No Database)
 The bot will automatically fall back to memory-only mode if no database is configured. This provides:
 - ✅ **Core Features:** Movie recommendations, voting, and discussions work perfectly
 - ✅ **IMDb Integration:** Movie details and posters still work
 - ✅ **Real-time Voting:** Vote counts update live during the session
 - ⚠️ **Session-Based:** Data is lost when the bot restarts
+- ⚠️ **Open Voting:** Per-session vote caps are not enforced without a database (configurable caps are a database-backed feature).
+
 - ❌ **Limited Commands:** Advanced management features unavailable
 
 **Perfect for:** Testing, small servers, or temporary setups where persistence isn't critical.

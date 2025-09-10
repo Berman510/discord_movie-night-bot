@@ -49,6 +49,13 @@ async function handleModal(interaction) {
       return;
     }
 
+    // Vote caps configuration modal
+    if (customId === 'config_vote_caps_modal') {
+      const configuration = require('../services/configuration');
+      await configuration.applyVoteCapsFromModal(interaction);
+      return;
+    }
+
     // Note: voting_session_time_modal doesn't exist - time is handled in date modal
 
     // Deep purge confirmation modal

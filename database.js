@@ -300,6 +300,32 @@ class Database {
       logger.warn('initializeTables ensure forum columns warning:', e.message);
     }
 
+    try {
+      const [gcCols] = await this.pool.execute(`
+        SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'guild_config'
+      `);
+      const have = new Set(gcCols.map(r => r.COLUMN_NAME));
+      if (!have.has('vote_cap_enabled')) {
+        await this.pool.execute(`ALTER TABLE guild_config ADD COLUMN vote_cap_enabled TINYINT(1) DEFAULT 1 AFTER admin_channel_id`);
+        logger.debug('✅ Added vote_cap_enabled via initializeTables');
+      }
+      if (!have.has('vote_cap_ratio_up')) {
+        await this.pool.execute(`ALTER TABLE guild_config ADD COLUMN vote_cap_ratio_up DECIMAL(10,4) DEFAULT 0.3333 AFTER vote_cap_enabled`);
+        logger.debug('✅ Added vote_cap_ratio_up via initializeTables');
+      }
+      if (!have.has('vote_cap_ratio_down')) {
+        await this.pool.execute(`ALTER TABLE guild_config ADD COLUMN vote_cap_ratio_down DECIMAL(10,4) DEFAULT 0.2000 AFTER vote_cap_ratio_up`);
+        logger.debug('✅ Added vote_cap_ratio_down via initializeTables');
+      }
+      if (!have.has('vote_cap_min')) {
+        await this.pool.execute(`ALTER TABLE guild_config ADD COLUMN vote_cap_min INT DEFAULT 1 AFTER vote_cap_ratio_down`);
+        logger.debug('✅ Added vote_cap_min via initializeTables');
+      }
+    } catch (e) {
+      logger.warn('initializeTables ensure vote cap columns warning:', e.message);
+    }
+
 
 
     // Run migrations to ensure schema is up to date (can be disabled via env)
@@ -1733,6 +1759,33 @@ class Database {
         logger.warn('Migration 26 wrapper warning:', error.message);
       }
 
+      // Migration 27: Add vote cap settings to guild_config
+      try {
+        const [gcCols] = await this.pool.execute(`
+          SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'guild_config'
+        `);
+        const have = new Set(gcCols.map(r => r.COLUMN_NAME));
+        if (!have.has('vote_cap_enabled')) {
+          await this.pool.execute(`ALTER TABLE guild_config ADD COLUMN vote_cap_enabled TINYINT(1) DEFAULT 1 AFTER admin_channel_id`);
+        }
+        if (!have.has('vote_cap_ratio_up')) {
+          await this.pool.execute(`ALTER TABLE guild_config ADD COLUMN vote_cap_ratio_up DECIMAL(10,4) DEFAULT 0.3333 AFTER vote_cap_enabled`);
+        }
+        if (!have.has('vote_cap_ratio_down')) {
+          await this.pool.execute(`ALTER TABLE guild_config ADD COLUMN vote_cap_ratio_down DECIMAL(10,4) DEFAULT 0.2000 AFTER vote_cap_ratio_up`);
+        }
+        if (!have.has('vote_cap_min')) {
+          await this.pool.execute(`ALTER TABLE guild_config ADD COLUMN vote_cap_min INT DEFAULT 1 AFTER vote_cap_ratio_down`);
+        }
+        const logger = require('./utils/logger');
+        logger.debug('✅ Migration 27: Vote cap settings ensured on guild_config');
+      } catch (e) {
+        const logger = require('./utils/logger');
+        logger.warn('Migration 27 warning:', e.message);
+      }
+
+
       logger.info('✅ Database migrations completed');
 
   }
@@ -2058,8 +2111,61 @@ class Database {
     } catch (error) {
       console.error('Error getting top movies:', error.message);
       return [];
+
+    }
+    }
+
+
+  // Vote cap helpers
+  async countMoviesInSession(sessionId) {
+    if (!this.isConnected) return 0;
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT COUNT(*) AS cnt FROM movies WHERE session_id = ?`,
+        [sessionId]
+      );
+      return rows[0]?.cnt || 0;
+    } catch (error) {
+      console.error('Error counting movies in session:', error.message);
+      return 0;
     }
   }
+
+  async countUserVotesInSession(userId, sessionId, voteType) {
+    if (!this.isConnected) return 0;
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT COUNT(*) AS cnt
+         FROM votes v
+         JOIN movies m ON m.message_id = v.message_id
+         WHERE v.user_id = ? AND v.vote_type = ? AND m.session_id = ?`,
+        [userId, voteType, sessionId]
+      );
+      return rows[0]?.cnt || 0;
+    } catch (error) {
+      console.error('Error counting user votes in session:', error.message);
+      return 0;
+    }
+  }
+
+  async getUserVotesInSession(userId, sessionId) {
+    if (!this.isConnected) return [];
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT v.message_id, v.vote_type, m.title
+         FROM votes v
+         JOIN movies m ON m.message_id = v.message_id
+         WHERE v.user_id = ? AND m.session_id = ?
+         ORDER BY v.created_at ASC`,
+        [userId, sessionId]
+      );
+      return rows;
+    } catch (error) {
+      console.error('Error getting user votes in session:', error.message);
+      return [];
+    }
+  }
+
 
   // Movie session operations
   async createMovieSession(sessionData) {
@@ -3234,6 +3340,38 @@ class Database {
       return true;
     } catch (error) {
       console.error('Error setting admin channel:', error.message);
+      return false;
+    }
+  }
+
+
+  async updateVoteCaps(guildId, { enabled, ratioUp, ratioDown, min }) {
+    if (!this.isConnected) return false;
+
+    // Build dynamic UPDATE set clause
+    const sets = [];
+    const params = [];
+    if (typeof enabled !== 'undefined') { sets.push('vote_cap_enabled = ?'); params.push(enabled ? 1 : 0); }
+    if (typeof ratioUp !== 'undefined') { sets.push('vote_cap_ratio_up = ?'); params.push(ratioUp); }
+    if (typeof ratioDown !== 'undefined') { sets.push('vote_cap_ratio_down = ?'); params.push(ratioDown); }
+    if (typeof min !== 'undefined') { sets.push('vote_cap_min = ?'); params.push(Math.max(1, Number(min) || 1)); }
+
+    if (sets.length === 0) return true; // nothing to do
+
+    try {
+      // Ensure row exists
+      await this.pool.execute(
+        `INSERT INTO guild_config (guild_id, admin_roles) VALUES (?, ?)
+         ON DUPLICATE KEY UPDATE guild_id = guild_id`,
+        [guildId, JSON.stringify([])]
+      );
+
+      const sql = `UPDATE guild_config SET ${sets.join(', ')} WHERE guild_id = ?`;
+      params.push(guildId);
+      await this.pool.execute(sql, params);
+      return true;
+    } catch (error) {
+      console.error('Error updating vote caps:', error.message);
       return false;
     }
   }

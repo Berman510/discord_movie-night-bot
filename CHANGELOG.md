@@ -5,6 +5,21 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 
 
 
+## [1.14.1] - 2025-09-10
+### Added
+- Asymmetric per-session vote caps to keep voting decisive and reduce "vote for everything":
+  - Upvotes: max(1, floor(n/3)) where n = movies in the session
+  - Downvotes: max(1, floor(n/5))
+- Clear ephemeral feedback when a user hits their limit, including a list of movies they have already voted on in the session and guidance to unvote to free a slot.
+- Administration panel: new "Vote Caps" configuration with Enable/Disable, Set Ratios/Min (modal), and Reset to Defaults.
+
+### Notes
+- Caps are enforced only for movies associated to an active voting session (session_id present).
+- Caps are configurable per guild via Admin → Configure Bot → Vote Caps. Defaults: up 1/3, down 1/5, min 1.
+- Memory-only mode defaults to open voting (no caps). Database-backed mode enforces caps.
+
+
+
 
 ## [1.14.0] - 2025-09-10
 ### Highlights
