@@ -79,6 +79,10 @@ A comprehensive Discord bot for managing movie recommendations, voting, and orga
 
 ## 📋 TODO List
 
+### 🧰 Hosting Operational TODOs
+- [ ] PebbleHost startup script: add `scripts/start-pebble.sh` that does `git fetch --all --prune && git reset --hard origin/$(git rev-parse --abbrev-ref HEAD)`, ensures deps with `npm ci --omit=dev` (fallback `npm install --only=prod`), then starts the bot. Add `"start:pebble"` to package.json and document updating the PebbleHost Start Command.
+
+
 ### 🔄 **Message Tracking System**
 - [ ] **Track all bot messages**: Store message IDs for notifications, admin panels, recommendations
 - [ ] **Message update system**: Update tracked messages when sessions are rescheduled
