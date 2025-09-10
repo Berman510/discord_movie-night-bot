@@ -244,6 +244,24 @@ class Database {
     }
 
     const logger = require('./utils/logger');
+    // Ensure imdb_cache exists even when migrations are disabled
+    try {
+      await this.pool.execute(`
+        CREATE TABLE IF NOT EXISTS imdb_cache (
+          imdb_id VARCHAR(20) PRIMARY KEY,
+          data JSON NOT NULL,
+          poster_url VARCHAR(500) NULL,
+          title VARCHAR(255) NULL,
+          year VARCHAR(10) NULL,
+          last_refreshed TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          fetch_count INT NOT NULL DEFAULT 1
+        )
+      `);
+      logger.debug('✅ imdb_cache table ensured via initializeTables');
+    } catch (e) {
+      logger.warn('initializeTables imdb_cache ensure warning:', e.message);
+    }
+
     // Ensure critical columns exist even when migrations are disabled (fresh installs)
     try {
       const [cols] = await this.pool.execute(`
