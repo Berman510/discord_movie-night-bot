@@ -21,6 +21,12 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - Memory-only mode defaults to open voting (no caps). Database-backed mode enforces caps.
 
 
+- WebSocket handlers: dashboard→bot actions now supported directly over WS
+  - `ban_movie`, `unban_movie` execute immediately via DB helpers
+  - `movie_status_changed` refreshes the corresponding Discord post/thread (embed + buttons) just like the webhook path
+- Dashboard prefers WS automatically when connected; webhook is used as a fallback only
+
+
 ### Fixed
 - Over-limit warning for vote caps now uses an ephemeral user message; no longer edits the public movie post.
 

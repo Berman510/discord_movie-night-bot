@@ -81,13 +81,85 @@ function initWebSocketClient(logger) {
         // noop; server tracks liveness
       });
 
-      ws.on('message', (data) => {
+      ws.on('message', async (data) => {
         let msg;
         try { msg = JSON.parse(data); } catch (_) { return; }
         // ack responses or control messages can be handled here later
         if (msg.type === 'pong') return;
         if (msg.type === 'ack') return;
-        // TODO: handle domain messages when defined (session_update, rsvp_update, etc.)
+
+        try {
+          if (msg.type === 'ban_movie') {
+            const guildId = msg?.payload?.guildId;
+            const title = msg?.payload?.title;
+            if (!guildId || !title) return;
+            const database = require('../database');
+            await database.banMovie(guildId, title);
+            return;
+          }
+          if (msg.type === 'unban_movie') {
+            const guildId = msg?.payload?.guildId;
+            const title = msg?.payload?.title;
+            if (!guildId || !title) return;
+            const database = require('../database');
+            await database.unbanMovie(guildId, title);
+            return;
+          }
+          if (msg.type === 'movie_status_changed') {
+            const guildId = msg?.payload?.guildId;
+            const messageId = msg?.payload?.messageId;
+            if (!guildId || !messageId) return;
+
+            const client = global.discordClient;
+            if (!client) return;
+
+            const database = require('../database');
+            const forumChannels = require('./forum-channels');
+            const { embeds, components } = require('../utils');
+
+            const movie = await database.getMovieByMessageId(messageId, guildId);
+            if (!movie) return;
+
+            try {
+              if (movie.channel_type === 'forum' && movie.thread_id) {
+                const thread = await client.channels.fetch(movie.thread_id).catch(() => null);
+                if (thread) {
+                  await forumChannels.updateForumPostContent(thread, movie, movie.status);
+                  await forumChannels.updateForumPostTags(thread, movie.status);
+                  if (['watched', 'skipped', 'banned'].includes(movie.status)) {
+                    await forumChannels.archiveForumPost(thread, 'Movie completed');
+                  }
+                }
+              } else if (movie.channel_id) {
+                const channel = await client.channels.fetch(movie.channel_id).catch(() => null);
+                if (channel && channel.messages) {
+                  const msgObj = await channel.messages.fetch(movie.message_id).catch(() => null);
+                  if (msgObj) {
+                    const voteCounts = await database.getVoteCounts(movie.message_id);
+                    let imdbData = null;
+                    try {
+                      if (movie.imdb_data) {
+                        let parsed = typeof movie.imdb_data === 'string' ? JSON.parse(movie.imdb_data) : movie.imdb_data;
+                        if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+                        imdbData = parsed;
+                      }
+                    } catch (_) {}
+                    const movieEmbed = embeds.createMovieEmbed(movie, imdbData, voteCounts);
+                    const rows = ['watched', 'skipped', 'banned'].includes(movie.status)
+                      ? []
+                      : components.createStatusButtons(movie.message_id, movie.status, voteCounts.up, voteCounts.down);
+                    await msgObj.edit({ embeds: [movieEmbed], components: rows });
+                  }
+                }
+              }
+            } catch (e) {
+              logger?.warn?.('WS movie_status_changed update error:', e?.message || e);
+            }
+            return;
+          }
+        } catch (e) {
+          logger?.warn?.(`WS handler error: ${e?.message || e}`);
+        }
       });
 
       ws.on('close', () => {
