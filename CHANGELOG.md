@@ -6,6 +6,11 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 
 
 
+## [1.14.0-rc11] - 2025-09-10
+### Fixed
+- Modal titles shortened to satisfy Discord’s 45-char max (was causing ExpectedConstraintError). Titles are now concise; guidance remains in placeholders.
+
+
 ## [1.14.0-rc10] - 2025-09-10
 ### Changed
 - Modal UX (Create & Reschedule): Added clear note that Voting Ends is optional and defaults to 1 hour before the session start.

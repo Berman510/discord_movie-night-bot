@@ -37,7 +37,7 @@ async function startVotingSessionCreation(interaction) {
 async function showVotingSessionDateModal(interaction) {
   const modal = new ModalBuilder()
     .setCustomId('voting_session_date_modal')
-    .setTitle('Plan Next Session (voting end defaults to 1h before)');
+    .setTitle('Plan Next Session');
 
   // TODO: Make date/time formats configurable per guild
   // For now, using US dates (MM/DD/YYYY) and both 12h/24h time inputs
@@ -114,7 +114,7 @@ async function showVotingSessionRescheduleModal(interaction, session) {
 
   const modal = new ModalBuilder()
     .setCustomId(`voting_session_reschedule_modal:${session.id}`)
-    .setTitle('Reschedule Session (voting end defaults to 1h before)');
+    .setTitle('Reschedule Session');
 
   const dateInput = new TextInputBuilder()
     .setCustomId('session_date')
