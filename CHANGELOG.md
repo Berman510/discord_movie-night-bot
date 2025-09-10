@@ -19,6 +19,10 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - Memory-only mode defaults to open voting (no caps). Database-backed mode enforces caps.
 
 
+### Fixed
+- Over-limit warning for vote caps now uses an ephemeral user message; no longer edits the public movie post.
+
+
 
 
 ## [1.14.0] - 2025-09-10

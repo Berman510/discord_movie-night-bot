@@ -227,9 +227,9 @@ async function handleVoting(interaction, action, msgId, votes) {
       const movie = await database.getMovieById(msgId, interaction.guild.id);
       if (!movie) {
         console.error(`🚨 VOTING ERROR: Movie with message ID ${msgId} not found in database for guild ${interaction.guild.id}`);
-        await interaction.editReply({
+        await interaction.followUp({
           content: '❌ This movie is not found in the database. Please try refreshing the channel.',
-          flags: require('discord.js').MessageFlags.Ephemeral
+          ephemeral: true
         });
         return;
       }
@@ -270,9 +270,9 @@ async function handleVoting(interaction, action, msgId, votes) {
                 const list = titles.length > 0 ? titles.join(' • ').slice(0, 1500) : 'None';
                 const friendly = isUpvote ? `👍 upvotes` : `👎 downvotes`;
 
-                await interaction.editReply({
+                await interaction.followUp({
                   content: `⚠️ You\'ve reached your ${friendly} limit for this voting session.\n\nSession movies: ${totalInSession}\nAllowed ${friendly}: ${cap}\nYour ${friendly}: ${used}\n\nCurrent ${friendly}: ${list}\n\nTip: Unvote one of the above to free a slot, then try again.`,
-                  flags: require('discord.js').MessageFlags.Ephemeral
+                  ephemeral: true
                 });
                 return;
               }
@@ -294,9 +294,9 @@ async function handleVoting(interaction, action, msgId, votes) {
         const saveSuccess = await database.saveVote(msgId, userId, action, interaction.guild.id);
         if (!saveSuccess) {
           console.error(`Failed to save vote for message ${msgId} by user ${userId}`);
-          await interaction.editReply({
+          await interaction.followUp({
             content: '❌ Failed to save your vote. Please try again.',
-            flags: require('discord.js').MessageFlags.Ephemeral
+            ephemeral: true
           });
           return;
         }
