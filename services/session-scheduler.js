@@ -9,6 +9,7 @@ class SessionScheduler {
   constructor() {
     this.activeTimeouts = new Map(); // sessionId -> timeoutId
     this.dailyCheckInterval = null;
+    this.rsvpPollInterval = null; // 5-min RSVP polling
     this.isInitialized = false;
   }
 
@@ -28,6 +29,9 @@ class SessionScheduler {
 
     // Schedule all active sessions
     await this.scheduleAllActiveSessions();
+
+    // Start RSVP polling (every 5 minutes)
+    this.startRsvpPolling();
 
     this.isInitialized = true;
     const logger = require('../utils/logger');
@@ -75,17 +79,17 @@ class SessionScheduler {
     try {
       // Clear any existing timeout for this session
       this.clearSessionTimeout(sessionId);
-      
+
       const now = new Date();
       const msUntilEnd = votingEndTime.getTime() - now.getTime();
-      
+
       if (msUntilEnd <= 0) {
         // Voting should have already ended
         console.log(`⏰ Session ${sessionId} voting time already passed, closing now`);
         await this.closeVotingForSession(sessionId);
         return;
       }
-      
+
       if (msUntilEnd <= 24 * 60 * 60 * 1000) { // Within 24 hours
         // Use setTimeout for precise timing
         const timeoutId = setTimeout(async () => {
@@ -94,9 +98,9 @@ class SessionScheduler {
           await this.closeVotingForSession(sessionId);
           this.activeTimeouts.delete(sessionId);
         }, msUntilEnd);
-        
+
         this.activeTimeouts.set(sessionId, timeoutId);
-        
+
         const hoursUntilEnd = Math.round(msUntilEnd / (1000 * 60 * 60));
         const logger = require('../utils/logger');
         logger.info(`⏰ Scheduled voting end for session ${sessionId} in ${hoursUntilEnd} hours`);
@@ -130,15 +134,15 @@ class SessionScheduler {
     try {
       const database = require('../database');
       const activeSessions = await database.getAllActiveVotingSessions();
-      
+
       const now = new Date();
       const endOfDay = new Date(now);
       endOfDay.setHours(23, 59, 59, 999);
-      
+
       for (const session of activeSessions) {
         if (session.voting_end_time) {
           const votingEndTime = new Date(session.voting_end_time);
-          
+
           // Check if voting ends today
           if (votingEndTime <= endOfDay && votingEndTime > now) {
             console.log(`⏰ Found session ending today: ${session.name}`);
@@ -158,13 +162,13 @@ class SessionScheduler {
     try {
       const database = require('../database');
       const activeSessions = await database.getAllActiveVotingSessions();
-      
+
       const now = new Date();
-      
+
       for (const session of activeSessions) {
         if (session.voting_end_time) {
           const votingEndTime = new Date(session.voting_end_time);
-          
+
           if (votingEndTime <= now) {
             const logger = require('../utils/logger');
             logger.info(`⏰ Recovering missed session: ${session.name} (should have ended ${votingEndTime})`);
@@ -184,14 +188,14 @@ class SessionScheduler {
     try {
       const database = require('../database');
       const activeSessions = await database.getAllActiveVotingSessions();
-      
+
       for (const session of activeSessions) {
         if (session.voting_end_time) {
           const votingEndTime = new Date(session.voting_end_time);
           await this.scheduleVotingEnd(session.id, votingEndTime);
         }
       }
-      
+
       const logger = require('../utils/logger');
       logger.info(`⏰ Scheduled ${activeSessions.length} active sessions`);
     } catch (error) {
@@ -207,18 +211,76 @@ class SessionScheduler {
     try {
       const database = require('../database');
       const session = await database.getVotingSessionById(sessionId);
-      
+
       if (!session) {
         console.warn(`Session ${sessionId} not found for voting closure`);
         return;
       }
-      
+
       const votingClosure = require('./voting-closure');
       await votingClosure.closeVotingForSession(this.client, session);
     } catch (error) {
       console.error(`Error closing voting for session ${sessionId}:`, error);
     }
   }
+
+  /**
+   * Start periodic polling of Discord Scheduled Event RSVPs and persist to DB
+   */
+  startRsvpPolling() {
+    // Clear existing
+    if (this.rsvpPollInterval) clearInterval(this.rsvpPollInterval);
+
+    // Run once immediately, then every 5 minutes
+    this.pollRsvps().catch(() => {});
+    this.rsvpPollInterval = setInterval(() => {
+      this.pollRsvps().catch(err => console.warn('RSVP poll error:', err?.message));
+    }, 5 * 60 * 1000);
+  }
+
+  /**
+   * Poll RSVPs for all active sessions that have a Discord event
+   */
+  async pollRsvps() {
+    try {
+      const database = require('../database');
+      const logger = require('../utils/logger');
+      const sessions = await database.getAllActiveVotingSessions();
+      if (!sessions || sessions.length === 0) return;
+
+      for (const s of sessions) {
+        if (!s.discord_event_id || !s.guild_id) continue;
+
+        const guild = this.client.guilds.cache.get(String(s.guild_id));
+        if (!guild) continue;
+
+        try {
+          const event = await guild.scheduledEvents.fetch(String(s.discord_event_id)).catch(() => null);
+          if (!event) continue;
+
+          // Fetch up to 100 subscribers; for most guilds this is sufficient
+          let userIds = [];
+          try {
+            const subs = await event.fetchSubscribers({ limit: 100, withMember: false });
+            if (subs && subs?.size >= 0) {
+              // subs is a Collection of {user, member}
+              userIds = Array.from(subs.values()).map(x => x?.user?.id).filter(Boolean);
+            }
+          } catch (e) {
+            logger.warn(`fetchSubscribers failed for event ${s.discord_event_id}: ${e.message}`);
+          }
+
+          await database.updateSessionRSVPs(s.id, userIds);
+          logger.debug(`  Saved ${userIds.length} RSVPs for session ${s.id}`);
+        } catch (inner) {
+          logger.warn(`RSVP poll inner error for session ${s.id}: ${inner.message}`);
+        }
+      }
+    } catch (error) {
+      console.warn('RSVP poll error:', error?.message || error);
+    }
+  }
+
 
   /**
    * Reschedule a session (clear old timeout, set new one)

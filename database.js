@@ -132,6 +132,8 @@ class Database {
       `CREATE TABLE IF NOT EXISTS movies (
         id INT AUTO_INCREMENT PRIMARY KEY,
         message_id VARCHAR(20) UNIQUE NOT NULL,
+        thread_id VARCHAR(20) NULL,
+        channel_type ENUM('text', 'forum') DEFAULT 'text',
         guild_id VARCHAR(20) NOT NULL,
         channel_id VARCHAR(20) NOT NULL,
         title VARCHAR(255) NOT NULL,
@@ -143,6 +145,7 @@ class Database {
         poster_url VARCHAR(500) NULL,
         status ENUM('pending', 'watched', 'planned', 'skipped', 'scheduled', 'banned') DEFAULT 'pending',
         session_id INT NULL,
+        next_session BOOLEAN DEFAULT FALSE,
         is_banned BOOLEAN DEFAULT FALSE,
         watch_count INT DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -175,7 +178,9 @@ class Database {
         name VARCHAR(255) NOT NULL,
         description TEXT NULL,
         scheduled_date DATETIME NULL,
+        voting_end_time DATETIME NULL,
         timezone VARCHAR(50) DEFAULT 'UTC',
+        /* kept for backward compatibility with older code paths; not used by current code */
         voting_deadline DATETIME NULL,
         status ENUM('planning', 'voting', 'decided', 'completed', 'cancelled') DEFAULT 'planning',
         winner_message_id VARCHAR(20) NULL,
@@ -239,6 +244,64 @@ class Database {
     }
 
     const logger = require('./utils/logger');
+    // Ensure critical columns exist even when migrations are disabled (fresh installs)
+    try {
+      const [cols] = await this.pool.execute(`
+        SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'movie_sessions' AND COLUMN_NAME = 'voting_end_time'
+      `);
+      if (cols.length === 0) {
+        await this.pool.execute(`ALTER TABLE movie_sessions ADD COLUMN voting_end_time DATETIME NULL AFTER scheduled_date`);
+        logger.debug('✅ Added voting_end_time column via initializeTables');
+      }
+    } catch (e) {
+      logger.warn('initializeTables ensure voting_end_time warning:', e.message);
+    }
+    try {
+      const [rsvpCols] = await this.pool.execute(`
+        SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'movie_sessions' AND COLUMN_NAME = 'rsvp_user_ids'
+      `);
+      if (rsvpCols.length === 0) {
+        await this.pool.execute(`ALTER TABLE movie_sessions ADD COLUMN rsvp_user_ids JSON NULL AFTER discord_event_id`);
+        logger.debug('✅ Added rsvp_user_ids column via initializeTables');
+      }
+    } catch (e) {
+      logger.warn('initializeTables ensure rsvp_user_ids warning:', e.message);
+    }
+
+    try {
+      const [cols2] = await this.pool.execute(`
+        SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'movies' AND COLUMN_NAME = 'next_session'
+      `);
+      if (cols2.length === 0) {
+        await this.pool.execute(`ALTER TABLE movies ADD COLUMN next_session BOOLEAN DEFAULT FALSE AFTER session_id`);
+        logger.debug('✅ Added next_session column via initializeTables');
+      }
+    } catch (e) {
+      logger.warn('initializeTables ensure next_session warning:', e.message);
+    }
+    try {
+      const [forumCols] = await this.pool.execute(`
+        SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'movies' AND COLUMN_NAME IN ('thread_id','channel_type')
+      `);
+      const have = new Set(forumCols.map(r => r.COLUMN_NAME));
+      if (!have.has('thread_id')) {
+        await this.pool.execute(`ALTER TABLE movies ADD COLUMN thread_id VARCHAR(20) NULL AFTER message_id`);
+        logger.debug('✅ Added thread_id column via initializeTables');
+      }
+      if (!have.has('channel_type')) {
+        await this.pool.execute(`ALTER TABLE movies ADD COLUMN channel_type ENUM('text','forum') DEFAULT 'text' AFTER thread_id`);
+        logger.debug('✅ Added channel_type column via initializeTables');
+      }
+    } catch (e) {
+      logger.warn('initializeTables ensure forum columns warning:', e.message);
+    }
+
+
+
     // Run migrations to ensure schema is up to date (can be disabled via env)
     if (process.env.DB_MIGRATIONS_ENABLED === 'true') {
       await this.runMigrations();
@@ -2314,14 +2377,22 @@ class Database {
   }
 
 
-  async updateMovieSessionDetails(sessionId, { name, description, scheduledDate, timezone }) {
+  async updateMovieSessionDetails(sessionId, { name, description, scheduledDate, timezone, votingEndTime }) {
     if (!this.isConnected) return false;
 
     try {
-      await this.pool.execute(
-        `UPDATE movie_sessions SET name = ?, description = ?, scheduled_date = ?, timezone = ? WHERE id = ?`,
-        [name || null, description || null, scheduledDate || null, timezone || null, sessionId]
-      );
+      let query = `UPDATE movie_sessions SET name = ?, description = ?, scheduled_date = ?, timezone = ?`;
+      const params = [name || null, description || null, scheduledDate || null, timezone || null];
+
+      if (typeof votingEndTime !== 'undefined') {
+        query += `, voting_end_time = ?`;
+        params.push(votingEndTime || null);
+      }
+
+      query += ` WHERE id = ?`;
+      params.push(sessionId);
+
+      await this.pool.execute(query, params);
       return true;
     } catch (error) {
       console.error('Error updating movie session details:', error.message);
@@ -2447,6 +2518,22 @@ class Database {
       return true;
     } catch (error) {
       console.error('Error deleting voting session:', error.message);
+      return false;
+    }
+  }
+
+  async updateSessionRSVPs(sessionId, userIdsArray) {
+    if (!this.isConnected) return false;
+
+    try {
+      // Store as JSON array for flexibility
+      await this.pool.execute(
+        `UPDATE movie_sessions SET rsvp_user_ids = ? WHERE id = ?`,
+        [JSON.stringify(userIdsArray || []), sessionId]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error updating session RSVPs:', error.message);
       return false;
     }
   }

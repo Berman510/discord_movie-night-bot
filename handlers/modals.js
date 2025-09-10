@@ -43,6 +43,11 @@ async function handleModal(interaction) {
       await votingSessions.handleVotingSessionDateModal(interaction);
       return;
     }
+    if (customId.startsWith('voting_session_reschedule_modal:')) {
+      const votingSessions = require('../services/voting-sessions');
+      await votingSessions.handleVotingSessionRescheduleModal(interaction);
+      return;
+    }
 
     // Note: voting_session_time_modal doesn't exist - time is handled in date modal
 
@@ -297,11 +302,22 @@ async function createMovieWithoutImdb(interaction, title, where) {
       ? `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added as a new forum post in ${movieChannel} for voting and discussion.`
       : `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added to the queue in ${movieChannel} for voting.`;
 
+    let ephemeralMsg;
     if (interaction.deferred || interaction.replied) {
-      await interaction.followUp({ content: successMessage, flags: MessageFlags.Ephemeral });
+      ephemeralMsg = await interaction.followUp({ content: successMessage, flags: MessageFlags.Ephemeral });
     } else {
-      await interaction.reply({ content: successMessage, flags: MessageFlags.Ephemeral });
+      ephemeralMsg = await interaction.reply({ content: successMessage, flags: MessageFlags.Ephemeral });
     }
+    // Auto-clean the ephemeral confirmation after 5 seconds
+    setTimeout(async () => {
+      try {
+        if (interaction.deferred || interaction.replied) {
+          await ephemeralMsg?.delete?.();
+        } else {
+          await interaction.deleteReply();
+        }
+      } catch (_) {}
+    }, 5000);
 
   } catch (error) {
     const logger = require('../utils/logger');

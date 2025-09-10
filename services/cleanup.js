@@ -220,7 +220,13 @@ async function handleCleanupSync(interaction, movieChannel) {
     }
 
     // Ensure quick action message at bottom
-    await ensureQuickActionAtBottom(channel);
+    // Only applicable to text channels; forum channels use a pinned recommendation post
+    const forumChannels = require('./forum-channels');
+    if (forumChannels.isTextChannel(channel)) {
+      await ensureQuickActionAtBottom(channel);
+    } else if (forumChannels.isForumChannel(channel)) {
+      try { await forumChannels.ensureRecommendationPost(channel); } catch {}
+    }
 
     const summary = [
       `✅ **Comprehensive sync complete!**`,
@@ -463,7 +469,7 @@ async function ensureQuickActionAtBottom(channel) {
   try {
     if (!channel || !channel.send) {
       const logger = require('../utils/logger');
-      logger.warn('Error ensuring quick action at bottom: channel.send is not a function');
+      logger.debug('Skipping quick action at bottom: non-text channel detected');
       return;
     }
 

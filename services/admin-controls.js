@@ -581,14 +581,17 @@ async function handleSyncChannel(interaction) {
       await interaction.editReply({
         content: `⚠️ Sync completed with errors:\n${errors.join('\n')}\n\nSynced: ${successParts.join(', ')}`
       });
+      setTimeout(async () => { try { await interaction.deleteReply(); } catch (_) {} }, 8000);
     } else if (successParts.length > 0) {
       await interaction.editReply({
         content: `✅ Successfully synced ${successParts.join(' and ')}.`
       });
+      setTimeout(async () => { try { await interaction.deleteReply(); } catch (_) {} }, 8000);
     } else {
       await interaction.editReply({
         content: '✅ Sync completed. No movies found to sync.'
       });
+      setTimeout(async () => { try { await interaction.deleteReply(); } catch (_) {} }, 8000);
     }
 
   } catch (error) {
@@ -596,6 +599,7 @@ async function handleSyncChannel(interaction) {
     await interaction.editReply({
       content: '❌ An error occurred while syncing the channels.'
     });
+    setTimeout(async () => { try { await interaction.deleteReply(); } catch (_) {} }, 8000);
   }
 }
 
@@ -671,6 +675,7 @@ async function executePurgeQueue(interaction) {
 
     // Use the same cleanup function as /movie-cleanup purge but don't let it reply
     const cleanup = require('./cleanup');
+    const forumChannels = require('./forum-channels');
 
     // Get channels
     const votingChannel = await interaction.client.channels.fetch(config.movie_channel_id);
@@ -685,12 +690,24 @@ async function executePurgeQueue(interaction) {
 
       for (const movie of movies) {
         try {
-          // Delete threads
-          const threads = await votingChannel.threads.fetchActive();
-          for (const [threadId, thread] of threads.threads) {
-            if (thread.name.includes(movie.title)) {
-              await thread.delete();
-              threadsDeleted++;
+          if (forumChannels.isForumChannel(votingChannel)) {
+            // Delete forum threads matching this movie (by stored thread_id if present)
+            if (movie.thread_id) {
+              try {
+                const thread = await interaction.client.channels.fetch(movie.thread_id).catch(() => null);
+                if (thread && thread.parentId === votingChannel.id) {
+                  await thread.delete();
+                  threadsDeleted++;
+                }
+              } catch {}
+            } else {
+              const threads = await votingChannel.threads.fetchActive();
+              for (const [, thread] of threads.threads) {
+                if (thread.name.includes(movie.title)) {
+                  await thread.delete();
+                  threadsDeleted++;
+                }
+              }
             }
           }
 
@@ -703,20 +720,37 @@ async function executePurgeQueue(interaction) {
         }
       }
 
-      // Clear channel messages
-      const messages = await votingChannel.messages.fetch({ limit: 100 });
-      const botMessages = messages.filter(msg => msg.author.id === interaction.client.user.id);
-
-      for (const [messageId, message] of botMessages) {
-        try {
-          await message.delete();
-        } catch (error) {
-          console.warn(`Failed to delete message ${messageId}:`, error.message);
+      // Clear channel UI depending on channel type
+      if (forumChannels.isTextChannel(votingChannel)) {
+        // Text channels: delete bot messages and re-add quick action
+        const messages = await votingChannel.messages.fetch({ limit: 100 });
+        const botMessages = messages.filter(msg => msg.author.id === interaction.client.user.id);
+        for (const [messageId, message] of botMessages) {
+          try { await message.delete(); } catch (error) { console.warn(`Failed to delete message ${messageId}:`, error.message); }
         }
+        await cleanup.ensureQuickActionAtBottom(votingChannel);
+      } else if (forumChannels.isForumChannel(votingChannel)) {
+        // Forum channels: remove system posts and re-create appropriate pinned post
+        try {
+          const threads = await votingChannel.threads.fetchActive();
+          const archived = await votingChannel.threads.fetchArchived({ limit: 50 });
+          const all = new Map([...threads.threads, ...archived.threads]);
+          for (const [, t] of all) {
+            if (t.name.includes('No Active Voting Session') || t.name.includes('🚫') ||
+                t.name.includes('Recommend a Movie') || t.name.includes('🍿')) {
+              try { await t.delete('Purge system posts'); } catch {}
+            }
+          }
+        } catch {}
+        try {
+          const activeSession = await database.getActiveVotingSession(interaction.guild.id);
+          if (activeSession) {
+            await require('./forum-channels').ensureRecommendationPost(votingChannel, activeSession);
+          } else {
+            await require('./forum-channels').createNoActiveSessionPost(votingChannel);
+          }
+        } catch {}
       }
-
-      // Add appropriate message based on session state
-      await cleanup.ensureQuickActionAtBottom(votingChannel);
     }
 
     if (adminChannel) {
@@ -742,25 +776,31 @@ async function executePurgeQueue(interaction) {
       await ensureAdminControlPanel(interaction.client, interaction.guild.id);
     }
 
-    await interaction.followUp({
-      content: `✅ **Queue purged successfully!**\n\n🗑️ Deleted: ${purgedCount} movies, ${threadsDeleted} threads\n📋 Channels cleared and reset`,
-      flags: MessageFlags.Ephemeral
-    });
+    try {
+      await interaction.editReply({
+        content: `✅ **Queue purged successfully!**\n\n🗑️ Deleted: ${purgedCount} movies, ${threadsDeleted} threads\n📋 Channels cleared and reset`,
+        embeds: [],
+        components: []
+      });
+    } catch (_) {
+      await interaction.followUp({
+        content: `✅ **Queue purged successfully!**\n\n🗑️ Deleted: ${purgedCount} movies, ${threadsDeleted} threads\n📋 Channels cleared and reset`,
+        flags: MessageFlags.Ephemeral
+      });
+    }
 
     console.log(`🗑️ Admin purge executed by ${interaction.user.tag} in guild ${interaction.guild.name}`);
 
   } catch (error) {
     console.error('Error executing purge:', error);
-    if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({
-        content: '❌ An error occurred while purging the queue.',
-        flags: MessageFlags.Ephemeral
-      });
-    } else {
-      await interaction.followUp({
-        content: '❌ An error occurred while purging the queue.',
-        flags: MessageFlags.Ephemeral
-      });
+    try {
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({ content: '❌ An error occurred while purging the queue.', flags: MessageFlags.Ephemeral });
+      } else {
+        await interaction.editReply({ content: '❌ An error occurred while purging the queue.' });
+      }
+    } catch {
+      await interaction.followUp({ content: '❌ An error occurred while purging the queue.', flags: MessageFlags.Ephemeral });
     }
   }
 }

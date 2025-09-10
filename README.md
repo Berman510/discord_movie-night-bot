@@ -29,6 +29,8 @@ A comprehensive Discord bot for managing movie recommendations, voting, and orga
 - **Timezone Support**: Configurable guild timezones with 12-hour time format (7:30 PM) and US dates (MM-DD-YYYY)
 - **Session Descriptions**: Themed session messaging with custom descriptions in voting channels
 - **Automatic Event Updates**: Events update with winner information, IMDB details, and vote counts
+- **Event RSVP Tracking**: Every 5 minutes, the bot records users who clicked Interested on the scheduled event (stored per session for analytics)
+
 - **Session Participants**: Track who joins sessions vs. who actually attends with comprehensive analytics
 
 ### 🔧 **Admin Control Panel**
@@ -54,7 +56,7 @@ A comprehensive Discord bot for managing movie recommendations, voting, and orga
 
 ---
 
-### 🚀 Next Up (1.13.x Short-Term)
+### 🚀 Next Up (1.14.x Short-Term)
 - [ ] Keep Cancel/Reschedule visible until event start across all flows
   - Use Discord event scheduledStart as the authoritative source when DB date is ambiguous
   - Refresh Admin Control Panel after winner selection/reschedule/cancel to reflect current controls
@@ -86,10 +88,10 @@ A comprehensive Discord bot for managing movie recommendations, voting, and orga
 - [ ] **Message cleanup**: Proper cleanup of tracked messages when sessions end
 
 ### 📅 **Reschedule Functionality**
-- [x] **Reschedule button**: Add reschedule button to admin panel (implemented in sessions.js)
-- [x] **Reschedule modal**: Allow editing session name, description, start time, voting end time (implemented)
-- [ ] **Event updates**: Update Discord events when sessions are rescheduled
-- [ ] **Notification updates**: Update all tracked notification messages with new times
+- [x] **Reschedule button**: Add reschedule button to admin panel (implemented)
+- [x] **Same modal as Plan Next Session**: Reschedule opens the exact same modal used by Plan Next Session, with all fields pre-filled from the current session
+- [x] **Event updates**: Update Discord events when sessions are rescheduled
+- [x] **Post updates**: Refresh Admin Control Panel and forum recommendation post (or text quick-action) after reschedule
 
 ### 🗳️ **Multiple Voting Sessions**
 - [ ] **Concurrent voting sessions**: Support multiple active voting sessions simultaneously

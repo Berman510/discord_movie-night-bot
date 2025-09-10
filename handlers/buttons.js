@@ -116,7 +116,8 @@ async function handleButton(interaction) {
         customId.startsWith('session_movie_time:') ||
         customId.startsWith('session_movie_create:') ||
         customId === 'session_create_final' ||
-        customId === 'session_back_to_timezone') {
+        customId === 'session_back_to_timezone' ||
+        customId === 'session_back_to_movie') {
       await sessions.handleSessionCreationButton(interaction);
       return;
     }
@@ -1293,6 +1294,8 @@ async function handlePickWinner(interaction, guildId, movieId) {
           components: [row],
           flags: MessageFlags.Ephemeral
         });
+        // Auto-dismiss confirmation after 30s in case user navigates away
+        setTimeout(async () => { try { await interaction.deleteReply(); } catch (_) {} }, 30000);
         return;
       }
     } catch (e) {
@@ -1635,6 +1638,7 @@ async function handlePickWinner(interaction, guildId, movieId) {
     await interaction.editReply({
       content: `🏆 **${movie.title}** has been selected as the winner! Announcement posted, channels cleared, and event updated.`
     });
+    setTimeout(async () => { try { await interaction.deleteReply(); } catch (_) {} }, 8000);
 
     // Refresh admin control panel to expose Cancel/Reschedule until event start
     try {
@@ -1700,6 +1704,8 @@ async function handleChooseWinner(interaction, guildId, movieId) {
         components: [row],
         flags: MessageFlags.Ephemeral
       });
+      // Auto-dismiss confirmation after 30s if no action is taken
+      setTimeout(async () => { try { await interaction.deleteReply(); } catch (_) {} }, 30000);
       return;
     }
   } catch (e) {
@@ -1790,6 +1796,7 @@ async function handleChooseWinner(interaction, guildId, movieId) {
       content: `🏆 **${movie.title}** has been chosen as the winner! The voting session is now complete.`,
       flags: MessageFlags.Ephemeral
     });
+    setTimeout(async () => { try { await interaction.deleteReply(); } catch (_) {} }, 8000);
 
     // Clean up any tie-break messages in admin channel (keep control panel)
     try {
@@ -2213,18 +2220,22 @@ async function handleRescheduleSession(interaction) {
   const database = require('../database');
 
   try {
-    const activeSession = await database.getActiveVotingSession(interaction.guild.id);
-    if (!activeSession) {
+    // Find a manageable session: active voting session or upcoming decided session
+    let session = await database.getActiveVotingSession(interaction.guild.id);
+    if (!session) {
+      try { session = await database.getUpcomingDecidedSession(interaction.guild.id); } catch {}
+    }
+    if (!session) {
       await interaction.reply({
-        content: '❌ No active voting session to reschedule.',
+        content: '❌ No current session to reschedule. Use "Plan Next Session" to create one first.',
         flags: MessageFlags.Ephemeral
       });
       return;
     }
 
-    // Use the implemented reschedule functionality
-    const sessions = require('../services/sessions');
-    await sessions.handleSessionReschedule(interaction, activeSession.id, null);
+    // Show the exact same modal as Plan Next Session, prefilled with this session's values
+    const votingSessions = require('../services/voting-sessions');
+    await votingSessions.showVotingSessionRescheduleModal(interaction, session);
 
   } catch (error) {
     console.error('Error handling reschedule session:', error);
@@ -2687,7 +2698,8 @@ async function completeSetupAndInitialize(interaction) {
   const { EmbedBuilder } = require('discord.js');
 
   try {
-    // Show completion message
+    // Show completion message and keep a handle to the panel message so we can edit it later
+    const panelMsg = interaction.message;
     const embed = new EmbedBuilder()
       .setTitle('🎉 Setup Complete!')
       .setDescription('Your Movie Night Bot is now configured and ready to use!\n\n**Initializing channels...**')
@@ -2698,6 +2710,8 @@ async function completeSetupAndInitialize(interaction) {
       embeds: [embed],
       components: []
     });
+
+    // panelMsg refers to the same message; after update completes we can edit it again safely
 
     // Initialize admin control panel and voting channel
     const config = await database.getGuildConfig(interaction.guild.id);
@@ -2715,7 +2729,7 @@ async function completeSetupAndInitialize(interaction) {
       }
     }
 
-    // Update completion message
+    // Update completion panel in-place (avoid creating a new ephemeral)
     const finalEmbed = new EmbedBuilder()
       .setTitle('🎉 Setup Complete!')
       .setDescription('Your Movie Night Bot is now configured and ready to use!')
@@ -2733,11 +2747,18 @@ async function completeSetupAndInitialize(interaction) {
         }
       );
 
-    // Send final message as followup since we can't update again
-    await interaction.followUp({
-      embeds: [finalEmbed],
-      flags: MessageFlags.Ephemeral
-    });
+    try {
+      await panelMsg.edit({
+        embeds: [finalEmbed],
+        components: []
+      });
+    } catch (e) {
+      // Fallback: if edit fails for any reason, send a single follow-up
+      await interaction.followUp({
+        embeds: [finalEmbed],
+        flags: MessageFlags.Ephemeral
+      });
+    }
 
   } catch (error) {
     console.error('Error completing setup:', error);

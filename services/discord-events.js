@@ -193,6 +193,18 @@ async function updateDiscordEvent(guild, eventId, sessionData, scheduledDate) {
     }
 
     const effectiveStart = scheduledDate || event.scheduledStartAt || (event.scheduledStartTimestamp ? new Date(event.scheduledStartTimestamp) : null);
+
+    // Ensure end time is after start time to avoid API error. Use default 150 minutes when runtime unknown.
+    let durationMinutes = 150;
+    try {
+      if (!sessionData.associatedMovieId && event.description) {
+        // Best-effort parse from existing event description (e.g., "Runtime: 97 min")
+        const m = event.description.match(/Runtime:\s*(\d+)\s*min/i);
+        if (m) durationMinutes = parseInt(m[1], 10) + 30; // keep 30 min buffer
+      }
+    } catch (_) { /* keep default */ }
+    const newEnd = effectiveStart ? new Date(new Date(effectiveStart).getTime() + durationMinutes * 60000) : event.scheduledEndAt;
+
     if (effectiveStart) {
       const startTs = Math.floor(new Date(effectiveStart).getTime() / 1000);
       enhancedDescription += `\n\n🎟️ **Session starts:** <t:${startTs}:F> (<t:${startTs}:R>)`;
@@ -201,7 +213,8 @@ async function updateDiscordEvent(guild, eventId, sessionData, scheduledDate) {
     await event.edit({
       name: `🎬 ${sessionData.name} @ ${startTimeStr2}`,
       description: enhancedDescription,
-      scheduledStartTime: effectiveStart || event.scheduledStartAt
+      scheduledStartTime: effectiveStart || event.scheduledStartAt,
+      scheduledEndTime: newEnd
     });
 
     console.log(`✅ Updated Discord event: ${event.name} (ID: ${event.id})`);

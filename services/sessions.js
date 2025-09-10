@@ -154,19 +154,21 @@ async function showSessionCreationModal(interaction) {
         .setEmoji('📝')
     );
 
-  const msg = await interaction.reply({
+  await interaction.reply({
     embeds: [embed],
     components: [quickDateButtons, thisWeekButtons, weekendButtons],
-    flags: MessageFlags.Ephemeral,
-    fetchReply: true
+    flags: MessageFlags.Ephemeral
   });
+
+  let msg = null;
+  try { msg = await interaction.fetchReply(); } catch (_) {}
 
   try {
     if (!global.sessionCreationState) global.sessionCreationState = new Map();
     const prev = global.sessionCreationState.get(interaction.user.id) || {};
     global.sessionCreationState.set(interaction.user.id, {
       ...prev,
-      rootMessageId: msg.id
+      rootMessageId: msg?.id
     });
   } catch (_) {}
 }
@@ -853,7 +855,28 @@ async function showSessionDetailsModal(interaction, state) {
   const nameRow = new ActionRowBuilder().addComponents(nameInput);
   const descRow = new ActionRowBuilder().addComponents(descriptionInput);
 
-  modal.addComponents(nameRow, descRow);
+  // If rescheduling an active voting session, allow updating the voting end time too
+  let votingRow = null;
+  try {
+    const isReschedule = global.sessionRescheduleState && global.sessionRescheduleState.has(interaction.user.id);
+    const original = isReschedule ? global.sessionRescheduleState.get(interaction.user.id)?.originalSession : null;
+    if (isReschedule && original && String(original.status).toLowerCase() === 'voting') {
+      const votingEndInput = new TextInputBuilder()
+        .setCustomId('reschedule_voting_end_time')
+        .setLabel('Voting Ends (12-hour time, optional)')
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder('e.g., 9:00 PM')
+        .setRequired(false)
+        .setMaxLength(8);
+      votingRow = new ActionRowBuilder().addComponents(votingEndInput);
+    }
+  } catch (_) {}
+
+  if (votingRow) {
+    modal.addComponents(nameRow, descRow, votingRow);
+  } else {
+    modal.addComponents(nameRow, descRow);
+  }
 
   await interaction.showModal(modal);
 }
@@ -873,10 +896,6 @@ function generateSessionName(state) {
     name += ` - ${state.dateDisplay}`;
   }
 
-  // Add timezone
-  if (state.timezoneName && state.timeDisplay) {
-    name += ` ${state.timezoneName.split(' ')[0]}`; // Just the timezone abbreviation
-  }
 
   return name;
 }
@@ -996,6 +1015,15 @@ async function handleSessionReschedule(interaction, sessionId, movieMessageId) {
   if (!global.sessionCreationState) {
     global.sessionCreationState = new Map();
   }
+  let effectiveTz = session.timezone || null;
+  try {
+    if (!effectiveTz) {
+      const cfg = await database.getGuildConfig(interaction.guild.id);
+      effectiveTz = cfg?.timezone || 'UTC';
+    }
+  } catch (_) {
+    if (!effectiveTz) effectiveTz = 'UTC';
+  }
   const preset = {
     step: 'date',
     selectedMovie: session.associated_movie_id || null,
@@ -1003,9 +1031,9 @@ async function handleSessionReschedule(interaction, sessionId, movieMessageId) {
     movieDisplay: null,
     selectedDate: null,
     selectedTime: null,
-    selectedTimezone: session.timezone || 'UTC',
-    timezone: session.timezone || 'UTC',
-    timezoneName: session.timezone || 'UTC',
+    selectedTimezone: effectiveTz,
+    timezone: effectiveTz,
+    timezoneName: effectiveTz,
     sessionName: session.name || null,
     sessionDescription: session.description || null,
     isReschedule: true
@@ -1080,11 +1108,12 @@ async function handleCancelConfirmation(interaction) {
   const customId = interaction.customId;
 
   if (customId === 'cancel_cancel') {
-    await interaction.update({
+    // Respond with a fresh ephemeral reply so we can auto-dismiss reliably
+    await interaction.reply({
       content: '✅ Session cancellation cancelled.',
-      embeds: [],
-      components: []
+      flags: MessageFlags.Ephemeral
     });
+    setTimeout(async () => { try { await interaction.deleteReply(); } catch (_) {} }, 8000);
     return;
   }
 
@@ -1124,11 +1153,13 @@ async function handleCancelConfirmation(interaction) {
       await restoreMoviePost(interaction, movieMessageId);
     }
 
-    await interaction.update({
+    // Respond with a fresh ephemeral reply so we can auto-dismiss reliably
+    await interaction.reply({
       content: `✅ **Session Cancelled**\n\nSession "${session.name}" has been cancelled and the movie has been returned to "Planned for later" status.`,
-      embeds: [],
-      components: []
+      flags: MessageFlags.Ephemeral
     });
+    // Auto-dismiss the ephemeral success after 8 seconds
+    setTimeout(async () => { try { await interaction.deleteReply(); } catch (_) {} }, 8000);
 
     console.log(`✅ Cancelled session ${sessionId} and restored movie ${movieMessageId}`);
 
@@ -1363,7 +1394,48 @@ async function handleCustomDateTimeModal(interaction) {
       state.timeDisplay = formatTime(hour, minute);
       global.sessionCreationState.set(userId, state);
 
-      await showTimezoneSelection(interaction, state);
+      // If this is a reschedule flow, we cannot open another modal directly from a modal submit.
+      // Instead, present a final review panel with a button to open the details modal next.
+      const isReschedule = global.sessionRescheduleState && global.sessionRescheduleState.has(userId);
+      if (isReschedule) {
+        try {
+          if (!state.selectedTimezone) {
+            // Prefer original session timezone, then guild config, then sensible default (America/Los_Angeles)
+            const db = require('../database');
+            const resState = global.sessionRescheduleState?.get(userId);
+            let tz = resState?.originalSession?.timezone || state.timezone || null;
+            if (!tz) {
+              try {
+                const cfg = await db.getGuildConfig(interaction.guild.id);
+                tz = cfg?.default_timezone || cfg?.timezone || 'America/Los_Angeles';
+              } catch (_) { tz = 'America/Los_Angeles'; }
+            }
+            state.selectedTimezone = tz;
+          }
+
+          const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+          const summary = new EmbedBuilder()
+            .setTitle('📋 Review Session Timing')
+            .setDescription('Confirm your date and time, then continue to details.')
+            .setColor(0x5865f2)
+            .addFields(
+              { name: '📅 Date', value: state.dateDisplay || 'No date', inline: true },
+              { name: '🕐 Time', value: state.timeDisplay || 'No time', inline: true }
+            );
+          const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+              .setCustomId('session_create_final')
+              .setLabel('Continue to Details')
+              .setStyle(ButtonStyle.Primary)
+          );
+          await interaction.reply({ embeds: [summary], components: [row], flags: MessageFlags.Ephemeral });
+        } catch (__) {
+          // Fallback: just acknowledge
+          await interaction.reply({ content: '✅ Time saved. Press Continue to proceed.', flags: MessageFlags.Ephemeral }).catch(() => {});
+        }
+      } else {
+        await showTimezoneSelection(interaction, state);
+      }
     }
   } catch (error) {
     console.error('Error handling custom date/time modal:', error);
@@ -1455,18 +1527,51 @@ async function createMovieSessionFromModal(interaction) {
       return;
     }
 
+    // Defer immediately to avoid interaction timeout while we perform updates
+    if (!interaction.deferred && !interaction.replied) {
+      try { await interaction.deferReply({ flags: MessageFlags.Ephemeral }); } catch (_) {}
+    }
+
     // Get modal inputs
     const sessionName = interaction.fields.getTextInputValue('session_name');
     const sessionDescription = interaction.fields.getTextInputValue('session_description') || null;
 
+    // Optional: voting end time (only present in reschedule flow for active voting)
+    let votingEndInput = '';
+    try {
+      votingEndInput = interaction.fields.getTextInputValue('reschedule_voting_end_time')?.trim() || '';
+    } catch (_) {}
+
+    // Helper to parse 12-hour time like "9:00 PM"
+    function parse12HourTime(str) {
+      const m = str.match(/^\s*(\d{1,2})\s*:\s*(\d{2})\s*(AM|PM)\s*$/i);
+      if (!m) return null;
+      let h = parseInt(m[1], 10);
+      const min = parseInt(m[2], 10);
+      const isPM = /pm/i.test(m[3]);
+      if (h < 1 || h > 12 || min < 0 || min > 59) return null;
+      if (h === 12) h = 0;
+      const hour24 = h + (isPM ? 12 : 0);
+      return { hour: hour24, minute: min };
+    }
+
     // Calculate final date/time in the selected timezone
     let scheduledDate = null;
     if (state.selectedDate && state.selectedTime) {
+      // Determine effective timezone again with safe defaults
+      let tz = state.selectedTimezone;
+      try {
+        const resState = global.sessionRescheduleState?.get(userId);
+        const cfg = await database.getGuildConfig(interaction.guild.id);
+        tz = tz || resState?.originalSession?.timezone || cfg?.default_timezone || cfg?.timezone || 'America/Los_Angeles';
+      } catch (_) {
+        tz = tz || 'America/Los_Angeles';
+      }
       scheduledDate = createDateInTimezone(
         state.selectedDate,
         state.selectedTime.hour,
         state.selectedTime.minute,
-        state.selectedTimezone || 'UTC'
+        tz
       );
     }
 
@@ -1478,13 +1583,36 @@ async function createMovieSessionFromModal(interaction) {
     if (resState && resState.sessionId) {
       const sessionId = resState.sessionId;
 
-      // Update session core details
+      // Determine new voting end time if provided and update session core details
+      let newVotingEndUtc = null;
+      if (votingEndInput) {
+        const parsed = parse12HourTime(votingEndInput);
+        if (parsed) {
+          const baseDate = (state.selectedDate || (resState.originalSession?.scheduled_date ? new Date(resState.originalSession.scheduled_date) : null)) || null;
+          if (baseDate) {
+            // Ensure we use the same effective timezone as scheduledDate
+            let tzEff = state.selectedTimezone;
+            try {
+              const cfg = await database.getGuildConfig(interaction.guild.id);
+              tzEff = tzEff || resState?.originalSession?.timezone || cfg?.default_timezone || cfg?.timezone || 'America/Los_Angeles';
+            } catch (_) { tzEff = tzEff || 'America/Los_Angeles'; }
+            newVotingEndUtc = createDateInTimezone(baseDate, parsed.hour, parsed.minute, tzEff);
+          }
+        }
+      }
       await database.updateMovieSessionDetails(sessionId, {
         name: sessionName,
         description: sessionDescription,
         scheduledDate: scheduledDate,
-        timezone: tz
+        timezone: tz,
+        votingEndTime: newVotingEndUtc || undefined
       });
+      if (newVotingEndUtc) {
+        try {
+          const sessionScheduler = require('./session-scheduler');
+          await sessionScheduler.rescheduleSession(sessionId, newVotingEndUtc);
+        } catch (e) { console.warn('Could not reschedule session scheduler:', e.message); }
+      }
 
       // Update or create Discord scheduled event
       let discordEventId = resState.originalSession?.discord_event_id || null;
@@ -1521,16 +1649,52 @@ async function createMovieSessionFromModal(interaction) {
         await updateMoviePostForSession(interaction, movieMessageId, sessionId, sessionName, scheduledDate, discordEventId || null);
       }
 
+      // Also refresh the recommendation post / quick action message to reflect new times
+      try {
+        const config = await database.getGuildConfig(interaction.guild.id);
+        if (config && config.movie_channel_id) {
+          const channel = await interaction.client.channels.fetch(config.movie_channel_id).catch(() => null);
+          if (channel) {
+            try {
+              const forum = require('./forum-channels');
+              // Heuristic: detect forum channels via available properties (discord.js v14)
+              if (channel.isThreadOnly?.() || (channel.type && String(channel.type).toLowerCase().includes('forum'))) {
+                const activeSession = await database.getActiveVotingSession(interaction.guild.id).catch(() => null);
+                if (activeSession) await forum.ensureRecommendationPost(channel, activeSession);
+              } else {
+                const cleanup = require('./cleanup');
+                await cleanup.ensureQuickActionAtBottom(channel);
+              }
+            } catch (_) {
+              const cleanup = require('./cleanup');
+              await cleanup.ensureQuickActionAtBottom(channel);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Post-refresh after reschedule failed:', e.message);
+      }
+
+      // Refresh admin control panel buttons/state
+      try {
+        const adminControls = require('./admin-controls');
+        await adminControls.ensureAdminControlPanel(interaction.client, interaction.guild.id);
+      } catch (_) {}
+
       // Acknowledge success
       const ts = scheduledDate ? Math.floor(new Date(scheduledDate).getTime() / 1000) : null;
       const msg = ts
         ? `✅ Session "${sessionName}" rescheduled to <t:${ts}:F>`
         : `✅ Session "${sessionName}" updated.`;
 
-      if (interaction.deferred || interaction.replied) {
-        await interaction.followUp({ content: msg, flags: MessageFlags.Ephemeral });
-      } else {
-        await interaction.reply({ content: msg, flags: MessageFlags.Ephemeral });
+      try {
+        if (interaction.deferred || interaction.replied) {
+          await interaction.editReply({ content: msg, embeds: [], components: [] });
+        } else {
+          await interaction.reply({ content: msg, flags: MessageFlags.Ephemeral });
+        }
+      } catch (_) {
+        try { await interaction.followUp({ content: msg, flags: MessageFlags.Ephemeral }); } catch {}
       }
 
       // Best-effort: close the original ephemeral panel if we created one
@@ -1604,9 +1768,8 @@ async function createMovieSessionFromModal(interaction) {
       embed.addFields({ name: '📝 Description', value: sessionDescription, inline: false });
     }
 
-    await interaction.reply({
-      embeds: [embed],
-      flags: MessageFlags.Ephemeral
+    await interaction.editReply({
+      embeds: [embed]
     });
 
     // Update the movie post if a movie was selected
@@ -1619,10 +1782,15 @@ async function createMovieSessionFromModal(interaction) {
 
   } catch (error) {
     console.error('Error creating session from modal:', error);
-    await interaction.reply({
-      content: '❌ Failed to create movie session.',
-      flags: MessageFlags.Ephemeral
-    });
+    try {
+      if (interaction.deferred || interaction.replied) {
+        await interaction.editReply({ content: '❌ Failed to create movie session.' });
+      } else {
+        await interaction.reply({ content: '❌ Failed to create movie session.', flags: MessageFlags.Ephemeral });
+      }
+    } catch (_) {
+      try { await interaction.followUp({ content: '❌ Failed to create movie session.', flags: MessageFlags.Ephemeral }); } catch {}
+    }
   }
 }
 
