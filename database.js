@@ -344,6 +344,8 @@ class Database {
     } catch (e) {
       logger.warn('initializeTables ensure vote cap columns warning:', e.message);
 
+    }
+
     try {
       const [gcCols2] = await this.pool.execute(`
         SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS

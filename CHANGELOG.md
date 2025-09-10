@@ -10,6 +10,11 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ### Changed
 - Permissions: Moderators can now use the “Details” button in the moderation/admin channel. Admin remains required for mutating actions (ban/unban, schedule, remove, pick winner, etc.).
 
+## [1.14.1-rc6] - 2025-09-10
+### Fixed
+- Startup: fixed a missing closing brace in initializeTables() that caused a parse error near runMigrations on some Node builds.
+
+
 
 ## [1.14.1-rc4] - 2025-09-10
 ### Added
