@@ -200,6 +200,7 @@ class Database {
         movie_channel_id VARCHAR(20) NULL,
         admin_roles JSON NULL,
         moderator_roles JSON NULL,
+        viewer_roles JSON NULL,
         notification_role_id VARCHAR(20) NULL,
         default_timezone VARCHAR(50) DEFAULT 'UTC',
         session_viewing_channel_id VARCHAR(20) NULL,
@@ -342,8 +343,19 @@ class Database {
       }
     } catch (e) {
       logger.warn('initializeTables ensure vote cap columns warning:', e.message);
-    }
 
+    try {
+      const [gcCols2] = await this.pool.execute(`
+        SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'guild_config' AND COLUMN_NAME = 'viewer_roles'
+      `);
+      if (gcCols2.length === 0) {
+        await this.pool.execute(`ALTER TABLE guild_config ADD COLUMN viewer_roles JSON NULL AFTER moderator_roles`);
+        logger.debug('✅ Added viewer_roles via initializeTables');
+      }
+    } catch (e) {
+      logger.warn('initializeTables ensure viewer_roles warning:', e.message);
+    }
 
 
     // Run migrations to ensure schema is up to date (can be disabled via env)
@@ -1826,6 +1838,26 @@ class Database {
       }
 
 
+      // Migration 29: Add viewer_roles column to guild_config
+      try {
+        const [gcCols] = await this.pool.execute(`
+          SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'guild_config'
+        `);
+        const have = new Set(gcCols.map(r => r.COLUMN_NAME));
+        if (!have.has('viewer_roles')) {
+          await this.pool.execute(`ALTER TABLE guild_config ADD COLUMN viewer_roles JSON NULL AFTER moderator_roles`);
+          const logger = require('./utils/logger');
+          logger.debug('✅ Migration 29: viewer_roles added to guild_config');
+        } else {
+          const logger = require('./utils/logger');
+          logger.debug('✅ Migration 29: viewer_roles already exists');
+        }
+      } catch (e) {
+        const logger = require('./utils/logger');
+        logger.warn('Migration 29 warning:', e.message);
+      }
+
 
       logger.info('✅ Database migrations completed');
 
@@ -2343,6 +2375,7 @@ class Database {
       const config = rows[0];
       config.admin_roles = config.admin_roles ? JSON.parse(config.admin_roles) : [];
       config.moderator_roles = config.moderator_roles ? JSON.parse(config.moderator_roles) : [];
+      config.viewer_roles = config.viewer_roles ? JSON.parse(config.viewer_roles) : [];
       return config;
     } catch (error) {
       console.error('Error getting guild config:', error.message);

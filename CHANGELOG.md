@@ -5,6 +5,16 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 
 
 
+
+## [1.14.1-rc4] - 2025-09-10
+### Added
+- Database: viewer_roles JSON column on guild_config
+  - Ensured in base schema, initializeTables, and Migration 29 (idempotent)
+  - Parsed and exposed via getGuildConfig()
+
+### Notes
+- No behavior change yet; dashboard will begin gating the Voting section by viewer roles in addition to moderators/admins.
+
 ## [1.14.1-rc3] - 2025-09-10
 ### Added
 - WebSocket: dashboard→bot admin actions now supported over WS
