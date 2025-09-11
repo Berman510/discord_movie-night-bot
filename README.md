@@ -59,6 +59,8 @@ A comprehensive Discord bot for managing movie recommendations, voting, and orga
 
 ### ✅ What's New in 1.14.1
 - Asymmetric per-session vote caps: users can upvote up to max(1, floor(n/3)) and downvote up to max(1, floor(n/5)) movies per session. Friendly ephemeral message appears if a user hits the limit, listing their current votes.
+- Ban improvements: avoid duplicate “system/admin” DB rows on ban; perform Discord cleanup (archive forum thread, delete/disable text) when banning.
+- WS resiliency: improved close/reconnect logs with codes/reasons and backoff timing for better visibility during deploys.
 
 ### 🚀 Next Up (1.14.1)
 - [ ] Dashboard: clarify actions

@@ -3987,25 +3987,36 @@ class Database {
     try {
       const movieUID = this.generateMovieUID(guildId, movieTitle);
 
-      // Create a banned movie record if it doesn't exist
-      await this.pool.execute(
-        `INSERT INTO movies (message_id, guild_id, channel_id, title, movie_uid, where_to_watch, recommended_by, status, is_banned)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE is_banned = TRUE, status = 'banned'`,
-        [
-          `banned_${Date.now()}`, // Unique message ID for banned movies
-          guildId,
-          'admin', // Admin channel
-          movieTitle,
-          movieUID,
-          'N/A',
-          'system',
-          'banned',
-          true
-        ]
-      );
+      // Check if any instances already exist for this title
+      let existingCount = 0;
+      try {
+        const [rows] = await this.pool.execute(
+          `SELECT COUNT(*) as c FROM movies WHERE guild_id = ? AND movie_uid = ?`,
+          [guildId, movieUID]
+        );
+        existingCount = rows?.[0]?.c || 0;
+      } catch (_) {}
 
-      // Also ban any existing instances of this movie
+      // If no instances exist at all, create a single marker row so future adds are blocked
+      if (existingCount === 0) {
+        try {
+          await this.pool.execute(
+            `INSERT INTO movies (message_id, guild_id, channel_id, title, movie_uid, where_to_watch, recommended_by, status, is_banned)
+             VALUES (?, ?, ?, ?, ?, ?, ?, 'banned', TRUE)`,
+            [
+              `banned_${Date.now()}`,
+              guildId,
+              'admin',
+              movieTitle,
+              movieUID,
+              'N/A',
+              'system'
+            ]
+          );
+        } catch (_) { /* ignore */ }
+      }
+
+      // Mark all existing (and marker) rows as banned
       await this.pool.execute(
         `UPDATE movies SET is_banned = TRUE, status = 'banned' WHERE guild_id = ? AND movie_uid = ?`,
         [guildId, movieUID]

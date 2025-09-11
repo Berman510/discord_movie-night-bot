@@ -6,6 +6,15 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 
 
 
+## [1.14.1-rc12] - 2025-09-11
+### Fixed
+- Ban behavior: prevent duplicate “system/admin” rows when banning movies that already exist; only create marker rows if none exist.
+- Discord cleanup on ban: archive forum threads and delete/disable text messages for banned movies.
+
+### Improved
+- WebSocket resiliency: clearer close/reconnect logging with codes/reasons and backoff timing.
+
+
 ## [1.14.1-rc11] - 2025-09-11
 ### Changed
 - Webhook removal: fully removed legacy webhook server and dashboard webhook client usage; WS-only operation.

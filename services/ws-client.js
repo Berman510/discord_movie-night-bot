@@ -135,7 +135,59 @@ function initWebSocketClient(logger) {
             const title = msg?.payload?.title;
             if (!guildId || !title) return;
             const database = require('../database');
-            await database.banMovie(guildId, title);
+            const forumChannels = require('./forum-channels');
+            const { embeds, components } = require('../utils');
+            const client = global.discordClient;
+            try {
+              // Mark all instances as banned in DB (and avoid duplicate marker rows)
+              await database.banMovie(guildId, title);
+
+              // Clean up posts across admin/voting channels for this title
+              // Query all movie rows by computed movie_uid
+              const movieUID = database.generateMovieUID(guildId, title);
+              let rows = [];
+              try {
+                const [r] = await database.pool.execute(
+                  `SELECT * FROM movies WHERE guild_id = ? AND movie_uid = ?`,
+                  [guildId, movieUID]
+                );
+                rows = r || [];
+              } catch (_) {}
+
+              for (const movie of rows) {
+                try {
+                  // Update/cleanup forum threads
+                  if (movie.channel_type === 'forum' && movie.thread_id) {
+                    const thread = await client?.channels?.fetch(movie.thread_id).catch(() => null);
+                    if (thread) {
+                      try { await forumChannels.updateForumPostContent(thread, movie, 'banned'); } catch (_) {}
+                      try { await forumChannels.updateForumPostTags(thread, 'banned'); } catch (_) {}
+                      try { await forumChannels.archiveForumPost(thread, 'Movie banned'); } catch (_) {}
+                    }
+                  } else if (movie.channel_id && movie.message_id) {
+                    // Text-channel message: prefer deletion; fallback to editing with no components
+                    const channel = await client?.channels?.fetch(movie.channel_id).catch(() => null);
+                    if (channel && channel.messages) {
+                      const msgObj = await channel.messages.fetch(movie.message_id).catch(() => null);
+                      if (msgObj) {
+                        try {
+                          await msgObj.delete();
+                        } catch (_) {
+                          // Fallback: edit to disabled state
+                          try {
+                            await msgObj.edit({ content: '⛔️ This movie has been banned.', embeds: [], components: [] });
+                          } catch (_) {}
+                        }
+                      }
+                    }
+                  }
+                } catch (e) {
+                  logger?.warn?.(`[${guildId}] WS ban cleanup error for ${movie?.message_id}: ${e?.message || e}`);
+                }
+              }
+            } catch (e) {
+              logger?.warn?.(`[${guildId}] WS ban_movie error: ${e?.message || e}`);
+            }
             return;
           }
           if (msg.type === 'unban_movie') {
@@ -517,9 +569,10 @@ function initWebSocketClient(logger) {
         }
       });
 
-      ws.on('close', () => {
+      ws.on('close', (code, reason) => {
         if (heartbeat) { clearInterval(heartbeat); heartbeat = null; }
-        logger?.warn?.('WS: connection closed');
+        const why = (reason && reason.toString && reason.toString()) || '';
+        logger?.warn?.(`WS: connection closed (code=${code}${why ? `, reason=${why}` : ''})`);
         scheduleReconnect();
       });
 
@@ -534,10 +587,12 @@ function initWebSocketClient(logger) {
 
   function scheduleReconnect() {
     if (reconnectTimer) return;
+    const delay = RECONNECT_MS;
+    logger?.info?.(`WS: reconnecting in ${Math.round(delay/1000)}s...`);
     reconnectTimer = setTimeout(() => {
       reconnectTimer = null;
       connect();
-    }, RECONNECT_MS);
+    }, delay);
   }
 
   // Start initial connection
