@@ -56,24 +56,32 @@ A comprehensive Discord bot for managing movie recommendations, voting, and orga
 
 ---
 
-### 🚀 Next Up (1.14.1)
-- [ ] Dashboard: clarify actions
-  - Rename “Planned” → “Plan for later” (move out of active voting, keep in backlog)
-  - Add “Add to Next Session” / “Remove from Next Session” actions
-- [ ] Bi-directional integration with dashboard
-  - Real-time updates via WebSocket bridge; mirror movie status changes in Discord immediately
-  - Sync admin panel and voting posts on dashboard actions
-- [ ] Dashboard UI polish
-  - Tooltips and confirmation dialogs for destructive actions (ban/remove)
-  - Inline status and vote summaries
-- [ ] Analytics
-  - Surface RSVP list/count per session on dashboard (using bot’s stored rsvp_user_ids)
-  - Basic attendance analytics groundwork
-- [ ] Docs
-  - Add dashboard integration section (env vars, WS token, feature list)
+
+### ✅ What's New in 1.14.1
+- Dashboard ↔ Bot over WebSocket: dashboard actions now include Vote, Remove, and Pick Winner (admins/mods) with live updates and admin panel refresh.
+- Asymmetric per-session vote caps: users can upvote up to max(1, floor(n/3)) and downvote up to max(1, floor(n/5)) movies per session. Friendly ephemeral message appears if a user hits the limit, listing their current votes.
+- Ban improvements: avoid duplicate “system/admin” DB rows on ban; perform Discord cleanup (archive forum thread, delete/disable text) when banning.
+- WS resiliency: improved close/reconnect logs with codes/reasons and backoff timing for better visibility during deploys.
+
+### 🚀 Next Up (prioritized)
+- [Sev	1] WS connection resilience & observability
+  - Jittered exponential backoff on reconnect and explicit offline timer
+  - Detailed logs on close codes/reasons and next reconnect attempt
+- [Sev	1] Dashboard live updates (no reloads)
+  - Emit vote/status change events to dashboard for real-time UI updates
+- [Sev	2] Unban via Discord channels
+  - Add Unban controls in admin panel (and slash command fallback)
+- [Sev	2] Session/post updates
+  - [x] Reschedule refreshes pinned “37f Recommend a Movie” with new date/name
+- [Sev	3] Analytics & docs
+  - Surface RSVP list/count for sessions to dashboard; document WS integration (env vars, tokens)
 
 
 ## 📋 TODO List
+
+### 🧰 Hosting Operational TODOs
+- [ ] PebbleHost startup script: add `scripts/start-pebble.sh` that does `git fetch --all --prune && git reset --hard origin/$(git rev-parse --abbrev-ref HEAD)`, ensures deps with `npm ci --omit=dev` (fallback `npm install --only=prod`), then starts the bot. Add `"start:pebble"` to package.json and document updating the PebbleHost Start Command.
+
 
 ### 🔄 **Message Tracking System**
 - [ ] **Track all bot messages**: Store message IDs for notifications, admin panels, recommendations
@@ -90,6 +98,13 @@ A comprehensive Discord bot for managing movie recommendations, voting, and orga
 ### 🗳️ **Multiple Voting Sessions**
 - [ ] **Concurrent voting sessions**: Support multiple active voting sessions simultaneously
 - [ ] **Session queue management**: Queue system for multiple planned sessions
+
+### 🗳️ Vote Caps Configuration
+- [ ] Make vote caps configurable by admin roles:
+  - Global per-guild defaults (enable/disable, upvote ratio default 1/3, downvote ratio default 1/5, min votes default 1)
+  - Optional per-session overrides by the admin/mod who creates the session
+  - Document settings in README and expose via slash commands/admin panel
+
 - [ ] **Session-specific voting channels**: Separate voting channels or sections for each session
 - [ ] **Session priority system**: Handle overlapping session times and priorities
 
@@ -98,6 +113,8 @@ A comprehensive Discord bot for managing movie recommendations, voting, and orga
 - [ ] **Advanced analytics**: More detailed voting and attendance statistics
 - [ ] **Movie recommendations API**: Integration with additional movie databases
 - [ ] **Automated reminders**: Reminder notifications before voting ends
+- [ ] Vote caps: allow overrides configurable by admin roles globally and by admin/mods per voting session (UI in Administration panel)
+
 - [ ] Repository consolidation: Consider moving bot and dashboard into a single monorepo once WS integration stabilizes (keep separate deployment methods).
 
 - [ ] Monorepo planning: evaluate hosting the bot in AWS (e.g., ECS/Fargate) instead of PebbleHost to reduce operational issues; align CI/CD, secrets (AWS Secrets Manager), and env parity with the dashboard.
@@ -111,6 +128,17 @@ A comprehensive Discord bot for managing movie recommendations, voting, and orga
 - (Optional) OMDb API key: <http://www.omdbapi.com/apikey.aspx>
 
 ### Required OAuth Scopes
+
+### IMDb Caching (cross-guild)
+To reduce OMDb usage, the bot caches full IMDb responses globally across servers in a lightweight imdb_cache table.
+- Enabled by default; respects TTL and hard row limit with LRU eviction
+- Deep purge does not clear this cache
+
+Env toggles:
+- IMDB_CACHE_ENABLED=true
+- IMDB_CACHE_TTL_DAYS=90
+- IMDB_CACHE_MAX_ROWS=10000
+
 - `bot`
 - `applications.commands`
 
@@ -165,6 +193,17 @@ DB_USER=YOUR_DB_USER
 DB_PASSWORD=YOUR_DB_PASSWORD
 DB_NAME=YOUR_DB_NAME
 ```
+
+### Dashboard Integration (WS-only)
+Use the WebSocket bridge (bot-initiated):
+```
+MOVIENIGHT_WS_ENABLED=true
+MOVIENIGHT_WS_URL=wss://bot-movienight.bermanoc.net/socket
+MOVIENIGHT_WS_TOKEN=YOUR_LONG_RANDOM_TOKEN
+```
+Note: for beta use `wss://bot-movienight-beta.bermanoc.net/socket`.
+
+Webhook support has been removed. The bot now operates WS-only.
 
 ## Database Setup (Optional but Recommended)
 
@@ -229,12 +268,16 @@ If you don't want to set up MySQL, the bot can use a local JSON file for persist
 - **Scalability:** Handles large amounts of data efficiently
 - **History:** Complete viewing history and recommendation tracking
 
+- **Advanced Rules:** Per-session vote caps (up ~1/3, down ~1/5 by default) with admin-configurable ratios in the Administration panel; requires database. In memory-only mode, voting remains open (no caps).
+
 ### Memory-Only Mode (No Database)
 The bot will automatically fall back to memory-only mode if no database is configured. This provides:
 - ✅ **Core Features:** Movie recommendations, voting, and discussions work perfectly
 - ✅ **IMDb Integration:** Movie details and posters still work
 - ✅ **Real-time Voting:** Vote counts update live during the session
 - ⚠️ **Session-Based:** Data is lost when the bot restarts
+- ⚠️ **Open Voting:** Per-session vote caps are not enforced without a database (configurable caps are a database-backed feature).
+
 - ❌ **Limited Commands:** Advanced management features unavailable
 
 **Perfect for:** Testing, small servers, or temporary setups where persistence isn't critical.
@@ -312,6 +355,8 @@ pm2 startup  # follow the printed instructions
 - **Movie Management:** Pick Winner, Skip to Next, Remove Suggestion, Ban Movie, and Details for each movie
 - **Admin Channel Mirroring:** All movies appear in admin channel with management buttons
 - **Sync Operations:** Channel synchronization and cleanup tools with carryover movie handling
+- Moderator access: Moderators can use Sync Channels and Refresh Admin Panel; all destructive or state-changing actions remain admin-only.
+
 - **Real-time Updates:** Admin interface updates automatically with session changes
 
 ### Enhanced Server Configuration

@@ -227,15 +227,61 @@ async function handleVoting(interaction, action, msgId, votes) {
       const movie = await database.getMovieById(msgId, interaction.guild.id);
       if (!movie) {
         console.error(`🚨 VOTING ERROR: Movie with message ID ${msgId} not found in database for guild ${interaction.guild.id}`);
-        await interaction.editReply({
+        await interaction.followUp({
           content: '❌ This movie is not found in the database. Please try refreshing the channel.',
-          flags: require('discord.js').MessageFlags.Ephemeral
+          ephemeral: true
         });
         return;
       }
 
       // Check current vote
       const currentVote = await database.getUserVote(msgId, userId);
+
+      // Enforce per-session vote caps (configurable; defaults: up ~1/3, down ~1/5)
+      try {
+        const movieSessionId = movie.session_id;
+        if (movieSessionId) {
+          // Only enforce caps when attempting to add/change a vote
+          if (currentVote !== action) {
+            // Read guild config; default to enabled with asymmetric ratios if absent
+            const config = await database.getGuildConfig(interaction.guild.id).catch(() => null);
+            const enabled = config && typeof config.vote_cap_enabled !== 'undefined' ? Boolean(Number(config.vote_cap_enabled)) : true;
+
+            if (enabled) {
+              const ratioUp = config && config.vote_cap_ratio_up != null ? Number(config.vote_cap_ratio_up) : 1/3;
+              const ratioDown = config && config.vote_cap_ratio_down != null ? Number(config.vote_cap_ratio_down) : 1/5;
+              const minCap = config && config.vote_cap_min != null ? Math.max(1, Number(config.vote_cap_min)) : 1;
+
+              const totalInSession = await database.countMoviesInSession(movieSessionId);
+              const upCap = Math.max(minCap, Math.floor(totalInSession * ratioUp));
+              const downCap = Math.max(minCap, Math.floor(totalInSession * ratioDown));
+
+              const type = isUpvote ? 'up' : 'down';
+              const used = await database.countUserVotesInSession(userId, movieSessionId, type);
+              const cap = isUpvote ? upCap : downCap;
+
+              if (used >= cap) {
+                const votesInSession = await database.getUserVotesInSession(userId, movieSessionId);
+                const titles = votesInSession
+                  .filter(v => v.vote_type === type)
+                  .map(v => v.title)
+                  .filter(Boolean);
+
+                const list = titles.length > 0 ? titles.join(' • ').slice(0, 1500) : 'None';
+                const friendly = isUpvote ? `👍 upvotes` : `👎 downvotes`;
+
+                await interaction.followUp({
+                  content: `⚠️ You\'ve reached your ${friendly} limit for this voting session.\n\nSession movies: ${totalInSession}\nAllowed ${friendly}: ${cap}\nYour ${friendly}: ${used}\n\nCurrent ${friendly}: ${list}\n\nTip: Unvote one of the above to free a slot, then try again.`,
+                  ephemeral: true
+                });
+                return;
+              }
+            }
+          }
+        }
+      } catch (capError) {
+        console.warn('Vote cap check failed, proceeding without cap enforcement:', capError?.message);
+      }
 
       if (currentVote === action) {
         // Remove vote if clicking same button
@@ -248,9 +294,9 @@ async function handleVoting(interaction, action, msgId, votes) {
         const saveSuccess = await database.saveVote(msgId, userId, action, interaction.guild.id);
         if (!saveSuccess) {
           console.error(`Failed to save vote for message ${msgId} by user ${userId}`);
-          await interaction.editReply({
+          await interaction.followUp({
             content: '❌ Failed to save your vote. Please try again.',
-            flags: require('discord.js').MessageFlags.Ephemeral
+            ephemeral: true
           });
           return;
         }
@@ -835,8 +881,8 @@ async function createMovieWithImdb(interaction, title, where, imdbData) {
   const imdb = require('../services/imdb');
 
   try {
-    // Fetch detailed movie info from OMDb
-    const detailedImdbData = await imdb.getMovieDetails(imdbData.imdbID);
+    // Fetch detailed movie info (cached)
+    const detailedImdbData = await imdb.getMovieDetailsCached(imdbData.imdbID);
 
     // Prefer the canonical IMDb title if available
     const titleToUse = (detailedImdbData && detailedImdbData.Title) || imdbData.Title || title;
@@ -910,18 +956,34 @@ async function handleAdminMovieButtons(interaction, customId) {
   const database = require('../database');
   const adminMirror = require('../services/admin-mirror');
 
-  // Check admin permissions
-  const hasPermission = await permissions.checkMovieAdminPermission(interaction);
-  if (!hasPermission) {
-    await interaction.reply({
-      content: '❌ You need Administrator permissions or a configured admin role to use this action.',
-      flags: MessageFlags.Ephemeral
-    });
-    return;
-  }
-
+  // Parse first so we can gate per-action
   const [action, movieId] = customId.split(':');
   const guildId = interaction.guild.id;
+
+  // Permission gating:
+  // - Moderators: can view details and perform light actions (remove, skip)
+  // - Admins: required for mutating/high-impact actions (ban/unban, pick winner, watched)
+  const moderatorAllowed = new Set(['admin_details', 'admin_remove', 'admin_skip_vote']);
+
+  if (moderatorAllowed.has(action)) {
+    const canMod = await permissions.checkMovieModeratorPermission(interaction);
+    if (!canMod) {
+      await interaction.reply({
+        content: '❌ You need Moderator or Administrator permissions to use this action.',
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+  } else {
+    const isAdmin = await permissions.checkMovieAdminPermission(interaction);
+    if (!isAdmin) {
+      await interaction.reply({
+        content: '❌ You need Administrator permissions or a configured admin role to use this action.',
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+  }
 
   try {
     switch (action) {
@@ -1562,8 +1624,8 @@ async function handlePickWinner(interaction, guildId, movieId) {
           const downVotes = votes.filter(v => v.vote_type === 'down').length;
           const totalScore = upVotes - downVotes;
 
-          // Get movie details for event update
-          const imdbData = movie.imdb_id ? await require('../services/imdb').getMovieDetails(movie.imdb_id) : null;
+          // Get movie details for event update (cached)
+          const imdbData = movie.imdb_id ? await require('../services/imdb').getMovieDetailsCached(movie.imdb_id) : null;
 
           let updatedDescription = `🏆 **WINNER SELECTED: ${movie.title}**\n\n`;
           let posterBuffer = null;
@@ -1762,7 +1824,7 @@ async function handleChooseWinner(interaction, guildId, movieId) {
         let counts = null; try { counts = await database.getVoteCounts(movie.message_id); } catch {}
 
         if (movie.imdb_id) {
-          try { imdbData = await imdb.getMovieDetails(movie.imdb_id); } catch {}
+          try { imdbData = await imdb.getMovieDetailsCached(movie.imdb_id); } catch {}
         }
         const parts = [];
         parts.push(`Winner: ${movie.title}`);
@@ -1850,7 +1912,7 @@ async function handleChooseWinner(interaction, guildId, movieId) {
             const imdb = require('../services/imdb');
             let imdbData = null;
             if (movie.imdb_id) {
-              try { imdbData = await imdb.getMovieDetails(movie.imdb_id); } catch {}
+              try { imdbData = await imdb.getMovieDetailsCached(movie.imdb_id); } catch {}
             }
             const winnerEmbed = new EmbedBuilder()
               .setTitle('🏆 Movie Night Winner Announced!')
@@ -2009,9 +2071,31 @@ async function handleAdminControlButtons(interaction, customId) {
   const { permissions } = require('../services');
   const adminControls = require('../services/admin-controls');
 
-  // Check admin permissions
-  const hasPermission = await permissions.checkMovieAdminPermission(interaction);
-  if (!hasPermission) {
+  // Permission gating: some actions allow moderators, others require admins
+  const isAdmin = await permissions.checkMovieAdminPermission(interaction);
+  let allowed = isAdmin;
+
+  if (!allowed) {
+    // Actions that moderators are allowed to perform
+    const moderatorAllowed = new Set([
+      'admin_ctrl_sync',
+      'admin_ctrl_refresh',
+      'admin_ctrl_banned_list'
+    ]);
+    if (moderatorAllowed.has(customId)) {
+      allowed = await permissions.checkMovieModeratorPermission(interaction);
+      if (!allowed) {
+        await interaction.reply({
+          content: '❌ You need Moderator or Administrator permissions to use this action.',
+          flags: MessageFlags.Ephemeral
+        });
+        return;
+      }
+    }
+  }
+
+  // If still not allowed here, this action is admin-only
+  if (!allowed) {
     await interaction.reply({
       content: '❌ You need Administrator permissions or a configured admin role to use this action.',
       flags: MessageFlags.Ephemeral
@@ -2515,6 +2599,21 @@ async function handleConfigurationAction(interaction, customId) {
         break;
       case 'notification_role':
         await configuration.setNotificationRole(interaction, interaction.guild.id);
+        break;
+      case 'vote_caps':
+        await configuration.configureVoteCaps(interaction, interaction.guild.id);
+        break;
+      case 'vote_caps_enable':
+        await configuration.setVoteCapsEnabled(interaction, interaction.guild.id, true);
+        break;
+      case 'vote_caps_disable':
+        await configuration.setVoteCapsEnabled(interaction, interaction.guild.id, false);
+        break;
+      case 'vote_caps_reset':
+        await configuration.resetVoteCapsDefaults(interaction, interaction.guild.id);
+        break;
+      case 'vote_caps_set':
+        await configuration.openVoteCapsModal(interaction, interaction.guild.id);
         break;
       default:
         await interaction.reply({

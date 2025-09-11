@@ -39,13 +39,7 @@ async function createMovieRecommendation(interaction, movieData) {
       throw new Error('Configured movie channel not found');
     }
 
-    console.log(`🔍 DEBUG: Fetched channel:`, {
-      id: channel.id,
-      name: channel.name,
-      type: channel.type,
-      isForumChannel: forumChannels.isForumChannel(channel),
-      isTextChannel: forumChannels.isTextChannel(channel)
-    });
+    logger.debug(`🔍 DEBUG: Fetched channel: ${channel.name} (${channel.id}) type=${channel.type} forum=${forumChannels.isForumChannel(channel)} text=${forumChannels.isTextChannel(channel)}`, interaction.guild?.id);
 
     logger.info(`🎬 Creating movie recommendation: ${title} in ${forumChannels.getChannelTypeString(channel)} channel (${channel.name})`);
 

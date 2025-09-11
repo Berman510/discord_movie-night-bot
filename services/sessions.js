@@ -916,7 +916,7 @@ async function generateSessionDescription(state, interaction) {
         if (movie.imdb_id) {
           try {
             const imdb = require('./imdb');
-            const imdbData = await imdb.getMovieDetails(movie.imdb_id);
+            const imdbData = await imdb.getMovieDetailsCached(movie.imdb_id);
             if (imdbData && imdbData.Plot && imdbData.Plot !== 'N/A') {
               description += `**Synopsis:** ${imdbData.Plot}\n\n`;
             }

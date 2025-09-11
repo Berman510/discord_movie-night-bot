@@ -5,6 +5,131 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 
 
 
+## [1.14.1] - 2025-09-11
+### Highlights (final)
+- WebSocket-only integration complete; legacy webhooks removed. Dashboard→bot actions over WS now include voting, ban/unban, remove, pick winner, sync channels, and refresh panel.
+- Winner selection: dashboard “Pick Winner” triggers session finalization; forum threads update and winner announcement posts when applicable.
+- Reschedule polish: session name auto-syncs to new date/time; pinned “Recommend a Movie” post updates accordingly.
+- Reliability: improved WS reconnect logs with codes/reasons and backoff timing; numerous logging and permission polish items.
+
+
+
+
+## [1.14.1-rc12] - 2025-09-11
+### Fixed
+- Ban behavior: prevent duplicate “system/admin” rows when banning movies that already exist; only create marker rows if none exist.
+- Discord cleanup on ban: archive forum threads and delete/disable text messages for banned movies.
+
+### Improved
+- WebSocket resiliency: clearer close/reconnect logging with codes/reasons and backoff timing.
+
+
+## [1.14.1-rc11] - 2025-09-11
+### Changed
+- Webhook removal: fully removed legacy webhook server and dashboard webhook client usage; WS-only operation.
+- Logging sweep (incremental): add [guild_id] context to forum post creation, movie creation debug, and session viewing join/leave + monitoring messages.
+
+
+## [1.14.1-rc10] - 2025-09-11
+### Changed
+- WS voting (forum): also updates the forum starter message embed and voting buttons so counts reflect immediately (previously only the thread title changed).
+- Permissions: Moderators can now use Remove and Skip actions in the admin movie controls; admin remains required for ban/unban/pick-winner/watched.
+- Admin mirror: stop posting banned movies during Sync; banned management will live in a dedicated list/UI.
+- Webhook server: removed startup; bot runs WS-only without logging the disabled webhook server.
+
+
+## [1.14.1-rc9] - 2025-09-11
+### Changed
+- Logging: add `[guild_id]` context to WebSocket handlers and related warnings/errors:
+  - vote_movie (cap checks, message updates, errors)
+  - movie_status_changed updates
+  - sync_guild / refresh_admin_panel
+  - plan_session / reschedule_session / cancel_session
+
+
+## [1.14.1-rc5] - 2025-09-10
+### Changed
+- Permissions: Moderators can now use the “Details” button in the moderation/admin channel. Admin remains required for mutating actions (ban/unban, schedule, remove, pick winner, etc.).
+
+## [1.14.1-rc6] - 2025-09-10
+### Fixed
+- Startup: fixed a missing closing brace in initializeTables() that caused a parse error near runMigrations on some Node builds.
+
+
+## [1.14.1-rc7] - 2025-09-10
+## [1.14.1-rc8] - 2025-09-11
+### Changed
+- Permissions: Moderators can now use Sync Channels and Refresh Panel buttons in the Admin Control Panel. Other actions remain admin-only.
+
+
+### Added
+- WebSocket voting: new `vote_movie` handler processes dashboard votes (up/down/clear), enforces per-session vote caps, updates Discord message/embed/buttons, and logs diagnostics.
+
+
+
+## [1.14.1-rc4] - 2025-09-10
+### Added
+- Database: viewer_roles JSON column on guild_config
+  - Ensured in base schema, initializeTables, and Migration 29 (idempotent)
+  - Parsed and exposed via getGuildConfig()
+
+### Notes
+- No behavior change yet; dashboard will begin gating the Voting section by viewer roles in addition to moderators/admins.
+
+## [1.14.1-rc3] - 2025-09-10
+### Added
+- WebSocket: dashboard→bot admin actions now supported over WS
+  - `sync_guild` syncs Admin Panel and voting posts (forum-aware) like the webhook path
+  - `refresh_admin_panel` re-renders the Admin Control Panel in the configured admin channel
+
+### Notes
+- For PebbleHost/beta, set in the bot .env:
+  - `MOVIENIGHT_WS_ENABLED=true`
+  - `MOVIENIGHT_WS_URL=wss://bot-movienight-beta.bermanoc.net/socket`
+  - `MOVIENIGHT_WS_TOKEN=<the WS token from AWS Secrets Manager>`
+- To fetch the token (read-only), run:
+  - `aws secretsmanager get-secret-value --secret-id movienight-dashboard/beta/ws --query SecretString --output text`
+
+## [1.14.1-rc2] - 2025-09-10
+### Added
+- WebSocket: dashboard→bot session controls over WS
+  - `plan_session` creates a new voting session (Discord event + DB + scheduler)
+  - `reschedule_session` updates existing session/event and reschedules voting end
+- Webhook server: support `MOVIENIGHT_WEBHOOK_PORT` to bind PebbleHost-assigned fixed port (still optional; WS is preferred)
+
+
+
+## [1.14.1] - 2025-09-10
+### Added
+- Asymmetric per-session vote caps to keep voting decisive and reduce "vote for everything":
+  - Upvotes: max(1, floor(n/3)) where n = movies in the session
+  - Downvotes: max(1, floor(n/5))
+- Clear ephemeral feedback when a user hits their limit, including a list of movies they have already voted on in the session and guidance to unvote to free a slot.
+- Administration panel: new "Vote Caps" configuration with Enable/Disable, Set Ratios/Min (modal), and Reset to Defaults.
+
+- Cross-guild IMDb cache table (imdb_cache) with TTL refresh and hard-limit + LRU eviction; reduces OMDb usage. New env: IMDB_CACHE_ENABLED, IMDB_CACHE_TTL_DAYS, IMDB_CACHE_MAX_ROWS. Excluded from deep purge.
+
+### Notes
+- Caps are enforced only for movies associated to an active voting session (session_id present).
+- Caps are configurable per guild via Admin → Configure Bot → Vote Caps. Defaults: up 1/3, down 1/5, min 1.
+- Memory-only mode defaults to open voting (no caps). Database-backed mode enforces caps.
+
+
+- WebSocket handlers: dashboard→bot actions now supported directly over WS
+  - `ban_movie`, `unban_movie` execute immediately via DB helpers
+  - `movie_status_changed` refreshes the corresponding Discord post/thread (embed + buttons) just like the webhook path
+- Dashboard prefers WS automatically when connected; webhook is used as a fallback only
+
+
+### Fixed
+- Over-limit warning for vote caps now uses an ephemeral user message; no longer edits the public movie post.
+
+- Recreated/synced/carryover movie posts now include IMDb details immediately (text and forum channels), rather than only after the first button press.
+
+- IMDb calls are now avoided for carryover/sync flows; we use cached imdb_data in DB and only fetch once if missing.
+
+
+
 
 ## [1.14.0] - 2025-09-10
 ### Highlights

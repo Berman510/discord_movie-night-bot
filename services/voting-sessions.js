@@ -661,23 +661,36 @@ async function createVotingSession(interaction, state) {
                 let updatedMovie = movie;
                 if (movie.imdb_id) {
                   try {
-                    const imdb = require('./imdb');
-                    const imdbData = await imdb.getMovieDetails(movie.imdb_id);
-                    if (imdbData) {
-                      // Update movie with fresh IMDB data
-                      await database.updateMovieImdbData(movie.message_id, JSON.stringify(imdbData));
-                      updatedMovie = { ...movie, imdb_data: JSON.stringify(imdbData) };
-                      logger.debug(`🎬 Refreshed IMDB data for carryover movie: ${movie.title}`);
+                    // Only fetch IMDb data if we do not already have it stored
+                    if (!movie.imdb_data) {
+                      const imdb = require('./imdb');
+                      const imdbData = await imdb.getMovieDetailsCached(movie.imdb_id);
+                      if (imdbData) {
+                        await database.updateMovieImdbData(movie.message_id, JSON.stringify(imdbData));
+                        updatedMovie = { ...movie, imdb_data: JSON.stringify(imdbData) };
+                        logger.debug(`🎬 Cached IMDb data for carryover movie: ${movie.title}`);
+                      }
+                    } else {
+                      updatedMovie = movie;
                     }
                   } catch (error) {
-                    logger.warn(`Error refreshing IMDB data for ${movie.title}:`, error.message);
+                    logger.warn(`IMDb fetch skipped/failed for ${movie.title}:`, error.message);
                   }
                 }
 
                 if (forumChannels.isForumChannel(votingChannel)) {
                   // Create forum post for carryover movie WITHOUT components first (we need the new message ID)
                   const { embeds, components } = require('../utils');
-                  const movieEmbed = embeds.createMovieEmbed(updatedMovie);
+                  // Include IMDb data in embed if available
+                  let imdbDataForEmbed = null;
+                  try {
+                    if (updatedMovie.imdb_data) {
+                      let parsed = typeof updatedMovie.imdb_data === 'string' ? JSON.parse(updatedMovie.imdb_data) : updatedMovie.imdb_data;
+                      if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+                      imdbDataForEmbed = parsed;
+                    }
+                  } catch (e) { /* non-fatal */ }
+                  const movieEmbed = embeds.createMovieEmbed(updatedMovie, imdbDataForEmbed);
 
                   const result = await forumChannels.createForumMoviePost(
                     votingChannel,
@@ -704,7 +717,16 @@ async function createVotingSession(interaction, state) {
                 } else {
                   // Create text channel message for carryover movie WITHOUT components first (need new message ID)
                   const { embeds, components } = require('../utils');
-                  const movieEmbed = embeds.createMovieEmbed(updatedMovie);
+                  // Include IMDb data in embed if available
+                  let imdbDataForEmbed = null;
+                  try {
+                    if (updatedMovie.imdb_data) {
+                      let parsed = typeof updatedMovie.imdb_data === 'string' ? JSON.parse(updatedMovie.imdb_data) : updatedMovie.imdb_data;
+                      if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+                      imdbDataForEmbed = parsed;
+                    }
+                  } catch (e) { /* non-fatal */ }
+                  const movieEmbed = embeds.createMovieEmbed(updatedMovie, imdbDataForEmbed);
 
                   const newMessage = await votingChannel.send({
                     embeds: [movieEmbed]

@@ -446,7 +446,7 @@ async function handleSyncChannel(interaction) {
   }
 
   try {
-    const database = require('../database');
+
     const config = await database.getGuildConfig(interaction.guild.id);
 
     if (!config) {
@@ -512,7 +512,7 @@ async function handleSyncChannel(interaction) {
           }
 
           // Get all active movies and recreate them (excluding carryover movies)
-          const database = require('../database');
+
           const movies = await database.getMoviesByStatusExcludingCarryover(interaction.guild.id, 'pending', 50);
           const plannedMovies = await database.getMoviesByStatusExcludingCarryover(interaction.guild.id, 'planned', 50);
           const scheduledMovies = await database.getMoviesByStatusExcludingCarryover(interaction.guild.id, 'scheduled', 50);
@@ -909,10 +909,21 @@ async function syncForumMoviePost(forumChannel, movie) {
 
     if (existingThread) {
       // Update existing forum post
-      const database = require('../database');
+
       const voteCounts = await database.getVoteCounts(movie.message_id);
-      const movieEmbed = embeds.createMovieEmbed(movie, null, voteCounts);
-      const movieComponents = components.createVotingButtons(movie.message_id);
+      // Parse IMDb data (handle single/double-encoded JSON)
+      let imdbData = null;
+      try {
+        if (movie.imdb_data) {
+          let parsed = typeof movie.imdb_data === 'string' ? JSON.parse(movie.imdb_data) : movie.imdb_data;
+          if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+          imdbData = parsed;
+        }
+      } catch (e) {
+        console.warn(`Failed to parse IMDb data for ${movie.title}:`, e.message);
+      }
+      const movieEmbed = embeds.createMovieEmbed(movie, imdbData, voteCounts);
+      const movieComponents = components.createVotingButtons(movie.message_id, voteCounts.up, voteCounts.down);
 
       // Update the starter message
       const starterMessage = await existingThread.fetchStarterMessage();
@@ -929,8 +940,21 @@ async function syncForumMoviePost(forumChannel, movie) {
       }
     } else {
       // Create new forum post
-      const movieEmbed = embeds.createMovieEmbed(movie);
-      const movieComponents = components.createVotingButtons(movie.message_id);
+
+      const voteCounts = await database.getVoteCounts(movie.message_id);
+      // Parse IMDb data (handle single/double-encoded JSON)
+      let imdbData = null;
+      try {
+        if (movie.imdb_data) {
+          let parsed = typeof movie.imdb_data === 'string' ? JSON.parse(movie.imdb_data) : movie.imdb_data;
+          if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+          imdbData = parsed;
+        }
+      } catch (e) {
+        console.warn(`Failed to parse IMDb data for ${movie.title}:`, e.message);
+      }
+      const movieEmbed = embeds.createMovieEmbed(movie, imdbData, voteCounts);
+      const movieComponents = components.createVotingButtons(movie.message_id, voteCounts.up, voteCounts.down);
 
       const result = await forumChannels.createForumMoviePost(
         forumChannel,
@@ -941,7 +965,7 @@ async function syncForumMoviePost(forumChannel, movie) {
       const { thread, message } = result;
 
       // Update database with new thread ID
-      const database = require('../database');
+
       await database.updateMovieThreadId(movie.message_id, thread.id);
 
       console.log(`📝 Created new forum post: ${movie.title} (Thread: ${thread.id})`);
@@ -958,7 +982,7 @@ async function syncForumMoviePost(forumChannel, movie) {
  */
 async function populateForumChannel(client, guildId) {
   try {
-    const database = require('../database');
+
     const config = await database.getGuildConfig(guildId);
 
     if (!config || !config.movie_channel_id) {

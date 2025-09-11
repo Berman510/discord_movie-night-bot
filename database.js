@@ -200,6 +200,7 @@ class Database {
         movie_channel_id VARCHAR(20) NULL,
         admin_roles JSON NULL,
         moderator_roles JSON NULL,
+        viewer_roles JSON NULL,
         notification_role_id VARCHAR(20) NULL,
         default_timezone VARCHAR(50) DEFAULT 'UTC',
         session_viewing_channel_id VARCHAR(20) NULL,
@@ -244,6 +245,24 @@ class Database {
     }
 
     const logger = require('./utils/logger');
+    // Ensure imdb_cache exists even when migrations are disabled
+    try {
+      await this.pool.execute(`
+        CREATE TABLE IF NOT EXISTS imdb_cache (
+          imdb_id VARCHAR(20) PRIMARY KEY,
+          data JSON NOT NULL,
+          poster_url VARCHAR(500) NULL,
+          title VARCHAR(255) NULL,
+          year VARCHAR(10) NULL,
+          last_refreshed TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          fetch_count INT NOT NULL DEFAULT 1
+        )
+      `);
+      logger.debug('✅ imdb_cache table ensured via initializeTables');
+    } catch (e) {
+      logger.warn('initializeTables imdb_cache ensure warning:', e.message);
+    }
+
     // Ensure critical columns exist even when migrations are disabled (fresh installs)
     try {
       const [cols] = await this.pool.execute(`
@@ -300,6 +319,45 @@ class Database {
       logger.warn('initializeTables ensure forum columns warning:', e.message);
     }
 
+    try {
+      const [gcCols] = await this.pool.execute(`
+        SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'guild_config'
+      `);
+      const have = new Set(gcCols.map(r => r.COLUMN_NAME));
+      if (!have.has('vote_cap_enabled')) {
+        await this.pool.execute(`ALTER TABLE guild_config ADD COLUMN vote_cap_enabled TINYINT(1) DEFAULT 1 AFTER admin_channel_id`);
+        logger.debug('✅ Added vote_cap_enabled via initializeTables');
+      }
+      if (!have.has('vote_cap_ratio_up')) {
+        await this.pool.execute(`ALTER TABLE guild_config ADD COLUMN vote_cap_ratio_up DECIMAL(10,4) DEFAULT 0.3333 AFTER vote_cap_enabled`);
+        logger.debug('✅ Added vote_cap_ratio_up via initializeTables');
+      }
+      if (!have.has('vote_cap_ratio_down')) {
+        await this.pool.execute(`ALTER TABLE guild_config ADD COLUMN vote_cap_ratio_down DECIMAL(10,4) DEFAULT 0.2000 AFTER vote_cap_ratio_up`);
+        logger.debug('✅ Added vote_cap_ratio_down via initializeTables');
+      }
+      if (!have.has('vote_cap_min')) {
+        await this.pool.execute(`ALTER TABLE guild_config ADD COLUMN vote_cap_min INT DEFAULT 1 AFTER vote_cap_ratio_down`);
+        logger.debug('✅ Added vote_cap_min via initializeTables');
+      }
+    } catch (e) {
+      logger.warn('initializeTables ensure vote cap columns warning:', e.message);
+
+    }
+
+    try {
+      const [gcCols2] = await this.pool.execute(`
+        SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'guild_config' AND COLUMN_NAME = 'viewer_roles'
+      `);
+      if (gcCols2.length === 0) {
+        await this.pool.execute(`ALTER TABLE guild_config ADD COLUMN viewer_roles JSON NULL AFTER moderator_roles`);
+        logger.debug('✅ Added viewer_roles via initializeTables');
+      }
+    } catch (e) {
+      logger.warn('initializeTables ensure viewer_roles warning:', e.message);
+    }
 
 
     // Run migrations to ensure schema is up to date (can be disabled via env)
@@ -1733,6 +1791,76 @@ class Database {
         logger.warn('Migration 26 wrapper warning:', error.message);
       }
 
+      // Migration 27: Add vote cap settings to guild_config
+      try {
+        const [gcCols] = await this.pool.execute(`
+          SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'guild_config'
+        `);
+        const have = new Set(gcCols.map(r => r.COLUMN_NAME));
+        if (!have.has('vote_cap_enabled')) {
+          await this.pool.execute(`ALTER TABLE guild_config ADD COLUMN vote_cap_enabled TINYINT(1) DEFAULT 1 AFTER admin_channel_id`);
+        }
+        if (!have.has('vote_cap_ratio_up')) {
+          await this.pool.execute(`ALTER TABLE guild_config ADD COLUMN vote_cap_ratio_up DECIMAL(10,4) DEFAULT 0.3333 AFTER vote_cap_enabled`);
+        }
+        if (!have.has('vote_cap_ratio_down')) {
+          await this.pool.execute(`ALTER TABLE guild_config ADD COLUMN vote_cap_ratio_down DECIMAL(10,4) DEFAULT 0.2000 AFTER vote_cap_ratio_up`);
+        }
+        if (!have.has('vote_cap_min')) {
+          await this.pool.execute(`ALTER TABLE guild_config ADD COLUMN vote_cap_min INT DEFAULT 1 AFTER vote_cap_ratio_down`);
+        }
+        const logger = require('./utils/logger');
+        logger.debug('✅ Migration 27: Vote cap settings ensured on guild_config');
+      } catch (e) {
+        const logger = require('./utils/logger');
+        logger.warn('Migration 27 warning:', e.message);
+      }
+
+      // Migration 28: Create global cross-guild IMDb cache table
+      try {
+        await this.pool.execute(`
+          CREATE TABLE IF NOT EXISTS imdb_cache (
+            imdb_id VARCHAR(20) PRIMARY KEY,
+            data JSON NOT NULL,
+            poster_url VARCHAR(500) NULL,
+            title VARCHAR(255) NULL,
+            year VARCHAR(10) NULL,
+            last_refreshed TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            fetch_count INT NOT NULL DEFAULT 1
+          )
+        `);
+        try { await this.pool.execute(`CREATE INDEX IF NOT EXISTS idx_imdb_cache_last_refreshed ON imdb_cache (last_refreshed)`); } catch (e) {}
+        try { await this.pool.execute(`CREATE INDEX IF NOT EXISTS idx_imdb_cache_fetch_count ON imdb_cache (fetch_count)`); } catch (e) {}
+        const logger = require('./utils/logger');
+        logger.debug('✅ Migration 28: imdb_cache table ensured');
+      } catch (e) {
+        const logger = require('./utils/logger');
+        logger.warn('Migration 28 warning (imdb_cache may be unsupported on this DB):', e.message);
+      }
+
+
+      // Migration 29: Add viewer_roles column to guild_config
+      try {
+        const [gcCols] = await this.pool.execute(`
+          SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'guild_config'
+        `);
+        const have = new Set(gcCols.map(r => r.COLUMN_NAME));
+        if (!have.has('viewer_roles')) {
+          await this.pool.execute(`ALTER TABLE guild_config ADD COLUMN viewer_roles JSON NULL AFTER moderator_roles`);
+          const logger = require('./utils/logger');
+          logger.debug('✅ Migration 29: viewer_roles added to guild_config');
+        } else {
+          const logger = require('./utils/logger');
+          logger.debug('✅ Migration 29: viewer_roles already exists');
+        }
+      } catch (e) {
+        const logger = require('./utils/logger');
+        logger.warn('Migration 29 warning:', e.message);
+      }
+
+
       logger.info('✅ Database migrations completed');
 
   }
@@ -2058,8 +2186,61 @@ class Database {
     } catch (error) {
       console.error('Error getting top movies:', error.message);
       return [];
+
+    }
+    }
+
+
+  // Vote cap helpers
+  async countMoviesInSession(sessionId) {
+    if (!this.isConnected) return 0;
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT COUNT(*) AS cnt FROM movies WHERE session_id = ?`,
+        [sessionId]
+      );
+      return rows[0]?.cnt || 0;
+    } catch (error) {
+      console.error('Error counting movies in session:', error.message);
+      return 0;
     }
   }
+
+  async countUserVotesInSession(userId, sessionId, voteType) {
+    if (!this.isConnected) return 0;
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT COUNT(*) AS cnt
+         FROM votes v
+         JOIN movies m ON m.message_id = v.message_id
+         WHERE v.user_id = ? AND v.vote_type = ? AND m.session_id = ?`,
+        [userId, voteType, sessionId]
+      );
+      return rows[0]?.cnt || 0;
+    } catch (error) {
+      console.error('Error counting user votes in session:', error.message);
+      return 0;
+    }
+  }
+
+  async getUserVotesInSession(userId, sessionId) {
+    if (!this.isConnected) return [];
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT v.message_id, v.vote_type, m.title
+         FROM votes v
+         JOIN movies m ON m.message_id = v.message_id
+         WHERE v.user_id = ? AND m.session_id = ?
+         ORDER BY v.created_at ASC`,
+        [userId, sessionId]
+      );
+      return rows;
+    } catch (error) {
+      console.error('Error getting user votes in session:', error.message);
+      return [];
+    }
+  }
+
 
   // Movie session operations
   async createMovieSession(sessionData) {
@@ -2196,6 +2377,7 @@ class Database {
       const config = rows[0];
       config.admin_roles = config.admin_roles ? JSON.parse(config.admin_roles) : [];
       config.moderator_roles = config.moderator_roles ? JSON.parse(config.moderator_roles) : [];
+      config.viewer_roles = config.viewer_roles ? JSON.parse(config.viewer_roles) : [];
       return config;
     } catch (error) {
       console.error('Error getting guild config:', error.message);
@@ -2734,6 +2916,86 @@ class Database {
     }
   }
 
+  // IMDb cache helpers (global cross-guild)
+  async getImdbCache(imdbId) {
+    if (!this.isConnected) return null;
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT imdb_id, data, poster_url, title, year, last_refreshed, fetch_count FROM imdb_cache WHERE imdb_id = ?`,
+        [imdbId]
+      );
+      if (rows.length === 0) return null;
+      const row = rows[0];
+      return {
+        imdb_id: row.imdb_id,
+        data: row.data,
+        poster_url: row.poster_url,
+        title: row.title,
+        year: row.year,
+        last_refreshed: row.last_refreshed,
+        fetch_count: row.fetch_count
+      };
+    } catch (e) {
+      console.warn('imdb_cache get error:', e.message);
+      return null;
+    }
+  }
+
+  async upsertImdbCache(imdbId, data) {
+    if (!this.isConnected) return false;
+    try {
+      // Derive poster_url/title/year from payload when available
+      let posterUrl = null, title = null, year = null;
+      try {
+        const obj = typeof data === 'string' ? JSON.parse(data) : data;
+        posterUrl = obj?.Poster && obj.Poster !== 'N/A' ? obj.Poster : null;
+        title = obj?.Title || null;
+        year = obj?.Year || null;
+      } catch {}
+
+      const payload = typeof data === 'string' ? data : JSON.stringify(data);
+      await this.pool.execute(
+        `INSERT INTO imdb_cache (imdb_id, data, poster_url, title, year, last_refreshed, fetch_count)
+         VALUES (?, ?, ?, ?, ?, NOW(), 1)
+         ON DUPLICATE KEY UPDATE
+           data = VALUES(data),
+           poster_url = COALESCE(VALUES(poster_url), poster_url),
+           title = COALESCE(VALUES(title), title),
+           year = COALESCE(VALUES(year), year),
+           last_refreshed = NOW(),
+           fetch_count = fetch_count + 1`,
+        [imdbId, payload, posterUrl, title, year]
+      );
+      return true;
+    } catch (e) {
+      console.warn('imdb_cache upsert error:', e.message);
+      return false;
+    }
+  }
+
+  async evictImdbCacheOverLimit(maxRows = 10000) {
+    if (!this.isConnected) return false;
+    try {
+      const [cntRows] = await this.pool.execute(`SELECT COUNT(*) AS c FROM imdb_cache`);
+      const count = (cntRows && cntRows[0] && cntRows[0].c) ? Number(cntRows[0].c) : 0;
+      if (count <= maxRows) return true;
+      const toDelete = count - maxRows;
+      const [oldest] = await this.pool.execute(
+        `SELECT imdb_id FROM imdb_cache ORDER BY last_refreshed ASC LIMIT ?`,
+        [toDelete]
+      );
+      if (!oldest || oldest.length === 0) return true;
+      const ids = oldest.map(r => r.imdb_id);
+      const placeholders = ids.map(() => '?').join(',');
+      await this.pool.execute(`DELETE FROM imdb_cache WHERE imdb_id IN (${placeholders})`, ids);
+      return true;
+    } catch (e) {
+      console.warn('imdb_cache eviction error:', e.message);
+      return false;
+    }
+  }
+
+
   // Forum Channel Support Functions
 
   async addForumMovie(guildId, title, whereToWatch, recommendedBy, messageId, threadId, channelId, imdbId = null, imdbData = null) {
@@ -3238,6 +3500,38 @@ class Database {
     }
   }
 
+
+  async updateVoteCaps(guildId, { enabled, ratioUp, ratioDown, min }) {
+    if (!this.isConnected) return false;
+
+    // Build dynamic UPDATE set clause
+    const sets = [];
+    const params = [];
+    if (typeof enabled !== 'undefined') { sets.push('vote_cap_enabled = ?'); params.push(enabled ? 1 : 0); }
+    if (typeof ratioUp !== 'undefined') { sets.push('vote_cap_ratio_up = ?'); params.push(ratioUp); }
+    if (typeof ratioDown !== 'undefined') { sets.push('vote_cap_ratio_down = ?'); params.push(ratioDown); }
+    if (typeof min !== 'undefined') { sets.push('vote_cap_min = ?'); params.push(Math.max(1, Number(min) || 1)); }
+
+    if (sets.length === 0) return true; // nothing to do
+
+    try {
+      // Ensure row exists
+      await this.pool.execute(
+        `INSERT INTO guild_config (guild_id, admin_roles) VALUES (?, ?)
+         ON DUPLICATE KEY UPDATE guild_id = guild_id`,
+        [guildId, JSON.stringify([])]
+      );
+
+      const sql = `UPDATE guild_config SET ${sets.join(', ')} WHERE guild_id = ?`;
+      params.push(guildId);
+      await this.pool.execute(sql, params);
+      return true;
+    } catch (error) {
+      console.error('Error updating vote caps:', error.message);
+      return false;
+    }
+  }
+
   async getMoviesByChannel(guildId, channelId) {
     if (!this.isConnected) return [];
 
@@ -3693,25 +3987,36 @@ class Database {
     try {
       const movieUID = this.generateMovieUID(guildId, movieTitle);
 
-      // Create a banned movie record if it doesn't exist
-      await this.pool.execute(
-        `INSERT INTO movies (message_id, guild_id, channel_id, title, movie_uid, where_to_watch, recommended_by, status, is_banned)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE is_banned = TRUE, status = 'banned'`,
-        [
-          `banned_${Date.now()}`, // Unique message ID for banned movies
-          guildId,
-          'admin', // Admin channel
-          movieTitle,
-          movieUID,
-          'N/A',
-          'system',
-          'banned',
-          true
-        ]
-      );
+      // Check if any instances already exist for this title
+      let existingCount = 0;
+      try {
+        const [rows] = await this.pool.execute(
+          `SELECT COUNT(*) as c FROM movies WHERE guild_id = ? AND movie_uid = ?`,
+          [guildId, movieUID]
+        );
+        existingCount = rows?.[0]?.c || 0;
+      } catch (_) {}
 
-      // Also ban any existing instances of this movie
+      // If no instances exist at all, create a single marker row so future adds are blocked
+      if (existingCount === 0) {
+        try {
+          await this.pool.execute(
+            `INSERT INTO movies (message_id, guild_id, channel_id, title, movie_uid, where_to_watch, recommended_by, status, is_banned)
+             VALUES (?, ?, ?, ?, ?, ?, ?, 'banned', TRUE)`,
+            [
+              `banned_${Date.now()}`,
+              guildId,
+              'admin',
+              movieTitle,
+              movieUID,
+              'N/A',
+              'system'
+            ]
+          );
+        } catch (_) { /* ignore */ }
+      }
+
+      // Mark all existing (and marker) rows as banned
       await this.pool.execute(
         `UPDATE movies SET is_banned = TRUE, status = 'banned' WHERE guild_id = ? AND movie_uid = ?`,
         [guildId, movieUID]

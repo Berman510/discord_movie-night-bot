@@ -174,7 +174,7 @@ async function selectWinner(client, session, winner, config) {
         if (winner.movie.imdb_id) {
           try {
             const imdb = require('./imdb');
-            const imdbData = await imdb.getMovieDetails(winner.movie.imdb_id);
+            const imdbData = await imdb.getMovieDetailsCached(winner.movie.imdb_id);
             if (imdbData) {
               if (imdbData.Plot && imdbData.Plot !== 'N/A') {
                 winnerDescription += `\n\n📖 **Plot:** ${imdbData.Plot}`;
@@ -294,7 +294,7 @@ async function selectWinner(client, session, winner, config) {
           if (winner.movie.imdb_id) {
             try {
               const imdb = require('./imdb');
-              const imdbData = await imdb.getMovieDetails(winner.movie.imdb_id);
+              const imdbData = await imdb.getMovieDetailsCached(winner.movie.imdb_id);
               if (imdbData) {
                 if (imdbData.Plot && imdbData.Plot !== 'N/A') {
                   eventDescription += `📖 ${imdbData.Plot}\n\n`;
