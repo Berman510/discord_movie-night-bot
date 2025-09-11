@@ -5,6 +5,15 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 
 
 
+## [1.14.1] - 2025-09-11
+### Highlights (final)
+- WebSocket-only integration complete; legacy webhooks removed. Dashboard→bot actions over WS now include voting, ban/unban, remove, pick winner, sync channels, and refresh panel.
+- Winner selection: dashboard “Pick Winner” triggers session finalization; forum threads update and winner announcement posts when applicable.
+- Reschedule polish: session name auto-syncs to new date/time; pinned “Recommend a Movie” post updates accordingly.
+- Reliability: improved WS reconnect logs with codes/reasons and backoff timing; numerous logging and permission polish items.
+
+
+
 
 ## [1.14.1-rc12] - 2025-09-11
 ### Fixed

@@ -58,25 +58,23 @@ A comprehensive Discord bot for managing movie recommendations, voting, and orga
 
 
 ### ✅ What's New in 1.14.1
+- Dashboard ↔ Bot over WebSocket: dashboard actions now include Vote, Remove, and Pick Winner (admins/mods) with live updates and admin panel refresh.
 - Asymmetric per-session vote caps: users can upvote up to max(1, floor(n/3)) and downvote up to max(1, floor(n/5)) movies per session. Friendly ephemeral message appears if a user hits the limit, listing their current votes.
 - Ban improvements: avoid duplicate “system/admin” DB rows on ban; perform Discord cleanup (archive forum thread, delete/disable text) when banning.
 - WS resiliency: improved close/reconnect logs with codes/reasons and backoff timing for better visibility during deploys.
 
-### 🚀 Next Up (1.14.1)
-- [ ] Dashboard: clarify actions
-  - Rename “Planned” → “Plan for later” (move out of active voting, keep in backlog)
-  - Add “Add to Next Session” / “Remove from Next Session” actions
-- [ ] Bi-directional integration with dashboard
-  - Real-time updates via WebSocket bridge; mirror movie status changes in Discord immediately
-  - Sync admin panel and voting posts on dashboard actions
-- [ ] Dashboard UI polish
-  - Tooltips and confirmation dialogs for destructive actions (ban/remove)
-  - Inline status and vote summaries
-- [ ] Analytics
-  - Surface RSVP list/count per session on dashboard (using bot’s stored rsvp_user_ids)
-  - Basic attendance analytics groundwork
-- [ ] Docs
-  - Add dashboard integration section (env vars, WS token, feature list)
+### 🚀 Next Up (prioritized)
+- [Sev	1] WS connection resilience & observability
+  - Jittered exponential backoff on reconnect and explicit offline timer
+  - Detailed logs on close codes/reasons and next reconnect attempt
+- [Sev	1] Dashboard live updates (no reloads)
+  - Emit vote/status change events to dashboard for real-time UI updates
+- [Sev	2] Unban via Discord channels
+  - Add Unban controls in admin panel (and slash command fallback)
+- [Sev	2] Session/post updates
+  - [x] Reschedule refreshes pinned “37f Recommend a Movie” with new date/name
+- [Sev	3] Analytics & docs
+  - Surface RSVP list/count for sessions to dashboard; document WS integration (env vars, tokens)
 
 
 ## 📋 TODO List

@@ -50,8 +50,10 @@ function initWebSocketClient(logger) {
   let ws = null;
   let heartbeat = null;
   let reconnectTimer = null;
+  let reconnectAttempts = 0;
   const HEARTBEAT_MS = 30000;
-  const RECONNECT_MS = 5000;
+  const MIN_RECONNECT_MS = 3000;
+  const MAX_RECONNECT_MS = 60000;
 
   function connect() {
     try {
@@ -61,6 +63,7 @@ function initWebSocketClient(logger) {
       });
 
       ws.on('open', () => {
+        reconnectAttempts = 0;
         logger?.info?.('WS: connected');
         // hello payload
         const payload = {
@@ -190,6 +193,105 @@ function initWebSocketClient(logger) {
             }
             return;
           }
+
+          if (msg.type === 'pick_winner') {
+            const guildId = msg?.payload?.guildId;
+            const messageId = msg?.payload?.messageId;
+            const actorId = msg?.payload?.actorId;
+            if (!guildId || !messageId) return;
+            try {
+              const client = global.discordClient;
+              if (!client) return;
+
+              const database = require('../database');
+              const adminControls = require('./admin-controls');
+              const forumChannels = require('./forum-channels');
+
+              // Fetch movie and session
+              const movie = await database.getMovieByMessageId(messageId, guildId).catch(() => null);
+              if (!movie) return;
+              let session = null;
+              if (movie.session_id) {
+                session = await database.getVotingSessionById(movie.session_id).catch(() => null);
+              }
+              if (!session) {
+                session = await database.getActiveVotingSession(guildId).catch(() => null);
+              }
+              if (!session) return;
+
+              // Finalize session with this movie as winner
+              try { await database.finalizeVotingSession(session.id, movie.message_id); } catch (_) {}
+
+              // Update forum thread content if applicable
+              try {
+                if (movie.channel_type === 'forum' && movie.thread_id) {
+                  const thread = await client.channels.fetch(String(movie.thread_id)).catch(() => null);
+                  if (thread) {
+                    await forumChannels.updateForumPostContent(thread, movie, 'scheduled');
+                  }
+                }
+              } catch (_) {}
+
+              // Post winner announcement and update pinned recommendation post if forum-based
+              try {
+                const cfg = await database.getGuildConfig(guildId).catch(() => null);
+                const voteChannelId = cfg?.voting_channel_id || cfg?.movie_channel_id;
+                if (voteChannelId) {
+                  const voteChannel = await client.channels.fetch(String(voteChannelId)).catch(() => null);
+                  if (voteChannel && forumChannels.isForumChannel(voteChannel)) {
+                    try { await forumChannels.postForumWinnerAnnouncement(voteChannel, movie, session.name || 'Movie Night', { event: session.discord_event_id || null, selectedByUserId: actorId }); } catch (_) {}
+                    try { await forumChannels.ensureRecommendationPost(voteChannel, null); } catch (_) {}
+                  }
+                }
+              } catch (_) {}
+
+              // Refresh admin panel
+              try { await adminControls.ensureAdminControlPanel(client, guildId); } catch (_) {}
+
+            } catch (e) {
+              const logger = require('../utils/logger');
+              logger?.warn?.(`[${guildId}] WS pick_winner error (messageId=${messageId}):`, e?.message || e);
+            }
+            return;
+          }
+
+
+          if (msg.type === 'remove_movie') {
+            const guildId = msg?.payload?.guildId;
+            const messageId = msg?.payload?.messageId;
+            if (!guildId || !messageId) return;
+            try {
+              const client = global.discordClient;
+              const database = require('../database');
+              const logger = require('../utils/logger');
+
+              const movie = await database.getMovieByMessageId(messageId, guildId);
+              if (!movie) return;
+
+              // Delete Discord artifacts
+              try {
+                if (movie.channel_type === 'forum' && movie.thread_id) {
+                  const thread = await client.channels.fetch(String(movie.thread_id)).catch(() => null);
+                  if (thread) { await thread.delete('Removed via dashboard'); }
+                } else if (movie.channel_id) {
+                  const cleanup = require('./cleanup');
+                  await cleanup.removeMoviePost(client, String(movie.channel_id), String(movie.message_id));
+                }
+              } catch (e) {
+                logger?.warn?.(`[${guildId}] WS remove_movie discord cleanup error (messageId=${messageId}):`, e?.message || e);
+              }
+
+              // Delete DB rows (votes then movie)
+              try { await database.deleteVotesByMessageId(messageId); } catch (_) {}
+              try { await database.deleteMovie(messageId); } catch (_) {}
+
+            } catch (e) {
+              const logger = require('../utils/logger');
+              logger?.warn?.(`[${guildId}] WS remove_movie error (messageId=${messageId}):`, e?.message || e);
+            }
+            return;
+          }
+
           if (msg.type === 'unban_movie') {
             const guildId = msg?.payload?.guildId;
             const title = msg?.payload?.title;
@@ -535,7 +637,20 @@ function initWebSocketClient(logger) {
 
               const scheduledDate = (typeof startTs === 'number') ? new Date(Number(startTs)) : (session.scheduled_date ? new Date(session.scheduled_date) : null);
               const votingEnd = (typeof votingEndTs !== 'undefined') ? (votingEndTs ? new Date(Number(votingEndTs)) : null) : (session.voting_end_time ? new Date(session.voting_end_time) : null);
-              const newName = name || session.name;
+
+              // Auto-sync name to date/time when name is not explicitly provided
+              let newName;
+              if (typeof name === 'string' && name.trim().length > 0) {
+                newName = name;
+              } else if (scheduledDate) {
+                const tz = session.timezone || 'UTC';
+                const datePart = scheduledDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: tz });
+                const timePart = scheduledDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: tz });
+                newName = `Movie Night - ${datePart} @ ${timePart}`;
+              } else {
+                newName = session.name;
+              }
+
               const newDesc = (typeof description !== 'undefined') ? description : session.description;
 
               await database.updateMovieSessionDetails(sessionId, {
@@ -558,7 +673,27 @@ function initWebSocketClient(logger) {
               try { sessionScheduler.clearSessionTimeout(sessionId); } catch (_) {}
               if (votingEnd) { try { await sessionScheduler.scheduleVotingEnd(sessionId, votingEnd); } catch (_) {} }
 
+              // Refresh admin panel
               try { await adminControls.ensureAdminControlPanel(client, guildId); } catch (_) {}
+
+              // Also refresh the pinned recommendation post to reflect new session name/date
+              try {
+                const forumChannels = require('./forum-channels');
+                const cfg = await database.getGuildConfig(guildId).catch(() => null);
+                const voteChannelId = cfg?.voting_channel_id || cfg?.movie_channel_id;
+                if (voteChannelId) {
+                  const voteChannel = await client.channels.fetch(String(voteChannelId)).catch(() => null);
+                  if (voteChannel && forumChannels.isForumChannel(voteChannel)) {
+                    const updatedActiveSession = {
+                      id: sessionId,
+                      name: newName,
+                      status: 'active',
+                      voting_end_time: votingEnd ? new Date(votingEnd).toISOString() : (session.voting_end_time || null)
+                    };
+                    await forumChannels.ensureRecommendationPost(voteChannel, updatedActiveSession);
+                  }
+                }
+              } catch (_) { /* non-fatal */ }
             } catch (e) {
               logger?.warn?.(`[${guildId}] WS reschedule_session error (sessionId=${sessionId}):`, e?.message || e);
             }
@@ -578,6 +713,8 @@ function initWebSocketClient(logger) {
 
       ws.on('error', (err) => {
         logger?.warn?.(`WS error: ${err?.message || err}`);
+        // Ensure we schedule reconnects even if close is not emitted (e.g., HTTP 401 during upgrade)
+        scheduleReconnect();
       });
     } catch (e) {
       logger?.warn?.(`WS: connect error: ${e?.message || e}`);
@@ -587,8 +724,12 @@ function initWebSocketClient(logger) {
 
   function scheduleReconnect() {
     if (reconnectTimer) return;
-    const delay = RECONNECT_MS;
-    logger?.info?.(`WS: reconnecting in ${Math.round(delay/1000)}s...`);
+    // Exponential backoff with jitter (80%..100% of base)
+    const base = Math.min(MAX_RECONNECT_MS, MIN_RECONNECT_MS * Math.pow(2, reconnectAttempts));
+    const jitter = Math.floor(base * (0.2 * Math.random()));
+    const delay = Math.max(MIN_RECONNECT_MS, Math.floor(base * 0.8) + jitter);
+    reconnectAttempts++;
+    logger?.info?.(`WS: reconnect attempt #${reconnectAttempts} in ${Math.round(delay/1000)}s...`);
     reconnectTimer = setTimeout(() => {
       reconnectTimer = null;
       connect();
