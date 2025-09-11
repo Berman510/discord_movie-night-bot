@@ -42,7 +42,7 @@ async function createForumMoviePost(channel, movieData, components) {
       componentsLength: components.length
     });
 
-    console.log(`📋 Creating forum post for movie: ${movieData.title} in channel: ${channel.name}`);
+    { const logger = require('../utils/logger'); logger.info(`📋 Creating forum post for movie: ${movieData.title} in channel: ${channel.name}`, channel.guild?.id); }
 
     // Create forum post with movie as the topic
     console.log(`🔍 DEBUG: About to call channel.threads.create`);
@@ -56,10 +56,10 @@ async function createForumMoviePost(channel, movieData, components) {
       reason: `Movie recommendation: ${movieData.title}`
     });
 
-    console.log(`✅ Created forum post: ${forumPost.name} (ID: ${forumPost.id}) in channel: ${channel.name}`);
+    { const logger = require('../utils/logger'); logger.info(`✅ Created forum post: ${forumPost.name} (ID: ${forumPost.id}) in channel: ${channel.name}`, channel.guild?.id); }
 
     const message = forumPost.lastMessage || await forumPost.fetchStarterMessage();
-    console.log(`🔍 DEBUG: Got starter message: ${message?.id}`);
+    { const logger = require('../utils/logger'); logger.debug(`🔍 DEBUG: Got starter message: ${message?.id}`, channel.guild?.id); }
 
     return {
       thread: forumPost,

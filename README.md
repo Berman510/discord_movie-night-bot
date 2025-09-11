@@ -194,8 +194,8 @@ DB_PASSWORD=YOUR_DB_PASSWORD
 DB_NAME=YOUR_DB_NAME
 ```
 
-### Optional: Dashboard Integration (WS/Webhook)
-WS (recommended; bot-initiated):
+### Dashboard Integration (WS-only)
+Use the WebSocket bridge (bot-initiated):
 ```
 MOVIENIGHT_WS_ENABLED=true
 MOVIENIGHT_WS_URL=wss://bot-movienight.bermanoc.net/socket
@@ -203,15 +203,7 @@ MOVIENIGHT_WS_TOKEN=YOUR_LONG_RANDOM_TOKEN
 ```
 Note: for beta use `wss://bot-movienight-beta.bermanoc.net/socket`.
 
-Webhook server (optional fallback; PebbleHost fixed port):
-```
-MOVIENIGHT_WEBHOOK_ENABLED=true
-# PebbleHost assigns a fixed external port per server; set it here so the bot binds that exact port
-MOVIENIGHT_WEBHOOK_PORT=12345
-# Legacy alternative: MOVIENIGHT_WEBHOOK_PORTS=12345,23456 (comma-separated)
-MOVIENIGHT_WEBHOOK_TOKEN=YOUR_DASHBOARD_WEBHOOK_TOKEN
-```
-
+Webhook support has been removed. The bot now operates WS-only.
 
 ## Database Setup (Optional but Recommended)
 

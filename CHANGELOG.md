@@ -6,6 +6,12 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 
 
 
+## [1.14.1-rc11] - 2025-09-11
+### Changed
+- Webhook removal: fully removed legacy webhook server and dashboard webhook client usage; WS-only operation.
+- Logging sweep (incremental): add [guild_id] context to forum post creation, movie creation debug, and session viewing join/leave + monitoring messages.
+
+
 ## [1.14.1-rc10] - 2025-09-11
 ### Changed
 - WS voting (forum): also updates the forum starter message embed and voting buttons so counts reflect immediately (previously only the thread title changed).

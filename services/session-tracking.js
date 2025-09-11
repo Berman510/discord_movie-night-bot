@@ -21,7 +21,8 @@ async function handleVoiceStateChange(oldState, newState) {
     // Only log if there are active sessions that would need monitoring
     const activeSessionsList = await getActiveSessionsForGuild(guildId);
     if (activeSessionsList.length > 0) {
-      console.log(`⚠️ No viewing channel configured for guild ${guildId} but has ${activeSessionsList.length} active sessions`);
+      const logger = require('../utils/logger');
+      logger.warn(`⚠️ No viewing channel configured but ${activeSessionsList.length} active sessions`, guildId);
     }
     return; // No viewing channel configured
   }
@@ -33,12 +34,12 @@ async function handleVoiceStateChange(oldState, newState) {
   const leftViewingChannel = oldState.channelId === viewingChannelId && newState.channelId !== viewingChannelId;
 
   if (joinedViewingChannel) {
-    console.log(`🎤 User ${userId} joined session viewing channel in guild ${guildId}`);
+    { const logger = require('../utils/logger'); logger.info(`🎤 User ${userId} joined session viewing channel`, guildId); }
     await handleUserJoinedViewingChannel(guildId, userId, viewingChannelId);
   }
 
   if (leftViewingChannel) {
-    console.log(`🎤 User ${userId} left session viewing channel in guild ${guildId}`);
+    { const logger = require('../utils/logger'); logger.info(`🎤 User ${userId} left session viewing channel`, guildId); }
     await handleUserLeftViewingChannel(guildId, userId, viewingChannelId);
   }
 }
@@ -146,7 +147,7 @@ async function startSessionMonitoring(sessionId, guildId, viewingChannelId) {
   };
 
   activeSessions.set(sessionId, session);
-  console.log(`🎬 Started monitoring session ${sessionId} in channel ${viewingChannelId}`);
+  { const logger = require('../utils/logger'); logger.info(`🎬 Started monitoring session ${sessionId} in channel ${viewingChannelId}`, guildId); }
 
   // Check for users already in the viewing channel
   await checkExistingUsersInChannel(sessionId, guildId, viewingChannelId);
@@ -195,7 +196,7 @@ async function checkExistingUsersInChannel(sessionId, guildId, viewingChannelId)
 async function stopSessionMonitoring(sessionId) {
   if (activeSessions.has(sessionId)) {
     const session = activeSessions.get(sessionId);
-    console.log(`🎬 Stopped monitoring session ${sessionId}, tracked ${session.participants.size} participants`);
+    { const logger = require('../utils/logger'); logger.info(`🎬 Stopped monitoring session ${sessionId}, tracked ${session.participants.size} participants`, session?.guildId); }
     activeSessions.delete(sessionId);
   }
 }
