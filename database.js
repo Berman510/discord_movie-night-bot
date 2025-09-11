@@ -1861,6 +1861,102 @@ class Database {
       }
 
 
+      // Migration 30: Backfill missing active voting session and link pending movies (legacy installs)
+      try {
+        const logger = require('./utils/logger');
+        // Identify guilds that have pending movies but no active (non-cancelled/completed/decided) session
+        const [pendingGuilds] = await this.pool.execute(`
+          SELECT m.guild_id
+          FROM movies m
+          LEFT JOIN movie_sessions s
+            ON s.guild_id = m.guild_id
+           AND (s.status IS NULL OR s.status NOT IN ('cancelled','completed','decided'))
+          WHERE m.status = 'pending'
+          GROUP BY m.guild_id
+          HAVING COUNT(s.id) = 0
+        `);
+
+        for (const row of pendingGuilds) {
+          const guildId = row.guild_id;
+
+          // Double-check there truly isn't an active session (defensive)
+          const [activeSessions] = await this.pool.execute(
+            `SELECT id FROM movie_sessions WHERE guild_id = ? AND (status IS NULL OR status NOT IN ('cancelled','completed','decided')) ORDER BY created_at DESC LIMIT 1`,
+            [guildId]
+          );
+          if (activeSessions.length > 0) continue;
+
+          // Attempt to determine a reasonable channel and timezone
+          let channelId = null;
+          let timezone = 'UTC';
+          try {
+            const [cfgRows] = await this.pool.execute(
+              `SELECT movie_channel_id, default_timezone, timezone AS legacy_tz FROM guild_config WHERE guild_id = ? LIMIT 1`,
+              [guildId]
+            );
+            if (cfgRows && cfgRows.length) {
+              channelId = cfgRows[0].movie_channel_id || null;
+              timezone = cfgRows[0].default_timezone || cfgRows[0].legacy_tz || 'UTC';
+            }
+          } catch (e) {
+            // keep defaults
+          }
+
+          if (!channelId) {
+            // Fallback: use channel from most recent movie
+            try {
+              const [m] = await this.pool.execute(
+                `SELECT channel_id FROM movies WHERE guild_id = ? AND channel_id IS NOT NULL ORDER BY created_at DESC LIMIT 1`,
+                [guildId]
+              );
+              if (m && m.length) channelId = m[0].channel_id;
+            } catch (e) {
+              // keep null
+            }
+          }
+
+          if (!channelId) {
+            logger.warn(`[${guildId}] Migration 30: Skipping backfill — cannot determine a voting channel`);
+            continue;
+          }
+
+          // Create a simple placeholder session in 'voting' state
+          const name = 'Movie Night - Voting';
+          const sessionId = await this.createMovieSession({
+            guildId,
+            channelId,
+            name,
+            description: null,
+            scheduledDate: null,
+            timezone,
+            associatedMovieId: null,
+            discordEventId: null,
+            createdBy: '0'
+          });
+
+          if (!sessionId) {
+            logger.warn(`[${guildId}] Migration 30: Failed to create backfill session`);
+            continue;
+          }
+
+          await this.updateSessionStatus(sessionId, 'voting');
+
+          // Link existing pending movies to this session if they are unassigned
+          const [result] = await this.pool.execute(
+            `UPDATE movies SET session_id = ?
+             WHERE guild_id = ? AND status = 'pending' AND (session_id IS NULL OR session_id = 0)`,
+            [sessionId, guildId]
+          );
+
+          logger.info(`[${guildId}] Migration 30: Backfilled session #${sessionId} and linked ${result.affectedRows ?? 0} pending movies`);
+        }
+      } catch (e) {
+        const logger = require('./utils/logger');
+        logger.warn('Migration 30 warning:', e.message);
+      }
+
+
+
       logger.info('✅ Database migrations completed');
 
   }

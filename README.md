@@ -57,6 +57,12 @@ A comprehensive Discord bot for managing movie recommendations, voting, and orga
 ---
 
 
+
+### ✅ What's New in 1.14.2-rc1
+- Database migration backfill: automatically creates a missing active voting session for guilds that have pending movies but no session, then links those movies to it.
+- Fixes dashboards that show movies but no session/reschedule controls on legacy installs.
+- To apply immediately, update and restart the bot or run `npm run migrate`.
+
 ### ✅ What's New in 1.14.1
 - Dashboard ↔ Bot over WebSocket: dashboard actions now include Vote, Remove, and Pick Winner (admins/mods) with live updates and admin panel refresh.
 - Asymmetric per-session vote caps: users can upvote up to max(1, floor(n/3)) and downvote up to max(1, floor(n/5)) movies per session. Friendly ephemeral message appears if a user hits the limit, listing their current votes.

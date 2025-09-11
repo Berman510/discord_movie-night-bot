@@ -5,6 +5,16 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 
 
 
+## [1.14.2-rc1] - 2025-09-11
+### Added
+- Migration 30: Backfill missing active voting session records for guilds that have pending movies but no session, and link those movies to the new session.
+
+### Notes
+- Addresses dashboards showing movies but no active session/reschedule controls for legacy servers.
+- Safe and idempotent: runs once, skips if an active session already exists or no channel can be determined.
+- After updating, restart the bot or run `npm run migrate` to apply.
+
+
 ## [1.14.1] - 2025-09-11
 ### Highlights (final)
 - WebSocket-only integration complete; legacy webhooks removed. Dashboard→bot actions over WS now include voting, ban/unban, remove, pick winner, sync channels, and refresh panel.
