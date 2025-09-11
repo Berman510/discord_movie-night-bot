@@ -6,6 +6,14 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 
 
 
+## [1.14.1-rc10] - 2025-09-11
+### Changed
+- WS voting (forum): also updates the forum starter message embed and voting buttons so counts reflect immediately (previously only the thread title changed).
+- Permissions: Moderators can now use Remove and Skip actions in the admin movie controls; admin remains required for ban/unban/pick-winner/watched.
+- Admin mirror: stop posting banned movies during Sync; banned management will live in a dedicated list/UI.
+- Webhook server: removed startup; bot runs WS-only without logging the disabled webhook server.
+
+
 ## [1.14.1-rc9] - 2025-09-11
 ### Changed
 - Logging: add `[guild_id]` context to WebSocket handlers and related warnings/errors:

@@ -270,18 +270,7 @@ async function syncAdminChannel(client, guildId) {
       allMovies = [...movies, ...plannedMovies, ...scheduledMovies];
     }
 
-    // Add banned movies to the list
-    const bannedMovies = await database.getBannedMovies(guildId);
-    for (const bannedMovie of bannedMovies) {
-      const fullBannedMovie = {
-        ...bannedMovie,
-        message_id: `banned_${bannedMovie.movie_uid}`,
-        status: 'banned',
-        is_banned: true,
-        recommended_by: 'system'
-      };
-      allMovies.push(fullBannedMovie);
-    }
+    // Do NOT post banned movies in the admin mirror list (managed via separate banned list UI)
 
     let syncedCount = 0;
 

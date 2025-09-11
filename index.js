@@ -110,13 +110,7 @@ client.once('clientReady', async () => {
     logger.error('Error starting session scheduler:', error);
   }
 
-  // Start webhook server (optional)
-  try {
-    const { startWebhookServer } = require('./services/webhook-server');
-    startWebhookServer();
-  } catch (error) {
-    logger.warn('Webhook server failed to start:', error.message);
-  }
+  // Webhook server removed (WS-only mode)
 });
 
 // Bot joins a new guild

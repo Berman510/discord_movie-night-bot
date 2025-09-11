@@ -960,19 +960,23 @@ async function handleAdminMovieButtons(interaction, customId) {
   const [action, movieId] = customId.split(':');
   const guildId = interaction.guild.id;
 
-  // Permission gating: mods can view details; admin required for mutating actions
-  if (action === 'admin_details') {
-    const canView = await permissions.checkMovieModeratorPermission(interaction);
-    if (!canView) {
+  // Permission gating:
+  // - Moderators: can view details and perform light actions (remove, skip)
+  // - Admins: required for mutating/high-impact actions (ban/unban, pick winner, watched)
+  const moderatorAllowed = new Set(['admin_details', 'admin_remove', 'admin_skip_vote']);
+
+  if (moderatorAllowed.has(action)) {
+    const canMod = await permissions.checkMovieModeratorPermission(interaction);
+    if (!canMod) {
       await interaction.reply({
-        content: '❌ You need Administrator or configured moderator/admin role to view details.',
+        content: '❌ You need Moderator or Administrator permissions to use this action.',
         flags: MessageFlags.Ephemeral
       });
       return;
     }
   } else {
-    const hasPermission = await permissions.checkMovieAdminPermission(interaction);
-    if (!hasPermission) {
+    const isAdmin = await permissions.checkMovieAdminPermission(interaction);
+    if (!isAdmin) {
       await interaction.reply({
         content: '❌ You need Administrator permissions or a configured admin role to use this action.',
         flags: MessageFlags.Ephemeral

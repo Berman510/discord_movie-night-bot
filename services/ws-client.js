@@ -264,8 +264,27 @@ function initWebSocketClient(logger) {
                 if (movie.channel_type === 'forum' && movie.thread_id) {
                   const thread = await client.channels.fetch(movie.thread_id).catch(() => null);
                   if (thread) {
-                    // For forum channels we keep updates subtle: update title; embed updated during status changes
+                    // Update title to reflect new counts
                     await forumChannels.updateForumPostTitle(thread, movie.title, movie.status, voteCounts.up, voteCounts.down);
+                    // Also update the starter message embed + buttons so counts are visible there too
+                    try {
+                      const starter = await thread.fetchStarterMessage().catch(() => null);
+                      if (starter) {
+                        let imdbData = null;
+                        try {
+                          if (movie.imdb_data) {
+                            let parsed = typeof movie.imdb_data === 'string' ? JSON.parse(movie.imdb_data) : movie.imdb_data;
+                            if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+                            imdbData = parsed;
+                          }
+                        } catch (_) {}
+                        const movieEmbed = embeds.createMovieEmbed(movie, imdbData, voteCounts);
+                        const rows = components.createVotingButtons(movie.message_id, voteCounts.up, voteCounts.down);
+                        await starter.edit({ embeds: [movieEmbed], components: rows });
+                      }
+                    } catch (e) {
+                      logger?.warn?.(`[${guildId}] WS vote_movie: starter message update error (messageId=${messageId}):`, e?.message || e);
+                    }
                   }
                 } else if (movie.channel_id) {
                   const channel = await client.channels.fetch(movie.channel_id).catch(() => null);
@@ -318,6 +337,17 @@ function initWebSocketClient(logger) {
                 sessionId = session?.id || null;
               }
               if (!sessionId || !session) return;
+
+              // Delete Discord event if exists
+              try {
+                if (session.discord_event_id) {
+                  const guild = client.guilds.cache.get(guildId) || await client.guilds.fetch(String(guildId)).catch(() => null);
+                  if (guild) {
+                    const ev = await guild.scheduledEvents.fetch(session.discord_event_id).catch(() => null);
+                    if (ev) { await ev.delete(); }
+                  }
+                }
+              } catch (_) {}
 
               // Find associated movie if any
               const movie = await database.getMovieBySessionId(sessionId).catch(() => null);
