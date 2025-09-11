@@ -113,7 +113,7 @@ function initWebSocketClient(logger) {
                 }
               }
             } catch (e) {
-              logger?.warn?.('WS sync_guild error:', e?.message || e);
+              logger?.warn?.(`[${guildId}] WS sync_guild error:`, e?.message || e);
             }
             return;
           }
@@ -125,7 +125,7 @@ function initWebSocketClient(logger) {
             if (!client) return;
             const adminControls = require('./admin-controls');
             try { await adminControls.ensureAdminControlPanel(client, guildId); } catch (e) {
-              logger?.warn?.('WS refresh_admin_panel error:', e?.message || e);
+              logger?.warn?.(`[${guildId}] WS refresh_admin_panel error:`, e?.message || e);
             }
             return;
           }
@@ -194,7 +194,7 @@ function initWebSocketClient(logger) {
                 }
               }
             } catch (e) {
-              logger?.warn?.('WS movie_status_changed update error:', e?.message || e);
+              logger?.warn?.(`[${guildId}] WS movie_status_changed update error (messageId=${messageId}):`, e?.message || e);
             }
             return;
           }
@@ -238,14 +238,14 @@ function initWebSocketClient(logger) {
                     const used = await database.countUserVotesInSession(actorId, movieSessionId, voteType);
                     const cap = (type === 'up') ? upCap : downCap;
                     if (used >= cap) {
-                      logger?.debug?.(`WS vote_movie: cap hit for user ${actorId} in session ${movieSessionId} (${voteType} ${used}/${cap})`);
+                      logger?.debug?.(`[${guildId}] WS vote_movie: cap hit for user ${actorId} in session ${movieSessionId} (${voteType} ${used}/${cap})`);
                       // Do not apply vote if cap exceeded
                       return;
                     }
                   }
                 }
               } catch (capErr) {
-                logger?.warn?.('WS vote_movie cap check failed:', capErr?.message || capErr);
+                logger?.warn?.(`[${guildId}] WS vote_movie cap check failed (messageId=${messageId}, actorId=${actorId}):`, capErr?.message || capErr);
               }
 
               // Apply vote
@@ -287,10 +287,10 @@ function initWebSocketClient(logger) {
                   }
                 }
               } catch (e) {
-                logger?.warn?.('WS vote_movie: discord message update error:', e?.message || e);
+                logger?.warn?.(`[${guildId}] WS vote_movie: discord message update error (messageId=${messageId}):`, e?.message || e);
               }
             } catch (e) {
-              logger?.warn?.('WS vote_movie error:', e?.message || e);
+              logger?.warn?.(`[${guildId}] WS vote_movie error (messageId=${messageId}, actorId=${actorId}):`, e?.message || e);
             }
             return;
           }
@@ -360,14 +360,14 @@ function initWebSocketClient(logger) {
                     }
                   }
                 } catch (e) {
-                  logger?.warn?.('WS cancel_session: discord message update error:', e?.message || e);
+                  logger?.warn?.(`[${guildId}] WS cancel_session: discord message update error (sessionId=${sessionId}):`, e?.message || e);
                 }
               }
 
               // Delete session record
               try { await database.deleteMovieSession(sessionId); } catch (_) {}
             } catch (e) {
-              logger?.warn?.('WS cancel_session error:', e?.message || e);
+              logger?.warn?.(`[${guildId}] WS cancel_session error (sessionId=${sessionId}):`, e?.message || e);
             }
             return;
           }
@@ -423,7 +423,7 @@ function initWebSocketClient(logger) {
               // Refresh admin panel
               try { await adminControls.ensureAdminControlPanel(client, guildId); } catch (_) {}
             } catch (e) {
-              logger?.warn?.('WS plan_session error:', e?.message || e);
+              logger?.warn?.(`[${guildId}] WS plan_session error:`, e?.message || e);
             }
             return;
           }
@@ -478,7 +478,7 @@ function initWebSocketClient(logger) {
 
               try { await adminControls.ensureAdminControlPanel(client, guildId); } catch (_) {}
             } catch (e) {
-              logger?.warn?.('WS reschedule_session error:', e?.message || e);
+              logger?.warn?.(`[${guildId}] WS reschedule_session error (sessionId=${sessionId}):`, e?.message || e);
             }
             return;
           }

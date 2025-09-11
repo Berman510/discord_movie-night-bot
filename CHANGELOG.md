@@ -6,6 +6,15 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 
 
 
+## [1.14.1-rc9] - 2025-09-11
+### Changed
+- Logging: add `[guild_id]` context to WebSocket handlers and related warnings/errors:
+  - vote_movie (cap checks, message updates, errors)
+  - movie_status_changed updates
+  - sync_guild / refresh_admin_panel
+  - plan_session / reschedule_session / cancel_session
+
+
 ## [1.14.1-rc5] - 2025-09-10
 ### Changed
 - Permissions: Moderators can now use the “Details” button in the moderation/admin channel. Admin remains required for mutating actions (ban/unban, schedule, remove, pick winner, etc.).
