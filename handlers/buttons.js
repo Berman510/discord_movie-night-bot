@@ -2067,9 +2067,31 @@ async function handleAdminControlButtons(interaction, customId) {
   const { permissions } = require('../services');
   const adminControls = require('../services/admin-controls');
 
-  // Check admin permissions
-  const hasPermission = await permissions.checkMovieAdminPermission(interaction);
-  if (!hasPermission) {
+  // Permission gating: some actions allow moderators, others require admins
+  const isAdmin = await permissions.checkMovieAdminPermission(interaction);
+  let allowed = isAdmin;
+
+  if (!allowed) {
+    // Actions that moderators are allowed to perform
+    const moderatorAllowed = new Set([
+      'admin_ctrl_sync',
+      'admin_ctrl_refresh',
+      'admin_ctrl_banned_list'
+    ]);
+    if (moderatorAllowed.has(customId)) {
+      allowed = await permissions.checkMovieModeratorPermission(interaction);
+      if (!allowed) {
+        await interaction.reply({
+          content: '❌ You need Moderator or Administrator permissions to use this action.',
+          flags: MessageFlags.Ephemeral
+        });
+        return;
+      }
+    }
+  }
+
+  // If still not allowed here, this action is admin-only
+  if (!allowed) {
     await interaction.reply({
       content: '❌ You need Administrator permissions or a configured admin role to use this action.',
       flags: MessageFlags.Ephemeral

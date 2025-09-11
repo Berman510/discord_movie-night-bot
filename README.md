@@ -363,6 +363,8 @@ pm2 startup  # follow the printed instructions
 - **Movie Management:** Pick Winner, Skip to Next, Remove Suggestion, Ban Movie, and Details for each movie
 - **Admin Channel Mirroring:** All movies appear in admin channel with management buttons
 - **Sync Operations:** Channel synchronization and cleanup tools with carryover movie handling
+- Moderator access: Moderators can use Sync Channels and Refresh Admin Panel; all destructive or state-changing actions remain admin-only.
+
 - **Real-time Updates:** Admin interface updates automatically with session changes
 
 ### Enhanced Server Configuration

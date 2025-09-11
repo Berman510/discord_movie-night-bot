@@ -198,6 +198,103 @@ function initWebSocketClient(logger) {
             }
             return;
           }
+          if (msg.type === 'vote_movie') {
+            const guildId = msg?.payload?.guildId;
+            const messageId = msg?.payload?.messageId;
+            const type = msg?.payload?.type; // 'up' | 'down' | 'clear'
+            const actorId = msg?.payload?.actorId;
+            if (!guildId || !messageId || !actorId || !['up','down','clear'].includes(type)) return;
+
+            const client = global.discordClient;
+            if (!client) return;
+
+            const database = require('../database');
+            const forumChannels = require('./forum-channels');
+            const { embeds, components } = require('../utils');
+
+            try {
+              const movie = await database.getMovieByMessageId(messageId, guildId);
+              if (!movie) return;
+
+              // Get current vote for this user
+              const currentVote = await database.getUserVote(messageId, actorId);
+
+              // Enforce vote caps (only when adding/changing a vote and if session-scoped)
+              try {
+                const movieSessionId = movie.session_id;
+                if (movieSessionId && type !== 'clear' && currentVote !== type) {
+                  const config = await database.getGuildConfig(guildId).catch(() => null);
+                  const enabled = config && typeof config.vote_cap_enabled !== 'undefined' ? Boolean(Number(config.vote_cap_enabled)) : true;
+                  if (enabled) {
+                    const ratioUp = config && config.vote_cap_ratio_up != null ? Number(config.vote_cap_ratio_up) : 1/3;
+                    const ratioDown = config && config.vote_cap_ratio_down != null ? Number(config.vote_cap_ratio_down) : 1/5;
+                    const minCap = config && config.vote_cap_min != null ? Math.max(1, Number(config.vote_cap_min)) : 1;
+
+                    const totalInSession = await database.countMoviesInSession(movieSessionId);
+                    const upCap = Math.max(minCap, Math.floor(totalInSession * ratioUp));
+                    const downCap = Math.max(minCap, Math.floor(totalInSession * ratioDown));
+
+                    const voteType = (type === 'up') ? 'up' : 'down';
+                    const used = await database.countUserVotesInSession(actorId, movieSessionId, voteType);
+                    const cap = (type === 'up') ? upCap : downCap;
+                    if (used >= cap) {
+                      logger?.debug?.(`WS vote_movie: cap hit for user ${actorId} in session ${movieSessionId} (${voteType} ${used}/${cap})`);
+                      // Do not apply vote if cap exceeded
+                      return;
+                    }
+                  }
+                }
+              } catch (capErr) {
+                logger?.warn?.('WS vote_movie cap check failed:', capErr?.message || capErr);
+              }
+
+              // Apply vote
+              if (type === 'clear') {
+                await database.removeVote(messageId, actorId, guildId);
+              } else if (currentVote === type) {
+                await database.removeVote(messageId, actorId, guildId);
+              } else {
+                await database.saveVote(messageId, actorId, type, guildId);
+              }
+
+              // Update counts and Discord message
+              const voteCounts = await database.getVoteCounts(messageId);
+
+              try {
+                if (movie.channel_type === 'forum' && movie.thread_id) {
+                  const thread = await client.channels.fetch(movie.thread_id).catch(() => null);
+                  if (thread) {
+                    // For forum channels we keep updates subtle: update title; embed updated during status changes
+                    await forumChannels.updateForumPostTitle(thread, movie.title, movie.status, voteCounts.up, voteCounts.down);
+                  }
+                } else if (movie.channel_id) {
+                  const channel = await client.channels.fetch(movie.channel_id).catch(() => null);
+                  if (channel && channel.messages) {
+                    const msgObj = await channel.messages.fetch(movie.message_id).catch(() => null);
+                    if (msgObj) {
+                      let imdbData = null;
+                      try {
+                        if (movie.imdb_data) {
+                          let parsed = typeof movie.imdb_data === 'string' ? JSON.parse(movie.imdb_data) : movie.imdb_data;
+                          if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+                          imdbData = parsed;
+                        }
+                      } catch (_) {}
+                      const movieEmbed = embeds.createMovieEmbed(movie, imdbData, voteCounts);
+                      const rows = components.createVotingButtons(movie.message_id, voteCounts.up, voteCounts.down);
+                      await msgObj.edit({ embeds: [movieEmbed], components: rows });
+                    }
+                  }
+                }
+              } catch (e) {
+                logger?.warn?.('WS vote_movie: discord message update error:', e?.message || e);
+              }
+            } catch (e) {
+              logger?.warn?.('WS vote_movie error:', e?.message || e);
+            }
+            return;
+          }
+
           if (msg.type === 'cancel_session') {
             const guildId = msg?.payload?.guildId;
             let sessionId = msg?.payload?.sessionId || null;

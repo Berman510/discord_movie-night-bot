@@ -15,6 +15,16 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - Startup: fixed a missing closing brace in initializeTables() that caused a parse error near runMigrations on some Node builds.
 
 
+## [1.14.1-rc7] - 2025-09-10
+## [1.14.1-rc8] - 2025-09-11
+### Changed
+- Permissions: Moderators can now use Sync Channels and Refresh Panel buttons in the Admin Control Panel. Other actions remain admin-only.
+
+
+### Added
+- WebSocket voting: new `vote_movie` handler processes dashboard votes (up/down/clear), enforces per-session vote caps, updates Discord message/embed/buttons, and logs diagnostics.
+
+
 
 ## [1.14.1-rc4] - 2025-09-10
 ### Added
