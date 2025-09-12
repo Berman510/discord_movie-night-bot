@@ -511,13 +511,16 @@ async function handleSyncChannel(interaction) {
             }
           }
 
-          // Get all active movies and recreate them (excluding carryover movies)
+          // Only recreate voting posts when there is an active session
+          const activeSession = await database.getActiveVotingSession(interaction.guild.id);
 
-          const movies = await database.getMoviesByStatusExcludingCarryover(interaction.guild.id, 'pending', 50);
-          const plannedMovies = await database.getMoviesByStatusExcludingCarryover(interaction.guild.id, 'planned', 50);
-          const scheduledMovies = await database.getMoviesByStatusExcludingCarryover(interaction.guild.id, 'scheduled', 50);
-
-          const allMovies = [...movies, ...plannedMovies, ...scheduledMovies];
+          let allMovies = [];
+          if (activeSession) {
+            const movies = await database.getMoviesByStatusExcludingCarryover(interaction.guild.id, 'pending', 50);
+            const plannedMovies = await database.getMoviesByStatusExcludingCarryover(interaction.guild.id, 'planned', 50);
+            const scheduledMovies = await database.getMoviesByStatusExcludingCarryover(interaction.guild.id, 'scheduled', 50);
+            allMovies = [...movies, ...plannedMovies, ...scheduledMovies];
+          }
 
           for (const movie of allMovies) {
             try {
@@ -548,7 +551,6 @@ async function handleSyncChannel(interaction) {
             await cleanup.ensureQuickActionAtBottom(votingChannel);
           } else if (forumChannels.isForumChannel(votingChannel)) {
             // Forum channels get recommendation post and cleanup
-            const activeSession = await database.getActiveVotingSession(interaction.guild.id);
 
             // If no active session, clean up all old movie posts first
             if (!activeSession) {

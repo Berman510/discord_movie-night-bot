@@ -138,6 +138,12 @@ All notable changes to **Movie Night Bot** will be documented in this file.
   - `aws secretsmanager get-secret-value --secret-id movienight-dashboard/beta/ws --query SecretString --output text`
 
 ## [1.14.1-rc2] - 2025-09-10
+
+## [1.14.3-rc4] - 2025-09-12
+### Fixed
+- Sync Channel: Do not mirror queue to Admin Channel when no active session (keeps only the Admin Control Panel)
+- Sync Channel: Do not recreate Voting Channel movie posts when no active session (forum: cleaned; text: show "no active session" notice only)
+
 ### Added
 - WebSocket: dashboard→bot session controls over WS
   - `plan_session` creates a new voting session (Discord event + DB + scheduler)
