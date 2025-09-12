@@ -10,7 +10,8 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - Behavior when no Voting role(s) configured: only Admins/Moderators can vote (strict enforcement)
 - "Manage Server" permission counts as implicit Admin for permission checks
 - Copy: ephemeral messages and logs updated to say "Voting role(s)"
-- Guided Setup: corrected labels/copy for Notification Role (no longer called "Viewer Role"); avoids implying voting access
+- Announcements now ping Voting role(s) (supports multiple roles); legacy `notification_role_id` is still read as a fallback but is deprecated
+- Bot Configuration menu and Guided Setup copy updated to "Voting role(s)"; the in-bot "Notification Role" action now points you to the dashboard to configure Voting role(s)
 
 
 

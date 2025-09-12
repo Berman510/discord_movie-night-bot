@@ -245,10 +245,17 @@ async function deleteDiscordEvent(guild, eventId) {
 async function notifyRole(guild, event, sessionData) {
   try {
     const database = require('../database');
-    const notificationRoleId = await database.getNotificationRole(guild.id);
+    // Determine which roles to notify: prefer configured Voting role(s) (viewer_roles); fallback to legacy notification_role_id
+    const guildConfig = await database.getGuildConfig(guild.id);
+    const viewerRoles = Array.isArray(guildConfig?.viewer_roles) ? guildConfig.viewer_roles : [];
+    let notifyRoleIds = [...new Set(viewerRoles.filter(Boolean))];
+    if (notifyRoleIds.length === 0) {
+      const legacy = await database.getNotificationRole(guild.id);
+      if (legacy) notifyRoleIds = [legacy];
+    }
 
-    if (!notificationRoleId) {
-      console.log('No notification role configured for guild');
+    if (notifyRoleIds.length === 0) {
+      console.log('No Voting role(s) configured for guild announcements');
       return;
     }
 
@@ -256,7 +263,7 @@ async function notifyRole(guild, event, sessionData) {
     let notificationChannel = null;
 
     // Try to use the configured movie channel first (if it's a text channel)
-    const guildConfig = await database.getGuildConfig(guild.id);
+    // guildConfig fetched earlier
     if (guildConfig && guildConfig.movie_channel_id) {
       const movieChannel = guild.channels.cache.get(guildConfig.movie_channel_id);
       if (movieChannel && movieChannel.type === 0 && movieChannel.send) {
@@ -337,13 +344,14 @@ async function notifyRole(guild, event, sessionData) {
       });
     }
 
+    const mentions = notifyRoleIds.map(id => `<@&${id}>`).join(' ');
     await notificationChannel.send({
-      content: `<@&${notificationRoleId}> 🍿`,
+      content: `${mentions} 🍿`,
       embeds: [embed]
     });
 
     const logger = require('../utils/logger');
-    logger.debug(`✅ Notified role ${notificationRoleId} about event ${event.id}`);
+    logger.debug(`✅ Notified roles [${notifyRoleIds.join(', ')}] about event ${event.id}`);
 
     // ALWAYS restore admin panel after ANY notification to admin channel
     if (notificationChannel.id === guildConfig?.admin_channel_id) {

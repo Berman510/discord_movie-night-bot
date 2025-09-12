@@ -13,7 +13,7 @@ const database = require('../database');
 async function startGuidedSetup(interaction) {
   const embed = new EmbedBuilder()
     .setTitle('🎬 Movie Night Bot - Quick Setup')
-    .setDescription(`Welcome! Let's get your Movie Night Bot configured in just a few steps.\n\n**What we'll set up:**\n• 📺 Voting channel (where movies are recommended)\n• 🔧 Admin channel (for bot management)\n• 🎤 Viewing channel (where you watch movies)\n• 👑 Admin roles (who can manage the bot)\n• 🔔 Notification role (ping role for events)\n\n**Note:** The bot already has its own "${interaction.client.user.displayName}" role with required permissions.\n\n**Prefer a browser?** Manage the bot (minus voting) from the dashboard: https://movienight.bermanoc.net`)
+    .setDescription(`Welcome! Let's get your Movie Night Bot configured in just a few steps.\n\n**What we'll set up:**\n• 📺 Voting channel (where movies are recommended)\n• 🔧 Admin channel (for bot management)\n• 🎤 Viewing channel (where you watch movies)\n• 👑 Admin roles (who can manage the bot)\n• 👥 Voting role(s) (also used for announcements)\n\n**Note:** The bot already has its own "${interaction.client.user.displayName}" role with required permissions.\n\n**Prefer a browser?** Manage the bot (minus voting) from the dashboard: https://movienight.bermanoc.net`)
     .setColor(0x5865f2)
     .setFooter({ text: 'This setup takes about 2 minutes' });
 
@@ -87,8 +87,8 @@ async function showSetupMenuWithMessage(interaction, currentConfig = null, succe
         inline: true
       },
       {
-        name: `${currentConfig.notification_role_id ? '✅' : '❌'} Notification Role`,
-        value: currentConfig.notification_role_id ? `<@&${currentConfig.notification_role_id}>` : 'Not configured',
+        name: `${currentConfig.viewer_roles?.length > 0 ? '✅' : '❌'} Voting role(s)`,
+        value: currentConfig.viewer_roles?.length > 0 ? `${currentConfig.viewer_roles.length} role(s)` : 'Not configured',
         inline: true
       }
     );
@@ -121,8 +121,8 @@ async function showSetupMenuWithMessage(interaction, currentConfig = null, succe
         .setStyle(currentConfig.moderator_roles?.length > 0 ? ButtonStyle.Success : ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId('setup_notification_role')
-        .setLabel('🔔 Notification Role')
-        .setStyle(currentConfig.notification_role_id ? ButtonStyle.Success : ButtonStyle.Secondary)
+        .setLabel('👥 Voting role(s)')
+        .setStyle(currentConfig.viewer_roles?.length > 0 ? ButtonStyle.Success : ButtonStyle.Secondary)
     );
 
   const menuButtons3 = new ActionRowBuilder()
@@ -322,24 +322,12 @@ async function showModeratorRolesSetup(interaction) {
  */
 async function showNotificationRoleSetup(interaction) {
   const embed = new EmbedBuilder()
-    .setTitle('🔔 Set Notification Role')
-    .setDescription('Choose a role to ping when movie sessions are scheduled.\n\n**What This Role Gets:**\n• Notifications when new movie sessions are created\n• Pings for upcoming movie nights\n\n**Suggested Names:** @Movie Night Alerts, @Movie Night, @Cinema Club\n\n**Optional:** You can skip this if you don\'t want role notifications.')
+    .setTitle('👥 Voting role(s)')
+    .setDescription('The bot now uses your configured Voting role(s) for announcements.\n\nPlease configure Voting role(s) in the dashboard (these also control who can vote).')
     .setColor(0x5865f2);
-
-  const roleSelect = new ActionRowBuilder()
-    .addComponents(
-      new RoleSelectMenuBuilder()
-        .setCustomId('setup_select_notification_role')
-        .setPlaceholder('Select a role to notify for movie sessions')
-        .setMaxValues(1)
-    );
 
   const backButton = new ActionRowBuilder()
     .addComponents(
-      new ButtonBuilder()
-        .setCustomId('setup_skip_notification_role')
-        .setLabel('⏭️ Skip This Step')
-        .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId('setup_back_to_menu')
         .setLabel('← Back to Menu')
@@ -347,9 +335,9 @@ async function showNotificationRoleSetup(interaction) {
     );
 
   await interaction.update({
-    content: '',
+    content: 'Dashboard: https://movienight.bermanoc.net',
     embeds: [embed],
-    components: [roleSelect, backButton]
+    components: [backButton]
   });
 }
 
@@ -580,11 +568,8 @@ async function handleRoleSelection(interaction, roleType) {
         break;
 
       case 'notification':
-        const roleId = selectedRoles[0]; // Only one role for notifications
-        success = await database.setNotificationRole(interaction.guild.id, roleId);
-        message = success ?
-          `✅ **Notification role set to <@&${roleId}>**\n\nThis role will be pinged for movie sessions!` :
-          '❌ Failed to set notification role.';
+        success = true;
+        message = 'ℹ️ Notification Role is deprecated. Configure Voting role(s) in the dashboard; these will be used for announcements.';
         break;
     }
 

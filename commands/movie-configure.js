@@ -21,7 +21,7 @@ const commands = [
           { name: 'set-admin-channel', value: 'set-admin-channel' },
           { name: 'add-admin-role', value: 'add-admin-role' },
           { name: 'remove-admin-role', value: 'remove-admin-role' },
-          { name: 'set-notification-role', value: 'set-notification-role' },
+          { name: 'voting-roles (info)', value: 'set-notification-role' },
           { name: 'view-settings', value: 'view-settings' },
           { name: 'debug', value: 'debug' },
           { name: 'debug-session', value: 'debug-session' },
@@ -37,7 +37,7 @@ const commands = [
 
       {
         name: 'role',
-        description: 'Role to add/remove as admin or set as notification role',
+        description: 'Role to add/remove as admin'
         type: 8, // ROLE
         required: false
       }

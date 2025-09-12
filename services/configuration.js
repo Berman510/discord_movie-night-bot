@@ -119,44 +119,12 @@ async function removeAdminRole(interaction, guildId) {
 }
 
 async function setNotificationRole(interaction, guildId) {
-  const role = interaction.options?.getRole('role');
-
-  // If no role specified (button interaction), show role selector
-  if (!role && interaction.isButton()) {
-    const { ActionRowBuilder, RoleSelectMenuBuilder } = require('discord.js');
-
-    const roleSelect = new RoleSelectMenuBuilder()
-      .setCustomId('config_select_notification_role')
-      .setPlaceholder('Select a role to ping for Discord events');
-
-    const row = new ActionRowBuilder().addComponents(roleSelect);
-
-    await interaction.update({
-      content: '🔔 **Select Notification Role**\n\nChoose a role to ping when Discord events are created, or skip to clear:',
-      embeds: [],
-      components: [row]
-    });
-    return;
-  }
-
-  const success = await database.setNotificationRole(guildId, role ? role.id : null);
-  if (success) {
-    if (role) {
-      await interaction.reply({
-        content: `✅ Set ${role} as the notification role. This role will be pinged when Discord events are created.`,
-        flags: MessageFlags.Ephemeral
-      });
-    } else {
-      await interaction.reply({
-        content: '✅ Cleared notification role. No role will be pinged for Discord events.',
-        flags: MessageFlags.Ephemeral
-      });
-    }
+  const dashboardUrl = 'https://movienight.bermanoc.net';
+  const msg = 'Notification Role is deprecated. The bot now pings your configured Voting role(s) for announcements. Please configure Voting role(s) in the dashboard.';
+  if (interaction.isButton()) {
+    await interaction.update({ content: `ℹ️ ${msg}\n\nDashboard: ${dashboardUrl}`, embeds: [], components: [] });
   } else {
-    await interaction.reply({
-      content: '❌ Failed to set notification role.',
-      flags: MessageFlags.Ephemeral
-    });
+    await interaction.reply({ content: `ℹ️ ${msg}\n\nDashboard: ${dashboardUrl}`, flags: MessageFlags.Ephemeral });
   }
 }
 
@@ -206,10 +174,10 @@ async function viewSettings(interaction, guildId) {
           inline: false
         },
         {
-          name: '🔔 Notification Role',
-          value: config.notification_role_id ?
-            `<@&${config.notification_role_id}>\n*This role gets pinged for Discord events*` :
-            'Not set\n*No role notifications for events*',
+          name: '👥 Voting role(s) (used for announcements)',
+          value: (config.viewer_roles && config.viewer_roles.length > 0) ?
+            `${config.viewer_roles.map(id => `<@&${id}>`).join('\n')}\n*Also used for event announcement pings*` :
+            'None configured\n*Only Admins/Moderators can vote; no announcement pings will be sent*',
           inline: false
         },
         {
