@@ -4,6 +4,14 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 
 
 
+
+## [1.14.3-rc2] - 2025-09-12
+### Breaking/Changed
+- Database schema: renamed `viewer_roles` -> `voting_roles`; removed `notification_role_id` entirely (clean slate)
+- Removed all migrations and legacy notification role code/handlers
+- Announcements now always use Voting role(s) from `voting_roles` (supports multiple roles)
+- Updated Guided Setup, Config UI, and permissions to use `voting_roles`
+
 ## [1.14.3-rc1] - 2025-09-12
 ### Changed
 - Enforce Voting role(s) on votes: Discord button clicks and dashboard WS `vote_movie` now require Voting role(s) or Moderator/Admin

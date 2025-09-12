@@ -175,8 +175,8 @@ async function viewSettings(interaction, guildId) {
         },
         {
           name: '👥 Voting role(s) (used for announcements)',
-          value: (config.viewer_roles && config.viewer_roles.length > 0) ?
-            `${config.viewer_roles.map(id => `<@&${id}>`).join('\n')}\n*Also used for event announcement pings*` :
+          value: (config.voting_roles && config.voting_roles.length > 0) ?
+            `${config.voting_roles.map(id => `<@&${id}>`).join('\n')}\n*Also used for event announcement pings*` :
             'None configured\n*Only Admins/Moderators can vote; no announcement pings will be sent*',
           inline: false
         },

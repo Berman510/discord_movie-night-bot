@@ -62,20 +62,6 @@ async function handleSelect(interaction) {
       return;
     }
 
-    if (customId === 'config_select_notification_role') {
-      const roleId = interaction.values[0];
-      const role = interaction.guild.roles.cache.get(roleId);
-      const { configuration } = require('../services');
-
-      // Create a mock interaction with the selected role
-      const mockInteraction = Object.create(interaction);
-      mockInteraction.options = {
-        getRole: () => role
-      };
-
-      await configuration.setNotificationRole(mockInteraction, interaction.guild.id);
-      return;
-    }
 
     // Timezone selection for session creation
     if (customId === 'session_timezone_selected') {

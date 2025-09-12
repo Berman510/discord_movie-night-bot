@@ -87,8 +87,8 @@ async function showSetupMenuWithMessage(interaction, currentConfig = null, succe
         inline: true
       },
       {
-        name: `${currentConfig.viewer_roles?.length > 0 ? '✅' : '❌'} Voting role(s)`,
-        value: currentConfig.viewer_roles?.length > 0 ? `${currentConfig.viewer_roles.length} role(s)` : 'Not configured',
+        name: `${currentConfig.voting_roles?.length > 0 ? '✅' : '❌'} Voting role(s)`,
+        value: currentConfig.voting_roles?.length > 0 ? `${currentConfig.voting_roles.length} role(s)` : 'Not configured',
         inline: true
       }
     );
@@ -122,7 +122,7 @@ async function showSetupMenuWithMessage(interaction, currentConfig = null, succe
       new ButtonBuilder()
         .setCustomId('setup_notification_role')
         .setLabel('👥 Voting role(s)')
-        .setStyle(currentConfig.viewer_roles?.length > 0 ? ButtonStyle.Success : ButtonStyle.Secondary)
+        .setStyle(currentConfig.voting_roles?.length > 0 ? ButtonStyle.Success : ButtonStyle.Secondary)
     );
 
   const menuButtons3 = new ActionRowBuilder()

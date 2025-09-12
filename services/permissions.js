@@ -101,8 +101,8 @@ async function canMemberVote(guildId, member) {
     if (Array.isArray(config?.admin_roles) && config.admin_roles.some(id => userRoles.includes(id))) return true;
     if (Array.isArray(config?.moderator_roles) && config.moderator_roles.some(id => userRoles.includes(id))) return true;
 
-    // Voting role(s) a.k.a. viewer_roles
-    const voterRoles = Array.isArray(config?.viewer_roles) ? config.viewer_roles.map(String).filter(Boolean) : [];
+    // Voting role(s)
+    const voterRoles = Array.isArray(config?.voting_roles) ? config.voting_roles.map(String).filter(Boolean) : [];
     if (voterRoles.length === 0) {
       // Option B: enforce configuration; without configured Voting role(s), only mods/admins may vote
       return false;

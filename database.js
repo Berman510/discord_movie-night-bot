@@ -200,8 +200,7 @@ class Database {
         movie_channel_id VARCHAR(20) NULL,
         admin_roles JSON NULL,
         moderator_roles JSON NULL,
-        viewer_roles JSON NULL,
-        notification_role_id VARCHAR(20) NULL,
+        voting_roles JSON NULL,
         default_timezone VARCHAR(50) DEFAULT 'UTC',
         session_viewing_channel_id VARCHAR(20) NULL,
         admin_channel_id VARCHAR(20) NULL,
@@ -346,19 +345,6 @@ class Database {
 
     }
 
-    try {
-      const [gcCols2] = await this.pool.execute(`
-        SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'guild_config' AND COLUMN_NAME = 'viewer_roles'
-      `);
-      if (gcCols2.length === 0) {
-        await this.pool.execute(`ALTER TABLE guild_config ADD COLUMN viewer_roles JSON NULL AFTER moderator_roles`);
-        logger.debug('✅ Added viewer_roles via initializeTables');
-      }
-    } catch (e) {
-      logger.warn('initializeTables ensure viewer_roles warning:', e.message);
-    }
-
 
     // Run migrations to ensure schema is up to date (can be disabled via env)
     if (process.env.DB_MIGRATIONS_ENABLED === 'true') {
@@ -479,21 +465,6 @@ class Database {
         logger.debug('✅ Added scheduled status to movies enum');
       } catch (error) {
         logger.warn('Migration 5 warning:', error.message);
-      }
-
-      // Migration 6: Add notification_role_id to guild_config
-      if (!columnNames.includes('notification_role_id')) {
-        try {
-          await this.pool.execute(`
-            ALTER TABLE guild_config
-            ADD COLUMN notification_role_id VARCHAR(20) DEFAULT NULL
-          `);
-          logger.debug('✅ Added notification_role_id column to guild_config');
-        } catch (error) {
-          logger.error('❌ Failed to add notification_role_id column:', error.message);
-        }
-      } else {
-        logger.debug('✅ notification_role_id column already exists');
       }
 
       // Migration 7: Ensure watched_at column exists in movies table
@@ -1840,25 +1811,6 @@ class Database {
       }
 
 
-      // Migration 29: Add viewer_roles column to guild_config
-      try {
-        const [gcCols] = await this.pool.execute(`
-          SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
-          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'guild_config'
-        `);
-        const have = new Set(gcCols.map(r => r.COLUMN_NAME));
-        if (!have.has('viewer_roles')) {
-          await this.pool.execute(`ALTER TABLE guild_config ADD COLUMN viewer_roles JSON NULL AFTER moderator_roles`);
-          const logger = require('./utils/logger');
-          logger.debug('✅ Migration 29: viewer_roles added to guild_config');
-        } else {
-          const logger = require('./utils/logger');
-          logger.debug('✅ Migration 29: viewer_roles already exists');
-        }
-      } catch (e) {
-        const logger = require('./utils/logger');
-        logger.warn('Migration 29 warning:', e.message);
-      }
 
 
       // Migration 30: Backfill missing active voting session and link pending movies (legacy installs)
@@ -2473,7 +2425,7 @@ class Database {
       const config = rows[0];
       config.admin_roles = config.admin_roles ? JSON.parse(config.admin_roles) : [];
       config.moderator_roles = config.moderator_roles ? JSON.parse(config.moderator_roles) : [];
-      config.viewer_roles = config.viewer_roles ? JSON.parse(config.viewer_roles) : [];
+      config.voting_roles = config.voting_roles ? JSON.parse(config.voting_roles) : [];
       return config;
     } catch (error) {
       console.error('Error getting guild config:', error.message);
@@ -3531,36 +3483,6 @@ class Database {
 
 
 
-  async setNotificationRole(guildId, roleId) {
-    if (!this.isConnected) return false;
-
-    try {
-      await this.pool.execute(
-        `INSERT INTO guild_config (guild_id, notification_role_id, admin_roles) VALUES (?, ?, ?)
-         ON DUPLICATE KEY UPDATE notification_role_id = VALUES(notification_role_id)`,
-        [guildId, roleId, JSON.stringify([])]
-      );
-      return true;
-    } catch (error) {
-      console.error('Error setting notification role:', error.message);
-      return false;
-    }
-  }
-
-  async getNotificationRole(guildId) {
-    if (!this.isConnected) return null;
-
-    try {
-      const [rows] = await this.pool.execute(
-        `SELECT notification_role_id FROM guild_config WHERE guild_id = ?`,
-        [guildId]
-      );
-      return rows.length > 0 ? rows[0].notification_role_id : null;
-    } catch (error) {
-      console.error('Error getting notification role:', error.message);
-      return null;
-    }
-  }
 
   async setViewingChannel(guildId, channelId) {
     if (!this.isConnected) return false;
