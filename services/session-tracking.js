@@ -15,26 +15,26 @@ async function handleVoiceStateChange(oldState, newState) {
   const guildId = newState.guild.id;
   const userId = newState.member.id;
 
-  // Get guild configuration to find the viewing channel
+  // Get guild configuration to find the Watch Party Channel
   const config = await database.getGuildConfig(guildId);
-  if (!config || !config.session_viewing_channel_id) {
+  if (!config || !config.watch_party_channel_id) {
     // Only log if there are active sessions that would need monitoring
     const activeSessionsList = await getActiveSessionsForGuild(guildId);
     if (activeSessionsList.length > 0) {
       const logger = require('../utils/logger');
-      logger.warn(`⚠️ No viewing channel configured but ${activeSessionsList.length} active sessions`, guildId);
+      logger.warn(`⚠️ No Watch Party Channel configured but ${activeSessionsList.length} active session(s)`, guildId);
     }
-    return; // No viewing channel configured
+    return; // No watch party channel configured
   }
 
-  const viewingChannelId = config.session_viewing_channel_id;
+  const viewingChannelId = config.watch_party_channel_id;
 
-  // Only process and log if the change involves the configured viewing channel
+  // Only process and log if the change involves the configured watch party channel
   const joinedViewingChannel = newState.channelId === viewingChannelId && oldState.channelId !== viewingChannelId;
   const leftViewingChannel = oldState.channelId === viewingChannelId && newState.channelId !== viewingChannelId;
 
   if (joinedViewingChannel) {
-    { const logger = require('../utils/logger'); logger.info(`🎤 User ${userId} joined session viewing channel`, guildId); }
+    { const logger = require('../utils/logger'); logger.info(`🎬 User ${userId} joined Watch Party Channel`, guildId); }
     await handleUserJoinedViewingChannel(guildId, userId, viewingChannelId);
   }
 
@@ -238,7 +238,7 @@ async function checkForActiveSessionsToMonitor() {
     // Check all guilds
     for (const [guildId, guild] of client.guilds.cache) {
       const config = await database.getGuildConfig(guildId);
-      if (!config || !config.session_viewing_channel_id) continue;
+      if (!config || !config.watch_party_channel_id) continue;
 
       const activeSessionsList = await getActiveSessionsForGuild(guildId);
 
@@ -258,7 +258,7 @@ async function checkForActiveSessionsToMonitor() {
         // Start monitoring if not already monitoring
         if (!activeSessions.has(session.id)) {
           console.log(`🎬 Starting monitoring for session ${session.id}`);
-          await startSessionMonitoring(session.id, guildId, config.session_viewing_channel_id);
+          await startSessionMonitoring(session.id, guildId, config.watch_party_channel_id);
         } else {
           console.log(`🎬 Session ${session.id} already being monitored`);
         }

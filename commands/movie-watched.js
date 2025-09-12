@@ -2,7 +2,7 @@ const { SlashCommandBuilder } = require('discord.js');
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName('movie-watched')
+    .setName('movienight-watched')
     .setDescription('Mark a movie as watched (Admin only)')
     .addStringOption(option =>
       option.setName('title')

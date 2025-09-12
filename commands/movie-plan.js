@@ -2,7 +2,7 @@ const { SlashCommandBuilder } = require('discord.js');
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName('movie-plan')
+    .setName('movienight-plan')
     .setDescription('Plan a movie for later (Admin only)')
     .addStringOption(option =>
       option.setName('title')

@@ -13,7 +13,7 @@ const database = require('../database');
 async function startGuidedSetup(interaction) {
   const embed = new EmbedBuilder()
     .setTitle('🎬 Movie Night Bot - Quick Setup')
-    .setDescription(`Welcome! Let's get your Movie Night Bot configured in just a few steps.\n\n**What we'll set up:**\n• 📺 Voting channel (where movies are recommended)\n• 🔧 Admin channel (for bot management)\n• 🎤 Viewing channel (where you watch movies)\n• 👑 Admin roles (who can manage the bot)\n• 👥 Voting role(s) (also used for announcements)\n\n**Note:** The bot already has its own "${interaction.client.user.displayName}" role with required permissions.\n\n**Prefer a browser?** Manage the bot (minus voting) from the dashboard: https://movienight.bermanoc.net`)
+    .setDescription(`Welcome! Let's get your Movie Night Bot configured in just a few steps.\n\n**What we'll set up:**\n• 📺 Voting channel (where movies are recommended)\n• 🔧 Admin channel (for bot management)\n• 🎬 Watch Party Channel (where you watch movies)\n• 👑 Admin roles (who can manage the bot)\n• 👥 Voting role(s) (also used for announcements)\n\n**Note:** The bot already has its own "${interaction.client.user.displayName}" role with required permissions.\n\n**Prefer a browser?** Manage the bot (minus voting) from the dashboard: https://movienight.bermanoc.net`)
     .setColor(0x5865f2)
     .setFooter({ text: 'This setup takes about 2 minutes' });
 
@@ -72,8 +72,8 @@ async function showSetupMenuWithMessage(interaction, currentConfig = null, succe
         inline: true
       },
       {
-        name: `${currentConfig.session_viewing_channel_id ? '✅' : '❌'} Viewing Channel`,
-        value: currentConfig.session_viewing_channel_id ? `<#${currentConfig.session_viewing_channel_id}>` : 'Not configured',
+        name: `${currentConfig.watch_party_channel_id ? '✅' : '❌'} Watch Party Channel`,
+        value: currentConfig.watch_party_channel_id ? `<#${currentConfig.watch_party_channel_id}>` : 'Not configured',
         inline: true
       },
       {
@@ -104,9 +104,9 @@ async function showSetupMenuWithMessage(interaction, currentConfig = null, succe
         .setLabel('🔧 Admin Channel')
         .setStyle(currentConfig.admin_channel_id ? ButtonStyle.Success : ButtonStyle.Secondary),
       new ButtonBuilder()
-        .setCustomId('setup_viewing_channel')
-        .setLabel('🎤 Viewing Channel')
-        .setStyle(currentConfig.session_viewing_channel_id ? ButtonStyle.Success : ButtonStyle.Secondary)
+        .setCustomId('setup_watch_party_channel')
+        .setLabel('🎬 Watch Party Channel')
+        .setStyle(currentConfig.watch_party_channel_id ? ButtonStyle.Success : ButtonStyle.Secondary)
     );
 
   const menuButtons2 = new ActionRowBuilder()
@@ -213,19 +213,19 @@ async function showAdminChannelSetup(interaction) {
 }
 
 /**
- * Show viewing channel selection
+ * Show Watch Party Channel selection
  */
-async function showViewingChannelSetup(interaction) {
+async function showWatchPartyChannelSetup(interaction) {
   const embed = new EmbedBuilder()
-    .setTitle('🎤 Set Viewing Channel')
-    .setDescription('Choose the voice channel where you watch movies together.\n\n**Recommended:** A voice channel like #movie-night-vc\n\n**Required Bot Permissions:**\n• View Channel\n• Connect (to track attendance)\n• Create Events (for scheduled sessions)')
+    .setTitle('🎬 Set Watch Party Channel')
+    .setDescription('Choose the channel where you host watch parties together.\n\n**Recommended:** A voice channel like #movie-night-vc (or a text channel if you prefer chat-only)\n\n**Required Bot Permissions:**\n• View Channel\n• Connect (to track attendance)\n• Create Events (for scheduled sessions)')
     .setColor(0x5865f2);
 
   const channelSelect = new ActionRowBuilder()
     .addComponents(
       new ChannelSelectMenuBuilder()
-        .setCustomId('setup_select_viewing_channel')
-        .setPlaceholder('Select a voice channel for watching movies')
+        .setCustomId('setup_select_watch_party_channel')
+        .setPlaceholder('Select a channel for watch parties (voice or text)')
         .setChannelTypes(ChannelType.GuildVoice)
     );
 
@@ -318,7 +318,7 @@ async function showModeratorRolesSetup(interaction) {
 }
 
 /**
- * Show notification role selection
+ * Show voting roles info
  */
 async function showNotificationRoleSetup(interaction) {
   const embed = new EmbedBuilder()
@@ -433,7 +433,7 @@ async function showChannelSafetyConfirmation(interaction, channel, channelType) 
   const channelTypeNames = {
     'voting': 'Voting Channel',
     'admin': 'Admin Channel',
-    'viewing': 'Viewing Channel'
+    'viewing': 'Watch Party Channel'
   };
 
   const embed = new EmbedBuilder()
@@ -514,10 +514,10 @@ async function configureChannelDirectly(interaction, channel, channelType) {
         break;
 
       case 'viewing':
-        success = await database.setViewingChannel(interaction.guild.id, channel.id);
+        success = await database.setWatchPartyChannel(interaction.guild.id, channel.id);
         message = success ?
-          `✅ **Viewing channel set to ${channel}**\n\nThe bot will track attendance during movie sessions!` :
-          '❌ Failed to set viewing channel.';
+          `✅ **Watch Party Channel set to ${channel}**\n\nThe bot will track attendance during movie sessions!` :
+          '❌ Failed to set watch party channel.';
         break;
     }
 
@@ -567,10 +567,6 @@ async function handleRoleSelection(interaction, roleType) {
         message = `✅ **Moderator roles set:** ${modRoleNames}\n\nThese roles can now moderate movies and sessions!`;
         break;
 
-      case 'notification':
-        success = true;
-        message = 'ℹ️ Notification Role is deprecated. Configure Voting role(s) in the dashboard; these will be used for announcements.';
-        break;
     }
 
     // Show the menu with success message embedded
@@ -638,10 +634,10 @@ module.exports = {
   showSetupMenuWithMessage,
   showVotingChannelSetup,
   showAdminChannelSetup,
-  showViewingChannelSetup,
+  showWatchPartyChannelSetup,
   showAdminRolesSetup,
   showModeratorRolesSetup,
-  showNotificationRoleSetup,
+
   showSetupComplete,
   handleChannelSelection,
   handleRoleSelection,

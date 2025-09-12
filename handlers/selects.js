@@ -47,7 +47,7 @@ async function handleSelect(interaction) {
       return;
     }
 
-    if (customId === 'config_select_viewing_channel') {
+    if (customId === 'config_select_watch_party_channel') {
       const channelId = interaction.values[0];
       const channel = interaction.guild.channels.cache.get(channelId);
       const { configuration } = require('../services');
@@ -58,7 +58,7 @@ async function handleSelect(interaction) {
         getChannel: () => channel
       };
 
-      await configuration.configureViewingChannel(mockInteraction, interaction.guild.id);
+      await configuration.configureWatchPartyChannel(mockInteraction, interaction.guild.id);
       return;
     }
 
@@ -437,7 +437,7 @@ async function handleGuidedSetupSelect(interaction, customId) {
       await guidedSetup.handleChannelSelection(interaction, 'admin');
       break;
 
-    case 'setup_select_viewing_channel':
+    case 'setup_select_watch_party_channel':
       await guidedSetup.handleChannelSelection(interaction, 'viewing');
       break;
 

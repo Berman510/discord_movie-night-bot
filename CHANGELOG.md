@@ -5,6 +5,21 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 
 
 
+## [1.14.3-rc3] - 2025-09-12
+### Changed
+- Rename “Viewing Channel” to “Watch Party Channel” across UI and DB: `session_viewing_channel_id` -> `watch_party_channel_id`
+- Guided Setup and Config flows updated (buttons, selects, copy)
+- Slash command renames for consistency:
+  - `movie-night` -> `movienight`
+  - `movie-setup` -> `movienight-setup`
+  - `movie-queue` -> `movienight-queue`
+  - `movie-plan` -> `movienight-plan`
+  - `movie-watched` -> `movienight-watched`
+  - `movie-skip` -> `movienight-skip`
+  - `admin-panel` -> `movienight-admin-panel`
+  - `debug-config` -> `movienight-debug-config`
+- Deprecated/removed redundant commands: `movie-session`, `movie-cleanup`, `movie-stats`, `movie-help`
+
 ## [1.14.3-rc2] - 2025-09-12
 ### Breaking/Changed
 - Database schema: renamed `viewer_roles` -> `voting_roles`; removed `notification_role_id` entirely (clean slate)

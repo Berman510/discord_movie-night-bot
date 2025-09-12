@@ -2,10 +2,10 @@
  * Configuration Service Module
  * Handles server configuration and settings management
  *
- * TODO: Session Viewing Channel Configuration
+ * TODO: Watch Party Channel Configuration
  * - Add configuration for session viewing channel (voice/text channel where movie nights happen)
- * - Add database field for session_viewing_channel_id in guild_config table
- * - Add configuration command: /movie-configure action:set-viewing-channel
+ * - Add database field for watch_party_channel_id in guild_config table
+ * - Add configuration command: /movienight-configure action:set-watch-party-channel
  * - This channel would be monitored during scheduled session times for automatic participant tracking
  * - Could support both voice channels (for watch parties) and text channels (for chat-based viewing)
  * - Add validation to ensure configured channel exists and bot has proper permissions
@@ -181,9 +181,9 @@ async function viewSettings(interaction, guildId) {
           inline: false
         },
         {
-          name: '🎤 Session Viewing Channel',
-          value: config.session_viewing_channel_id ?
-            `<#${config.session_viewing_channel_id}>\n*Bot tracks attendance during sessions in this channel*` :
+          name: '🎥 Watch Party Channel',
+          value: config.watch_party_channel_id ?
+            `<#${config.watch_party_channel_id}>\n*Bot tracks attendance during sessions in this channel*` :
             'Not set\n*No automatic attendance tracking*',
           inline: false
         }
@@ -220,7 +220,7 @@ async function resetConfiguration(interaction, guildId) {
   }
 }
 
-async function configureViewingChannel(interaction, guildId) {
+async function configureWatchPartyChannel(interaction, guildId) {
   const channel = interaction.options?.getChannel('channel');
 
   // If no channel specified (button interaction), show channel selector
@@ -228,14 +228,14 @@ async function configureViewingChannel(interaction, guildId) {
     const { ActionRowBuilder, ChannelSelectMenuBuilder, ChannelType } = require('discord.js');
 
     const channelSelect = new ChannelSelectMenuBuilder()
-      .setCustomId('config_select_viewing_channel')
-      .setPlaceholder('Select a channel for session viewing')
+      .setCustomId('config_select_watch_party_channel')
+      .setPlaceholder('Select a channel for watch parties')
       .setChannelTypes([ChannelType.GuildText]);
 
     const row = new ActionRowBuilder().addComponents(channelSelect);
 
     await interaction.update({
-      content: '📺 **Select Viewing Channel**\n\nChoose a Text channel where session viewing will be coordinated:',
+      content: '🎥 **Select Watch Party Channel**\n\nChoose a Text channel where watch parties will be coordinated:',
       embeds: [],
       components: [row]
     });
@@ -251,16 +251,16 @@ async function configureViewingChannel(interaction, guildId) {
     return;
   }
 
-  const success = await database.setViewingChannel(guildId, channel.id);
+  const success = await database.setWatchPartyChannel(guildId, channel.id);
   if (success) {
     const channelType = channel.type === 2 ? 'voice' : 'text';
     await interaction.reply({
-      content: `✅ Session viewing channel set to ${channel} (${channelType} channel). The bot will now track attendance during scheduled movie sessions.`,
+      content: `✅ Watch Party Channel set to ${channel} (${channelType} channel). The bot will now track attendance during scheduled movie sessions.`,
       flags: MessageFlags.Ephemeral
     });
   } else {
     await interaction.reply({
-      content: '❌ Failed to set viewing channel.',
+      content: '❌ Failed to set watch party channel.',
       flags: MessageFlags.Ephemeral
     });
   }
@@ -424,8 +424,7 @@ module.exports = {
   configureMovieChannel,
   addAdminRole,
   removeAdminRole,
-  setNotificationRole,
-  configureViewingChannel,
+  configureWatchPartyChannel,
   configureAdminChannel,
   viewSettings,
   resetConfiguration,

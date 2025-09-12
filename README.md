@@ -48,7 +48,7 @@ A comprehensive Discord bot for managing movie recommendations, voting, and orga
 
 ### ⚙️ **Enhanced Configuration**
 - **Channel Management**: Dedicated movie recommendation channels with admin channel support
-- **Session Viewing Channels**: Configurable channels for Discord events (Voice, Stage, or Text channels)
+- **Watch Party Channels**: Configurable channels for Discord events (Voice, Stage, or Text channels)
 - **Admin Roles**: Role-based permission system with comprehensive admin controls
 - **Timezone Settings**: Server-wide timezone configuration with automatic voting closure
 - **Voting role(s)**: Controls who can vote and who gets pinged for movie night events (Discord event integration)
@@ -182,6 +182,45 @@ https://discord.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&scope=bot%20applic
 ```
 
 ---
+## 📚 Slash Commands
+
+All commands use the unified movienight prefix:
+
+- /movienight
+  - Opens the Recommend a Movie modal during an active voting session in the configured movie channel.
+  - Voters, Moderators, and Admins can recommend; voting is enforced by role as configured.
+
+- /movienight-queue
+  - Shows the current session’s recommended movies and live vote counts in the current channel.
+  - Useful for a quick in-Discord view of the queue.
+
+- /movienight-setup
+  - Launches the in-Discord Guided Setup with buttons to configure:
+    - Movie Channel (recommendations)
+    - Admin Channel (management panel)
+    - Watch Party Channel (Discord Events + attendance tracking)
+    - Voting role(s) and Vote Caps
+  - Mirrors the Dashboard’s Configure Bot sections.
+
+- /movienight-plan
+  - Admin/Moderator action to plan the next voting session (opens a modal with:
+    - Name, Date, Start Time, optional Voting End Date/Time, Description)
+  - Creates/updates the Discord Event and pins the Recommend post.
+
+- /movienight-watched
+  - Admin action to mark the winning movie as Watched and close out the session.
+
+- /movienight-skip
+  - Admin/Moderator action to skip a movie (e.g., the current pick) while keeping the session open.
+
+- /movienight-admin-panel
+  - Admin action to render/refresh the Admin Control Panel in the configured admin channel.
+
+- /movienight-debug-config
+  - Shows the current guild configuration and capability flags (ephemeral to the caller).
+
+Deprecated/removed commands (replaced by the above): /movie-session, /movie-cleanup, /movie-stats, /movie-help, /movie-night, /movie-setup, /movie-queue, /movie-plan, /movie-watched, /movie-skip, /admin-panel, /debug-config
+
 
 ## .env
 Create a `.env` in the project root (copy from `.env.example`):
@@ -366,12 +405,12 @@ pm2 startup  # follow the printed instructions
 - **Real-time Updates:** Admin interface updates automatically with session changes
 
 ### Enhanced Server Configuration
-- **Channel Setup:** `/movie-configure set-channel` for voting channel and admin channel configuration
-- **Session Viewing Channels:** Configure channels for Discord events (Voice, Stage, or Text channels)
-- **Timezone Management:** `/movie-configure set-timezone` with automatic voting closure support
-- **Admin Roles:** `/movie-configure add-admin-role @role` for comprehensive admin access
+- **Channel Setup:** `/movienight-configure set-channel` for voting channel and admin channel configuration
+- **Watch Party Channel(s):** Configure channels for Discord events (Voice, Stage, or Text channels)
+- **Timezone Management:** `/movienight-configure set-timezone` with automatic voting closure support
+- **Admin Roles:** `/movienight-configure admin-roles add @role` and `... remove @role` for comprehensive admin access
 - **Voting role(s):** Configure which roles can vote; these roles are also used for Discord event notifications and session announcements
-- **View Settings:** `/movie-configure view-settings` shows all current configuration including new features
+- **View Settings:** `/movienight-configure view-settings` shows all current configuration including new features
 
 ### Logging Configuration
 - **Log Levels:** `ERROR`, `WARN`, `INFO`, `DEBUG` - Control console output verbosity
@@ -415,11 +454,11 @@ pm2 startup  # follow the printed instructions
 ## 🚀 Future Features (Planned)
 
 ### Enhanced Session Participant Tracking
-- **Automatic Attendance Monitoring**: Bot monitors configured viewing channels during session times
+- **Automatic Attendance Monitoring**: Bot monitors the configured Watch Party Channel during session times
 - **Real-time Participant Tracking**: Track users who join/leave voice channels during movie nights
 - **Attendance Analytics**: Compare registered participants vs. actual attendees
 - **Session Duration Tracking**: Monitor how long users stay for each session
-- **Viewing Channel Configuration**: Set dedicated channels where movie nights happen
+- **Watch Party Channel Configuration**: Set the dedicated channel where movie nights happen
 - **Attendance Reports**: Generate detailed reports for completed sessions
 
 ### Advanced Voting Analytics

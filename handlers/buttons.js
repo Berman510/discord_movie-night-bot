@@ -2594,17 +2594,20 @@ async function handleConfigurationAction(interaction, customId) {
       case 'admin_channel':
         await configuration.configureAdminChannel(interaction, interaction.guild.id);
         break;
-      case 'viewing_channel':
-        await configuration.configureViewingChannel(interaction, interaction.guild.id);
+      case 'watch_party_channel':
+        await configuration.configureWatchPartyChannel(interaction, interaction.guild.id);
         break;
       case 'admin_roles':
         await interaction.reply({
-          content: '🔧 **Admin Roles Configuration**\n\nUse `/movie-configure admin-roles add` and `/movie-configure admin-roles remove` commands to manage admin roles.',
+          content: '🔧 **Admin Roles Configuration**\n\nUse `/movienight-configure admin-roles add` and `/movienight-configure admin-roles remove` commands to manage admin roles.',
           flags: MessageFlags.Ephemeral
         });
         break;
-      case 'notification_role':
-        await configuration.setNotificationRole(interaction, interaction.guild.id);
+      case 'voting_roles':
+        await interaction.reply({
+          content: '👥 Voting role(s) are configured on the Dashboard under Administration → Configure Bot. These roles control who can vote and who is pinged for announcements.',
+          flags: MessageFlags.Ephemeral
+        });
         break;
       case 'vote_caps':
         await configuration.configureVoteCaps(interaction, interaction.guild.id);
@@ -2665,8 +2668,8 @@ async function handleGuidedSetupButton(interaction, customId) {
       await guidedSetup.showAdminChannelSetup(interaction);
       break;
 
-    case 'setup_viewing_channel':
-      await guidedSetup.showViewingChannelSetup(interaction);
+    case 'setup_watch_party_channel':
+      await guidedSetup.showWatchPartyChannelSetup(interaction);
       break;
 
     case 'setup_admin_roles':
@@ -2677,9 +2680,6 @@ async function handleGuidedSetupButton(interaction, customId) {
       await guidedSetup.showModeratorRolesSetup(interaction);
       break;
 
-    case 'setup_notification_role':
-      await guidedSetup.showNotificationRoleSetup(interaction);
-      break;
 
     case 'setup_skip_admin_roles':
       const database = require('../database');

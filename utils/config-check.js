@@ -152,16 +152,16 @@ async function handleConfigurationButton(interaction) {
         .setLabel('🔧 Set Admin Channel')
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
-        .setCustomId('config_viewing_channel')
-        .setLabel('🎤 Set Viewing Channel')
+        .setCustomId('config_watch_party_channel')
+        .setLabel('🎬 Set Watch Party Channel')
         .setStyle(ButtonStyle.Secondary)
     );
 
   const configOptions2 = new ActionRowBuilder()
     .addComponents(
       new ButtonBuilder()
-        .setCustomId('config_notification_role')
-        .setLabel('👥 Voting role(s) (info)')
+        .setCustomId('config_voting_roles')
+        .setLabel('👥 Voting role(s)')
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId('config_admin_roles')

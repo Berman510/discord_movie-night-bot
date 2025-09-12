@@ -86,23 +86,23 @@ async function createDiscordEvent(guild, sessionData, scheduledDate) {
       privacyLevel: GuildScheduledEventPrivacyLevel.GuildOnly
     };
 
-    // Use session viewing channel if configured, otherwise external event
-    if (config && config.session_viewing_channel_id) {
+    // Use Watch Party Channel if configured, otherwise external event
+    if (config && config.watch_party_channel_id) {
       try {
         // Fetch the channel to verify it exists and get its type
-        const channel = await guild.channels.fetch(config.session_viewing_channel_id);
+        const channel = await guild.channels.fetch(config.watch_party_channel_id);
         if (channel) {
           const logger = require('../utils/logger');
-          logger.debug(`📍 Found session viewing channel: ${channel.name} (${channel.type})`);
+          logger.debug(`📍 Found Watch Party Channel: ${channel.name} (${channel.type})`);
 
           // Use appropriate event type based on channel type
           if (channel.type === 2) { // Voice channel
             eventConfig.entityType = GuildScheduledEventEntityType.Voice;
-            eventConfig.channel = config.session_viewing_channel_id;
+            eventConfig.channel = config.watch_party_channel_id;
             logger.debug(`📍 Setting voice event in channel: #${channel.name}`);
           } else if (channel.type === 13) { // Stage channel
             eventConfig.entityType = GuildScheduledEventEntityType.StageInstance;
-            eventConfig.channel = config.session_viewing_channel_id;
+            eventConfig.channel = config.watch_party_channel_id;
             console.log(`📍 Setting stage event in channel: #${channel.name}`);
           } else {
             // For text channels or other types, use external event with channel mention
@@ -116,7 +116,7 @@ async function createDiscordEvent(guild, sessionData, scheduledDate) {
           throw new Error('Channel not found');
         }
       } catch (error) {
-        console.warn(`📍 Error fetching session viewing channel ${config.session_viewing_channel_id}:`, error.message);
+        console.warn(`📍 Error fetching Watch Party Channel ${config.watch_party_channel_id}:`, error.message);
         // Fallback to external event
         eventConfig.entityType = GuildScheduledEventEntityType.External;
         eventConfig.entityMetadata = {
@@ -129,7 +129,7 @@ async function createDiscordEvent(guild, sessionData, scheduledDate) {
       eventConfig.entityMetadata = {
         location: 'Movie Night Session - Check voting channel for details'
       };
-      console.log(`📍 Using external event (no session viewing channel configured)`);
+      console.log(`📍 Using external event (no Watch Party Channel configured)`);
     }
 
     const event = await guild.scheduledEvents.create(eventConfig);

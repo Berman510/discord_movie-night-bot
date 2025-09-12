@@ -202,7 +202,7 @@ class Database {
         moderator_roles JSON NULL,
         voting_roles JSON NULL,
         default_timezone VARCHAR(50) DEFAULT 'UTC',
-        session_viewing_channel_id VARCHAR(20) NULL,
+        watch_party_channel_id VARCHAR(20) NULL,
         admin_channel_id VARCHAR(20) NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -513,28 +513,6 @@ class Database {
         console.error('❌ Failed to add watch_count column:', error.message);
       }
 
-      // Migration 9: Ensure session_viewing_channel_id column exists in guild_config table
-      try {
-        const [guildColumns2] = await this.pool.execute(`
-          SELECT COLUMN_NAME
-          FROM INFORMATION_SCHEMA.COLUMNS
-          WHERE TABLE_SCHEMA = DATABASE()
-          AND TABLE_NAME = 'guild_config'
-        `);
-        const guildColumnNames2 = guildColumns2.map(row => row.COLUMN_NAME);
-
-        if (!guildColumnNames2.includes('session_viewing_channel_id')) {
-          await this.pool.execute(`
-            ALTER TABLE guild_config
-            ADD COLUMN session_viewing_channel_id VARCHAR(20) NULL
-          `);
-          logger.debug('✅ Added session_viewing_channel_id column to guild_config');
-        } else {
-          logger.debug('✅ session_viewing_channel_id column already exists');
-        }
-      } catch (error) {
-        console.error('❌ Failed to add session_viewing_channel_id column:', error.message);
-      }
 
       // Migration 10: Add 'active' status to movie_sessions enum
       try {
@@ -3484,19 +3462,19 @@ class Database {
 
 
 
-  async setViewingChannel(guildId, channelId) {
+  async setWatchPartyChannel(guildId, channelId) {
     if (!this.isConnected) return false;
 
     try {
       await this.pool.execute(
-        `INSERT INTO guild_config (guild_id, session_viewing_channel_id, admin_roles)
+        `INSERT INTO guild_config (guild_id, watch_party_channel_id, admin_roles)
          VALUES (?, ?, ?)
-         ON DUPLICATE KEY UPDATE session_viewing_channel_id = VALUES(session_viewing_channel_id)`,
+         ON DUPLICATE KEY UPDATE watch_party_channel_id = VALUES(watch_party_channel_id)`,
         [guildId, channelId, JSON.stringify([])]
       );
       return true;
     } catch (error) {
-      console.error('Error setting viewing channel:', error.message);
+      console.error('Error setting watch party channel:', error.message);
       return false;
     }
   }
