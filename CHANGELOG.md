@@ -20,6 +20,10 @@ All notable changes to **Movie Night Bot** will be documented in this file.
   - `debug-config` -> `movienight-debug-config`
 - Deprecated/removed redundant commands: `movie-session`, `movie-cleanup`, `movie-stats`, `movie-help`
 
+### Docs
+- README cleanup: removed ad-hoc TODO and What's New sections; added Quick Start and Role-based Access; updated movienight-* command references
+- Added ROADMAP.md to document future ideas/goals that were previously in README
+
 ## [1.14.3-rc2] - 2025-09-12
 ### Breaking/Changed
 - Database schema: renamed `viewer_roles` -> `voting_roles`; removed `notification_role_id` entirely (clean slate)

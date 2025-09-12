@@ -7,6 +7,20 @@
 A comprehensive Discord bot for managing movie recommendations, voting, and organized movie night sessions. Features persistent voting, IMDb integration, session scheduling with Discord events, and comprehensive movie night statistics.
 
 > **🏗️ Modular Architecture**: Clean, maintainable codebase with separation of concerns. See [ARCHITECTURE.md](ARCHITECTURE.md) for technical details.
+## 🚀 Quick Start
+
+1. Invite the bot to your server (scopes: bot + applications.commands; see invite template below).
+2. Run `/movienight-setup` and configure:
+   - Movie Channel (recommendations)
+   - Admin Channel (management)
+   - Watch Party Channel (Discord Events + attendance tracking)
+   - Voting role(s) and Vote Caps
+3. Plan your first session with `/movienight-plan` (Name, Date, Start Time, optional Voting End, Description).
+   - If you omit Voting End, it defaults to 1 hour before the session start.
+4. Members recommend via `/movienight`; everyone with permission can vote using the buttons on each movie post.
+5. Admins can open `/movienight-admin-panel` to manage sessions (Plan/Reschedule, Pick Winner, Skip, Sync/Refresh).
+6. Optional: Use the Dashboard to view the queue, vote, and manage sessions.
+
 
 ## ✨ Key Features
 
@@ -68,6 +82,9 @@ A comprehensive Discord bot for managing movie recommendations, voting, and orga
 
 ### Required OAuth Scopes
 
+- `bot`
+- `applications.commands`
+
 ### IMDb Caching (cross-guild)
 To reduce OMDb usage, the bot caches full IMDb responses globally across servers in a lightweight imdb_cache table.
 - Enabled by default; respects TTL and hard row limit with LRU eviction
@@ -77,9 +94,6 @@ Env toggles:
 - IMDB_CACHE_ENABLED=true
 - IMDB_CACHE_TTL_DAYS=90
 - IMDB_CACHE_MAX_ROWS=10000
-
-- `bot`
-- `applications.commands`
 
 ### Required Bot Permissions
 - **Send Messages** (post movie recommendations and responses)
@@ -104,7 +118,7 @@ In Discord Developer Portal → Bot section, enable:
 1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
 2. Create **New Application** → give it a name (e.g., "Movie Night Bot")
 3. Go to **Bot** section → **Add Bot** → copy the **Bot Token**
-4. Enable **Message Content Intent** in Bot section
+4. (Optional) Enable **Message Content Intent** in Bot section if you use message-based features
 5. Go to **OAuth2 → URL Generator**:
    - **Scopes**: `bot` + `applications.commands`
    - **Permissions**: Use the permissions listed above
@@ -116,6 +130,17 @@ https://discord.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&scope=bot%20applic
 ```
 
 ---
+## 🔐 Role-based Access
+
+- Admins: Have Administrator or Manage Server permissions, or are in configured Admin Roles.
+  - Full control (planning, cancelling, picking winners, banning movies, configuration).
+- Moderators: In configured Moderator Roles.
+  - Limited management (e.g., Sync Channels, Refresh Admin Panel, Skip); no destructive actions.
+- Voters: In configured Voting Roles.
+  - Can recommend and vote; also used for announcement pings.
+  - If no Voting Roles are configured, only Admins/Moderators can vote (strict gating).
+- All gating is enforced in both the bot and the Dashboard; dashboard actions execute as the authenticated Discord user with attribution in the DB.
+
 ## 📚 Slash Commands
 
 All commands use the unified movienight prefix:
@@ -385,6 +410,8 @@ pm2 startup  # follow the printed instructions
 ---
 
 ## 🚀 Future Features (Planned)
+See the full roadmap for details and priorities: [ROADMAP.md](./ROADMAP.md)
+
 
 ### Enhanced Session Participant Tracking
 - **Automatic Attendance Monitoring**: Bot monitors the configured Watch Party Channel during session times
