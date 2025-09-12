@@ -6,8 +6,7 @@
   "license": "MIT",
   "scripts": {
     "start": "node index.js",
-    "test": "jest",
-    "migrate": "node scripts/migrate.js"
+    "test": "jest"
   },
   "dependencies": {
     "discord.js": "^14.15.3",
