@@ -28,17 +28,17 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ### Breaking/Changed
 - Database schema: renamed `viewer_roles` -> `voting_roles`; removed `notification_role_id` entirely (clean slate)
 - Removed all migrations and legacy notification role code/handlers
-- Announcements now always use Voting role(s) from `voting_roles` (supports multiple roles)
+- Announcements now always use Voting Roles from `voting_roles` (supports multiple roles)
 - Updated Guided Setup, Config UI, and permissions to use `voting_roles`
 
 ## [1.14.3-rc1] - 2025-09-12
 ### Changed
-- Enforce Voting role(s) on votes: Discord button clicks and dashboard WS `vote_movie` now require Voting role(s) or Moderator/Admin
-- Behavior when no Voting role(s) configured: only Admins/Moderators can vote (strict enforcement)
+- Enforce Voting Roles on votes: Discord button clicks and dashboard WS `vote_movie` now require Voting Roles or Moderator/Admin
+- Behavior when no Voting Roles configured: only Admins/Moderators can vote (strict enforcement)
 - "Manage Server" permission counts as implicit Admin for permission checks
-- Copy: ephemeral messages and logs updated to say "Voting role(s)"
-- Announcements now ping Voting role(s) (supports multiple roles); legacy `notification_role_id` is still read as a fallback but is deprecated
-- Bot Configuration menu and Guided Setup copy updated to "Voting role(s)"; the in-bot "Notification Role" action now points you to the dashboard to configure Voting role(s)
+- Copy: ephemeral messages and logs updated to say "Voting Roles"
+- Announcements now ping Voting Roles (supports multiple roles); legacy `notification_role_id` is still read as a fallback but is deprecated
+- Bot Configuration menu and Guided Setup copy updated to "Voting Roles"; the in-bot "Notification Role" action now points you to the dashboard to configure Voting Roles
 
 
 

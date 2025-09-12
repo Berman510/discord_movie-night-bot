@@ -13,7 +13,7 @@ const database = require('../database');
 async function startGuidedSetup(interaction) {
   const embed = new EmbedBuilder()
     .setTitle('🎬 Movie Night Bot - Quick Setup')
-    .setDescription(`Welcome! Let's get your Movie Night Bot configured in just a few steps.\n\n**What we'll set up:**\n• 📺 Voting channel (where movies are recommended)\n• 🔧 Admin channel (for bot management)\n• 🎬 Watch Party Channel (where you watch movies)\n• 👑 Admin roles (who can manage the bot)\n• 👥 Voting role(s) (also used for announcements)\n\n**Note:** The bot already has its own "${interaction.client.user.displayName}" role with required permissions.\n\n**Prefer a browser?** Manage the bot (minus voting) from the dashboard: https://movienight.bermanoc.net`)
+    .setDescription(`Welcome! Let's get your Movie Night Bot configured in just a few steps.\n\n**What we'll set up:**\n• 📺 Voting channel (where movies are recommended)\n• 🔧 Admin channel (for bot management)\n• 🎬 Watch Party Channel (where you watch movies)\n• 👑 Admin roles (who can manage the bot)\n• 👥 Voting Roles (also used for announcements)\n\n**Note:** The bot already has its own "${interaction.client.user.displayName}" role with required permissions.\n\n**Prefer a browser?** Manage the bot (minus voting) from the dashboard: https://movienight.bermanoc.net`)
     .setColor(0x5865f2)
     .setFooter({ text: 'This setup takes about 2 minutes' });
 
@@ -87,7 +87,7 @@ async function showSetupMenuWithMessage(interaction, currentConfig = null, succe
         inline: true
       },
       {
-        name: `${currentConfig.voting_roles?.length > 0 ? '✅' : '❌'} Voting role(s)`,
+        name: `${currentConfig.voting_roles?.length > 0 ? '✅' : '❌'} Voting Roles`,
         value: currentConfig.voting_roles?.length > 0 ? `${currentConfig.voting_roles.length} role(s)` : 'Not configured',
         inline: true
       }
@@ -120,8 +120,8 @@ async function showSetupMenuWithMessage(interaction, currentConfig = null, succe
         .setLabel('🛡️ Moderator Roles')
         .setStyle(currentConfig.moderator_roles?.length > 0 ? ButtonStyle.Success : ButtonStyle.Secondary),
       new ButtonBuilder()
-        .setCustomId('setup_notification_role')
-        .setLabel('👥 Voting role(s)')
+        .setCustomId('setup_voting_roles')
+        .setLabel('👥 Voting Roles')
         .setStyle(currentConfig.voting_roles?.length > 0 ? ButtonStyle.Success : ButtonStyle.Secondary)
     );
 
@@ -318,13 +318,21 @@ async function showModeratorRolesSetup(interaction) {
 }
 
 /**
- * Show voting roles info
+ * Show voting roles selection
  */
-async function showNotificationRoleSetup(interaction) {
+async function showVotingRolesSetup(interaction) {
   const embed = new EmbedBuilder()
-    .setTitle('👥 Voting role(s)')
-    .setDescription('The bot now uses your configured Voting role(s) for announcements.\n\nPlease configure Voting role(s) in the dashboard (these also control who can vote).')
+    .setTitle('👥 Configure Voting Roles')
+    .setDescription('Select roles that are allowed to vote. These roles will also be pinged for announcements.')
     .setColor(0x5865f2);
+
+  const roleSelect = new ActionRowBuilder()
+    .addComponents(
+      new RoleSelectMenuBuilder()
+        .setCustomId('setup_select_voting_roles')
+        .setPlaceholder('Select roles allowed to vote (also used for announcements)')
+        .setMaxValues(25)
+    );
 
   const backButton = new ActionRowBuilder()
     .addComponents(
@@ -335,9 +343,9 @@ async function showNotificationRoleSetup(interaction) {
     );
 
   await interaction.update({
-    content: 'Dashboard: https://movienight.bermanoc.net',
+    content: '',
     embeds: [embed],
-    components: [backButton]
+    components: [roleSelect, backButton]
   });
 }
 
@@ -548,7 +556,6 @@ async function handleRoleSelection(interaction, roleType) {
   try {
     switch (roleType) {
       case 'admin':
-        // Add all selected roles as admin roles
         for (const roleId of selectedRoles) {
           await database.addAdminRole(interaction.guild.id, roleId);
         }
@@ -558,7 +565,6 @@ async function handleRoleSelection(interaction, roleType) {
         break;
 
       case 'moderator':
-        // Add all selected roles as moderator roles
         for (const roleId of selectedRoles) {
           await database.addModeratorRole(interaction.guild.id, roleId);
         }
@@ -567,6 +573,14 @@ async function handleRoleSelection(interaction, roleType) {
         message = `✅ **Moderator roles set:** ${modRoleNames}\n\nThese roles can now moderate movies and sessions!`;
         break;
 
+      case 'voting':
+        for (const roleId of selectedRoles) {
+          await database.addVotingRole(interaction.guild.id, roleId);
+        }
+        success = true;
+        const votingRoleNames = selectedRoles.map(id => `<@&${id}>`).join(', ');
+        message = `✅ **Voting roles set:** ${votingRoleNames}\n\nMembers with these roles can vote and will be pinged for announcements.`;
+        break;
     }
 
     // Show the menu with success message embedded
@@ -637,6 +651,7 @@ module.exports = {
   showWatchPartyChannelSetup,
   showAdminRolesSetup,
   showModeratorRolesSetup,
+  showVotingRolesSetup,
 
   showSetupComplete,
   handleChannelSelection,

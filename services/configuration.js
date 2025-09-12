@@ -120,7 +120,7 @@ async function removeAdminRole(interaction, guildId) {
 
 async function setNotificationRole(interaction, guildId) {
   const dashboardUrl = 'https://movienight.bermanoc.net';
-  const msg = 'Notification Role is deprecated. The bot now pings your configured Voting role(s) for announcements. Please configure Voting role(s) in the dashboard.';
+  const msg = 'Notification Role is deprecated. The bot now pings your configured Voting Roles for announcements. Please configure Voting Roles in the dashboard.';
   if (interaction.isButton()) {
     await interaction.update({ content: `ℹ️ ${msg}\n\nDashboard: ${dashboardUrl}`, embeds: [], components: [] });
   } else {
@@ -174,7 +174,7 @@ async function viewSettings(interaction, guildId) {
           inline: false
         },
         {
-          name: '👥 Voting role(s) (used for announcements)',
+          name: '👥 Voting Roles (used for announcements)',
           value: (config.voting_roles && config.voting_roles.length > 0) ?
             `${config.voting_roles.map(id => `<@&${id}>`).join('\n')}\n*Also used for event announcement pings*` :
             'None configured\n*Only Admins/Moderators can vote; no announcement pings will be sent*',
@@ -420,6 +420,35 @@ async function configureAdminChannel(interaction, guildId) {
   }
 }
 
+async function configureVotingRoles(interaction, guildId) {
+  const cfg = await database.getGuildConfig(guildId).catch(() => null);
+  const count = cfg?.voting_roles?.length || 0;
+
+  const { ActionRowBuilder, ButtonBuilder, ButtonStyle, RoleSelectMenuBuilder, EmbedBuilder } = require('discord.js');
+  const embed = new EmbedBuilder()
+    .setTitle('👥 Voting Roles')
+    .setDescription('Select roles that are allowed to vote. These roles will also be pinged for announcements.')
+    .setColor(count > 0 ? 0x57F287 : 0x5865f2)
+    .addFields({ name: 'Currently configured', value: count > 0 ? `${count} role(s)` : 'None' });
+
+  const roleSelect = new ActionRowBuilder().addComponents(
+    new RoleSelectMenuBuilder()
+      .setCustomId('config_select_voting_roles')
+      .setPlaceholder('Select roles allowed to vote (also used for announcements)')
+      .setMaxValues(25)
+  );
+
+  const backRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('open_configuration').setLabel('⬅ Back').setStyle(ButtonStyle.Secondary)
+  );
+
+  if (interaction.isButton()) {
+    await interaction.update({ content: '⚙️ Configure: Voting Roles', embeds: [embed], components: [roleSelect, backRow] });
+  } else {
+    await interaction.reply({ content: '⚙️ Configure: Voting Roles', embeds: [embed], components: [roleSelect, backRow], flags: MessageFlags.Ephemeral });
+  }
+}
+
 module.exports = {
   configureMovieChannel,
   addAdminRole,
@@ -428,6 +457,7 @@ module.exports = {
   configureAdminChannel,
   viewSettings,
   resetConfiguration,
+  configureVotingRoles,
   // Vote caps config
   configureVoteCaps,
   setVoteCapsEnabled,

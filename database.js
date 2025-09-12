@@ -346,12 +346,9 @@ class Database {
     }
 
 
-    // Run migrations to ensure schema is up to date (can be disabled via env)
-    if (process.env.DB_MIGRATIONS_ENABLED === 'true') {
-      await this.runMigrations();
-    } else {
-      logger.info('⏭️ Database migrations disabled; skipping (set DB_MIGRATIONS_ENABLED=true to run)');
-    }
+    // Migrations are deprecated and permanently disabled to reduce startup noise and risk.
+    // If you really need them, run a past release that included migrations or execute SQL manually.
+    logger.info('⏭️ Database migrations are deprecated and skipped.');
     logger.info('✅ Database tables initialized');
   }
 
@@ -2520,6 +2517,76 @@ class Database {
       return false;
     }
   }
+
+
+  async addVotingRole(guildId, roleId) {
+    if (!this.isConnected) return false;
+
+    try {
+      const config = await this.getGuildConfig(guildId);
+      if (!config) return false;
+
+      if (!config.voting_roles) {
+        config.voting_roles = [];
+      }
+
+      if (!config.voting_roles.includes(roleId)) {
+        config.voting_roles.push(roleId);
+        await this.pool.execute(
+          `UPDATE guild_config SET voting_roles = ? WHERE guild_id = ?`,
+          [JSON.stringify(config.voting_roles), guildId]
+        );
+      }
+      return true;
+    } catch (error) {
+      const logger = require('./utils/logger');
+      logger.error('Error adding voting role:', error.message);
+      return false;
+    }
+  }
+
+  async removeVotingRole(guildId, roleId) {
+    if (!this.isConnected) return false;
+
+    try {
+      const config = await this.getGuildConfig(guildId);
+      if (!config) return false;
+
+      if (!config.voting_roles) {
+        config.voting_roles = [];
+      }
+
+      config.voting_roles = config.voting_roles.filter(id => id !== roleId);
+      await this.pool.execute(
+        `UPDATE guild_config SET voting_roles = ? WHERE guild_id = ?`,
+        [JSON.stringify(config.voting_roles), guildId]
+      );
+      return true;
+    } catch (error) {
+      const logger = require('./utils/logger');
+      logger.error('Error removing voting role:', error.message);
+      return false;
+    }
+  }
+
+  async setVotingRoles(guildId, roleIds) {
+    if (!this.isConnected) return false;
+
+    try {
+      // Normalize to array of unique strings
+      const unique = Array.from(new Set((roleIds || []).map(id => String(id))));
+      await this.pool.execute(
+        `UPDATE guild_config SET voting_roles = ? WHERE guild_id = ?`,
+        [JSON.stringify(unique), guildId]
+      );
+      return true;
+    } catch (error) {
+      const logger = require('./utils/logger');
+      logger.error('Error setting voting roles:', error.message);
+      return false;
+    }
+  }
+
 
   async resetGuildConfig(guildId) {
     if (!this.isConnected) return false;

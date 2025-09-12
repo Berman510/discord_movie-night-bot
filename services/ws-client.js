@@ -363,7 +363,7 @@ function initWebSocketClient(logger) {
             if (!client) return;
 
 
-            // Enforce Voting role(s) or Mod/Admin for dashboard-initiated votes
+            // Enforce Voting Roles or Mod/Admin for dashboard-initiated votes
             try {
               const guild = client.guilds.cache.get(String(guildId)) || await client.guilds.fetch(String(guildId)).catch(() => null);
               const member = await guild?.members?.fetch(String(actorId)).catch(() => null);
@@ -371,7 +371,7 @@ function initWebSocketClient(logger) {
               const { canMemberVote } = require('../services/permissions');
               const allowed = await canMemberVote(String(guildId), member);
               if (!allowed) {
-                logger?.debug?.(`[${guildId}] WS vote_movie denied: user ${actorId} lacks Voting role(s)/mod/admin`);
+                logger?.debug?.(`[${guildId}] WS vote_movie denied: user ${actorId} lacks Voting Roles/mod/admin`);
                 return;
               }
             } catch (permErr) {

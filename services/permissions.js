@@ -101,10 +101,10 @@ async function canMemberVote(guildId, member) {
     if (Array.isArray(config?.admin_roles) && config.admin_roles.some(id => userRoles.includes(id))) return true;
     if (Array.isArray(config?.moderator_roles) && config.moderator_roles.some(id => userRoles.includes(id))) return true;
 
-    // Voting role(s)
+    // Voting Roles
     const voterRoles = Array.isArray(config?.voting_roles) ? config.voting_roles.map(String).filter(Boolean) : [];
     if (voterRoles.length === 0) {
-      // Option B: enforce configuration; without configured Voting role(s), only mods/admins may vote
+      // Option B: enforce configuration; without configured Voting Roles, only mods/admins may vote
       return false;
     }
     return voterRoles.some(id => userRoles.includes(id));

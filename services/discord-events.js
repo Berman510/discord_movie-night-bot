@@ -245,13 +245,13 @@ async function deleteDiscordEvent(guild, eventId) {
 async function notifyRole(guild, event, sessionData) {
   try {
     const database = require('../database');
-    // Determine which roles to notify: use configured Voting role(s)
+    // Determine which roles to notify: use configured Voting Roles
     const guildConfig = await database.getGuildConfig(guild.id);
     const votingRoles = Array.isArray(guildConfig?.voting_roles) ? guildConfig.voting_roles : [];
     const notifyRoleIds = [...new Set(votingRoles.filter(Boolean))];
 
     if (notifyRoleIds.length === 0) {
-      console.log('No Voting role(s) configured for guild announcements');
+      console.log('No Voting Roles configured for guild announcements');
       return;
     }
 

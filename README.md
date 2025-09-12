@@ -14,7 +14,7 @@ A comprehensive Discord bot for managing movie recommendations, voting, and orga
    - Movie Channel (recommendations)
    - Admin Channel (management)
    - Watch Party Channel (Discord Events + attendance tracking)
-   - Voting role(s) and Vote Caps
+   - Voting Roles and Vote Caps
 3. Plan your first session with `/movienight-plan` (Name, Date, Start Time, optional Voting End, Description).
    - If you omit Voting End, it defaults to 1 hour before the session start.
 4. Members recommend via `/movienight`; everyone with permission can vote using the buttons on each movie post.
@@ -65,7 +65,7 @@ A comprehensive Discord bot for managing movie recommendations, voting, and orga
 - **Watch Party Channels**: Configurable channels for Discord events (Voice, Stage, or Text channels)
 - **Admin Roles**: Role-based permission system with comprehensive admin controls
 - **Timezone Settings**: Server-wide timezone configuration with automatic voting closure
-- **Voting role(s)**: Controls who can vote and who gets pinged for movie night events (Discord event integration)
+- **Voting Roles**: Controls who can vote and who gets pinged for movie night events (Discord event integration)
 - **Time Formats**: User-friendly 12-hour or 24-hour time formats and US date format (MM/DD/YYYY)
 
 ---
@@ -158,7 +158,7 @@ All commands use the unified movienight prefix:
     - Movie Channel (recommendations)
     - Admin Channel (management panel)
     - Watch Party Channel (Discord Events + attendance tracking)
-    - Voting role(s) and Vote Caps
+    - Voting Roles and Vote Caps
   - Mirrors the Dashboard’s Configure Bot sections.
 
 - /movienight-plan
@@ -367,7 +367,7 @@ pm2 startup  # follow the printed instructions
 - **Watch Party Channel(s):** Configure channels for Discord events (Voice, Stage, or Text channels)
 - **Timezone Management:** `/movienight-configure set-timezone` with automatic voting closure support
 - **Admin Roles:** `/movienight-configure admin-roles add @role` and `... remove @role` for comprehensive admin access
-- **Voting role(s):** Configure which roles can vote; these roles are also used for Discord event notifications and session announcements
+- **Voting Roles:** Configure which roles can vote; these roles are also used for Discord event notifications and session announcements
 - **View Settings:** `/movienight-configure view-settings` shows all current configuration including new features
 
 ### Logging Configuration

@@ -33,7 +33,7 @@ async function handleButton(interaction) {
   try {
     // Movie voting buttons
     if (ns === 'mn' && (action === 'up' || action === 'down')) {
-      // Voting is role-gated: Admins/Moderators or users with configured Voting role(s)
+      // Voting is role-gated: Admins/Moderators or users with configured Voting Roles
       const allowed = await permissions.checkCanVote(interaction);
       if (!allowed) {
         await interaction.reply({ content: '❌ You need a Voting role (or Moderator/Admin) to vote.', flags: MessageFlags.Ephemeral });
@@ -2604,10 +2604,7 @@ async function handleConfigurationAction(interaction, customId) {
         });
         break;
       case 'voting_roles':
-        await interaction.reply({
-          content: '👥 Voting role(s) are configured on the Dashboard under Administration → Configure Bot. These roles control who can vote and who is pinged for announcements.',
-          flags: MessageFlags.Ephemeral
-        });
+        await configuration.configureVotingRoles(interaction, interaction.guild.id);
         break;
       case 'vote_caps':
         await configuration.configureVoteCaps(interaction, interaction.guild.id);
@@ -2624,6 +2621,11 @@ async function handleConfigurationAction(interaction, customId) {
       case 'vote_caps_set':
         await configuration.openVoteCapsModal(interaction, interaction.guild.id);
         break;
+      case 'show_guide': {
+        const setupGuide = require('../services/setup-guide');
+        await setupGuide.showSetupGuide(interaction);
+        break;
+      }
       default:
         await interaction.reply({
           content: `❌ Unknown configuration action: ${action}`,
@@ -2672,6 +2674,33 @@ async function handleGuidedSetupButton(interaction, customId) {
       await guidedSetup.showWatchPartyChannelSetup(interaction);
       break;
 
+    // Setup Guide buttons
+    case 'setup_channels': {
+      const setupGuide = require('../services/setup-guide');
+      await setupGuide.showChannelSetup(interaction);
+      break;
+    }
+    case 'setup_roles': {
+      const setupGuide = require('../services/setup-guide');
+      await setupGuide.showRoleSetup(interaction);
+      break;
+    }
+    case 'setup_permissions': {
+      const setupGuide = require('../services/setup-guide');
+      await setupGuide.showPermissionSetup(interaction);
+      break;
+    }
+    case 'setup_configuration': {
+      const setupGuide = require('../services/setup-guide');
+      await setupGuide.showConfigurationSetup(interaction);
+      break;
+    }
+    case 'setup_guide_back': {
+      const setupGuide = require('../services/setup-guide');
+      await setupGuide.showSetupGuide(interaction);
+      break;
+    }
+
     case 'setup_admin_roles':
       await guidedSetup.showAdminRolesSetup(interaction);
       break;
@@ -2680,6 +2709,9 @@ async function handleGuidedSetupButton(interaction, customId) {
       await guidedSetup.showModeratorRolesSetup(interaction);
       break;
 
+    case 'setup_voting_roles':
+      await guidedSetup.showVotingRolesSetup(interaction);
+      break;
 
     case 'setup_skip_admin_roles':
       const database = require('../database');

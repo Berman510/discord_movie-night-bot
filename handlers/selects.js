@@ -61,6 +61,18 @@ async function handleSelect(interaction) {
       await configuration.configureWatchPartyChannel(mockInteraction, interaction.guild.id);
       return;
     }
+    if (customId === 'config_select_voting_roles') {
+      const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+      const roleIds = interaction.values;
+      await database.setVotingRoles(interaction.guild.id, roleIds);
+      const names = roleIds.map(id => `<@&${id}>`).join(', ');
+      const back = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('open_configuration').setLabel('⬅ Back').setStyle(ButtonStyle.Secondary)
+      );
+      await interaction.update({ content: `✅ Voting roles set: ${names || 'None'}`, embeds: [], components: [back] });
+      return;
+    }
+
 
 
     // Timezone selection for session creation
@@ -396,9 +408,9 @@ async function showSessionDetailsModal(interaction, state) {
 async function handleConfigTimezoneSelection(interaction) {
   const selectedTimezone = interaction.values[0];
   const timezoneName = TIMEZONE_OPTIONS.find(tz => tz.value === selectedTimezone)?.label || selectedTimezone;
-  
+
   const success = await database.setGuildTimezone(interaction.guild.id, selectedTimezone);
-  
+
   if (success) {
     await interaction.update({
       content: `🌍 **Timezone Updated!**\n\nDefault timezone set to **${timezoneName}**\n\nThis will be used for movie sessions when users don't specify a timezone.`,
@@ -417,7 +429,7 @@ async function handleConfigTimezoneSelection(interaction) {
 async function handleImdbSelection(interaction) {
   // TODO: Move IMDb selection logic here
   console.log(`IMDb selection: ${interaction.values[0]}`);
-  
+
   await interaction.reply({
     content: 'IMDb selection processed.',
     flags: MessageFlags.Ephemeral
@@ -449,8 +461,13 @@ async function handleGuidedSetupSelect(interaction, customId) {
       await guidedSetup.handleRoleSelection(interaction, 'moderator');
       break;
 
+    case 'setup_select_voting_roles':
+      await guidedSetup.handleRoleSelection(interaction, 'voting');
+      break;
+
+    // Back-compat alias (old ID)
     case 'setup_select_notification_role':
-      await guidedSetup.handleRoleSelection(interaction, 'notification');
+      await guidedSetup.handleRoleSelection(interaction, 'voting');
       break;
 
     default:
