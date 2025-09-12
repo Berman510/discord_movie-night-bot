@@ -42,8 +42,8 @@ async function checkConfiguration(guildId) {
     if (!config.session_viewing_channel_id) {
       missingItems.push('Session viewing channel');
     }
-    if (!config.notification_role_id) {
-      missingItems.push('Notification role');
+    if (!config.viewer_roles || config.viewer_roles.length === 0) {
+      missingItems.push('Voting role(s)');
     }
     if (!config.admin_roles || config.admin_roles.length === 0) {
       missingItems.push('Admin roles');
@@ -161,7 +161,7 @@ async function handleConfigurationButton(interaction) {
     .addComponents(
       new ButtonBuilder()
         .setCustomId('config_notification_role')
-        .setLabel('🔔 Set Notification Role')
+        .setLabel('👥 Voting role(s) (info)')
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId('config_admin_roles')

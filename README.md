@@ -51,7 +51,7 @@ A comprehensive Discord bot for managing movie recommendations, voting, and orga
 - **Session Viewing Channels**: Configurable channels for Discord events (Voice, Stage, or Text channels)
 - **Admin Roles**: Role-based permission system with comprehensive admin controls
 - **Timezone Settings**: Server-wide timezone configuration with automatic voting closure
-- **Notification Roles**: Ping roles for movie night events with Discord event integration
+- **Voting role(s)**: Controls who can vote and who gets pinged for movie night events (Discord event integration)
 - **Time Formats**: User-friendly 12-hour or 24-hour time formats and US date format (MM/DD/YYYY)
 
 ---
@@ -370,7 +370,7 @@ pm2 startup  # follow the printed instructions
 - **Session Viewing Channels:** Configure channels for Discord events (Voice, Stage, or Text channels)
 - **Timezone Management:** `/movie-configure set-timezone` with automatic voting closure support
 - **Admin Roles:** `/movie-configure add-admin-role @role` for comprehensive admin access
-- **Notification Roles:** Configure roles for Discord event notifications and session announcements
+- **Voting role(s):** Configure which roles can vote; these roles are also used for Discord event notifications and session announcements
 - **View Settings:** `/movie-configure view-settings` shows all current configuration including new features
 
 ### Logging Configuration
