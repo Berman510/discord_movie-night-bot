@@ -33,6 +33,12 @@ async function handleButton(interaction) {
   try {
     // Movie voting buttons
     if (ns === 'mn' && (action === 'up' || action === 'down')) {
+      // Voting is role-gated: Admins/Moderators or users with configured Voting role(s)
+      const allowed = await permissions.checkCanVote(interaction);
+      if (!allowed) {
+        await interaction.reply({ content: '❌ You need a Voting role (or Moderator/Admin) to vote.', flags: MessageFlags.Ephemeral });
+        return;
+      }
       const { votes } = require('../utils/constants');
       await handleVoting(interaction, action, msgId, votes);
       return;

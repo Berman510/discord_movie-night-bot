@@ -13,7 +13,7 @@ const database = require('../database');
 async function startGuidedSetup(interaction) {
   const embed = new EmbedBuilder()
     .setTitle('🎬 Movie Night Bot - Quick Setup')
-    .setDescription(`Welcome! Let's get your Movie Night Bot configured in just a few steps.\n\n**What we'll set up:**\n• 📺 Voting channel (where movies are recommended)\n• 🔧 Admin channel (for bot management)\n• 🎤 Viewing channel (where you watch movies)\n• 👑 Admin roles (who can manage the bot)\n• 🔔 Viewer role (gets pinged for events)\n\n**Note:** The bot already has its own "${interaction.client.user.displayName}" role with required permissions.\n\n**Prefer a browser?** Manage the bot (minus voting) from the dashboard: https://movienight.bermanoc.net`)
+    .setDescription(`Welcome! Let's get your Movie Night Bot configured in just a few steps.\n\n**What we'll set up:**\n• 📺 Voting channel (where movies are recommended)\n• 🔧 Admin channel (for bot management)\n• 🎤 Viewing channel (where you watch movies)\n• 👑 Admin roles (who can manage the bot)\n• 🔔 Notification role (ping role for events)\n\n**Note:** The bot already has its own "${interaction.client.user.displayName}" role with required permissions.\n\n**Prefer a browser?** Manage the bot (minus voting) from the dashboard: https://movienight.bermanoc.net`)
     .setColor(0x5865f2)
     .setFooter({ text: 'This setup takes about 2 minutes' });
 
@@ -87,7 +87,7 @@ async function showSetupMenuWithMessage(interaction, currentConfig = null, succe
         inline: true
       },
       {
-        name: `${currentConfig.notification_role_id ? '✅' : '❌'} Viewer Role`,
+        name: `${currentConfig.notification_role_id ? '✅' : '❌'} Notification Role`,
         value: currentConfig.notification_role_id ? `<@&${currentConfig.notification_role_id}>` : 'Not configured',
         inline: true
       }
@@ -121,7 +121,7 @@ async function showSetupMenuWithMessage(interaction, currentConfig = null, succe
         .setStyle(currentConfig.moderator_roles?.length > 0 ? ButtonStyle.Success : ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId('setup_notification_role')
-        .setLabel('🔔 Viewer Role')
+        .setLabel('🔔 Notification Role')
         .setStyle(currentConfig.notification_role_id ? ButtonStyle.Success : ButtonStyle.Secondary)
     );
 
@@ -322,8 +322,8 @@ async function showModeratorRolesSetup(interaction) {
  */
 async function showNotificationRoleSetup(interaction) {
   const embed = new EmbedBuilder()
-    .setTitle('🔔 Set Viewer Role')
-    .setDescription('Choose a role to ping when movie sessions are scheduled.\n\n**What This Role Gets:**\n• Notifications when new movie sessions are created\n• Pings for upcoming movie nights\n• Access to participate in voting and sessions\n\n**Suggested Names:** @Movie Viewers, @Movie Night, @Cinema Club\n\n**Optional:** You can skip this if you don\'t want role notifications.')
+    .setTitle('🔔 Set Notification Role')
+    .setDescription('Choose a role to ping when movie sessions are scheduled.\n\n**What This Role Gets:**\n• Notifications when new movie sessions are created\n• Pings for upcoming movie nights\n\n**Suggested Names:** @Movie Night Alerts, @Movie Night, @Cinema Club\n\n**Optional:** You can skip this if you don\'t want role notifications.')
     .setColor(0x5865f2);
 
   const roleSelect = new ActionRowBuilder()

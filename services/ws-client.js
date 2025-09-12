@@ -362,6 +362,23 @@ function initWebSocketClient(logger) {
             const client = global.discordClient;
             if (!client) return;
 
+
+            // Enforce Voting role(s) or Mod/Admin for dashboard-initiated votes
+            try {
+              const guild = client.guilds.cache.get(String(guildId)) || await client.guilds.fetch(String(guildId)).catch(() => null);
+              const member = await guild?.members?.fetch(String(actorId)).catch(() => null);
+              if (!member) return;
+              const { canMemberVote } = require('../services/permissions');
+              const allowed = await canMemberVote(String(guildId), member);
+              if (!allowed) {
+                logger?.debug?.(`[${guildId}] WS vote_movie denied: user ${actorId} lacks Voting role(s)/mod/admin`);
+                return;
+              }
+            } catch (permErr) {
+              logger?.warn?.(`[${guildId}] WS vote_movie: permission check failed: ${permErr?.message || permErr}`);
+              return;
+            }
+
             const database = require('../database');
             const forumChannels = require('./forum-channels');
             const { embeds, components } = require('../utils');

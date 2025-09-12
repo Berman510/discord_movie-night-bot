@@ -4,6 +4,15 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 
 
 
+## [1.14.3-rc1] - 2025-09-12
+### Changed
+- Enforce Voting role(s) on votes: Discord button clicks and dashboard WS `vote_movie` now require Voting role(s) or Moderator/Admin
+- Behavior when no Voting role(s) configured: only Admins/Moderators can vote (strict enforcement)
+- "Manage Server" permission counts as implicit Admin for permission checks
+- Copy: ephemeral messages and logs updated to say "Voting role(s)"
+- Guided Setup: corrected labels/copy for Notification Role (no longer called "Viewer Role"); avoids implying voting access
+
+
 
 ## [1.14.2-rc1] - 2025-09-11
 ### Added
