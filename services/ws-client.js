@@ -509,7 +509,9 @@ function initWebSocketClient(logger) {
             if (!client) return;
 
             const database = require('../database');
+            const adminControls = require('./admin-controls');
             const forumChannels = require('./forum-channels');
+            const { ensureQuickActionAtBottom } = require('./cleanup');
             const { embeds, components } = require('../utils');
 
             try {
@@ -539,9 +541,7 @@ function initWebSocketClient(logger) {
               const movie = await database.getMovieBySessionId(sessionId).catch(() => null);
 
               // Update DB: mark session cancelled and clear movie association/status
-              try {
-                await database.updateSessionStatus(sessionId, 'cancelled');
-              } catch (_) {}
+              try { await database.updateSessionStatus(sessionId, 'cancelled'); } catch (_) {}
 
               if (movie && movie.message_id) {
                 try { await database.updateMovieStatus(movie.message_id, 'planned'); } catch (_) {}
@@ -581,6 +581,24 @@ function initWebSocketClient(logger) {
 
               // Delete session record
               try { await database.deleteMovieSession(sessionId); } catch (_) {}
+
+              // Ensure channel UX reflects "no active session" and refresh admin panel
+              try {
+                const cfg = await database.getGuildConfig(guildId).catch(() => null);
+                const voteChannelId = cfg?.voting_channel_id || cfg?.movie_channel_id;
+                if (voteChannelId) {
+                  const voteChannel = await client.channels.fetch(String(voteChannelId)).catch(() => null);
+                  if (voteChannel) {
+                    if (forumChannels.isForumChannel(voteChannel)) {
+                      await forumChannels.ensureRecommendationPost(voteChannel, null);
+                    } else {
+                      await ensureQuickActionAtBottom(voteChannel);
+                    }
+                  }
+                }
+              } catch (_) { /* non-fatal */ }
+
+              try { await adminControls.ensureAdminControlPanel(client, guildId); } catch (_) {}
             } catch (e) {
               logger?.warn?.(`[${guildId}] WS cancel_session error (sessionId=${sessionId}):`, e?.message || e);
             }
