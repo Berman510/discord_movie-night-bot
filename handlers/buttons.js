@@ -1562,6 +1562,13 @@ async function handlePickWinner(interaction, guildId, movieId) {
               console.warn('Error parsing IMDb data:', error);
             }
           }
+          // Fallback to cache/live fetch if no embedded data
+          if (!imdbData && movie.imdb_id) {
+            try {
+              const imdbSvc = require('../services/imdb');
+              imdbData = await imdbSvc.getMovieDetailsCached(movie.imdb_id) || await imdbSvc.getMovieDetails(movie.imdb_id);
+            } catch (_) {}
+          }
 
           // Build description with event link if available
           let winnerDescription = `**${movie.title}** has been selected for our next movie night!`;
@@ -1656,7 +1663,14 @@ async function handlePickWinner(interaction, guildId, movieId) {
           const totalScore = upVotes - downVotes;
 
           // Get movie details for event update (cached)
-          const imdbData = movie.imdb_id ? await require('../services/imdb').getMovieDetailsCached(movie.imdb_id) : null;
+          let imdbData = null;
+          if (movie.imdb_id) {
+            const imdbSvc = require('../services/imdb');
+            imdbData = await imdbSvc.getMovieDetailsCached(movie.imdb_id);
+            if (!imdbData) {
+              try { imdbData = await imdbSvc.getMovieDetails(movie.imdb_id); } catch (_) {}
+            }
+          }
 
           let updatedDescription = `🏆 **WINNER SELECTED: ${movie.title}**\n\n`;
           let posterBuffer = null;
@@ -1943,7 +1957,14 @@ async function handleChooseWinner(interaction, guildId, movieId) {
             const imdb = require('../services/imdb');
             let imdbData = null;
             if (movie.imdb_id) {
-              try { imdbData = await imdb.getMovieDetailsCached(movie.imdb_id); } catch {}
+              try {
+                imdbData = await imdb.getMovieDetailsCached(movie.imdb_id);
+                if (!imdbData) {
+                  imdbData = await imdb.getMovieDetails(movie.imdb_id);
+                }
+              } catch (_) {}
+            } else if (movie.imdb_data) {
+              try { imdbData = typeof movie.imdb_data === 'string' ? JSON.parse(movie.imdb_data) : movie.imdb_data; } catch (_) {}
             }
             const winnerEmbed = new EmbedBuilder()
               .setTitle('🏆 Movie Night Winner Announced!')
