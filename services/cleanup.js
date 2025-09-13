@@ -187,12 +187,6 @@ async function handleCleanupSync(interaction, movieChannel) {
     } catch (_) {}
     cleanedDbCount += recreatedViaHelper;
 
-          console.log(`🎬 Recreated missing post: ${movie.title}`);
-        } catch (error) {
-          console.error(`Error recreating post for ${movie.title}:`, error.message);
-        }
-      }
-    }
 
     // Step 6: Check for movies with posts but missing threads
     await recreateMissingThreads(channel, botMessages);
