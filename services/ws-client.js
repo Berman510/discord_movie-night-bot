@@ -635,6 +635,25 @@ function initWebSocketClient(logger) {
                 try { await sessionScheduler.scheduleVotingEnd(sessionId, votingEnd); } catch (_) {}
               }
 
+              // Ensure recommendation/quick-action post in the voting channel so UX matches bot-created sessions
+              try {
+                const cfg = await database.getGuildConfig(guildId).catch(() => null);
+                const voteChannelId = cfg?.voting_channel_id || cfg?.movie_channel_id;
+                if (voteChannelId) {
+                  const voteChannel = await client.channels.fetch(String(voteChannelId)).catch(() => null);
+                  if (voteChannel) {
+                    const forumChannels = require('./forum-channels');
+                    if (forumChannels.isForumChannel(voteChannel)) {
+                      const activeSession = { id: sessionId, name: sessionName, status: 'active', voting_end_time: votingEnd ? votingEnd.toISOString() : null };
+                      await forumChannels.ensureRecommendationPost(voteChannel, activeSession);
+                    } else {
+                      const cleanup = require('./cleanup');
+                      await cleanup.ensureQuickActionAtBottom(voteChannel);
+                    }
+                  }
+                }
+              } catch (_) { /* non-fatal */ }
+
               // Refresh admin panel
               try { await adminControls.ensureAdminControlPanel(client, guildId); } catch (_) {}
             } catch (e) {
@@ -669,17 +688,14 @@ function initWebSocketClient(logger) {
               const scheduledDate = (typeof startTs === 'number') ? new Date(Number(startTs)) : (session.scheduled_date ? new Date(session.scheduled_date) : null);
               const votingEnd = (typeof votingEndTs !== 'undefined') ? (votingEndTs ? new Date(Number(votingEndTs)) : null) : (session.voting_end_time ? new Date(session.voting_end_time) : null);
 
-              // Auto-sync name to date/time when name is not explicitly provided
+              // Name policy: avoid embedding date/time in title; keep it short and let description show time
               let newName;
               if (typeof name === 'string' && name.trim().length > 0) {
-                newName = name;
-              } else if (scheduledDate) {
-                const tz = session.timezone || 'UTC';
-                const datePart = scheduledDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: tz });
-                const timePart = scheduledDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: tz });
-                newName = `Movie Night - ${datePart} @ ${timePart}`;
+                newName = name.trim();
+              } else if (session && session.name && session.name.trim().length > 0) {
+                newName = session.name.trim();
               } else {
-                newName = session.name;
+                newName = 'Movie Night';
               }
 
               const newDesc = (typeof description !== 'undefined') ? description : session.description;
@@ -714,14 +730,19 @@ function initWebSocketClient(logger) {
                 const voteChannelId = cfg?.voting_channel_id || cfg?.movie_channel_id;
                 if (voteChannelId) {
                   const voteChannel = await client.channels.fetch(String(voteChannelId)).catch(() => null);
-                  if (voteChannel && forumChannels.isForumChannel(voteChannel)) {
-                    const updatedActiveSession = {
-                      id: sessionId,
-                      name: newName,
-                      status: 'active',
-                      voting_end_time: votingEnd ? new Date(votingEnd).toISOString() : (session.voting_end_time || null)
-                    };
-                    await forumChannels.ensureRecommendationPost(voteChannel, updatedActiveSession);
+                  if (voteChannel) {
+                    if (forumChannels.isForumChannel(voteChannel)) {
+                      const updatedActiveSession = {
+                        id: sessionId,
+                        name: newName,
+                        status: 'active',
+                        voting_end_time: votingEnd ? new Date(votingEnd).toISOString() : (session.voting_end_time || null)
+                      };
+                      await forumChannels.ensureRecommendationPost(voteChannel, updatedActiveSession);
+                    } else {
+                      const cleanup = require('./cleanup');
+                      await cleanup.ensureQuickActionAtBottom(voteChannel);
+                    }
                   }
                 }
               } catch (_) { /* non-fatal */ }

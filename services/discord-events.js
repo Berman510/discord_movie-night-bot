@@ -53,6 +53,12 @@ async function createDiscordEvent(guild, sessionData, scheduledDate) {
       enhancedDescription += `\n⏰ **Time remaining:** <t:${votingEndTimestamp}:R>`;
     }
 
+    // Add the session start using Discord timestamps (shows local time per user)
+    if (scheduledDate) {
+      const startTs = Math.floor(new Date(scheduledDate).getTime() / 1000);
+      enhancedDescription += `\n\n🎟️ **Session starts:** <t:${startTs}:F> (<t:${startTs}:R>)`;
+    }
+
     // Add voting channel link and CTA if available
     if (config && config.movie_channel_id) {
       enhancedDescription += `\n📺 **Vote in:** <#${config.movie_channel_id}>`;
@@ -77,9 +83,8 @@ async function createDiscordEvent(guild, sessionData, scheduledDate) {
     // Note: We no longer include a SESSION_UID in the description because we track event IDs in the database
 
     // Determine event type and location
-    const startTimeStr = new Date(scheduledDate).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
     let eventConfig = {
-      name: `🎬 ${sessionData.name} @ ${startTimeStr}`,
+      name: `🎬 ${sessionData.name}`,
       description: enhancedDescription,
       scheduledStartTime: scheduledDate,
       scheduledEndTime: endTime,
@@ -211,7 +216,7 @@ async function updateDiscordEvent(guild, eventId, sessionData, scheduledDate) {
     }
     const startTimeStr2 = effectiveStart ? new Date(effectiveStart).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'TBD';
     await event.edit({
-      name: `🎬 ${sessionData.name} @ ${startTimeStr2}`,
+      name: `🎬 ${sessionData.name}`,
       description: enhancedDescription,
       scheduledStartTime: effectiveStart || event.scheduledStartAt,
       scheduledEndTime: newEnd
