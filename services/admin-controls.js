@@ -1047,6 +1047,86 @@ async function populateForumChannel(client, guildId) {
   }
 }
 
+/**
+ * Backfill thread_id for forum movies by matching starter messages in threads to movies.message_id
+ */
+async function backfillForumThreadIds(client, guildId) {
+  try {
+    const config = await database.getGuildConfig(guildId);
+    if (!config || !config.movie_channel_id) {
+      return { backfilled: 0, error: 'No movie channel configured' };
+    }
+
+    const votingChannel = await client.channels.fetch(config.movie_channel_id).catch(() => null);
+    if (!votingChannel) {
+      return { backfilled: 0, error: 'Movie channel not found' };
+    }
+
+    const forumChannels = require('./forum-channels');
+    if (!forumChannels.isForumChannel(votingChannel)) {
+      return { backfilled: 0, error: 'Channel is not a forum channel' };
+    }
+
+    // Collect threads: active + archived
+    const map = new Map(); // starterMessageId -> threadId
+
+    try {
+      const active = await votingChannel.threads.fetchActive();
+      const threadsCol = active?.threads || active?.threads?.size >= 0 ? active.threads : active;
+      if (threadsCol && typeof threadsCol.forEach === 'function') {
+        threadsCol.forEach(t => map.set(t.id + ':pending', t)); // temp store threads
+      }
+    } catch (_) {}
+
+    try {
+      // archived forum threads (public)
+      const archived = await votingChannel.threads.fetchArchived({ limit: 100 }).catch(() => null);
+      const threadsColA = archived?.threads || archived;
+      if (threadsColA && typeof threadsColA.forEach === 'function') {
+        threadsColA.forEach(t => map.set(t.id + ':archived', t));
+      }
+    } catch (_) {}
+
+    // Resolve starter messages and invert map to starterMessageId -> threadId
+    const entries = Array.from(map.values());
+    map.clear();
+
+    let examined = 0;
+    for (const thread of entries) {
+      try {
+        const starter = await thread.fetchStarterMessage();
+        if (starter?.id) {
+          map.set(starter.id, thread.id);
+        }
+      } catch (_) {}
+      examined++;
+      if (examined >= 1000) break; // hard cap safety
+    }
+
+    if (map.size === 0) {
+      return { backfilled: 0, error: null };
+    }
+
+    // For each starter message id, see if there's a forum movie missing thread_id and update it
+    let backfilled = 0;
+    for (const [messageId, threadId] of map.entries()) {
+      try {
+        const movie = await database.getMovieByMessageId(messageId, guildId);
+        if (!movie) continue;
+        if (movie.channel_type === 'forum' && !movie.thread_id) {
+          const ok = await database.updateMovieThreadId(messageId, threadId);
+          if (ok) backfilled++;
+        }
+      } catch (_) {}
+    }
+
+    return { backfilled, error: null };
+  } catch (error) {
+    console.error('Error backfilling forum thread_ids:', error);
+    return { backfilled: 0, error: error.message };
+  }
+}
+
 module.exports = {
   createAdminControlEmbed,
   createAdminControlButtons,
@@ -1060,5 +1140,6 @@ module.exports = {
   handleBannedMoviesList,
   handleRefreshPanel,
   syncForumMoviePost,
-  populateForumChannel
+  populateForumChannel,
+  backfillForumThreadIds
 };

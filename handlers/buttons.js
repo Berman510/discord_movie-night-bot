@@ -2160,6 +2160,19 @@ async function handleAdminControlButtons(interaction, customId) {
       case 'admin_ctrl_populate_forum':
         await handlePopulateForumChannel(interaction);
         break;
+      case 'admin_ctrl_backfill_threads':
+        try {
+          await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+          const result = await adminControls.backfillForumThreadIds(interaction.client, interaction.guild.id);
+          if (result.error) {
+            await interaction.editReply({ content: `❌ Backfill failed: ${result.error}` });
+          } else {
+            await interaction.editReply({ content: `✅ Backfill complete. Updated ${result.backfilled} movie(s).` });
+          }
+        } catch (e) {
+          await interaction.editReply({ content: '❌ Error during backfill.' }).catch(()=>{});
+        }
+        break;
       case 'admin_ctrl_cancel_session':
         await handleCancelSession(interaction);
         break;
@@ -2986,6 +2999,10 @@ async function handleAdministrationPanel(interaction) {
         .setCustomId('admin_ctrl_stats')
         .setLabel('📊 Guild Stats')
         .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId('admin_ctrl_backfill_threads')
+        .setLabel('🧵 Backfill Threads')
+        .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId('admin_ctrl_back_to_moderation')
         .setLabel('🔙 Back to Moderation')
