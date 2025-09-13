@@ -5,6 +5,19 @@
 
 const { GuildScheduledEventEntityType, GuildScheduledEventPrivacyLevel } = require('discord.js');
 
+// Ensure event titles never include date/time (Discord doesn’t localize titles)
+function buildEventTitle(sessionData) {
+  try {
+    const raw = String(sessionData?.name || 'Movie Night');
+    // Keep at most the base and optional movie title segments: "Base - Movie - Date, Time" -> "Base - Movie"
+    const chunks = raw.split(' - ').slice(0, 2);
+    const clean = chunks.join(' - ') || 'Movie Night';
+    return `🎬 ${clean}`;
+  } catch (_) {
+    return '🎬 Movie Night';
+  }
+}
+
 async function createDiscordEvent(guild, sessionData, scheduledDate) {
   if (!scheduledDate) return null;
 
@@ -83,7 +96,7 @@ async function createDiscordEvent(guild, sessionData, scheduledDate) {
 
     // Determine event type and location
     let eventConfig = {
-      name: `🎬 ${sessionData.name}`,
+      name: buildEventTitle(sessionData),
       description: enhancedDescription,
       scheduledStartTime: scheduledDate,
       scheduledEndTime: endTime,
@@ -215,7 +228,7 @@ async function updateDiscordEvent(guild, eventId, sessionData, scheduledDate) {
     }
     const startTimeStr2 = effectiveStart ? new Date(effectiveStart).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'TBD';
     await event.edit({
-      name: `🎬 ${sessionData.name}`,
+      name: buildEventTitle(sessionData),
       description: enhancedDescription,
       scheduledStartTime: effectiveStart || event.scheduledStartAt,
       scheduledEndTime: newEnd
