@@ -71,6 +71,9 @@ async function createTextMovieRecommendation(interaction, movieData, channel) {
     if (imdbId) {
       const imdb = require('./imdb');
       imdbData = await imdb.getMovieDetailsCached(imdbId);
+      if (!imdbData) {
+        try { imdbData = await imdb.getMovieDetails(imdbId); } catch (_) {}
+      }
     }
   } catch (_) {}
 
@@ -155,6 +158,9 @@ async function createForumMovieRecommendation(interaction, movieData, channel) {
     if (imdbId) {
       const imdb = require('./imdb');
       imdbData = await imdb.getMovieDetailsCached(imdbId);
+      if (!imdbData) {
+        try { imdbData = await imdb.getMovieDetails(imdbId); } catch (_) {}
+      }
     }
   } catch (_) {}
 

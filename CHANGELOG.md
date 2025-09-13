@@ -5,6 +5,15 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 
 
 
+
+## [1.14.3-rc7] - 2025-09-13
+### Fixed/Changed
+- IMDb display fallback: if imdb_cache is empty, fall back to stored movie.imdb_data or perform a one-time live OMDb fetch for display only. Applies to:
+  - Text post embeds and discussion thread details at creation
+  - Winner announcements (text and forum)
+  - Discord Scheduled Event updates after winner selection
+- Sync Channels safety: avoids reviving concluded sessions by only recreating missing movie posts when an active voting session exists, and only re-adding voting buttons when a session is active.
+
 ## [1.14.3-rc6] - 2025-09-13
 ### Changed
 - IMDb normalization (bot-side): all reads now pull from imdb_cache only; no fallback to movies.imdb_data. Future DB can omit imdb_data entirely.
