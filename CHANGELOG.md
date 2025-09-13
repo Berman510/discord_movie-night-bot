@@ -6,6 +6,12 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 
 
 
+## [1.14.3-rc12] - 2025-09-13
+### Fixed/Changed
+- Discord Events: strengthen title sanitization to robustly strip date/time words (days, months, 24h/12h times, 4-digit years). Keeps optional movie title segment only when not date-like; otherwise falls back to base title.
+- Applies to both event creation and update paths via unified buildEventTitle().
+
+
 ## [1.14.3-rc11] - 2025-09-13
 ### Fixed/Changed
 - Discord Events: event titles are now guaranteed to never include date/time, even if the session name contains them. Times are shown in the description using localized Discord timestamps instead.

@@ -9,10 +9,16 @@ const { GuildScheduledEventEntityType, GuildScheduledEventPrivacyLevel } = requi
 function buildEventTitle(sessionData) {
   try {
     const raw = String(sessionData?.name || 'Movie Night');
-    // Keep at most the base and optional movie title segments: "Base - Movie - Date, Time" -> "Base - Movie"
-    const chunks = raw.split(' - ').slice(0, 2);
-    const clean = chunks.join(' - ') || 'Movie Night';
-    return `🎬 ${clean}`;
+    const chunks = raw.split(' - ').map(s => s.trim()).filter(Boolean);
+
+    const isDateLike = (s) => /(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec|\b\d{1,2}:\d{2}\b|\b\d{4}\b|am|pm)/i.test(s);
+
+    let keep;
+    if (chunks.length === 0) keep = 'Movie Night';
+    else if (chunks.length === 1) keep = chunks[0];
+    else keep = isDateLike(chunks[1]) ? chunks[0] : `${chunks[0]} - ${chunks[1]}`;
+
+    return `🎬 ${keep || 'Movie Night'}`;
   } catch (_) {
     return '🎬 Movie Night';
   }
