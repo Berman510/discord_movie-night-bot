@@ -36,6 +36,14 @@ async function createAdminControlEmbed(guildName, guildId) {
     console.warn('Error getting channel info for admin panel:', error.message);
   }
 
+  // WS status display
+  let wsText = 'WS: disabled';
+  try {
+    const { getStatus } = require('../services/ws-client');
+    const s = typeof getStatus === 'function' ? getStatus() : null;
+    if (s) wsText = `WS: ${s.connected ? 'Connected' : 'Disconnected'}`;
+  } catch (_) {}
+
   embed.addFields(
     {
       name: '📋 Quick Actions',
@@ -57,7 +65,7 @@ async function createAdminControlEmbed(guildName, guildId) {
     },
     {
       name: '⚡ Status',
-      value: 'Control panel active and ready for use.',
+      value: `Control panel active and ready for use. • ${wsText}`,
       inline: false
     }
   )
@@ -460,21 +468,10 @@ async function handleSyncChannel(interaction) {
     let votingSynced = 0;
     const errors = [];
 
-    // Sync admin channel if configured
-    if (config.admin_channel_id) {
-      try {
-        const adminMirror = require('./admin-mirror');
-        const adminResult = await adminMirror.syncAdminChannel(interaction.client, interaction.guild.id);
-
-        if (adminResult.error) {
-          errors.push(`Admin channel: ${adminResult.error}`);
-        } else {
-          adminSynced = adminResult.synced;
-        }
-      } catch (error) {
-        errors.push(`Admin channel: ${error.message}`);
-      }
-    }
+    // Admin channel mirror is intentionally NOT refreshed by Sync Channels to avoid disrupting
+    // ongoing admin interactions (Pick Winner, Remove, Ban, etc.). Use the "Refresh Panel" button
+    // if the control panel itself needs to be re-rendered.
+    adminSynced = 0;
 
     // Sync voting channel if configured
     if (config.movie_channel_id) {

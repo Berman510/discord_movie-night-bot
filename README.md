@@ -86,14 +86,16 @@ A comprehensive Discord bot for managing movie recommendations, voting, and orga
 - `applications.commands`
 
 ### IMDb Caching (cross-guild)
-To reduce OMDb usage, the bot caches full IMDb responses globally across servers in a lightweight imdb_cache table.
-- Enabled by default; respects TTL and hard row limit with LRU eviction
+The bot now reads IMDb data exclusively from the imdb_cache table (cache-only). If a movie is not in cache, embeds omit IMDb fields.
+- Designed to reduce OMDb usage and simplify data flow
 - Deep purge does not clear this cache
 
-Env toggles:
-- IMDB_CACHE_ENABLED=true
-- IMDB_CACHE_TTL_DAYS=90
-- IMDB_CACHE_MAX_ROWS=10000
+Notes:
+- Normal operations do not call OMDb directly; populate/refresh cache out-of-band as needed
+- Existing env toggles remain for cache population/maintenance flows:
+  - IMDB_CACHE_ENABLED=true
+  - IMDB_CACHE_TTL_DAYS=90
+  - IMDB_CACHE_MAX_ROWS=10000
 
 ### Required Bot Permissions
 - **Send Messages** (post movie recommendations and responses)

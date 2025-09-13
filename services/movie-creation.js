@@ -63,16 +63,24 @@ async function createMovieRecommendation(interaction, movieData) {
  * Create movie recommendation in a text channel (existing logic)
  */
 async function createTextMovieRecommendation(interaction, movieData, channel) {
-  const { title, where, imdbId = null, imdbData = null } = movieData;
-  
+  const { title, where, imdbId = null } = movieData;
+
+  // Always use IMDb cache (no fallback to movies.imdb_data)
+  let imdbData = null;
+  try {
+    if (imdbId) {
+      const imdb = require('./imdb');
+      imdbData = await imdb.getMovieDetailsCached(imdbId);
+    }
+  } catch (_) {}
+
   // Create movie embed
   const movieEmbedData = {
     title: title,
     where_to_watch: where,
     recommended_by: interaction.user.id,
     status: 'pending',
-    imdb_id: imdbId,
-    imdb_data: imdbData
+    imdb_id: imdbId
   };
 
   const movieEmbed = embeds.createMovieEmbed(movieEmbedData, imdbData);
@@ -131,7 +139,7 @@ async function createTextMovieRecommendation(interaction, movieData, channel) {
  * Create movie recommendation in a forum channel (new logic)
  */
 async function createForumMovieRecommendation(interaction, movieData, channel) {
-  const { title, where, imdbId = null, imdbData = null } = movieData;
+  const { title, where, imdbId = null } = movieData;
 
   logger.debug(`🔍 DEBUG: createForumMovieRecommendation called with:`, {
     title,
@@ -141,14 +149,22 @@ async function createForumMovieRecommendation(interaction, movieData, channel) {
     channelType: channel.type
   });
 
+  // Always use IMDb cache (no fallback to movies.imdb_data)
+  let imdbData = null;
+  try {
+    if (imdbId) {
+      const imdb = require('./imdb');
+      imdbData = await imdb.getMovieDetailsCached(imdbId);
+    }
+  } catch (_) {}
+
   // Create movie embed
   const movieEmbedData = {
     title: title,
     where_to_watch: where,
     recommended_by: interaction.user.id,
     status: 'pending',
-    imdb_id: imdbId,
-    imdb_data: imdbData
+    imdb_id: imdbId
   };
 
   const movieEmbed = embeds.createMovieEmbed(movieEmbedData, imdbData);
@@ -179,8 +195,7 @@ async function createForumMovieRecommendation(interaction, movieData, channel) {
     where_to_watch: where,
     recommended_by: interaction.user.id,
     status: 'pending',
-    imdb_id: imdbId,
-    imdb_data: imdbData
+    imdb_id: imdbId
   }, imdbData);
 
   // Update the starter message with buttons and proper embed

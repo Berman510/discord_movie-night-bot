@@ -5,6 +5,15 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 
 
 
+## [1.14.3-rc6] - 2025-09-13
+### Changed
+- IMDb normalization (bot-side): all reads now pull from imdb_cache only; no fallback to movies.imdb_data. Future DB can omit imdb_data entirely.
+- WebSocket resilience: periodic connection checks with change-only logging; auto-reconnect. Admin Control Panel shows WS status.
+- Sync Channels behavior: avoids refreshing Admin Channel mirror to keep admin action buttons usable.
+
+
+
+
 ## [1.14.3-rc3] - 2025-09-12
 ### Changed
 - Rename “Viewing Channel” to “Watch Party Channel” across UI and DB: `session_viewing_channel_id` -> `watch_party_channel_id`

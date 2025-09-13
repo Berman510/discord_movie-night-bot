@@ -757,24 +757,15 @@ async function recreateMoviePost(channel, movie) {
     // Get vote counts
     const voteCounts = await database.getVoteCounts(movie.message_id);
 
-    // Parse IMDb data with proper handling for double-encoded JSON
+    // Fetch IMDb data from cache only (no fallback)
     let imdbData = null;
-    if (movie.imdb_data) {
-      try {
-        // Handle both single and double-encoded JSON
-        let parsedData = movie.imdb_data;
-        if (typeof parsedData === 'string') {
-          parsedData = JSON.parse(parsedData);
-        }
-        if (typeof parsedData === 'string') {
-          parsedData = JSON.parse(parsedData); // Handle double-encoding
-        }
-        imdbData = parsedData;
-        console.log(`🎬 Successfully parsed IMDb data for ${movie.title}`);
-      } catch (error) {
-        console.warn(`Failed to parse IMDb data for ${movie.title}:`, error.message);
-        imdbData = null;
+    try {
+      const imdb = require('./imdb');
+      if (movie.imdb_id) {
+        imdbData = await imdb.getMovieDetailsCached(movie.imdb_id);
       }
+    } catch (e) {
+      console.warn(`Failed to fetch IMDb cache for ${movie.title}:`, e?.message || e);
     }
 
     // Create movie embed with proper field mapping and safety checks
@@ -813,7 +804,6 @@ async function recreateMoviePost(channel, movie) {
         whereToWatch: movie.where_to_watch,
         recommendedBy: movie.recommended_by,
         imdbId: movie.imdb_id,
-        imdbData: movie.imdb_data,
         status: movie.status
       });
 

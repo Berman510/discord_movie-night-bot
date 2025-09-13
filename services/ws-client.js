@@ -54,16 +54,22 @@ function initWebSocketClient(logger) {
   const HEARTBEAT_MS = 30000;
   const MIN_RECONNECT_MS = 3000;
   const MAX_RECONNECT_MS = 60000;
+  let isConnected = false;
+  let statusInterval = null;
+  let lastReported = null;
 
   function connect() {
     try {
       logger?.info?.(`WS: connecting to ${WS_URL} ...`);
       ws = new WS(WS_URL, {
         headers: { Authorization: `Bearer ${TOKEN}` }
+
       });
 
       ws.on('open', () => {
         reconnectAttempts = 0;
+        isConnected = true;
+        try { global.wsStatus = { connected: true, attempts: reconnectAttempts, ts: Date.now() }; } catch (_) {}
         logger?.info?.('WS: connected');
         // hello payload
         const payload = {
@@ -74,6 +80,18 @@ function initWebSocketClient(logger) {
           }
         };
         try { ws.send(JSON.stringify(payload)); } catch (_) {}
+        // Periodic status poll with change-only reporting
+        if (!statusInterval) {
+          statusInterval = setInterval(() => {
+            const connected = !!(ws && ws.readyState === 1);
+            if (lastReported !== connected) {
+              lastReported = connected;
+              isConnected = connected;
+              try { global.wsStatus = { connected, attempts: reconnectAttempts, ts: Date.now() }; } catch (_) {}
+              logger?.info?.(`WS: ${connected ? 'connected' : 'disconnected'}`);
+            }
+          }, 5000);
+        }
         // heartbeat
         heartbeat = setInterval(() => {
           try { ws.ping(); } catch (_) {}
@@ -333,10 +351,9 @@ function initWebSocketClient(logger) {
                     const voteCounts = await database.getVoteCounts(movie.message_id);
                     let imdbData = null;
                     try {
-                      if (movie.imdb_data) {
-                        let parsed = typeof movie.imdb_data === 'string' ? JSON.parse(movie.imdb_data) : movie.imdb_data;
-                        if (typeof parsed === 'string') parsed = JSON.parse(parsed);
-                        imdbData = parsed;
+                      const imdb = require('./imdb');
+                      if (movie.imdb_id) {
+                        imdbData = await imdb.getMovieDetailsCached(movie.imdb_id);
                       }
                     } catch (_) {}
                     const movieEmbed = embeds.createMovieEmbed(movie, imdbData, voteCounts);
@@ -443,10 +460,9 @@ function initWebSocketClient(logger) {
                       if (starter) {
                         let imdbData = null;
                         try {
-                          if (movie.imdb_data) {
-                            let parsed = typeof movie.imdb_data === 'string' ? JSON.parse(movie.imdb_data) : movie.imdb_data;
-                            if (typeof parsed === 'string') parsed = JSON.parse(parsed);
-                            imdbData = parsed;
+                          const imdb = require('./imdb');
+                          if (movie.imdb_id) {
+                            imdbData = await imdb.getMovieDetailsCached(movie.imdb_id);
                           }
                         } catch (_) {}
                         const movieEmbed = embeds.createMovieEmbed(movie, imdbData, voteCounts);
@@ -464,10 +480,9 @@ function initWebSocketClient(logger) {
                     if (msgObj) {
                       let imdbData = null;
                       try {
-                        if (movie.imdb_data) {
-                          let parsed = typeof movie.imdb_data === 'string' ? JSON.parse(movie.imdb_data) : movie.imdb_data;
-                          if (typeof parsed === 'string') parsed = JSON.parse(parsed);
-                          imdbData = parsed;
+                        const imdb = require('./imdb');
+                        if (movie.imdb_id) {
+                          imdbData = await imdb.getMovieDetailsCached(movie.imdb_id);
                         }
                       } catch (_) {}
                       const movieEmbed = embeds.createMovieEmbed(movie, imdbData, voteCounts);
@@ -537,8 +552,8 @@ function initWebSocketClient(logger) {
                   if (movie.channel_type === 'forum' && movie.thread_id) {
                     const thread = await client.channels.fetch(movie.thread_id).catch(() => null);
                     if (thread) {
-                      await forumChannels.updateForumPostContent(thread, { ...movie, status: 'planned' }, 'planned');
-                      await forumChannels.updateForumPostTags(thread, 'planned');
+                      await forumChannels.updateForumPostContent(thread, { ...movie, status: 'pending' }, 'pending');
+                      await forumChannels.updateForumPostTags(thread, 'pending');
                     }
                   } else if (movie.channel_id) {
                     const channel = await client.channels.fetch(movie.channel_id).catch(() => null);
@@ -548,14 +563,13 @@ function initWebSocketClient(logger) {
                         const voteCounts = await database.getVoteCounts(movie.message_id);
                         let imdbData = null;
                         try {
-                          if (movie.imdb_data) {
-                            let parsed = typeof movie.imdb_data === 'string' ? JSON.parse(movie.imdb_data) : movie.imdb_data;
-                            if (typeof parsed === 'string') parsed = JSON.parse(parsed);
-                            imdbData = parsed;
+                          const imdb = require('./imdb');
+                          if (movie.imdb_id) {
+                            imdbData = await imdb.getMovieDetailsCached(movie.imdb_id);
                           }
                         } catch (_) {}
-                        const movieEmbed = embeds.createMovieEmbed({ ...movie, status: 'planned' }, imdbData, voteCounts);
-                        const rows = components.createStatusButtons(movie.message_id, 'planned', voteCounts.up, voteCounts.down);
+                        const movieEmbed = embeds.createMovieEmbed({ ...movie, status: 'pending' }, imdbData, voteCounts);
+                        const rows = components.createStatusButtons(movie.message_id, 'pending', voteCounts.up, voteCounts.down);
                         await msgObj.edit({ embeds: [movieEmbed], components: rows });
                       }
                     }
@@ -723,6 +737,8 @@ function initWebSocketClient(logger) {
 
       ws.on('close', (code, reason) => {
         if (heartbeat) { clearInterval(heartbeat); heartbeat = null; }
+        isConnected = false;
+        try { global.wsStatus = { connected: false, attempts: reconnectAttempts, ts: Date.now() }; } catch (_) {}
         const why = (reason && reason.toString && reason.toString()) || '';
         logger?.warn?.(`WS: connection closed (code=${code}${why ? `, reason=${why}` : ''})`);
         scheduleReconnect();
@@ -730,6 +746,8 @@ function initWebSocketClient(logger) {
 
       ws.on('error', (err) => {
         logger?.warn?.(`WS error: ${err?.message || err}`);
+        isConnected = false;
+        try { global.wsStatus = { connected: false, attempts: reconnectAttempts, ts: Date.now() }; } catch (_) {}
         // Ensure we schedule reconnects even if close is not emitted (e.g., HTTP 401 during upgrade)
         scheduleReconnect();
       });
@@ -765,5 +783,11 @@ function initWebSocketClient(logger) {
   };
 }
 
-module.exports = { initWebSocketClient };
+function getStatus() {
+  try { return { connected: Boolean(global.wsStatus?.connected ?? false), attempts: Number(global.wsStatus?.attempts ?? 0) }; } catch (_) {
+    return { connected: false, attempts: 0 };
+  }
+}
+
+module.exports = { initWebSocketClient, getStatus };
 

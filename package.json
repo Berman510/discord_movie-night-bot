@@ -1,6 +1,6 @@
 {
   "name": "movie-night-bot",
-  "version": "1.14.3-rc4",
+  "version": "1.14.3-rc6",
   "description": "Discord bot for creating movie night recommendations with voting, threads, IMDb enrichment, and forum support.",
   "main": "index.js",
   "license": "MIT",
