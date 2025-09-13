@@ -40,6 +40,8 @@ A comprehensive Discord bot for managing movie recommendations, voting, and orga
 
 ### 🎪 **Enhanced Session Management**
 - **Discord Event Integration**: Full event creation, updates, and RSVP functionality with channel integration
+- **Event Title Policy**: Event titles do not include date/time; localized times appear in the description using Discord timestamps (<t:…:F>/<t:…:R>).
+
 - **Timezone Support**: Configurable guild timezones with 12-hour or 24-hour time formats (e.g., 7:30 PM or 19:30) and US dates (MM/DD/YYYY)
 - **Session Descriptions**: Themed session messaging with custom descriptions in voting channels
 - **Automatic Event Updates**: Events update with winner information, IMDB details, and vote counts

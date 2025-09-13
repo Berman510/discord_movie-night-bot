@@ -6,6 +6,12 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 
 
 
+## [1.14.3-rc11] - 2025-09-13
+### Fixed/Changed
+- Discord Events: event titles are now guaranteed to never include date/time, even if the session name contains them. Times are shown in the description using localized Discord timestamps instead.
+- Event edits use the same title sanitization path as creation.
+
+
 ## [1.14.3-rc7] - 2025-09-13
 ### Fixed/Changed
 - IMDb display fallback: if imdb_cache is empty, fall back to stored movie.imdb_data or perform a one-time live OMDb fetch for display only. Applies to:
