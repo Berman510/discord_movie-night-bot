@@ -3758,6 +3758,22 @@ class Database {
     }
   }
 
+  async clearMoviesForSession(sessionId) {
+    if (!this.isConnected) return false;
+    try {
+      await this.pool.execute(
+        `UPDATE movies SET session_id = NULL WHERE session_id = ?`,
+        [sessionId]
+      );
+      console.log(`🧹 Database: Cleared session_id from movies for session ${sessionId}`);
+      return true;
+    } catch (error) {
+      console.error('Error clearing movies for session:', error.message);
+      return false;
+    }
+  }
+
+
   async deleteMovieSession(sessionId) {
     if (!this.isConnected) return false;
 

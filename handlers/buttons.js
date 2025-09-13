@@ -240,6 +240,18 @@ async function handleVoting(interaction, action, msgId, votes) {
         return;
       }
 
+      // Lazy backfill: if this is a forum thread and DB thread_id is missing, fill it from the interaction channel
+      try {
+        const ch = interaction.channel;
+        const isThread = typeof ch?.isThread === 'function' ? ch.isThread() : false;
+        if (movie.channel_type === 'forum' && !movie.thread_id && isThread) {
+          await database.updateMovieThreadId(msgId, ch.id);
+          movie.thread_id = ch.id; // update local reference
+        }
+      } catch (e) {
+        console.warn('Backfill thread_id on vote failed:', e?.message);
+      }
+
       // Check current vote
       const currentVote = await database.getUserVote(msgId, userId);
 
@@ -414,6 +426,19 @@ async function handleStatusChange(interaction, action, msgId) {
         flags: MessageFlags.Ephemeral
       });
       return;
+    }
+
+
+    // Lazy backfill: if this is a forum thread and DB thread_id is missing, fill it from the interaction channel
+    try {
+      const ch = interaction.channel;
+      const isThread = typeof ch?.isThread === 'function' ? ch.isThread() : false;
+      if (movie.channel_type === 'forum' && !movie.thread_id && isThread) {
+        await database.updateMovieThreadId(msgId, ch.id);
+        movie.thread_id = ch.id;
+      }
+    } catch (e) {
+      console.warn('Backfill thread_id on status change failed:', e?.message);
     }
 
     // Get current vote counts
