@@ -43,20 +43,19 @@ async function createDiscordEvent(guild, sessionData, scheduledDate) {
     endTime.setMinutes(endTime.getMinutes() + durationMinutes);
 
     // Create enhanced description with voting info and channel link
-    const baseDescription = sessionData.description || 'Join us for movie night voting and viewing!';
+    const baseDescription = sessionData.description || "It’s Movie Night! Cast your vote and join us for the screening.";
     let enhancedDescription = baseDescription;
 
     // Add voting information if available
     if (sessionData.votingEndTime) {
       const votingEndTimestamp = Math.floor(sessionData.votingEndTime.getTime() / 1000);
-      enhancedDescription += `\n\n🗳️ **Voting ends:** <t:${votingEndTimestamp}:F>`;
-      enhancedDescription += `\n⏰ **Time remaining:** <t:${votingEndTimestamp}:R>`;
+      enhancedDescription += `\n\n🗳️ **Voting ends:** <t:${votingEndTimestamp}:F> • <t:${votingEndTimestamp}:R>`;
     }
 
     // Add the session start using Discord timestamps (shows local time per user)
     if (scheduledDate) {
       const startTs = Math.floor(new Date(scheduledDate).getTime() / 1000);
-      enhancedDescription += `\n\n🎟️ **Session starts:** <t:${startTs}:F> (<t:${startTs}:R>)`;
+      enhancedDescription += `\n🎬 **Session starts:** <t:${startTs}:F> • <t:${startTs}:R>`;
     }
 
     // Add voting channel link and CTA if available
@@ -212,7 +211,7 @@ async function updateDiscordEvent(guild, eventId, sessionData, scheduledDate) {
 
     if (effectiveStart) {
       const startTs = Math.floor(new Date(effectiveStart).getTime() / 1000);
-      enhancedDescription += `\n\n🎟️ **Session starts:** <t:${startTs}:F> (<t:${startTs}:R>)`;
+      enhancedDescription += `\n🎬 **Session starts:** <t:${startTs}:F> • <t:${startTs}:R>`;
     }
     const startTimeStr2 = effectiveStart ? new Date(effectiveStart).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'TBD';
     await event.edit({
