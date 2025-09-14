@@ -791,30 +791,31 @@ function initWebSocketClient(logger) {
 
           if (msg.type === 'get_guild_roles') {
             const guildId = msg?.payload?.guildId;
-            console.log(`[DEBUG] Bot received get_guild_roles request for guild ${guildId}`);
+            const logger = require('../utils/logger');
+            logger.debug(`🤖 Bot received get_guild_roles request`, guildId);
             if (!guildId) {
-              console.log(`[DEBUG] No guildId provided in get_guild_roles request`);
+              logger.debug(`🤖 No guildId provided in get_guild_roles request`);
               return;
             }
             try {
               const client = global.discordClient;
               if (!client) {
-                console.log(`[DEBUG] No Discord client available for get_guild_roles`);
+                logger.debug(`🤖 No Discord client available for get_guild_roles`, guildId);
                 return;
               }
               const guild = client.guilds.cache.get(String(guildId)) || await client.guilds.fetch(String(guildId)).catch(() => null);
               if (!guild) {
-                console.log(`[DEBUG] Guild ${guildId} not found for get_guild_roles`);
+                logger.debug(`🤖 Guild not found for get_guild_roles`, guildId);
                 return;
               }
               const list = guild.roles && guild.roles.cache ? Array.from(guild.roles.cache.values()) : [];
               const roles = list
                 .map(r => ({ id: String(r.id), name: String(r.name), position: Number(r.position || 0) }))
                 .sort((a,b) => b.position - a.position);
-              console.log(`[DEBUG] Sending ${roles.length} roles for guild ${guildId}`);
+              logger.debug(`🤖 Sending ${roles.length} roles for guild`, guildId);
               try { global.wsClient?.send && global.wsClient.send({ type: 'get_guild_roles:response', replyTo: msg.id, payload: { guildId, roles } }); } catch (_) {}
             } catch (e) {
-              console.error(`[DEBUG] Error in get_guild_roles for guild ${guildId}:`, e);
+              logger.error(`🤖 Error in get_guild_roles:`, guildId, e);
               try { global.wsClient?.send && global.wsClient.send({ type: 'get_guild_roles:response', replyTo: msg.id, payload: { guildId, roles: [] } }); } catch (_) {}
             }
             return;
@@ -822,21 +823,22 @@ function initWebSocketClient(logger) {
 
           if (msg.type === 'get_guild_channels') {
             const guildId = msg?.payload?.guildId;
-            console.log(`[DEBUG] Bot received get_guild_channels request for guild ${guildId}`);
+            const logger = require('../utils/logger');
+            logger.debug(`🤖 Bot received get_guild_channels request`, guildId);
             if (!guildId) {
-              console.log(`[DEBUG] No guildId provided in get_guild_channels request`);
+              logger.debug(`🤖 No guildId provided in get_guild_channels request`);
               return;
             }
             try {
               const client = global.discordClient;
               if (!client) {
-                console.log(`[DEBUG] No Discord client available for get_guild_channels`);
+                logger.debug(`🤖 No Discord client available for get_guild_channels`, guildId);
                 return;
               }
               const { ChannelType } = require('discord.js');
               const guild = client.guilds.cache.get(String(guildId)) || await client.guilds.fetch(String(guildId)).catch(() => null);
               if (!guild) {
-                console.log(`[DEBUG] Guild ${guildId} not found for get_guild_channels`);
+                logger.debug(`🤖 Guild not found for get_guild_channels`, guildId);
                 return;
               }
               const coll = await guild.channels.fetch().catch(() => null);
@@ -854,10 +856,10 @@ function initWebSocketClient(logger) {
               };
               const channels = arr.map(ch => ({ id: String(ch.id), name: String(ch.name || 'unnamed'), type: normType(ch.type), position: Number(ch.rawPosition || ch.position || 0), parentId: ch.parentId ? String(ch.parentId) : null }))
                 .sort((a,b) => a.type.localeCompare(b.type) || a.position - b.position || a.name.localeCompare(b.name));
-              console.log(`[DEBUG] Sending ${channels.length} channels for guild ${guildId}`);
+              logger.debug(`🤖 Sending ${channels.length} channels for guild`, guildId);
               try { global.wsClient?.send && global.wsClient.send({ type: 'get_guild_channels:response', replyTo: msg.id, payload: { guildId, channels } }); } catch (_) {}
             } catch (e) {
-              console.error(`[DEBUG] Error in get_guild_channels for guild ${guildId}:`, e);
+              logger.error(`🤖 Error in get_guild_channels:`, guildId, e);
               try { global.wsClient?.send && global.wsClient.send({ type: 'get_guild_channels:response', replyTo: msg.id, payload: { guildId, channels: [] } }); } catch (_) {}
             }
             return;
