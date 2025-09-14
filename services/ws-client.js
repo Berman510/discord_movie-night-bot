@@ -919,7 +919,6 @@ function initWebSocketClient(logger) {
             return;
           }
 
-          }
         } catch (e) {
           logger?.warn?.(`WS handler error: ${e?.message || e}`);
         }
