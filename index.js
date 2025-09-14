@@ -266,7 +266,13 @@ async function startBot() {
     // Discord login moved above for guild cache population
 
     // Initialize WebSocket client to dashboard (no-op if disabled)
-    try { initWebSocketClient(logger); } catch (e) { logger.warn(`WS init failed: ${e?.message || e}`); }
+    try {
+      global.wsClient = initWebSocketClient(logger);
+      logger.info(`🔗 WebSocket client initialized: ${global.wsClient?.enabled ? 'enabled' : 'disabled'}`);
+    } catch (e) {
+      logger.warn(`WS init failed: ${e?.message || e}`);
+      global.wsClient = { enabled: false };
+    }
 
     // Start payload cleanup
     startPayloadCleanup();
