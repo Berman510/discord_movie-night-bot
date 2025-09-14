@@ -2,15 +2,22 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
-## [1.15.1-rc1] - 2025-09-14
+## [1.15.1] - 2025-09-14
+
+### Enhanced
+- **Time Display Consistency**: Improved time formatting with cleaner on-the-hour display (7 PM instead of 7:00 PM)
+- **Documentation Accuracy**: Fixed date format references to reflect correct MM/DD/YYYY format
+- **User Experience**: More professional and readable time displays across all bot interactions
 
 ### Changed
-- Version alignment with dashboard for unified development cycle
-- Preparation for code cleanup and optimization phase
+- Session time buttons now show cleaner format (7 PM, 8 PM, 9 PM)
+- Updated formatTime function to use cleaner display for on-the-hour times
+- Standardized time selection logic for better consistency
 
 ### Technical Improvements
-- Foundation for comprehensive codebase audit and cleanup
+- Code cleanup and optimization phase completion
 - Unified version numbering system with dashboard
+- Enhanced time formatting utilities
 
 ## [1.15.0] - 2025-09-14
 
