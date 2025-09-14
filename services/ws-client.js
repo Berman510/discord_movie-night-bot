@@ -768,6 +768,86 @@ function initWebSocketClient(logger) {
               logger?.warn?.(`[${guildId}] WS reschedule_session error (sessionId=${sessionId}):`, e?.message || e);
             }
             return;
+
+          if (msg.type === 'update_vote_caps') {
+            const guildId = msg?.payload?.guildId;
+            let { enabled, upRatio, downRatio, minCap } = msg?.payload || {};
+            if (!guildId) return;
+            try {
+              const database = require('../database');
+              // Normalize
+              enabled = !!enabled;
+              upRatio = Math.max(0, Math.min(1, Number(upRatio)));
+              downRatio = Math.max(0, Math.min(1, Number(downRatio)));
+              minCap = Math.max(0, Math.floor(Number(minCap)));
+              await database.updateVoteCaps(guildId, enabled, upRatio, downRatio, minCap);
+              // Emit event so dashboard can refresh caps if desired
+              try { global.wsClient?.send && global.wsClient.send({ type: 'caps_updated', payload: { guildId } }); } catch (_) {}
+            } catch (e) {
+              const logger = require('../utils/logger');
+              logger?.warn?.(`[${guildId}] WS update_vote_caps error:`, e?.message || e);
+            }
+            return;
+          }
+
+          if (msg.type === 'update_guild_config') {
+            const guildId = msg?.payload?.guildId;
+            if (!guildId) return;
+            try {
+              const database = require('../database');
+              const pool = database.pool;
+              const {
+                movie_channel_id,
+                admin_channel_id,
+                watch_party_channel_id,
+                admin_roles,
+                moderator_roles,
+                voting_roles
+              } = msg?.payload || {};
+
+              // Ensure row exists
+              try {
+                await pool.execute(
+                  `INSERT INTO guild_config (guild_id, admin_roles) VALUES (?, ?)
+                   ON DUPLICATE KEY UPDATE guild_id = guild_id`,
+                  [guildId, JSON.stringify([])]
+                );
+              } catch (_) {}
+
+              // Build dynamic update
+              const sets = [];
+              const params = [];
+              if (typeof movie_channel_id !== 'undefined') { sets.push('movie_channel_id = ?'); params.push(movie_channel_id || null); }
+              if (typeof admin_channel_id !== 'undefined') { sets.push('admin_channel_id = ?'); params.push(admin_channel_id || null); }
+              if (typeof watch_party_channel_id !== 'undefined') { sets.push('watch_party_channel_id = ?'); params.push(watch_party_channel_id || null); }
+              if (typeof admin_roles !== 'undefined') {
+                const unique = Array.from(new Set((admin_roles || []).map(id => String(id))));
+                sets.push('admin_roles = ?'); params.push(JSON.stringify(unique));
+              }
+              if (typeof moderator_roles !== 'undefined') {
+                const unique = Array.from(new Set((moderator_roles || []).map(id => String(id))));
+                sets.push('moderator_roles = ?'); params.push(JSON.stringify(unique));
+              }
+              if (typeof voting_roles !== 'undefined') {
+                const unique = Array.from(new Set((voting_roles || []).map(id => String(id))));
+                sets.push('voting_roles = ?'); params.push(JSON.stringify(unique));
+              }
+
+              if (sets.length > 0) {
+                const sql = `UPDATE guild_config SET ${sets.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE guild_id = ?`;
+                params.push(guildId);
+                await pool.execute(sql, params);
+              }
+
+              // Emit event so dashboard can react if needed
+              try { global.wsClient?.send && global.wsClient.send({ type: 'config_updated', payload: { guildId } }); } catch (_) {}
+            } catch (e) {
+              const logger = require('../utils/logger');
+              logger?.warn?.(`[${guildId}] WS update_guild_config error:`, e?.message || e);
+            }
+            return;
+          }
+
           }
         } catch (e) {
           logger?.warn?.(`WS handler error: ${e?.message || e}`);
