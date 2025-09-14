@@ -2,6 +2,23 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.15.1] - 2025-09-14
+
+### Enhanced
+- **Time Display Consistency**: Improved time formatting with cleaner on-the-hour display (7 PM instead of 7:00 PM)
+- **Documentation Accuracy**: Fixed date format references to reflect correct MM/DD/YYYY format
+- **User Experience**: More professional and readable time displays across all bot interactions
+
+### Changed
+- Session time buttons now show cleaner format (7 PM, 8 PM, 9 PM)
+- Updated formatTime function to use cleaner display for on-the-hour times
+- Standardized time selection logic for better consistency
+
+### Technical Improvements
+- Code cleanup and optimization phase completion
+- Unified version numbering system with dashboard
+- Enhanced time formatting utilities
+
 ## [1.15.0] - 2025-09-14
 
 ### Major Features
@@ -864,7 +881,7 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **🔗 Event Links**: Clickable Discord event links in winner announcements and session messages
 
 ### Enhanced
-- **🎯 User Experience**: 12-hour time format (7:30 PM) and US date format (MM-DD-YYYY) for better usability
+- **🎯 User Experience**: 12-hour time format (7:30 PM) and US date format (MM/DD/YYYY) for better usability
 - **📋 Movie Queue Display**: Enhanced `/movie-queue` with carryover movie visibility and session context
 - **🔧 Admin Movie Management**: Pick Winner, Skip to Next, Remove, Ban Movie, and Details buttons for each movie
 - **📅 Event Management**: Events use session viewing channels with proper channel type detection

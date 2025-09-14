@@ -124,15 +124,15 @@ function createSessionTimeButtons() {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('session_time:7pm')
-      .setLabel('7:00 PM')
+      .setLabel('7 PM')
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('session_time:8pm')
-      .setLabel('8:00 PM')
+      .setLabel('8 PM')
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('session_time:9pm')
-      .setLabel('9:00 PM')
+      .setLabel('9 PM')
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('session_time:custom')

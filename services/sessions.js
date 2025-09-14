@@ -699,11 +699,11 @@ async function handleTimeSelection(interaction, customId, state) {
   if (timeType.includes('pm')) {
     const hourNum = parseInt(timeType.replace('pm', ''));
     hour = hourNum === 12 ? 12 : hourNum + 12;
-    timeDisplay = `${hourNum}:00 PM`;
+    timeDisplay = `${hourNum} PM`;
   } else if (timeType.includes('am')) {
     hour = parseInt(timeType.replace('am', ''));
     if (hour === 12) hour = 0;
-    timeDisplay = `${hour === 0 ? 12 : hour}:00 AM`;
+    timeDisplay = `${hour === 0 ? 12 : hour} AM`;
   }
 
   state.selectedTime = { hour, minute: 0 };
@@ -1458,6 +1458,11 @@ function formatTime(hour, minute) {
   const isPM = hour >= 12;
   const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
   const minuteStr = minute.toString().padStart(2, '0');
+
+  // Use cleaner format for on-the-hour times (e.g., "7 PM" instead of "7:00 PM")
+  if (minute === 0) {
+    return `${displayHour} ${isPM ? 'PM' : 'AM'}`;
+  }
   return `${displayHour}:${minuteStr} ${isPM ? 'PM' : 'AM'}`;
 }
 

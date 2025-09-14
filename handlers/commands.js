@@ -7,6 +7,7 @@ const { MessageFlags, EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputSty
 const database = require('../database');
 const sessions = require('../services/sessions');
 const guidedSetup = require('../services/guided-setup');
+const logger = require('../utils/logger');
 
 async function handleSlashCommand(interaction) {
   const commandName = interaction.commandName;
@@ -52,13 +53,13 @@ async function handleSlashCommand(interaction) {
         });
     }
   } catch (error) {
-    console.error(`Error handling command ${commandName}:`, error);
+    logger.error(`Error handling command ${commandName}:`, error);
 
     if (!interaction.replied && !interaction.deferred) {
       await interaction.reply({
         content: '❌ An error occurred while processing the command.',
         flags: MessageFlags.Ephemeral
-      }).catch(console.error);
+      }).catch(err => logger.error('Failed to send error reply:', err));
     }
   }
 }
@@ -202,7 +203,7 @@ async function handleMovieQueue(interaction) {
     });
 
   } catch (error) {
-    console.error('Error fetching movie queue:', error);
+    logger.error('Error fetching movie queue:', error);
     await interaction.reply({
       content: '❌ Error fetching movie queue.',
       flags: MessageFlags.Ephemeral
