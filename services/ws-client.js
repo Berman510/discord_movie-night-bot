@@ -768,6 +768,8 @@ function initWebSocketClient(logger) {
               logger?.warn?.(`[${guildId}] WS reschedule_session error (sessionId=${sessionId}):`, e?.message || e);
             }
             return;
+          }
+
 
           if (msg.type === 'get_member_roles') {
             const guildId = msg?.payload?.guildId;
