@@ -874,7 +874,7 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **🔗 Event Links**: Clickable Discord event links in winner announcements and session messages
 
 ### Enhanced
-- **🎯 User Experience**: 12-hour time format (7:30 PM) and US date format (MM-DD-YYYY) for better usability
+- **🎯 User Experience**: 12-hour time format (7:30 PM) and US date format (MM/DD/YYYY) for better usability
 - **📋 Movie Queue Display**: Enhanced `/movie-queue` with carryover movie visibility and session context
 - **🔧 Admin Movie Management**: Pick Winner, Skip to Next, Remove, Ban Movie, and Details buttons for each movie
 - **📅 Event Management**: Events use session viewing channels with proper channel type detection
