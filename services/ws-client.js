@@ -813,7 +813,18 @@ function initWebSocketClient(logger) {
                 .map(r => ({ id: String(r.id), name: String(r.name), position: Number(r.position || 0) }))
                 .sort((a,b) => b.position - a.position);
               logger.debug(`🤖 Sending ${roles.length} roles for guild`, guildId);
-              try { global.wsClient?.send && global.wsClient.send({ type: 'get_guild_roles:response', replyTo: msg.id, payload: { guildId, roles } }); } catch (_) {}
+              const response = { type: 'get_guild_roles:response', replyTo: msg.id, payload: { guildId, roles } };
+              logger.debug(`🤖 Attempting to send response:`, guildId, { type: response.type, replyTo: response.replyTo, rolesCount: roles.length });
+              try {
+                if (global.wsClient?.send) {
+                  global.wsClient.send(response);
+                  logger.debug(`🤖 Response sent successfully`, guildId);
+                } else {
+                  logger.warn(`🤖 No wsClient.send available`, guildId);
+                }
+              } catch (e) {
+                logger.error(`🤖 Error sending response:`, guildId, e);
+              }
             } catch (e) {
               logger.error(`🤖 Error in get_guild_roles:`, guildId, e);
               try { global.wsClient?.send && global.wsClient.send({ type: 'get_guild_roles:response', replyTo: msg.id, payload: { guildId, roles: [] } }); } catch (_) {}
@@ -857,7 +868,18 @@ function initWebSocketClient(logger) {
               const channels = arr.map(ch => ({ id: String(ch.id), name: String(ch.name || 'unnamed'), type: normType(ch.type), position: Number(ch.rawPosition || ch.position || 0), parentId: ch.parentId ? String(ch.parentId) : null }))
                 .sort((a,b) => a.type.localeCompare(b.type) || a.position - b.position || a.name.localeCompare(b.name));
               logger.debug(`🤖 Sending ${channels.length} channels for guild`, guildId);
-              try { global.wsClient?.send && global.wsClient.send({ type: 'get_guild_channels:response', replyTo: msg.id, payload: { guildId, channels } }); } catch (_) {}
+              const response = { type: 'get_guild_channels:response', replyTo: msg.id, payload: { guildId, channels } };
+              logger.debug(`🤖 Attempting to send response:`, guildId, { type: response.type, replyTo: response.replyTo, channelsCount: channels.length });
+              try {
+                if (global.wsClient?.send) {
+                  global.wsClient.send(response);
+                  logger.debug(`🤖 Response sent successfully`, guildId);
+                } else {
+                  logger.warn(`🤖 No wsClient.send available`, guildId);
+                }
+              } catch (e) {
+                logger.error(`🤖 Error sending response:`, guildId, e);
+              }
             } catch (e) {
               logger.error(`🤖 Error in get_guild_channels:`, guildId, e);
               try { global.wsClient?.send && global.wsClient.send({ type: 'get_guild_channels:response', replyTo: msg.id, payload: { guildId, channels: [] } }); } catch (_) {}
