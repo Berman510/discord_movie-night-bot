@@ -4,9 +4,10 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
 
-A comprehensive Discord bot for managing movie recommendations, voting, and organized movie night sessions. Features persistent voting, IMDb integration, session scheduling with Discord events, and comprehensive movie night statistics.
+A comprehensive Discord bot for managing movie recommendations, voting, and organized movie night sessions. Features persistent voting, IMDb integration, session scheduling with Discord events, comprehensive movie night statistics, and full dashboard integration.
 
 > **🏗️ Modular Architecture**: Clean, maintainable codebase with separation of concerns. See [ARCHITECTURE.md](ARCHITECTURE.md) for technical details.
+> **🌐 Dashboard Integration**: Real-time WebSocket communication with the Movie Night Dashboard for web-based management.
 ## 🚀 Quick Start
 
 1. Invite the bot to your server (scopes: bot + applications.commands; see invite template below).
@@ -19,7 +20,7 @@ A comprehensive Discord bot for managing movie recommendations, voting, and orga
    - If you omit Voting End, it defaults to 1 hour before the session start.
 4. Members recommend via `/movienight`; everyone with permission can vote using the buttons on each movie post.
 5. Admins can open `/movienight-admin-panel` to manage sessions (Plan/Reschedule, Pick Winner, Skip, Sync/Refresh).
-6. Optional: Use the Dashboard to view the queue, vote, and manage sessions.
+6. Optional: Use the [Movie Night Dashboard](https://github.com/Berman510/movienight-dashboard) for web-based management with real-time updates.
 
 
 ## ✨ Key Features
@@ -69,6 +70,14 @@ A comprehensive Discord bot for managing movie recommendations, voting, and orga
 - **Timezone Settings**: Server-wide timezone configuration with automatic voting closure
 - **Voting Roles**: Controls who can vote and who gets pinged for movie night events (Discord event integration)
 - **Time Formats**: User-friendly 12-hour or 24-hour time formats and US date format (MM/DD/YYYY)
+
+### 🌐 **Dashboard Integration**
+- **Real-time WebSocket Communication**: Seamless integration with Movie Night Dashboard
+- **Configuration Synchronization**: Bot serves as single source of truth for all settings
+- **Live Updates**: Dashboard receives real-time updates for votes, sessions, and configuration changes
+- **Web-based Management**: Full server configuration through clean web interface
+- **Auto-sync**: Configuration changes automatically sync between dashboard and Discord
+- **Role-based Access**: Dashboard respects Discord role permissions for secure management
 
 ---
 

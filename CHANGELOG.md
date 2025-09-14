@@ -2,6 +2,39 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.15.0] - 2025-09-14
+
+### Major Features
+- **Dashboard Integration**: Full WebSocket communication with Movie Night Dashboard
+- **Real-time Synchronization**: Automatic sync between bot and dashboard configurations
+- **Enhanced Configuration**: WebSocket handlers for vote caps and guild configuration updates
+
+### Added
+- WebSocket client for dashboard communication with automatic reconnection
+- Handlers for `get_guild_roles`, `get_guild_channels`, `get_member_roles`
+- Configuration update handlers: `update_vote_caps`, `update_guild_config`
+- Real-time event emission: `vote_update`, `session_created/updated/cancelled`, `winner_selected`
+- Auto-sync functionality triggered from dashboard configuration changes
+- Enhanced logging and debugging capabilities for WebSocket operations
+
+### Fixed
+- **Critical**: WebSocket client initialization - properly assign to global.wsClient
+- WebSocket message handling and response sending
+- Dashboard communication reliability and error handling
+- Configuration synchronization between bot and dashboard
+
+### Changed
+- Bot now serves as single source of truth for configuration changes
+- Dashboard becomes read-only for state management with bot as writer
+- Enhanced WebSocket resilience with periodic connection checks
+- Improved error handling and connection diagnostics
+
+### Technical Improvements
+- Comprehensive WebSocket debugging and logging
+- Better separation of concerns in configuration management
+- Enhanced error recovery and connection stability
+- Improved message routing and response handling
+
 
 
 
