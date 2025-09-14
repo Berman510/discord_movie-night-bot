@@ -2,6 +2,16 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.15.1-rc1] - 2025-09-14
+
+### Changed
+- Version alignment with dashboard for unified development cycle
+- Preparation for code cleanup and optimization phase
+
+### Technical Improvements
+- Foundation for comprehensive codebase audit and cleanup
+- Unified version numbering system with dashboard
+
 ## [1.15.0] - 2025-09-14
 
 ### Major Features
