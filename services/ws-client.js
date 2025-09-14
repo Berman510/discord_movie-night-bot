@@ -769,6 +769,75 @@ function initWebSocketClient(logger) {
             }
             return;
 
+          if (msg.type === 'get_member_roles') {
+            const guildId = msg?.payload?.guildId;
+            const userId = msg?.payload?.userId;
+            if (!guildId || !userId) return;
+            try {
+              const client = global.discordClient;
+              if (!client) return;
+              const guild = client.guilds.cache.get(String(guildId)) || await client.guilds.fetch(String(guildId)).catch(() => null);
+              if (!guild) return;
+              const member = await guild.members.fetch(String(userId)).catch(() => null);
+              const roles = member && member.roles && member.roles.cache ? Array.from(member.roles.cache.keys()).map(String) : [];
+              try { global.wsClient?.send && global.wsClient.send({ type: 'get_member_roles:response', replyTo: msg.id, payload: { guildId, userId, roles } }); } catch (_) {}
+            } catch (e) {
+              try { global.wsClient?.send && global.wsClient.send({ type: 'get_member_roles:response', replyTo: msg.id, payload: { guildId, userId, roles: [] } }); } catch (_) {}
+            }
+            return;
+          }
+
+          if (msg.type === 'get_guild_roles') {
+            const guildId = msg?.payload?.guildId;
+            if (!guildId) return;
+            try {
+              const client = global.discordClient;
+              if (!client) return;
+              const guild = client.guilds.cache.get(String(guildId)) || await client.guilds.fetch(String(guildId)).catch(() => null);
+              if (!guild) return;
+              const list = guild.roles && guild.roles.cache ? Array.from(guild.roles.cache.values()) : [];
+              const roles = list
+                .map(r => ({ id: String(r.id), name: String(r.name), position: Number(r.position || 0) }))
+                .sort((a,b) => b.position - a.position);
+              try { global.wsClient?.send && global.wsClient.send({ type: 'get_guild_roles:response', replyTo: msg.id, payload: { guildId, roles } }); } catch (_) {}
+            } catch (e) {
+              try { global.wsClient?.send && global.wsClient.send({ type: 'get_guild_roles:response', replyTo: msg.id, payload: { guildId, roles: [] } }); } catch (_) {}
+            }
+            return;
+          }
+
+          if (msg.type === 'get_guild_channels') {
+            const guildId = msg?.payload?.guildId;
+            if (!guildId) return;
+            try {
+              const client = global.discordClient;
+              if (!client) return;
+              const { ChannelType } = require('discord.js');
+              const guild = client.guilds.cache.get(String(guildId)) || await client.guilds.fetch(String(guildId)).catch(() => null);
+              if (!guild) return;
+              const coll = await guild.channels.fetch().catch(() => null);
+              const arr = coll ? Array.from(coll.values()).filter(Boolean) : [];
+              const normType = (t) => {
+                switch (t) {
+                  case ChannelType.GuildText: return 'text';
+                  case ChannelType.GuildForum: return 'forum';
+                  case ChannelType.GuildAnnouncement: return 'announcement';
+                  case ChannelType.GuildVoice: return 'voice';
+                  case ChannelType.GuildStageVoice: return 'stage';
+                  case ChannelType.GuildCategory: return 'category';
+                  default: return String(t);
+                }
+              };
+              const channels = arr.map(ch => ({ id: String(ch.id), name: String(ch.name || 'unnamed'), type: normType(ch.type), position: Number(ch.rawPosition || ch.position || 0), parentId: ch.parentId ? String(ch.parentId) : null }))
+                .sort((a,b) => a.type.localeCompare(b.type) || a.position - b.position || a.name.localeCompare(b.name));
+              try { global.wsClient?.send && global.wsClient.send({ type: 'get_guild_channels:response', replyTo: msg.id, payload: { guildId, channels } }); } catch (_) {}
+            } catch (e) {
+              try { global.wsClient?.send && global.wsClient.send({ type: 'get_guild_channels:response', replyTo: msg.id, payload: { guildId, channels: [] } }); } catch (_) {}
+            }
+            return;
+          }
+
+
           if (msg.type === 'update_vote_caps') {
             const guildId = msg?.payload?.guildId;
             let { enabled, upRatio, downRatio, minCap } = msg?.payload || {};
