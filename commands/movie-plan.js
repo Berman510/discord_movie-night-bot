@@ -10,8 +10,5 @@ module.exports = {
         .setRequired(true)
         .setAutocomplete(true)
     ),
-  async execute(interaction) {
-    // This is handled in handlers/commands.js
-    throw new Error('This command should be handled by the command handler');
-  },
+
 };

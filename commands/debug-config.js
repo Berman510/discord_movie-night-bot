@@ -5,8 +5,5 @@ module.exports = {
     .setName('movienight-debug-config')
     .setDescription('Debug guild configuration (Admin only)'),
   
-  async execute(interaction) {
-    // This will be handled by the main command handler
-    // Just need this file for command registration
-  }
+
 };

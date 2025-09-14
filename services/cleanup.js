@@ -5,6 +5,7 @@
 
 const { MessageFlags, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const database = require('../database');
+const logger = require('../utils/logger');
 
 async function handleMovieCleanup(interaction) {
   if (!database.isConnected) {
@@ -132,10 +133,8 @@ async function handleCleanupSync(interaction, movieChannel) {
           try {
             await message.delete();
             orphanedCount++;
-            const logger = require('../utils/logger');
             logger.debug(`🗑️ Deleted orphaned movie message: ${messageId}`);
           } catch (error) {
-            const logger = require('../utils/logger');
             logger.warn(`Failed to delete orphaned message ${messageId}:`, error.message);
           }
           continue;
@@ -197,7 +196,7 @@ async function handleCleanupSync(interaction, movieChannel) {
       const discordEvents = require('./discord-events');
       eventSyncResults = await discordEvents.syncDiscordEventsWithDatabase(interaction.guild);
     } catch (error) {
-      console.warn('Error syncing Discord events:', error.message);
+      logger.warn('Error syncing Discord events:', error.message);
     }
 
     // Ensure quick action message at bottom
@@ -229,9 +228,9 @@ async function handleCleanupSync(interaction, movieChannel) {
     });
 
   } catch (error) {
-    console.error('Cleanup error:', error);
+    logger.error('Cleanup error:', error);
     await interaction.followUp({
-      content: '❌ Cleanup failed. Check console for details.',
+      content: '❌ Cleanup failed. Check logs for details.',
       flags: MessageFlags.Ephemeral
     });
   }
@@ -281,7 +280,7 @@ async function updateMessageToCurrentFormat(message) {
     });
     return true;
   } catch (error) {
-    console.warn(`Failed to update message ${message.id}:`, error.message);
+    logger.warn(`Failed to update message ${message.id}:`, error.message);
     return false;
   }
 }
@@ -768,11 +767,8 @@ async function recreateMoviePost(channel, movie) {
       components: movieComponents
     });
 
-    // Create new movie record with new message ID and preserve vote data
+    // Create new movie record with new message ID
     try {
-      // Get the old vote counts to preserve them
-      const oldVoteCounts = await database.getVoteCounts(movie.message_id);
-
       // Delete the old movie record (this will cascade delete votes due to foreign key)
       await database.deleteMovie(movie.message_id);
 
@@ -789,13 +785,13 @@ async function recreateMoviePost(channel, movie) {
       });
 
       if (movieId) {
-        console.log(`🔄 Recreated movie record: ${movie.title} (${movie.message_id} → ${newMessage.id})`);
+        logger.debug(`🔄 Recreated movie record: ${movie.title} (${movie.message_id} → ${newMessage.id})`);
       } else {
-        console.warn(`Failed to recreate movie record for ${movie.title}`);
+        logger.warn(`Failed to recreate movie record for ${movie.title}`);
         return false;
       }
     } catch (dbError) {
-      console.warn(`Failed to recreate movie record for ${movie.title}:`, dbError.message);
+      logger.warn(`Failed to recreate movie record for ${movie.title}:`, dbError.message);
       return false;
     }
 
