@@ -6,6 +6,13 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 
 
 
+
+## [1.14.3-rc13] - 2025-09-14
+### Changed
+- WS client: add handlers `update_vote_caps` and `update_guild_config` so dashboard delegates configuration changes to the bot.
+- Emits `caps_updated` and `config_updated` events for live dashboard refresh via SSE.
+- Continues the pattern: dashboard is read-only for state; bot is single writer.
+
 ## [1.14.3-rc12] - 2025-09-13
 ### Fixed/Changed
 - Discord Events: strengthen title sanitization to robustly strip date/time words (days, months, 24h/12h times, 4-digit years). Keeps optional movie title segment only when not date-like; otherwise falls back to base title.
