@@ -7,6 +7,15 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 
 
 
+## [1.14.3] - 2025-09-14
+### Highlights (final)
+- Dashboard parity and live updates foundation: bot emits lightweight events after key actions (vote_update, session_created/updated/cancelled, winner_selected) enabling the dashboard’s real-time SSE UI.
+- Configuration via bot only: new WS handlers `update_vote_caps` and `update_guild_config`; emits `caps_updated`/`config_updated` so admin forms refresh automatically. Dashboard becomes read-only for state; bot is the single writer.
+- Discord Event titles are sanitized to remove dates/times; localized times are shown in descriptions via `<t:...>`.
+- IMDb display and sync safety: resilient display of IMDb data in posts/threads and safer Sync operations that do not revive concluded sessions.
+- WebSocket resilience and clearer diagnostics across handlers.
+
+
 ## [1.14.3-rc13] - 2025-09-14
 ### Changed
 - WS client: add handlers `update_vote_caps` and `update_guild_config` so dashboard delegates configuration changes to the bot.
