@@ -2,7 +2,7 @@ const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName('admin-panel')
+    .setName('movienight-admin-panel')
     .setDescription('Restore the admin control panel')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels),
 

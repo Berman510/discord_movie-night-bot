@@ -5,7 +5,7 @@
 
 const commands = [
   {
-    name: 'movie-setup',
+    name: 'movienight-setup',
     description: '🎬 Interactive bot setup - configure your Movie Night Bot easily!'
   }
 ];

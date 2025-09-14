@@ -5,10 +5,7 @@
 
 const { Routes, REST } = require('discord.js');
 const movieNightCommands = require('./movie-night');
-const movieSessionCommands = require('./movie-session');
 const movieConfigureCommands = require('./movie-configure');
-const movieCleanupCommands = require('./movie-cleanup');
-const movieStatsCommands = require('./movie-stats');
 const movieSetupCommands = require('./movie-setup');
 const movieWatchedCommand = require('./movie-watched');
 const movieSkipCommand = require('./movie-skip');
@@ -19,10 +16,7 @@ const adminPanelCommand = require('./admin-panel');
 // Combine all command definitions
 const commands = [
   ...movieNightCommands,
-  ...movieSessionCommands,
   ...movieConfigureCommands,
-  ...movieCleanupCommands,
-  ...movieStatsCommands,
   ...movieSetupCommands,
   movieWatchedCommand.data.toJSON(),
   movieSkipCommand.data.toJSON(),

@@ -7,8 +7,8 @@ const { PermissionFlagsBits } = require('discord.js');
 const database = require('../database');
 
 async function checkMovieAdminPermission(interaction) {
-  // Check if user has Discord Administrator permission
-  if (interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
+  // Check if user has Discord Administrator or Manage Guild permission
+  if (interaction.member.permissions.has(PermissionFlagsBits.Administrator) || interaction.member.permissions.has(PermissionFlagsBits.ManageGuild)) {
     return true;
   }
 
@@ -55,7 +55,7 @@ async function checkChannelPermission(interaction, requiredChannel = null) {
 
   try {
     const config = await database.getGuildConfig(interaction.guild.id);
-    
+
     // If no movie channel is configured, allow anywhere
     if (!config || !config.movie_channel_id) {
       return true;
@@ -86,11 +86,44 @@ function hasSendMessagesPermission(member) {
   return member.permissions.has(PermissionFlagsBits.SendMessages);
 }
 
+
+async function canMemberVote(guildId, member) {
+  try {
+    // Admin-like perms: Administrator or Manage Guild
+    if (member?.permissions?.has(PermissionFlagsBits.Administrator) || member?.permissions?.has(PermissionFlagsBits.ManageGuild)) {
+      return true;
+    }
+    if (!database.isConnected) return false;
+    const config = await database.getGuildConfig(guildId);
+    const userRoles = member?.roles?.cache?.map(r => r.id) || [];
+
+    // Configured admin/moderator roles
+    if (Array.isArray(config?.admin_roles) && config.admin_roles.some(id => userRoles.includes(id))) return true;
+    if (Array.isArray(config?.moderator_roles) && config.moderator_roles.some(id => userRoles.includes(id))) return true;
+
+    // Voting Roles
+    const voterRoles = Array.isArray(config?.voting_roles) ? config.voting_roles.map(String).filter(Boolean) : [];
+    if (voterRoles.length === 0) {
+      // Option B: enforce configuration; without configured Voting Roles, only mods/admins may vote
+      return false;
+    }
+    return voterRoles.some(id => userRoles.includes(id));
+  } catch (_) {
+    return false;
+  }
+}
+
+async function checkCanVote(interaction) {
+  return canMemberVote(interaction.guild.id, interaction.member);
+}
+
 module.exports = {
   checkMovieAdminPermission,
   checkMovieModeratorPermission,
   checkChannelPermission,
   hasManageChannelsPermission,
   hasCreateThreadsPermission,
-  hasSendMessagesPermission
+  hasSendMessagesPermission,
+  checkCanVote,
+  canMemberVote
 };

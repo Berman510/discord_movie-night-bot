@@ -67,6 +67,14 @@ async function handleCleanupSync(interaction, movieChannel) {
     flags: MessageFlags.Ephemeral
   });
 
+  // Determine if there is an active voting session; avoid reviving old sessions
+  let hasActiveVoting = false;
+  try {
+    const database = require('../database');
+    const activeSession = await database.getActiveVotingSession(interaction.guild.id);
+    hasActiveVoting = !!activeSession;
+  } catch (_) {}
+
   try {
     const channel = movieChannel;
     const botId = interaction.client.user.id;
@@ -145,7 +153,7 @@ async function handleCleanupSync(interaction, movieChannel) {
           } else {
             // Only sync if message components are missing or outdated
             const needsSync = !message.components || message.components.length === 0;
-            if (needsSync) {
+            if (hasActiveVoting && needsSync) {
               const synced = await syncMessageWithDatabase(message, movie);
               if (synced) {
                 syncedCount++;
@@ -172,40 +180,13 @@ async function handleCleanupSync(interaction, movieChannel) {
     // Step 4: Clean up orphaned threads BEFORE recreation
     const threadsCleanedCount = await cleanupOrphanedThreads(channel);
 
-    // Step 5: Handle movies without Discord messages - recreate instead of delete
-    const messageIds = new Set(botMessages.keys());
-    const moviesWithoutMessages = dbMovies.filter(movie => !messageIds.has(movie.message_id));
+    // Step 5: Handle movies without Discord messages (respects active session)
+    let recreatedViaHelper = 0;
+    try {
+      recreatedViaHelper = await recreateMissingMoviePosts(channel, interaction.guild.id);
+    } catch (_) {}
+    cleanedDbCount += recreatedViaHelper;
 
-    if (moviesWithoutMessages.length > 0) {
-      console.log(`🎬 Found ${moviesWithoutMessages.length} movies without Discord messages, recreating...`);
-
-      for (const movie of moviesWithoutMessages) {
-        try {
-          // Skip watched movies - they don't need posts
-          if (movie.status === 'watched') {
-            console.log(`📚 Skipping watched movie: ${movie.title}`);
-            continue;
-          }
-
-          // Debug: Log movie data before recreation
-          console.log(`🔍 Movie data for ${movie.title}:`, {
-            where_to_watch: movie.where_to_watch,
-            recommended_by: movie.recommended_by,
-            description: movie.description,
-            imdb_id: movie.imdb_id,
-            imdb_data: movie.imdb_data
-          });
-
-          // Recreate the movie post
-          await recreateMoviePost(channel, movie);
-          cleanedDbCount++;
-
-          console.log(`🎬 Recreated missing post: ${movie.title}`);
-        } catch (error) {
-          console.error(`Error recreating post for ${movie.title}:`, error.message);
-        }
-      }
-    }
 
     // Step 6: Check for movies with posts but missing threads
     await recreateMissingThreads(channel, botMessages);
@@ -757,24 +738,15 @@ async function recreateMoviePost(channel, movie) {
     // Get vote counts
     const voteCounts = await database.getVoteCounts(movie.message_id);
 
-    // Parse IMDb data with proper handling for double-encoded JSON
+    // Fetch IMDb data from cache only (no fallback)
     let imdbData = null;
-    if (movie.imdb_data) {
-      try {
-        // Handle both single and double-encoded JSON
-        let parsedData = movie.imdb_data;
-        if (typeof parsedData === 'string') {
-          parsedData = JSON.parse(parsedData);
-        }
-        if (typeof parsedData === 'string') {
-          parsedData = JSON.parse(parsedData); // Handle double-encoding
-        }
-        imdbData = parsedData;
-        console.log(`🎬 Successfully parsed IMDb data for ${movie.title}`);
-      } catch (error) {
-        console.warn(`Failed to parse IMDb data for ${movie.title}:`, error.message);
-        imdbData = null;
+    try {
+      const imdb = require('./imdb');
+      if (movie.imdb_id) {
+        imdbData = await imdb.getMovieDetailsCached(movie.imdb_id);
       }
+    } catch (e) {
+      console.warn(`Failed to fetch IMDb cache for ${movie.title}:`, e?.message || e);
     }
 
     // Create movie embed with proper field mapping and safety checks
@@ -813,7 +785,6 @@ async function recreateMoviePost(channel, movie) {
         whereToWatch: movie.where_to_watch,
         recommendedBy: movie.recommended_by,
         imdbId: movie.imdb_id,
-        imdbData: movie.imdb_data,
         status: movie.status
       });
 

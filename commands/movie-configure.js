@@ -7,7 +7,7 @@ const { TIMEZONE_OPTIONS } = require('../config/timezones');
 
 const commands = [
   {
-    name: 'movie-configure',
+    name: 'movienight-configure',
     description: 'Configure bot settings for this server (Administrator only)',
     options: [
       {
@@ -17,11 +17,10 @@ const commands = [
         required: true,
         choices: [
           { name: 'set-voting-channel', value: 'set-channel' },
-          { name: 'set-viewing-channel', value: 'set-viewing-channel' },
+          { name: 'set-watch-party-channel', value: 'set-watch-party-channel' },
           { name: 'set-admin-channel', value: 'set-admin-channel' },
           { name: 'add-admin-role', value: 'add-admin-role' },
           { name: 'remove-admin-role', value: 'remove-admin-role' },
-          { name: 'set-notification-role', value: 'set-notification-role' },
           { name: 'view-settings', value: 'view-settings' },
           { name: 'debug', value: 'debug' },
           { name: 'debug-session', value: 'debug-session' },
@@ -37,7 +36,7 @@ const commands = [
 
       {
         name: 'role',
-        description: 'Role to add/remove as admin or set as notification role',
+        description: 'Role to add/remove as admin',
         type: 8, // ROLE
         required: false
       }

@@ -2,7 +2,7 @@ const { SlashCommandBuilder } = require('discord.js');
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName('movie-skip')
+    .setName('movienight-skip')
     .setDescription('Skip a movie (Admin only)')
     .addStringOption(option =>
       option.setName('title')

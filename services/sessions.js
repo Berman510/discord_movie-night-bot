@@ -1142,6 +1142,14 @@ async function handleCancelConfirmation(interaction) {
       }
     }
 
+
+    // Disassociate all movies from this session (clear session_id)
+    try {
+      await database.clearMoviesForSession(sessionId);
+    } catch (e) {
+      console.warn('Failed clearing movies for cancelled session:', e?.message);
+    }
+
     // Delete session from database
     await database.deleteMovieSession(sessionId);
 

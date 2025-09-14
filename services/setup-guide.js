@@ -75,8 +75,8 @@ async function showChannelSetup(interaction) {
         inline: false
       },
       {
-        name: '2️⃣ Movie Viewing Channel (Public)',
-        value: `**Purpose:** Where movie nights take place and attendance is tracked
+        name: '2️⃣ Watch Party Channel (Public)',
+        value: `**Purpose:** Where watch parties happen and attendance is tracked
 **Type:** Voice Channel OR Text Channel
 **Visibility:** Public (all members can join)
 **Permissions Needed:**

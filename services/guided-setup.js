@@ -13,7 +13,7 @@ const database = require('../database');
 async function startGuidedSetup(interaction) {
   const embed = new EmbedBuilder()
     .setTitle('🎬 Movie Night Bot - Quick Setup')
-    .setDescription(`Welcome! Let's get your Movie Night Bot configured in just a few steps.\n\n**What we'll set up:**\n• 📺 Voting channel (where movies are recommended)\n• 🔧 Admin channel (for bot management)\n• 🎤 Viewing channel (where you watch movies)\n• 👑 Admin roles (who can manage the bot)\n• 🔔 Viewer role (gets pinged for events)\n\n**Note:** The bot already has its own "${interaction.client.user.displayName}" role with required permissions.\n\n**Prefer a browser?** Manage the bot (minus voting) from the dashboard: https://movienight.bermanoc.net`)
+    .setDescription(`Welcome! Let's get your Movie Night Bot configured in just a few steps.\n\n**What we'll set up:**\n• 📺 Voting channel (where movies are recommended)\n• 🔧 Admin channel (for bot management)\n• 🎬 Watch Party Channel (where you watch movies)\n• 👑 Admin roles (who can manage the bot)\n• 👥 Voting Roles (also used for announcements)\n\n**Note:** The bot already has its own "${interaction.client.user.displayName}" role with required permissions.\n\n**Prefer a browser?** Manage the bot (minus voting) from the dashboard: https://movienight.bermanoc.net`)
     .setColor(0x5865f2)
     .setFooter({ text: 'This setup takes about 2 minutes' });
 
@@ -72,8 +72,8 @@ async function showSetupMenuWithMessage(interaction, currentConfig = null, succe
         inline: true
       },
       {
-        name: `${currentConfig.session_viewing_channel_id ? '✅' : '❌'} Viewing Channel`,
-        value: currentConfig.session_viewing_channel_id ? `<#${currentConfig.session_viewing_channel_id}>` : 'Not configured',
+        name: `${currentConfig.watch_party_channel_id ? '✅' : '❌'} Watch Party Channel`,
+        value: currentConfig.watch_party_channel_id ? `<#${currentConfig.watch_party_channel_id}>` : 'Not configured',
         inline: true
       },
       {
@@ -87,8 +87,8 @@ async function showSetupMenuWithMessage(interaction, currentConfig = null, succe
         inline: true
       },
       {
-        name: `${currentConfig.notification_role_id ? '✅' : '❌'} Viewer Role`,
-        value: currentConfig.notification_role_id ? `<@&${currentConfig.notification_role_id}>` : 'Not configured',
+        name: `${currentConfig.voting_roles?.length > 0 ? '✅' : '❌'} Voting Roles`,
+        value: currentConfig.voting_roles?.length > 0 ? `${currentConfig.voting_roles.length} role(s)` : 'Not configured',
         inline: true
       }
     );
@@ -104,9 +104,9 @@ async function showSetupMenuWithMessage(interaction, currentConfig = null, succe
         .setLabel('🔧 Admin Channel')
         .setStyle(currentConfig.admin_channel_id ? ButtonStyle.Success : ButtonStyle.Secondary),
       new ButtonBuilder()
-        .setCustomId('setup_viewing_channel')
-        .setLabel('🎤 Viewing Channel')
-        .setStyle(currentConfig.session_viewing_channel_id ? ButtonStyle.Success : ButtonStyle.Secondary)
+        .setCustomId('setup_watch_party_channel')
+        .setLabel('🎬 Watch Party Channel')
+        .setStyle(currentConfig.watch_party_channel_id ? ButtonStyle.Success : ButtonStyle.Secondary)
     );
 
   const menuButtons2 = new ActionRowBuilder()
@@ -120,9 +120,9 @@ async function showSetupMenuWithMessage(interaction, currentConfig = null, succe
         .setLabel('🛡️ Moderator Roles')
         .setStyle(currentConfig.moderator_roles?.length > 0 ? ButtonStyle.Success : ButtonStyle.Secondary),
       new ButtonBuilder()
-        .setCustomId('setup_notification_role')
-        .setLabel('🔔 Viewer Role')
-        .setStyle(currentConfig.notification_role_id ? ButtonStyle.Success : ButtonStyle.Secondary)
+        .setCustomId('setup_voting_roles')
+        .setLabel('👥 Voting Roles')
+        .setStyle(currentConfig.voting_roles?.length > 0 ? ButtonStyle.Success : ButtonStyle.Secondary)
     );
 
   const menuButtons3 = new ActionRowBuilder()
@@ -213,19 +213,19 @@ async function showAdminChannelSetup(interaction) {
 }
 
 /**
- * Show viewing channel selection
+ * Show Watch Party Channel selection
  */
-async function showViewingChannelSetup(interaction) {
+async function showWatchPartyChannelSetup(interaction) {
   const embed = new EmbedBuilder()
-    .setTitle('🎤 Set Viewing Channel')
-    .setDescription('Choose the voice channel where you watch movies together.\n\n**Recommended:** A voice channel like #movie-night-vc\n\n**Required Bot Permissions:**\n• View Channel\n• Connect (to track attendance)\n• Create Events (for scheduled sessions)')
+    .setTitle('🎬 Set Watch Party Channel')
+    .setDescription('Choose the channel where you host watch parties together.\n\n**Recommended:** A voice channel like #movie-night-vc (or a text channel if you prefer chat-only)\n\n**Required Bot Permissions:**\n• View Channel\n• Connect (to track attendance)\n• Create Events (for scheduled sessions)')
     .setColor(0x5865f2);
 
   const channelSelect = new ActionRowBuilder()
     .addComponents(
       new ChannelSelectMenuBuilder()
-        .setCustomId('setup_select_viewing_channel')
-        .setPlaceholder('Select a voice channel for watching movies')
+        .setCustomId('setup_select_watch_party_channel')
+        .setPlaceholder('Select a channel for watch parties (voice or text)')
         .setChannelTypes(ChannelType.GuildVoice)
     );
 
@@ -318,28 +318,24 @@ async function showModeratorRolesSetup(interaction) {
 }
 
 /**
- * Show notification role selection
+ * Show voting roles selection
  */
-async function showNotificationRoleSetup(interaction) {
+async function showVotingRolesSetup(interaction) {
   const embed = new EmbedBuilder()
-    .setTitle('🔔 Set Viewer Role')
-    .setDescription('Choose a role to ping when movie sessions are scheduled.\n\n**What This Role Gets:**\n• Notifications when new movie sessions are created\n• Pings for upcoming movie nights\n• Access to participate in voting and sessions\n\n**Suggested Names:** @Movie Viewers, @Movie Night, @Cinema Club\n\n**Optional:** You can skip this if you don\'t want role notifications.')
+    .setTitle('👥 Configure Voting Roles')
+    .setDescription('Select roles that are allowed to vote. These roles will also be pinged for announcements.')
     .setColor(0x5865f2);
 
   const roleSelect = new ActionRowBuilder()
     .addComponents(
       new RoleSelectMenuBuilder()
-        .setCustomId('setup_select_notification_role')
-        .setPlaceholder('Select a role to notify for movie sessions')
-        .setMaxValues(1)
+        .setCustomId('setup_select_voting_roles')
+        .setPlaceholder('Select roles allowed to vote (also used for announcements)')
+        .setMaxValues(25)
     );
 
   const backButton = new ActionRowBuilder()
     .addComponents(
-      new ButtonBuilder()
-        .setCustomId('setup_skip_notification_role')
-        .setLabel('⏭️ Skip This Step')
-        .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId('setup_back_to_menu')
         .setLabel('← Back to Menu')
@@ -445,7 +441,7 @@ async function showChannelSafetyConfirmation(interaction, channel, channelType) 
   const channelTypeNames = {
     'voting': 'Voting Channel',
     'admin': 'Admin Channel',
-    'viewing': 'Viewing Channel'
+    'viewing': 'Watch Party Channel'
   };
 
   const embed = new EmbedBuilder()
@@ -526,10 +522,10 @@ async function configureChannelDirectly(interaction, channel, channelType) {
         break;
 
       case 'viewing':
-        success = await database.setViewingChannel(interaction.guild.id, channel.id);
+        success = await database.setWatchPartyChannel(interaction.guild.id, channel.id);
         message = success ?
-          `✅ **Viewing channel set to ${channel}**\n\nThe bot will track attendance during movie sessions!` :
-          '❌ Failed to set viewing channel.';
+          `✅ **Watch Party Channel set to ${channel}**\n\nThe bot will track attendance during movie sessions!` :
+          '❌ Failed to set watch party channel.';
         break;
     }
 
@@ -560,7 +556,6 @@ async function handleRoleSelection(interaction, roleType) {
   try {
     switch (roleType) {
       case 'admin':
-        // Add all selected roles as admin roles
         for (const roleId of selectedRoles) {
           await database.addAdminRole(interaction.guild.id, roleId);
         }
@@ -570,7 +565,6 @@ async function handleRoleSelection(interaction, roleType) {
         break;
 
       case 'moderator':
-        // Add all selected roles as moderator roles
         for (const roleId of selectedRoles) {
           await database.addModeratorRole(interaction.guild.id, roleId);
         }
@@ -579,12 +573,13 @@ async function handleRoleSelection(interaction, roleType) {
         message = `✅ **Moderator roles set:** ${modRoleNames}\n\nThese roles can now moderate movies and sessions!`;
         break;
 
-      case 'notification':
-        const roleId = selectedRoles[0]; // Only one role for notifications
-        success = await database.setNotificationRole(interaction.guild.id, roleId);
-        message = success ?
-          `✅ **Notification role set to <@&${roleId}>**\n\nThis role will be pinged for movie sessions!` :
-          '❌ Failed to set notification role.';
+      case 'voting':
+        for (const roleId of selectedRoles) {
+          await database.addVotingRole(interaction.guild.id, roleId);
+        }
+        success = true;
+        const votingRoleNames = selectedRoles.map(id => `<@&${id}>`).join(', ');
+        message = `✅ **Voting roles set:** ${votingRoleNames}\n\nMembers with these roles can vote and will be pinged for announcements.`;
         break;
     }
 
@@ -653,10 +648,11 @@ module.exports = {
   showSetupMenuWithMessage,
   showVotingChannelSetup,
   showAdminChannelSetup,
-  showViewingChannelSetup,
+  showWatchPartyChannelSetup,
   showAdminRolesSetup,
   showModeratorRolesSetup,
-  showNotificationRoleSetup,
+  showVotingRolesSetup,
+
   showSetupComplete,
   handleChannelSelection,
   handleRoleSelection,

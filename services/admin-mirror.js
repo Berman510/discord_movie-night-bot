@@ -263,11 +263,8 @@ async function syncAdminChannel(client, guildId) {
     if (activeSession) {
       allMovies = await database.getMoviesForVotingSession(activeSession.id);
     } else {
-      // Fallback: get general queue excluding carryover
-      const movies = await database.getMoviesByStatusExcludingCarryover(guildId, 'pending', 50);
-      const plannedMovies = await database.getMoviesByStatusExcludingCarryover(guildId, 'planned', 50);
-      const scheduledMovies = await database.getMoviesByStatusExcludingCarryover(guildId, 'scheduled', 50);
-      allMovies = [...movies, ...plannedMovies, ...scheduledMovies];
+      // No active session: do not mirror queue into admin channel
+      allMovies = [];
     }
 
     // Do NOT post banned movies in the admin mirror list (managed via separate banned list UI)

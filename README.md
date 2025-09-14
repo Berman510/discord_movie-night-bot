@@ -7,6 +7,20 @@
 A comprehensive Discord bot for managing movie recommendations, voting, and organized movie night sessions. Features persistent voting, IMDb integration, session scheduling with Discord events, and comprehensive movie night statistics.
 
 > **🏗️ Modular Architecture**: Clean, maintainable codebase with separation of concerns. See [ARCHITECTURE.md](ARCHITECTURE.md) for technical details.
+## 🚀 Quick Start
+
+1. Invite the bot to your server (scopes: bot + applications.commands; see invite template below).
+2. Run `/movienight-setup` and configure:
+   - Movie Channel (recommendations)
+   - Admin Channel (management)
+   - Watch Party Channel (Discord Events + attendance tracking)
+   - Voting Roles and Vote Caps
+3. Plan your first session with `/movienight-plan` (Name, Date, Start Time, optional Voting End, Description).
+   - If you omit Voting End, it defaults to 1 hour before the session start.
+4. Members recommend via `/movienight`; everyone with permission can vote using the buttons on each movie post.
+5. Admins can open `/movienight-admin-panel` to manage sessions (Plan/Reschedule, Pick Winner, Skip, Sync/Refresh).
+6. Optional: Use the Dashboard to view the queue, vote, and manage sessions.
+
 
 ## ✨ Key Features
 
@@ -26,6 +40,8 @@ A comprehensive Discord bot for managing movie recommendations, voting, and orga
 
 ### 🎪 **Enhanced Session Management**
 - **Discord Event Integration**: Full event creation, updates, and RSVP functionality with channel integration
+- **Event Title Policy**: Event titles do not include date/time; localized times appear in the description using Discord timestamps (<t:…:F>/<t:…:R>).
+
 - **Timezone Support**: Configurable guild timezones with 12-hour or 24-hour time formats (e.g., 7:30 PM or 19:30) and US dates (MM/DD/YYYY)
 - **Session Descriptions**: Themed session messaging with custom descriptions in voting channels
 - **Automatic Event Updates**: Events update with winner information, IMDB details, and vote counts
@@ -48,82 +64,15 @@ A comprehensive Discord bot for managing movie recommendations, voting, and orga
 
 ### ⚙️ **Enhanced Configuration**
 - **Channel Management**: Dedicated movie recommendation channels with admin channel support
-- **Session Viewing Channels**: Configurable channels for Discord events (Voice, Stage, or Text channels)
+- **Watch Party Channels**: Configurable channels for Discord events (Voice, Stage, or Text channels)
 - **Admin Roles**: Role-based permission system with comprehensive admin controls
 - **Timezone Settings**: Server-wide timezone configuration with automatic voting closure
-- **Notification Roles**: Ping roles for movie night events with Discord event integration
+- **Voting Roles**: Controls who can vote and who gets pinged for movie night events (Discord event integration)
 - **Time Formats**: User-friendly 12-hour or 24-hour time formats and US date format (MM/DD/YYYY)
 
 ---
 
 
-
-### ✅ What's New in 1.14.2-rc1
-- Database migration backfill: automatically creates a missing active voting session for guilds that have pending movies but no session, then links those movies to it.
-- Fixes dashboards that show movies but no session/reschedule controls on legacy installs.
-- To apply immediately, update and restart the bot or run `npm run migrate`.
-
-### ✅ What's New in 1.14.1
-- Dashboard ↔ Bot over WebSocket: dashboard actions now include Vote, Remove, and Pick Winner (admins/mods) with live updates and admin panel refresh.
-- Asymmetric per-session vote caps: users can upvote up to max(1, floor(n/3)) and downvote up to max(1, floor(n/5)) movies per session. Friendly ephemeral message appears if a user hits the limit, listing their current votes.
-- Ban improvements: avoid duplicate “system/admin” DB rows on ban; perform Discord cleanup (archive forum thread, delete/disable text) when banning.
-- WS resiliency: improved close/reconnect logs with codes/reasons and backoff timing for better visibility during deploys.
-
-### 🚀 Next Up (prioritized)
-- [Sev	1] WS connection resilience & observability
-  - Jittered exponential backoff on reconnect and explicit offline timer
-  - Detailed logs on close codes/reasons and next reconnect attempt
-- [Sev	1] Dashboard live updates (no reloads)
-  - Emit vote/status change events to dashboard for real-time UI updates
-- [Sev	2] Unban via Discord channels
-  - Add Unban controls in admin panel (and slash command fallback)
-- [Sev	2] Session/post updates
-  - [x] Reschedule refreshes pinned “37f Recommend a Movie” with new date/name
-- [Sev	3] Analytics & docs
-  - Surface RSVP list/count for sessions to dashboard; document WS integration (env vars, tokens)
-
-
-## 📋 TODO List
-
-### 🧰 Hosting Operational TODOs
-- [ ] PebbleHost startup script: add `scripts/start-pebble.sh` that does `git fetch --all --prune && git reset --hard origin/$(git rev-parse --abbrev-ref HEAD)`, ensures deps with `npm ci --omit=dev` (fallback `npm install --only=prod`), then starts the bot. Add `"start:pebble"` to package.json and document updating the PebbleHost Start Command.
-
-
-### 🔄 **Message Tracking System**
-- [ ] **Track all bot messages**: Store message IDs for notifications, admin panels, recommendations
-- [ ] **Message update system**: Update tracked messages when sessions are rescheduled
-- [ ] **Bidirectional sync**: Remove SESSION_UID from event descriptions once message tracking is implemented
-- [ ] **Message cleanup**: Proper cleanup of tracked messages when sessions end
-
-### 📅 **Reschedule Functionality**
-- [x] **Reschedule button**: Add reschedule button to admin panel (implemented)
-- [x] **Same modal as Plan Next Session**: Reschedule opens the exact same modal used by Plan Next Session, with all fields pre-filled from the current session
-- [x] **Event updates**: Update Discord events when sessions are rescheduled
-- [x] **Post updates**: Refresh Admin Control Panel and forum recommendation post (or text quick-action) after reschedule
-
-### 🗳️ **Multiple Voting Sessions**
-- [ ] **Concurrent voting sessions**: Support multiple active voting sessions simultaneously
-- [ ] **Session queue management**: Queue system for multiple planned sessions
-
-### 🗳️ Vote Caps Configuration
-- [ ] Make vote caps configurable by admin roles:
-  - Global per-guild defaults (enable/disable, upvote ratio default 1/3, downvote ratio default 1/5, min votes default 1)
-  - Optional per-session overrides by the admin/mod who creates the session
-  - Document settings in README and expose via slash commands/admin panel
-
-- [ ] **Session-specific voting channels**: Separate voting channels or sections for each session
-- [ ] **Session priority system**: Handle overlapping session times and priorities
-
-### 🎯 **Future Enhancements**
-- [ ] **Forum channel tags**: Implement status-based tags for forum posts
-- [ ] **Advanced analytics**: More detailed voting and attendance statistics
-- [ ] **Movie recommendations API**: Integration with additional movie databases
-- [ ] **Automated reminders**: Reminder notifications before voting ends
-- [ ] Vote caps: allow overrides configurable by admin roles globally and by admin/mods per voting session (UI in Administration panel)
-
-- [ ] Repository consolidation: Consider moving bot and dashboard into a single monorepo once WS integration stabilizes (keep separate deployment methods).
-
-- [ ] Monorepo planning: evaluate hosting the bot in AWS (e.g., ECS/Fargate) instead of PebbleHost to reduce operational issues; align CI/CD, secrets (AWS Secrets Manager), and env parity with the dashboard.
 
 
 ---
@@ -135,18 +84,23 @@ A comprehensive Discord bot for managing movie recommendations, voting, and orga
 
 ### Required OAuth Scopes
 
-### IMDb Caching (cross-guild)
-To reduce OMDb usage, the bot caches full IMDb responses globally across servers in a lightweight imdb_cache table.
-- Enabled by default; respects TTL and hard row limit with LRU eviction
-- Deep purge does not clear this cache
-
-Env toggles:
-- IMDB_CACHE_ENABLED=true
-- IMDB_CACHE_TTL_DAYS=90
-- IMDB_CACHE_MAX_ROWS=10000
-
 - `bot`
 - `applications.commands`
+
+### IMDb Caching (cross-guild)
+The bot prefers the imdb_cache table for all IMDb data. If a movie is not in cache, the bot will perform a one-time live OMDb fetch for display and attempt to cache the result when possible. This ensures posters/ratings/plots appear reliably in:
+- Movie recommendation embeds (text/forum)
+- Discussion thread details
+- Winner announcements and Discord Event updates
+- Designed to minimize OMDb usage while keeping UX complete
+- Deep purge does not clear this cache
+
+Notes:
+- Set `OMDB_API_KEY` to enable the live fetch fallback
+- Cache maintenance/env toggles:
+  - IMDB_CACHE_ENABLED=true
+  - IMDB_CACHE_TTL_DAYS=90
+  - IMDB_CACHE_MAX_ROWS=10000
 
 ### Required Bot Permissions
 - **Send Messages** (post movie recommendations and responses)
@@ -164,13 +118,14 @@ Env toggles:
 
 ### Required Gateway Intents
 In Discord Developer Portal → Bot section, enable:
-- ✅ **Message Content Intent** (required for reading movie recommendations)
+- ✅ **Guild Voice States** (required for attendance tracking in Watch Party Channel)
+- ✅ **Message Content Intent** (optional; only needed if you use legacy message-based features)
 
 ### Discord Developer Portal Setup
 1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
 2. Create **New Application** → give it a name (e.g., "Movie Night Bot")
 3. Go to **Bot** section → **Add Bot** → copy the **Bot Token**
-4. Enable **Message Content Intent** in Bot section
+4. (Optional) Enable **Message Content Intent** in Bot section if you use message-based features
 5. Go to **OAuth2 → URL Generator**:
    - **Scopes**: `bot` + `applications.commands`
    - **Permissions**: Use the permissions listed above
@@ -182,6 +137,56 @@ https://discord.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&scope=bot%20applic
 ```
 
 ---
+## 🔐 Role-based Access
+
+- Admins: Have Administrator or Manage Server permissions, or are in configured Admin Roles.
+  - Full control (planning, cancelling, picking winners, banning movies, configuration).
+- Moderators: In configured Moderator Roles.
+  - Limited management (e.g., Sync Channels, Refresh Admin Panel, Skip); no destructive actions.
+- Voters: In configured Voting Roles.
+  - Can recommend and vote; also used for announcement pings.
+  - If no Voting Roles are configured, only Admins/Moderators can vote (strict gating).
+- All gating is enforced in both the bot and the Dashboard; dashboard actions execute as the authenticated Discord user with attribution in the DB.
+
+## 📚 Slash Commands
+
+All commands use the unified movienight prefix:
+
+- /movienight
+  - Opens the Recommend a Movie modal during an active voting session in the configured movie channel.
+  - Voters, Moderators, and Admins can recommend; voting is enforced by role as configured.
+
+- /movienight-queue
+  - Shows the current session’s recommended movies and live vote counts in the current channel.
+  - Useful for a quick in-Discord view of the queue.
+
+- /movienight-setup
+  - Launches the in-Discord Guided Setup with buttons to configure:
+    - Movie Channel (recommendations)
+    - Admin Channel (management panel)
+    - Watch Party Channel (Discord Events + attendance tracking)
+    - Voting Roles and Vote Caps
+  - Mirrors the Dashboard’s Configure Bot sections.
+
+- /movienight-plan
+  - Admin/Moderator action to plan the next voting session (opens a modal with:
+    - Name, Date, Start Time, optional Voting End Date/Time, Description)
+  - Creates/updates the Discord Event and pins the Recommend post.
+
+- /movienight-watched
+  - Admin action to mark the winning movie as Watched and close out the session.
+
+- /movienight-skip
+  - Admin/Moderator action to skip a movie (e.g., the current pick) while keeping the session open.
+
+- /movienight-admin-panel
+  - Admin action to render/refresh the Admin Control Panel in the configured admin channel.
+
+- /movienight-debug-config
+  - Shows the current guild configuration and capability flags (ephemeral to the caller).
+
+Deprecated/removed commands (replaced by the above): /movie-session, /movie-cleanup, /movie-stats, /movie-help, /movie-night, /movie-setup, /movie-queue, /movie-plan, /movie-watched, /movie-skip, /admin-panel, /debug-config
+
 
 ## .env
 Create a `.env` in the project root (copy from `.env.example`):
@@ -246,11 +251,11 @@ The bot supports MySQL for persistent data storage. Here's how to set it up:
 | **Movie Recommendations** | ✅ Persistent | ✅ Persistent | ✅ Works until restart |
 | **Voting** | ✅ Permanent | ✅ Permanent | ✅ Works until restart |
 | **Status Management** | ✅ Permanent | ✅ Permanent | ❌ Lost on restart |
-| **Queue Management** | ✅ `/movie-queue` | ✅ `/movie-queue` | ❌ Not available |
-| **Statistics** | ✅ `/movie-stats` | ✅ `/movie-stats` | ❌ Not available |
-| **Session Management** | ✅ `/movie-session` | ✅ `/movie-session` | ❌ Not available |
-| **Configuration** | ✅ `/movie-configure` | ✅ `/movie-configure` | ❌ Not available |
-| **Channel Cleanup** | ✅ `/movie-cleanup` | ✅ `/movie-cleanup` | ❌ Not available |
+| **Queue Management** | ✅ `/movienight-queue` | ✅ `/movienight-queue` | ❌ Not available |
+| **Statistics** | ✅ Dashboard | ✅ Dashboard | ❌ Not available |
+| **Session Management** | ✅ Admin Panel + `/movienight-plan` | ✅ Admin Panel + `/movienight-plan` | ❌ Not available |
+| **Configuration** | ✅ Guided Setup + `/movienight-configure` | ✅ Guided Setup + `/movienight-configure` | ❌ Not available |
+| **Channel Sync** | ✅ Admin Panel (Sync/Refresh) | ✅ Admin Panel (Sync/Refresh) | ❌ Not available |
 | **Data Persistence** | ✅ Survives restarts | ✅ Survives restarts | ❌ Lost on restart |
 | **Setup Complexity** | 🔧 Moderate | ✅ Simple | ✅ None |
 | **Scalability** | ✅ Excellent | ⚠️ Good for small/medium | ⚠️ Session only |
@@ -331,7 +336,7 @@ pm2 startup  # follow the printed instructions
 ## Usage
 
 ### Creating Recommendations
-1. In a server text channel, run `/movie-night`
+1. In a server text channel, run `/movienight`
 2. Click **🎬 Create recommendation**
 3. Fill the modal (Title + Where to stream) → Submit
 4. If multiple IMDb matches are found, select the correct one from the dropdown
@@ -341,9 +346,8 @@ pm2 startup  # follow the printed instructions
 - **Vote:** Use 👍/👎 buttons to vote on recommendations
 - **Status:** Use ✅ Watched, 📌 Plan Later, or ⏭️ Skip buttons to manage movies
 - **Finality:** Marking a movie as "Watched" removes all buttons and closes the discussion thread
-- **Queue:** Run `/movie-queue` to see pending and planned movies
-- **Stats:** Run `/movie-stats` to view top-rated movies and viewing history
-- **Help:** Run `/movie-help` for comprehensive help and current status
+- **Queue:** Run `/movienight-queue` to see pending and planned movies
+- **Stats:** View statistics on the Dashboard
 
 ### Enhanced Movie Night Sessions
 - **Admin Control Panel:** Comprehensive admin interface with "Plan Next Session" button and session management
@@ -366,12 +370,12 @@ pm2 startup  # follow the printed instructions
 - **Real-time Updates:** Admin interface updates automatically with session changes
 
 ### Enhanced Server Configuration
-- **Channel Setup:** `/movie-configure set-channel` for voting channel and admin channel configuration
-- **Session Viewing Channels:** Configure channels for Discord events (Voice, Stage, or Text channels)
-- **Timezone Management:** `/movie-configure set-timezone` with automatic voting closure support
-- **Admin Roles:** `/movie-configure add-admin-role @role` for comprehensive admin access
-- **Notification Roles:** Configure roles for Discord event notifications and session announcements
-- **View Settings:** `/movie-configure view-settings` shows all current configuration including new features
+- **Channel Setup:** `/movienight-configure set-channel` for voting channel and admin channel configuration
+- **Watch Party Channel(s):** Configure channels for Discord events (Voice, Stage, or Text channels)
+- **Timezone Management:** `/movienight-configure set-timezone` with automatic voting closure support
+- **Admin Roles:** `/movienight-configure admin-roles add @role` and `... remove @role` for comprehensive admin access
+- **Voting Roles:** Configure which roles can vote; these roles are also used for Discord event notifications and session announcements
+- **View Settings:** `/movienight-configure view-settings` shows all current configuration including new features
 
 ### Logging Configuration
 - **Log Levels:** `ERROR`, `WARN`, `INFO`, `DEBUG` - Control console output verbosity
@@ -380,7 +384,7 @@ pm2 startup  # follow the printed instructions
 - **Environment Variables:** Configure logging behavior via `.env` file
 
 ### Channel Maintenance
-- **Cleanup:** `/movie-cleanup` updates old bot messages to current format (Configured admins only)
+- **Sync & Cleanup:** Use the Admin Control Panel (Sync Channels / Refresh Admin Panel) to update posts and create missing threads
 - **Thread Creation:** Automatically creates missing discussion threads for movies up for vote
 - **Channel Safety:** Cleanup only works in the configured movie channel
 - **Permission Control:** Requires either Administrator permission or configured admin role
@@ -413,13 +417,15 @@ pm2 startup  # follow the printed instructions
 ---
 
 ## 🚀 Future Features (Planned)
+See the full roadmap for details and priorities: [ROADMAP.md](./ROADMAP.md)
+
 
 ### Enhanced Session Participant Tracking
-- **Automatic Attendance Monitoring**: Bot monitors configured viewing channels during session times
+- **Automatic Attendance Monitoring**: Bot monitors the configured Watch Party Channel during session times
 - **Real-time Participant Tracking**: Track users who join/leave voice channels during movie nights
 - **Attendance Analytics**: Compare registered participants vs. actual attendees
 - **Session Duration Tracking**: Monitor how long users stay for each session
-- **Viewing Channel Configuration**: Set dedicated channels where movie nights happen
+- **Watch Party Channel Configuration**: Set the dedicated channel where movie nights happen
 - **Attendance Reports**: Generate detailed reports for completed sessions
 
 ### Advanced Voting Analytics
@@ -431,7 +437,7 @@ pm2 startup  # follow the printed instructions
 - **Preference Learning**: Bot learns user tastes for better recommendations
 
 ### Enhanced Configuration
-- **Session Viewing Channels**: Configure voice/text channels for automatic attendance tracking
+- **Watch Party Channels**: Configure voice/text channels for automatic attendance tracking
 - **Flexible Session Duration**: Configurable session lengths for different types of events
 - **Advanced Permissions**: Granular permission control for different bot features
 - **Custom Status Emojis**: Personalize movie status indicators per server

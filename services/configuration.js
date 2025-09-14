@@ -2,10 +2,10 @@
  * Configuration Service Module
  * Handles server configuration and settings management
  *
- * TODO: Session Viewing Channel Configuration
+ * TODO: Watch Party Channel Configuration
  * - Add configuration for session viewing channel (voice/text channel where movie nights happen)
- * - Add database field for session_viewing_channel_id in guild_config table
- * - Add configuration command: /movie-configure action:set-viewing-channel
+ * - Add database field for watch_party_channel_id in guild_config table
+ * - Add configuration command: /movienight-configure action:set-watch-party-channel
  * - This channel would be monitored during scheduled session times for automatic participant tracking
  * - Could support both voice channels (for watch parties) and text channels (for chat-based viewing)
  * - Add validation to ensure configured channel exists and bot has proper permissions
@@ -119,44 +119,12 @@ async function removeAdminRole(interaction, guildId) {
 }
 
 async function setNotificationRole(interaction, guildId) {
-  const role = interaction.options?.getRole('role');
-
-  // If no role specified (button interaction), show role selector
-  if (!role && interaction.isButton()) {
-    const { ActionRowBuilder, RoleSelectMenuBuilder } = require('discord.js');
-
-    const roleSelect = new RoleSelectMenuBuilder()
-      .setCustomId('config_select_notification_role')
-      .setPlaceholder('Select a role to ping for Discord events');
-
-    const row = new ActionRowBuilder().addComponents(roleSelect);
-
-    await interaction.update({
-      content: '🔔 **Select Notification Role**\n\nChoose a role to ping when Discord events are created, or skip to clear:',
-      embeds: [],
-      components: [row]
-    });
-    return;
-  }
-
-  const success = await database.setNotificationRole(guildId, role ? role.id : null);
-  if (success) {
-    if (role) {
-      await interaction.reply({
-        content: `✅ Set ${role} as the notification role. This role will be pinged when Discord events are created.`,
-        flags: MessageFlags.Ephemeral
-      });
-    } else {
-      await interaction.reply({
-        content: '✅ Cleared notification role. No role will be pinged for Discord events.',
-        flags: MessageFlags.Ephemeral
-      });
-    }
+  const dashboardUrl = 'https://movienight.bermanoc.net';
+  const msg = 'Notification Role is deprecated. The bot now pings your configured Voting Roles for announcements. Please configure Voting Roles in the dashboard.';
+  if (interaction.isButton()) {
+    await interaction.update({ content: `ℹ️ ${msg}\n\nDashboard: ${dashboardUrl}`, embeds: [], components: [] });
   } else {
-    await interaction.reply({
-      content: '❌ Failed to set notification role.',
-      flags: MessageFlags.Ephemeral
-    });
+    await interaction.reply({ content: `ℹ️ ${msg}\n\nDashboard: ${dashboardUrl}`, flags: MessageFlags.Ephemeral });
   }
 }
 
@@ -206,16 +174,16 @@ async function viewSettings(interaction, guildId) {
           inline: false
         },
         {
-          name: '🔔 Notification Role',
-          value: config.notification_role_id ?
-            `<@&${config.notification_role_id}>\n*This role gets pinged for Discord events*` :
-            'Not set\n*No role notifications for events*',
+          name: '👥 Voting Roles (used for announcements)',
+          value: (config.voting_roles && config.voting_roles.length > 0) ?
+            `${config.voting_roles.map(id => `<@&${id}>`).join('\n')}\n*Also used for event announcement pings*` :
+            'None configured\n*Only Admins/Moderators can vote; no announcement pings will be sent*',
           inline: false
         },
         {
-          name: '🎤 Session Viewing Channel',
-          value: config.session_viewing_channel_id ?
-            `<#${config.session_viewing_channel_id}>\n*Bot tracks attendance during sessions in this channel*` :
+          name: '🎥 Watch Party Channel',
+          value: config.watch_party_channel_id ?
+            `<#${config.watch_party_channel_id}>\n*Bot tracks attendance during sessions in this channel*` :
             'Not set\n*No automatic attendance tracking*',
           inline: false
         }
@@ -252,7 +220,7 @@ async function resetConfiguration(interaction, guildId) {
   }
 }
 
-async function configureViewingChannel(interaction, guildId) {
+async function configureWatchPartyChannel(interaction, guildId) {
   const channel = interaction.options?.getChannel('channel');
 
   // If no channel specified (button interaction), show channel selector
@@ -260,14 +228,14 @@ async function configureViewingChannel(interaction, guildId) {
     const { ActionRowBuilder, ChannelSelectMenuBuilder, ChannelType } = require('discord.js');
 
     const channelSelect = new ChannelSelectMenuBuilder()
-      .setCustomId('config_select_viewing_channel')
-      .setPlaceholder('Select a channel for session viewing')
+      .setCustomId('config_select_watch_party_channel')
+      .setPlaceholder('Select a channel for watch parties')
       .setChannelTypes([ChannelType.GuildText]);
 
     const row = new ActionRowBuilder().addComponents(channelSelect);
 
     await interaction.update({
-      content: '📺 **Select Viewing Channel**\n\nChoose a Text channel where session viewing will be coordinated:',
+      content: '🎥 **Select Watch Party Channel**\n\nChoose a Text channel where watch parties will be coordinated:',
       embeds: [],
       components: [row]
     });
@@ -283,16 +251,16 @@ async function configureViewingChannel(interaction, guildId) {
     return;
   }
 
-  const success = await database.setViewingChannel(guildId, channel.id);
+  const success = await database.setWatchPartyChannel(guildId, channel.id);
   if (success) {
     const channelType = channel.type === 2 ? 'voice' : 'text';
     await interaction.reply({
-      content: `✅ Session viewing channel set to ${channel} (${channelType} channel). The bot will now track attendance during scheduled movie sessions.`,
+      content: `✅ Watch Party Channel set to ${channel} (${channelType} channel). The bot will now track attendance during scheduled movie sessions.`,
       flags: MessageFlags.Ephemeral
     });
   } else {
     await interaction.reply({
-      content: '❌ Failed to set viewing channel.',
+      content: '❌ Failed to set watch party channel.',
       flags: MessageFlags.Ephemeral
     });
   }
@@ -452,15 +420,44 @@ async function configureAdminChannel(interaction, guildId) {
   }
 }
 
+async function configureVotingRoles(interaction, guildId) {
+  const cfg = await database.getGuildConfig(guildId).catch(() => null);
+  const count = cfg?.voting_roles?.length || 0;
+
+  const { ActionRowBuilder, ButtonBuilder, ButtonStyle, RoleSelectMenuBuilder, EmbedBuilder } = require('discord.js');
+  const embed = new EmbedBuilder()
+    .setTitle('👥 Voting Roles')
+    .setDescription('Select roles that are allowed to vote. These roles will also be pinged for announcements.')
+    .setColor(count > 0 ? 0x57F287 : 0x5865f2)
+    .addFields({ name: 'Currently configured', value: count > 0 ? `${count} role(s)` : 'None' });
+
+  const roleSelect = new ActionRowBuilder().addComponents(
+    new RoleSelectMenuBuilder()
+      .setCustomId('config_select_voting_roles')
+      .setPlaceholder('Select roles allowed to vote (also used for announcements)')
+      .setMaxValues(25)
+  );
+
+  const backRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('open_configuration').setLabel('⬅ Back').setStyle(ButtonStyle.Secondary)
+  );
+
+  if (interaction.isButton()) {
+    await interaction.update({ content: '⚙️ Configure: Voting Roles', embeds: [embed], components: [roleSelect, backRow] });
+  } else {
+    await interaction.reply({ content: '⚙️ Configure: Voting Roles', embeds: [embed], components: [roleSelect, backRow], flags: MessageFlags.Ephemeral });
+  }
+}
+
 module.exports = {
   configureMovieChannel,
   addAdminRole,
   removeAdminRole,
-  setNotificationRole,
-  configureViewingChannel,
+  configureWatchPartyChannel,
   configureAdminChannel,
   viewSettings,
   resetConfiguration,
+  configureVotingRoles,
   // Vote caps config
   configureVoteCaps,
   setVoteCapsEnabled,

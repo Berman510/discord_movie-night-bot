@@ -33,6 +33,12 @@ async function handleButton(interaction) {
   try {
     // Movie voting buttons
     if (ns === 'mn' && (action === 'up' || action === 'down')) {
+      // Voting is role-gated: Admins/Moderators or users with configured Voting Roles
+      const allowed = await permissions.checkCanVote(interaction);
+      if (!allowed) {
+        await interaction.reply({ content: '❌ You need a Voting role (or Moderator/Admin) to vote.', flags: MessageFlags.Ephemeral });
+        return;
+      }
       const { votes } = require('../utils/constants');
       await handleVoting(interaction, action, msgId, votes);
       return;
@@ -234,6 +240,18 @@ async function handleVoting(interaction, action, msgId, votes) {
         return;
       }
 
+      // Lazy backfill: if this is a forum thread and DB thread_id is missing, fill it from the interaction channel
+      try {
+        const ch = interaction.channel;
+        const isThread = typeof ch?.isThread === 'function' ? ch.isThread() : false;
+        if (movie.channel_type === 'forum' && !movie.thread_id && isThread) {
+          await database.updateMovieThreadId(msgId, ch.id);
+          movie.thread_id = ch.id; // update local reference
+        }
+      } catch (e) {
+        console.warn('Backfill thread_id on vote failed:', e?.message);
+      }
+
       // Check current vote
       const currentVote = await database.getUserVote(msgId, userId);
 
@@ -408,6 +426,19 @@ async function handleStatusChange(interaction, action, msgId) {
         flags: MessageFlags.Ephemeral
       });
       return;
+    }
+
+
+    // Lazy backfill: if this is a forum thread and DB thread_id is missing, fill it from the interaction channel
+    try {
+      const ch = interaction.channel;
+      const isThread = typeof ch?.isThread === 'function' ? ch.isThread() : false;
+      if (movie.channel_type === 'forum' && !movie.thread_id && isThread) {
+        await database.updateMovieThreadId(msgId, ch.id);
+        movie.thread_id = ch.id;
+      }
+    } catch (e) {
+      console.warn('Backfill thread_id on status change failed:', e?.message);
     }
 
     // Get current vote counts
@@ -1531,6 +1562,13 @@ async function handlePickWinner(interaction, guildId, movieId) {
               console.warn('Error parsing IMDb data:', error);
             }
           }
+          // Fallback to cache/live fetch if no embedded data
+          if (!imdbData && movie.imdb_id) {
+            try {
+              const imdbSvc = require('../services/imdb');
+              imdbData = await imdbSvc.getMovieDetailsCached(movie.imdb_id) || await imdbSvc.getMovieDetails(movie.imdb_id);
+            } catch (_) {}
+          }
 
           // Build description with event link if available
           let winnerDescription = `**${movie.title}** has been selected for our next movie night!`;
@@ -1625,7 +1663,14 @@ async function handlePickWinner(interaction, guildId, movieId) {
           const totalScore = upVotes - downVotes;
 
           // Get movie details for event update (cached)
-          const imdbData = movie.imdb_id ? await require('../services/imdb').getMovieDetailsCached(movie.imdb_id) : null;
+          let imdbData = null;
+          if (movie.imdb_id) {
+            const imdbSvc = require('../services/imdb');
+            imdbData = await imdbSvc.getMovieDetailsCached(movie.imdb_id);
+            if (!imdbData) {
+              try { imdbData = await imdbSvc.getMovieDetails(movie.imdb_id); } catch (_) {}
+            }
+          }
 
           let updatedDescription = `🏆 **WINNER SELECTED: ${movie.title}**\n\n`;
           let posterBuffer = null;
@@ -1912,7 +1957,14 @@ async function handleChooseWinner(interaction, guildId, movieId) {
             const imdb = require('../services/imdb');
             let imdbData = null;
             if (movie.imdb_id) {
-              try { imdbData = await imdb.getMovieDetailsCached(movie.imdb_id); } catch {}
+              try {
+                imdbData = await imdb.getMovieDetailsCached(movie.imdb_id);
+                if (!imdbData) {
+                  imdbData = await imdb.getMovieDetails(movie.imdb_id);
+                }
+              } catch (_) {}
+            } else if (movie.imdb_data) {
+              try { imdbData = typeof movie.imdb_data === 'string' ? JSON.parse(movie.imdb_data) : movie.imdb_data; } catch (_) {}
             }
             const winnerEmbed = new EmbedBuilder()
               .setTitle('🏆 Movie Night Winner Announced!')
@@ -2129,6 +2181,7 @@ async function handleAdminControlButtons(interaction, customId) {
       case 'admin_ctrl_populate_forum':
         await handlePopulateForumChannel(interaction);
         break;
+
       case 'admin_ctrl_cancel_session':
         await handleCancelSession(interaction);
         break;
@@ -2588,17 +2641,17 @@ async function handleConfigurationAction(interaction, customId) {
       case 'admin_channel':
         await configuration.configureAdminChannel(interaction, interaction.guild.id);
         break;
-      case 'viewing_channel':
-        await configuration.configureViewingChannel(interaction, interaction.guild.id);
+      case 'watch_party_channel':
+        await configuration.configureWatchPartyChannel(interaction, interaction.guild.id);
         break;
       case 'admin_roles':
         await interaction.reply({
-          content: '🔧 **Admin Roles Configuration**\n\nUse `/movie-configure admin-roles add` and `/movie-configure admin-roles remove` commands to manage admin roles.',
+          content: '🔧 **Admin Roles Configuration**\n\nUse `/movienight-configure admin-roles add` and `/movienight-configure admin-roles remove` commands to manage admin roles.',
           flags: MessageFlags.Ephemeral
         });
         break;
-      case 'notification_role':
-        await configuration.setNotificationRole(interaction, interaction.guild.id);
+      case 'voting_roles':
+        await configuration.configureVotingRoles(interaction, interaction.guild.id);
         break;
       case 'vote_caps':
         await configuration.configureVoteCaps(interaction, interaction.guild.id);
@@ -2615,6 +2668,11 @@ async function handleConfigurationAction(interaction, customId) {
       case 'vote_caps_set':
         await configuration.openVoteCapsModal(interaction, interaction.guild.id);
         break;
+      case 'show_guide': {
+        const setupGuide = require('../services/setup-guide');
+        await setupGuide.showSetupGuide(interaction);
+        break;
+      }
       default:
         await interaction.reply({
           content: `❌ Unknown configuration action: ${action}`,
@@ -2659,9 +2717,36 @@ async function handleGuidedSetupButton(interaction, customId) {
       await guidedSetup.showAdminChannelSetup(interaction);
       break;
 
-    case 'setup_viewing_channel':
-      await guidedSetup.showViewingChannelSetup(interaction);
+    case 'setup_watch_party_channel':
+      await guidedSetup.showWatchPartyChannelSetup(interaction);
       break;
+
+    // Setup Guide buttons
+    case 'setup_channels': {
+      const setupGuide = require('../services/setup-guide');
+      await setupGuide.showChannelSetup(interaction);
+      break;
+    }
+    case 'setup_roles': {
+      const setupGuide = require('../services/setup-guide');
+      await setupGuide.showRoleSetup(interaction);
+      break;
+    }
+    case 'setup_permissions': {
+      const setupGuide = require('../services/setup-guide');
+      await setupGuide.showPermissionSetup(interaction);
+      break;
+    }
+    case 'setup_configuration': {
+      const setupGuide = require('../services/setup-guide');
+      await setupGuide.showConfigurationSetup(interaction);
+      break;
+    }
+    case 'setup_guide_back': {
+      const setupGuide = require('../services/setup-guide');
+      await setupGuide.showSetupGuide(interaction);
+      break;
+    }
 
     case 'setup_admin_roles':
       await guidedSetup.showAdminRolesSetup(interaction);
@@ -2671,8 +2756,8 @@ async function handleGuidedSetupButton(interaction, customId) {
       await guidedSetup.showModeratorRolesSetup(interaction);
       break;
 
-    case 'setup_notification_role':
-      await guidedSetup.showNotificationRoleSetup(interaction);
+    case 'setup_voting_roles':
+      await guidedSetup.showVotingRolesSetup(interaction);
       break;
 
     case 'setup_skip_admin_roles':

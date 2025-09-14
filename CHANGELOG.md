@@ -5,6 +5,89 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 
 
 
+
+
+## [1.14.3] - 2025-09-14
+### Highlights (final)
+- Dashboard parity and live updates foundation: bot emits lightweight events after key actions (vote_update, session_created/updated/cancelled, winner_selected) enabling the dashboard’s real-time SSE UI.
+- Configuration via bot only: new WS handlers `update_vote_caps` and `update_guild_config`; emits `caps_updated`/`config_updated` so admin forms refresh automatically. Dashboard becomes read-only for state; bot is the single writer.
+- Discord Event titles are sanitized to remove dates/times; localized times are shown in descriptions via `<t:...>`.
+- IMDb display and sync safety: resilient display of IMDb data in posts/threads and safer Sync operations that do not revive concluded sessions.
+- WebSocket resilience and clearer diagnostics across handlers.
+
+
+## [1.14.3-rc13] - 2025-09-14
+### Changed
+- WS client: add handlers `update_vote_caps` and `update_guild_config` so dashboard delegates configuration changes to the bot.
+- Emits `caps_updated` and `config_updated` events for live dashboard refresh via SSE.
+- Continues the pattern: dashboard is read-only for state; bot is single writer.
+
+## [1.14.3-rc12] - 2025-09-13
+### Fixed/Changed
+- Discord Events: strengthen title sanitization to robustly strip date/time words (days, months, 24h/12h times, 4-digit years). Keeps optional movie title segment only when not date-like; otherwise falls back to base title.
+- Applies to both event creation and update paths via unified buildEventTitle().
+
+
+## [1.14.3-rc11] - 2025-09-13
+### Fixed/Changed
+- Discord Events: event titles are now guaranteed to never include date/time, even if the session name contains them. Times are shown in the description using localized Discord timestamps instead.
+- Event edits use the same title sanitization path as creation.
+
+
+## [1.14.3-rc7] - 2025-09-13
+### Fixed/Changed
+- IMDb display fallback: if imdb_cache is empty, fall back to stored movie.imdb_data or perform a one-time live OMDb fetch for display only. Applies to:
+  - Text post embeds and discussion thread details at creation
+  - Winner announcements (text and forum)
+  - Discord Scheduled Event updates after winner selection
+- Sync Channels safety: avoids reviving concluded sessions by only recreating missing movie posts when an active voting session exists, and only re-adding voting buttons when a session is active.
+
+## [1.14.3-rc6] - 2025-09-13
+### Changed
+- IMDb normalization (bot-side): all reads now pull from imdb_cache only; no fallback to movies.imdb_data. Future DB can omit imdb_data entirely.
+- WebSocket resilience: periodic connection checks with change-only logging; auto-reconnect. Admin Control Panel shows WS status.
+- Sync Channels behavior: avoids refreshing Admin Channel mirror to keep admin action buttons usable.
+
+
+
+
+## [1.14.3-rc3] - 2025-09-12
+### Changed
+- Rename “Viewing Channel” to “Watch Party Channel” across UI and DB: `session_viewing_channel_id` -> `watch_party_channel_id`
+- Guided Setup and Config flows updated (buttons, selects, copy)
+- Slash command renames for consistency:
+  - `movie-night` -> `movienight`
+  - `movie-setup` -> `movienight-setup`
+  - `movie-queue` -> `movienight-queue`
+  - `movie-plan` -> `movienight-plan`
+  - `movie-watched` -> `movienight-watched`
+  - `movie-skip` -> `movienight-skip`
+  - `admin-panel` -> `movienight-admin-panel`
+  - `debug-config` -> `movienight-debug-config`
+- Deprecated/removed redundant commands: `movie-session`, `movie-cleanup`, `movie-stats`, `movie-help`
+
+### Docs
+- README cleanup: removed ad-hoc TODO and What's New sections; added Quick Start and Role-based Access; updated movienight-* command references
+- Added ROADMAP.md to document future ideas/goals that were previously in README
+
+## [1.14.3-rc2] - 2025-09-12
+### Breaking/Changed
+- Database schema: renamed `viewer_roles` -> `voting_roles`; removed `notification_role_id` entirely (clean slate)
+- Removed all migrations and legacy notification role code/handlers
+- Announcements now always use Voting Roles from `voting_roles` (supports multiple roles)
+- Updated Guided Setup, Config UI, and permissions to use `voting_roles`
+
+## [1.14.3-rc1] - 2025-09-12
+### Changed
+- Enforce Voting Roles on votes: Discord button clicks and dashboard WS `vote_movie` now require Voting Roles or Moderator/Admin
+- Behavior when no Voting Roles configured: only Admins/Moderators can vote (strict enforcement)
+- "Manage Server" permission counts as implicit Admin for permission checks
+- Copy: ephemeral messages and logs updated to say "Voting Roles"
+- Announcements now ping Voting Roles (supports multiple roles); legacy `notification_role_id` is still read as a fallback but is deprecated
+- Bot Configuration menu and Guided Setup copy updated to "Voting Roles"; the in-bot "Notification Role" action now points you to the dashboard to configure Voting Roles
+
+
+
 ## [1.14.2-rc1] - 2025-09-11
 ### Added
 - Migration 30: Backfill missing active voting session records for guilds that have pending movies but no session, and link those movies to the new session.
@@ -101,6 +184,12 @@ All notable changes to **Movie Night Bot** will be documented in this file.
   - `aws secretsmanager get-secret-value --secret-id movienight-dashboard/beta/ws --query SecretString --output text`
 
 ## [1.14.1-rc2] - 2025-09-10
+
+## [1.14.3-rc4] - 2025-09-12
+### Fixed
+- Sync Channel: Do not mirror queue to Admin Channel when no active session (keeps only the Admin Control Panel)
+- Sync Channel: Do not recreate Voting Channel movie posts when no active session (forum: cleaned; text: show "no active session" notice only)
+
 ### Added
 - WebSocket: dashboard→bot session controls over WS
   - `plan_session` creates a new voting session (Discord event + DB + scheduler)

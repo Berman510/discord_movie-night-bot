@@ -200,10 +200,9 @@ class Database {
         movie_channel_id VARCHAR(20) NULL,
         admin_roles JSON NULL,
         moderator_roles JSON NULL,
-        viewer_roles JSON NULL,
-        notification_role_id VARCHAR(20) NULL,
+        voting_roles JSON NULL,
         default_timezone VARCHAR(50) DEFAULT 'UTC',
-        session_viewing_channel_id VARCHAR(20) NULL,
+        watch_party_channel_id VARCHAR(20) NULL,
         admin_channel_id VARCHAR(20) NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -346,26 +345,10 @@ class Database {
 
     }
 
-    try {
-      const [gcCols2] = await this.pool.execute(`
-        SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'guild_config' AND COLUMN_NAME = 'viewer_roles'
-      `);
-      if (gcCols2.length === 0) {
-        await this.pool.execute(`ALTER TABLE guild_config ADD COLUMN viewer_roles JSON NULL AFTER moderator_roles`);
-        logger.debug('✅ Added viewer_roles via initializeTables');
-      }
-    } catch (e) {
-      logger.warn('initializeTables ensure viewer_roles warning:', e.message);
-    }
 
-
-    // Run migrations to ensure schema is up to date (can be disabled via env)
-    if (process.env.DB_MIGRATIONS_ENABLED === 'true') {
-      await this.runMigrations();
-    } else {
-      logger.info('⏭️ Database migrations disabled; skipping (set DB_MIGRATIONS_ENABLED=true to run)');
-    }
+    // Migrations are deprecated and permanently disabled to reduce startup noise and risk.
+    // If you really need them, run a past release that included migrations or execute SQL manually.
+    logger.info('⏭️ Database migrations are deprecated and skipped.');
     logger.info('✅ Database tables initialized');
   }
 
@@ -481,21 +464,6 @@ class Database {
         logger.warn('Migration 5 warning:', error.message);
       }
 
-      // Migration 6: Add notification_role_id to guild_config
-      if (!columnNames.includes('notification_role_id')) {
-        try {
-          await this.pool.execute(`
-            ALTER TABLE guild_config
-            ADD COLUMN notification_role_id VARCHAR(20) DEFAULT NULL
-          `);
-          logger.debug('✅ Added notification_role_id column to guild_config');
-        } catch (error) {
-          logger.error('❌ Failed to add notification_role_id column:', error.message);
-        }
-      } else {
-        logger.debug('✅ notification_role_id column already exists');
-      }
-
       // Migration 7: Ensure watched_at column exists in movies table
       try {
         const [movieColumns] = await this.pool.execute(`
@@ -542,28 +510,6 @@ class Database {
         console.error('❌ Failed to add watch_count column:', error.message);
       }
 
-      // Migration 9: Ensure session_viewing_channel_id column exists in guild_config table
-      try {
-        const [guildColumns2] = await this.pool.execute(`
-          SELECT COLUMN_NAME
-          FROM INFORMATION_SCHEMA.COLUMNS
-          WHERE TABLE_SCHEMA = DATABASE()
-          AND TABLE_NAME = 'guild_config'
-        `);
-        const guildColumnNames2 = guildColumns2.map(row => row.COLUMN_NAME);
-
-        if (!guildColumnNames2.includes('session_viewing_channel_id')) {
-          await this.pool.execute(`
-            ALTER TABLE guild_config
-            ADD COLUMN session_viewing_channel_id VARCHAR(20) NULL
-          `);
-          logger.debug('✅ Added session_viewing_channel_id column to guild_config');
-        } else {
-          logger.debug('✅ session_viewing_channel_id column already exists');
-        }
-      } catch (error) {
-        console.error('❌ Failed to add session_viewing_channel_id column:', error.message);
-      }
 
       // Migration 10: Add 'active' status to movie_sessions enum
       try {
@@ -1840,25 +1786,6 @@ class Database {
       }
 
 
-      // Migration 29: Add viewer_roles column to guild_config
-      try {
-        const [gcCols] = await this.pool.execute(`
-          SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
-          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'guild_config'
-        `);
-        const have = new Set(gcCols.map(r => r.COLUMN_NAME));
-        if (!have.has('viewer_roles')) {
-          await this.pool.execute(`ALTER TABLE guild_config ADD COLUMN viewer_roles JSON NULL AFTER moderator_roles`);
-          const logger = require('./utils/logger');
-          logger.debug('✅ Migration 29: viewer_roles added to guild_config');
-        } else {
-          const logger = require('./utils/logger');
-          logger.debug('✅ Migration 29: viewer_roles already exists');
-        }
-      } catch (e) {
-        const logger = require('./utils/logger');
-        logger.warn('Migration 29 warning:', e.message);
-      }
 
 
       // Migration 30: Backfill missing active voting session and link pending movies (legacy installs)
@@ -2473,7 +2400,7 @@ class Database {
       const config = rows[0];
       config.admin_roles = config.admin_roles ? JSON.parse(config.admin_roles) : [];
       config.moderator_roles = config.moderator_roles ? JSON.parse(config.moderator_roles) : [];
-      config.viewer_roles = config.viewer_roles ? JSON.parse(config.viewer_roles) : [];
+      config.voting_roles = config.voting_roles ? JSON.parse(config.voting_roles) : [];
       return config;
     } catch (error) {
       console.error('Error getting guild config:', error.message);
@@ -2590,6 +2517,76 @@ class Database {
       return false;
     }
   }
+
+
+  async addVotingRole(guildId, roleId) {
+    if (!this.isConnected) return false;
+
+    try {
+      const config = await this.getGuildConfig(guildId);
+      if (!config) return false;
+
+      if (!config.voting_roles) {
+        config.voting_roles = [];
+      }
+
+      if (!config.voting_roles.includes(roleId)) {
+        config.voting_roles.push(roleId);
+        await this.pool.execute(
+          `UPDATE guild_config SET voting_roles = ? WHERE guild_id = ?`,
+          [JSON.stringify(config.voting_roles), guildId]
+        );
+      }
+      return true;
+    } catch (error) {
+      const logger = require('./utils/logger');
+      logger.error('Error adding voting role:', error.message);
+      return false;
+    }
+  }
+
+  async removeVotingRole(guildId, roleId) {
+    if (!this.isConnected) return false;
+
+    try {
+      const config = await this.getGuildConfig(guildId);
+      if (!config) return false;
+
+      if (!config.voting_roles) {
+        config.voting_roles = [];
+      }
+
+      config.voting_roles = config.voting_roles.filter(id => id !== roleId);
+      await this.pool.execute(
+        `UPDATE guild_config SET voting_roles = ? WHERE guild_id = ?`,
+        [JSON.stringify(config.voting_roles), guildId]
+      );
+      return true;
+    } catch (error) {
+      const logger = require('./utils/logger');
+      logger.error('Error removing voting role:', error.message);
+      return false;
+    }
+  }
+
+  async setVotingRoles(guildId, roleIds) {
+    if (!this.isConnected) return false;
+
+    try {
+      // Normalize to array of unique strings
+      const unique = Array.from(new Set((roleIds || []).map(id => String(id))));
+      await this.pool.execute(
+        `UPDATE guild_config SET voting_roles = ? WHERE guild_id = ?`,
+        [JSON.stringify(unique), guildId]
+      );
+      return true;
+    } catch (error) {
+      const logger = require('./utils/logger');
+      logger.error('Error setting voting roles:', error.message);
+      return false;
+    }
+  }
+
 
   async resetGuildConfig(guildId) {
     if (!this.isConnected) return false;
@@ -3531,50 +3528,20 @@ class Database {
 
 
 
-  async setNotificationRole(guildId, roleId) {
+
+  async setWatchPartyChannel(guildId, channelId) {
     if (!this.isConnected) return false;
 
     try {
       await this.pool.execute(
-        `INSERT INTO guild_config (guild_id, notification_role_id, admin_roles) VALUES (?, ?, ?)
-         ON DUPLICATE KEY UPDATE notification_role_id = VALUES(notification_role_id)`,
-        [guildId, roleId, JSON.stringify([])]
-      );
-      return true;
-    } catch (error) {
-      console.error('Error setting notification role:', error.message);
-      return false;
-    }
-  }
-
-  async getNotificationRole(guildId) {
-    if (!this.isConnected) return null;
-
-    try {
-      const [rows] = await this.pool.execute(
-        `SELECT notification_role_id FROM guild_config WHERE guild_id = ?`,
-        [guildId]
-      );
-      return rows.length > 0 ? rows[0].notification_role_id : null;
-    } catch (error) {
-      console.error('Error getting notification role:', error.message);
-      return null;
-    }
-  }
-
-  async setViewingChannel(guildId, channelId) {
-    if (!this.isConnected) return false;
-
-    try {
-      await this.pool.execute(
-        `INSERT INTO guild_config (guild_id, session_viewing_channel_id, admin_roles)
+        `INSERT INTO guild_config (guild_id, watch_party_channel_id, admin_roles)
          VALUES (?, ?, ?)
-         ON DUPLICATE KEY UPDATE session_viewing_channel_id = VALUES(session_viewing_channel_id)`,
+         ON DUPLICATE KEY UPDATE watch_party_channel_id = VALUES(watch_party_channel_id)`,
         [guildId, channelId, JSON.stringify([])]
       );
       return true;
     } catch (error) {
-      console.error('Error setting viewing channel:', error.message);
+      console.error('Error setting watch party channel:', error.message);
       return false;
     }
   }
@@ -3790,6 +3757,22 @@ class Database {
       return false;
     }
   }
+
+  async clearMoviesForSession(sessionId) {
+    if (!this.isConnected) return false;
+    try {
+      await this.pool.execute(
+        `UPDATE movies SET session_id = NULL WHERE session_id = ?`,
+        [sessionId]
+      );
+      console.log(`🧹 Database: Cleared session_id from movies for session ${sessionId}`);
+      return true;
+    } catch (error) {
+      console.error('Error clearing movies for session:', error.message);
+      return false;
+    }
+  }
+
 
   async deleteMovieSession(sessionId) {
     if (!this.isConnected) return false;

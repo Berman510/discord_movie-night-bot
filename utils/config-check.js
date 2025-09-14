@@ -42,8 +42,8 @@ async function checkConfiguration(guildId) {
     if (!config.session_viewing_channel_id) {
       missingItems.push('Session viewing channel');
     }
-    if (!config.notification_role_id) {
-      missingItems.push('Notification role');
+    if (!config.viewer_roles || config.viewer_roles.length === 0) {
+      missingItems.push('Voting Roles');
     }
     if (!config.admin_roles || config.admin_roles.length === 0) {
       missingItems.push('Admin roles');
@@ -140,33 +140,37 @@ async function handleConfigurationButton(interaction) {
     return;
   }
 
-  // Show configuration options
+  const database = require('../database');
+  const cfg = await database.getGuildConfig(interaction.guild.id).catch(() => ({})) || {};
+  const styleIf = (cond) => cond ? ButtonStyle.Success : ButtonStyle.Secondary;
+
+  // Show configuration options (colored if already configured)
   const configOptions = new ActionRowBuilder()
     .addComponents(
       new ButtonBuilder()
         .setCustomId('config_voting_channel')
         .setLabel('📺 Set Voting Channel')
-        .setStyle(ButtonStyle.Secondary),
+        .setStyle(styleIf(!!cfg.movie_channel_id)),
       new ButtonBuilder()
         .setCustomId('config_admin_channel')
         .setLabel('🔧 Set Admin Channel')
-        .setStyle(ButtonStyle.Secondary),
+        .setStyle(styleIf(!!cfg.admin_channel_id)),
       new ButtonBuilder()
-        .setCustomId('config_viewing_channel')
-        .setLabel('🎤 Set Viewing Channel')
-        .setStyle(ButtonStyle.Secondary)
+        .setCustomId('config_watch_party_channel')
+        .setLabel('🎬 Set Watch Party Channel')
+        .setStyle(styleIf(!!cfg.watch_party_channel_id))
     );
 
   const configOptions2 = new ActionRowBuilder()
     .addComponents(
       new ButtonBuilder()
-        .setCustomId('config_notification_role')
-        .setLabel('🔔 Set Notification Role')
-        .setStyle(ButtonStyle.Secondary),
+        .setCustomId('config_voting_roles')
+        .setLabel('👥 Voting Roles')
+        .setStyle(styleIf(Array.isArray(cfg.voting_roles) && cfg.voting_roles.length > 0)),
       new ButtonBuilder()
         .setCustomId('config_admin_roles')
         .setLabel('👑 Set Admin Roles')
-        .setStyle(ButtonStyle.Secondary),
+        .setStyle(styleIf(Array.isArray(cfg.admin_roles) && cfg.admin_roles.length > 0)),
       new ButtonBuilder()
         .setCustomId('config_vote_caps')
         .setLabel('⚖️ Vote Caps')
@@ -177,11 +181,20 @@ async function handleConfigurationButton(interaction) {
         .setStyle(ButtonStyle.Primary)
     );
 
-  await interaction.reply({
-    content: '⚙️ **Bot Configuration**\n\nChoose what you want to configure:',
-    components: [configOptions, configOptions2],
-    flags: MessageFlags.Ephemeral
-  });
+  // If already replied earlier in the flow, update; otherwise reply
+  if (interaction.replied || interaction.deferred) {
+    await interaction.followUp({
+      content: '⚙️ **Bot Configuration**\n\nChoose what you want to configure:',
+      components: [configOptions, configOptions2],
+      flags: MessageFlags.Ephemeral
+    });
+  } else {
+    await interaction.reply({
+      content: '⚙️ **Bot Configuration**\n\nChoose what you want to configure:',
+      components: [configOptions, configOptions2],
+      flags: MessageFlags.Ephemeral
+    });
+  }
 }
 
 module.exports = {

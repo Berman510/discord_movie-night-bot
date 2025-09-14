@@ -54,16 +54,22 @@ function initWebSocketClient(logger) {
   const HEARTBEAT_MS = 30000;
   const MIN_RECONNECT_MS = 3000;
   const MAX_RECONNECT_MS = 60000;
+  let isConnected = false;
+  let statusInterval = null;
+  let lastReported = null;
 
   function connect() {
     try {
       logger?.info?.(`WS: connecting to ${WS_URL} ...`);
       ws = new WS(WS_URL, {
         headers: { Authorization: `Bearer ${TOKEN}` }
+
       });
 
       ws.on('open', () => {
         reconnectAttempts = 0;
+        isConnected = true;
+        try { global.wsStatus = { connected: true, attempts: reconnectAttempts, ts: Date.now() }; } catch (_) {}
         logger?.info?.('WS: connected');
         // hello payload
         const payload = {
@@ -74,6 +80,18 @@ function initWebSocketClient(logger) {
           }
         };
         try { ws.send(JSON.stringify(payload)); } catch (_) {}
+        // Periodic status poll with change-only reporting
+        if (!statusInterval) {
+          statusInterval = setInterval(() => {
+            const connected = !!(ws && ws.readyState === 1);
+            if (lastReported !== connected) {
+              lastReported = connected;
+              isConnected = connected;
+              try { global.wsStatus = { connected, attempts: reconnectAttempts, ts: Date.now() }; } catch (_) {}
+              logger?.info?.(`WS: ${connected ? 'connected' : 'disconnected'}`);
+            }
+          }, 5000);
+        }
         // heartbeat
         heartbeat = setInterval(() => {
           try { ws.ping(); } catch (_) {}
@@ -333,10 +351,9 @@ function initWebSocketClient(logger) {
                     const voteCounts = await database.getVoteCounts(movie.message_id);
                     let imdbData = null;
                     try {
-                      if (movie.imdb_data) {
-                        let parsed = typeof movie.imdb_data === 'string' ? JSON.parse(movie.imdb_data) : movie.imdb_data;
-                        if (typeof parsed === 'string') parsed = JSON.parse(parsed);
-                        imdbData = parsed;
+                      const imdb = require('./imdb');
+                      if (movie.imdb_id) {
+                        imdbData = await imdb.getMovieDetailsCached(movie.imdb_id);
                       }
                     } catch (_) {}
                     const movieEmbed = embeds.createMovieEmbed(movie, imdbData, voteCounts);
@@ -361,6 +378,23 @@ function initWebSocketClient(logger) {
 
             const client = global.discordClient;
             if (!client) return;
+
+
+            // Enforce Voting Roles or Mod/Admin for dashboard-initiated votes
+            try {
+              const guild = client.guilds.cache.get(String(guildId)) || await client.guilds.fetch(String(guildId)).catch(() => null);
+              const member = await guild?.members?.fetch(String(actorId)).catch(() => null);
+              if (!member) return;
+              const { canMemberVote } = require('../services/permissions');
+              const allowed = await canMemberVote(String(guildId), member);
+              if (!allowed) {
+                logger?.debug?.(`[${guildId}] WS vote_movie denied: user ${actorId} lacks Voting Roles/mod/admin`);
+                return;
+              }
+            } catch (permErr) {
+              logger?.warn?.(`[${guildId}] WS vote_movie: permission check failed: ${permErr?.message || permErr}`);
+              return;
+            }
 
             const database = require('../database');
             const forumChannels = require('./forum-channels');
@@ -426,10 +460,9 @@ function initWebSocketClient(logger) {
                       if (starter) {
                         let imdbData = null;
                         try {
-                          if (movie.imdb_data) {
-                            let parsed = typeof movie.imdb_data === 'string' ? JSON.parse(movie.imdb_data) : movie.imdb_data;
-                            if (typeof parsed === 'string') parsed = JSON.parse(parsed);
-                            imdbData = parsed;
+                          const imdb = require('./imdb');
+                          if (movie.imdb_id) {
+                            imdbData = await imdb.getMovieDetailsCached(movie.imdb_id);
                           }
                         } catch (_) {}
                         const movieEmbed = embeds.createMovieEmbed(movie, imdbData, voteCounts);
@@ -447,10 +480,9 @@ function initWebSocketClient(logger) {
                     if (msgObj) {
                       let imdbData = null;
                       try {
-                        if (movie.imdb_data) {
-                          let parsed = typeof movie.imdb_data === 'string' ? JSON.parse(movie.imdb_data) : movie.imdb_data;
-                          if (typeof parsed === 'string') parsed = JSON.parse(parsed);
-                          imdbData = parsed;
+                        const imdb = require('./imdb');
+                        if (movie.imdb_id) {
+                          imdbData = await imdb.getMovieDetailsCached(movie.imdb_id);
                         }
                       } catch (_) {}
                       const movieEmbed = embeds.createMovieEmbed(movie, imdbData, voteCounts);
@@ -477,7 +509,9 @@ function initWebSocketClient(logger) {
             if (!client) return;
 
             const database = require('../database');
+            const adminControls = require('./admin-controls');
             const forumChannels = require('./forum-channels');
+            const { ensureQuickActionAtBottom } = require('./cleanup');
             const { embeds, components } = require('../utils');
 
             try {
@@ -507,9 +541,7 @@ function initWebSocketClient(logger) {
               const movie = await database.getMovieBySessionId(sessionId).catch(() => null);
 
               // Update DB: mark session cancelled and clear movie association/status
-              try {
-                await database.updateSessionStatus(sessionId, 'cancelled');
-              } catch (_) {}
+              try { await database.updateSessionStatus(sessionId, 'cancelled'); } catch (_) {}
 
               if (movie && movie.message_id) {
                 try { await database.updateMovieStatus(movie.message_id, 'planned'); } catch (_) {}
@@ -520,8 +552,8 @@ function initWebSocketClient(logger) {
                   if (movie.channel_type === 'forum' && movie.thread_id) {
                     const thread = await client.channels.fetch(movie.thread_id).catch(() => null);
                     if (thread) {
-                      await forumChannels.updateForumPostContent(thread, { ...movie, status: 'planned' }, 'planned');
-                      await forumChannels.updateForumPostTags(thread, 'planned');
+                      await forumChannels.updateForumPostContent(thread, { ...movie, status: 'pending' }, 'pending');
+                      await forumChannels.updateForumPostTags(thread, 'pending');
                     }
                   } else if (movie.channel_id) {
                     const channel = await client.channels.fetch(movie.channel_id).catch(() => null);
@@ -531,14 +563,13 @@ function initWebSocketClient(logger) {
                         const voteCounts = await database.getVoteCounts(movie.message_id);
                         let imdbData = null;
                         try {
-                          if (movie.imdb_data) {
-                            let parsed = typeof movie.imdb_data === 'string' ? JSON.parse(movie.imdb_data) : movie.imdb_data;
-                            if (typeof parsed === 'string') parsed = JSON.parse(parsed);
-                            imdbData = parsed;
+                          const imdb = require('./imdb');
+                          if (movie.imdb_id) {
+                            imdbData = await imdb.getMovieDetailsCached(movie.imdb_id);
                           }
                         } catch (_) {}
-                        const movieEmbed = embeds.createMovieEmbed({ ...movie, status: 'planned' }, imdbData, voteCounts);
-                        const rows = components.createStatusButtons(movie.message_id, 'planned', voteCounts.up, voteCounts.down);
+                        const movieEmbed = embeds.createMovieEmbed({ ...movie, status: 'pending' }, imdbData, voteCounts);
+                        const rows = components.createStatusButtons(movie.message_id, 'pending', voteCounts.up, voteCounts.down);
                         await msgObj.edit({ embeds: [movieEmbed], components: rows });
                       }
                     }
@@ -550,6 +581,24 @@ function initWebSocketClient(logger) {
 
               // Delete session record
               try { await database.deleteMovieSession(sessionId); } catch (_) {}
+
+              // Ensure channel UX reflects "no active session" and refresh admin panel
+              try {
+                const cfg = await database.getGuildConfig(guildId).catch(() => null);
+                const voteChannelId = cfg?.voting_channel_id || cfg?.movie_channel_id;
+                if (voteChannelId) {
+                  const voteChannel = await client.channels.fetch(String(voteChannelId)).catch(() => null);
+                  if (voteChannel) {
+                    if (forumChannels.isForumChannel(voteChannel)) {
+                      await forumChannels.ensureRecommendationPost(voteChannel, null);
+                    } else {
+                      await ensureQuickActionAtBottom(voteChannel);
+                    }
+                  }
+                }
+              } catch (_) { /* non-fatal */ }
+
+              try { await adminControls.ensureAdminControlPanel(client, guildId); } catch (_) {}
             } catch (e) {
               logger?.warn?.(`[${guildId}] WS cancel_session error (sessionId=${sessionId}):`, e?.message || e);
             }
@@ -604,6 +653,25 @@ function initWebSocketClient(logger) {
                 try { await sessionScheduler.scheduleVotingEnd(sessionId, votingEnd); } catch (_) {}
               }
 
+              // Ensure recommendation/quick-action post in the voting channel so UX matches bot-created sessions
+              try {
+                const cfg = await database.getGuildConfig(guildId).catch(() => null);
+                const voteChannelId = cfg?.voting_channel_id || cfg?.movie_channel_id;
+                if (voteChannelId) {
+                  const voteChannel = await client.channels.fetch(String(voteChannelId)).catch(() => null);
+                  if (voteChannel) {
+                    const forumChannels = require('./forum-channels');
+                    if (forumChannels.isForumChannel(voteChannel)) {
+                      const activeSession = { id: sessionId, name: sessionName, status: 'active', voting_end_time: votingEnd ? votingEnd.toISOString() : null };
+                      await forumChannels.ensureRecommendationPost(voteChannel, activeSession);
+                    } else {
+                      const cleanup = require('./cleanup');
+                      await cleanup.ensureQuickActionAtBottom(voteChannel);
+                    }
+                  }
+                }
+              } catch (_) { /* non-fatal */ }
+
               // Refresh admin panel
               try { await adminControls.ensureAdminControlPanel(client, guildId); } catch (_) {}
             } catch (e) {
@@ -638,17 +706,14 @@ function initWebSocketClient(logger) {
               const scheduledDate = (typeof startTs === 'number') ? new Date(Number(startTs)) : (session.scheduled_date ? new Date(session.scheduled_date) : null);
               const votingEnd = (typeof votingEndTs !== 'undefined') ? (votingEndTs ? new Date(Number(votingEndTs)) : null) : (session.voting_end_time ? new Date(session.voting_end_time) : null);
 
-              // Auto-sync name to date/time when name is not explicitly provided
+              // Name policy: avoid embedding date/time in title; keep it short and let description show time
               let newName;
               if (typeof name === 'string' && name.trim().length > 0) {
-                newName = name;
-              } else if (scheduledDate) {
-                const tz = session.timezone || 'UTC';
-                const datePart = scheduledDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: tz });
-                const timePart = scheduledDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: tz });
-                newName = `Movie Night - ${datePart} @ ${timePart}`;
+                newName = name.trim();
+              } else if (session && session.name && session.name.trim().length > 0) {
+                newName = session.name.trim();
               } else {
-                newName = session.name;
+                newName = 'Movie Night';
               }
 
               const newDesc = (typeof description !== 'undefined') ? description : session.description;
@@ -683,14 +748,19 @@ function initWebSocketClient(logger) {
                 const voteChannelId = cfg?.voting_channel_id || cfg?.movie_channel_id;
                 if (voteChannelId) {
                   const voteChannel = await client.channels.fetch(String(voteChannelId)).catch(() => null);
-                  if (voteChannel && forumChannels.isForumChannel(voteChannel)) {
-                    const updatedActiveSession = {
-                      id: sessionId,
-                      name: newName,
-                      status: 'active',
-                      voting_end_time: votingEnd ? new Date(votingEnd).toISOString() : (session.voting_end_time || null)
-                    };
-                    await forumChannels.ensureRecommendationPost(voteChannel, updatedActiveSession);
+                  if (voteChannel) {
+                    if (forumChannels.isForumChannel(voteChannel)) {
+                      const updatedActiveSession = {
+                        id: sessionId,
+                        name: newName,
+                        status: 'active',
+                        voting_end_time: votingEnd ? new Date(votingEnd).toISOString() : (session.voting_end_time || null)
+                      };
+                      await forumChannels.ensureRecommendationPost(voteChannel, updatedActiveSession);
+                    } else {
+                      const cleanup = require('./cleanup');
+                      await cleanup.ensureQuickActionAtBottom(voteChannel);
+                    }
                   }
                 }
               } catch (_) { /* non-fatal */ }
@@ -698,6 +768,86 @@ function initWebSocketClient(logger) {
               logger?.warn?.(`[${guildId}] WS reschedule_session error (sessionId=${sessionId}):`, e?.message || e);
             }
             return;
+
+          if (msg.type === 'update_vote_caps') {
+            const guildId = msg?.payload?.guildId;
+            let { enabled, upRatio, downRatio, minCap } = msg?.payload || {};
+            if (!guildId) return;
+            try {
+              const database = require('../database');
+              // Normalize
+              enabled = !!enabled;
+              upRatio = Math.max(0, Math.min(1, Number(upRatio)));
+              downRatio = Math.max(0, Math.min(1, Number(downRatio)));
+              minCap = Math.max(0, Math.floor(Number(minCap)));
+              await database.updateVoteCaps(guildId, enabled, upRatio, downRatio, minCap);
+              // Emit event so dashboard can refresh caps if desired
+              try { global.wsClient?.send && global.wsClient.send({ type: 'caps_updated', payload: { guildId } }); } catch (_) {}
+            } catch (e) {
+              const logger = require('../utils/logger');
+              logger?.warn?.(`[${guildId}] WS update_vote_caps error:`, e?.message || e);
+            }
+            return;
+          }
+
+          if (msg.type === 'update_guild_config') {
+            const guildId = msg?.payload?.guildId;
+            if (!guildId) return;
+            try {
+              const database = require('../database');
+              const pool = database.pool;
+              const {
+                movie_channel_id,
+                admin_channel_id,
+                watch_party_channel_id,
+                admin_roles,
+                moderator_roles,
+                voting_roles
+              } = msg?.payload || {};
+
+              // Ensure row exists
+              try {
+                await pool.execute(
+                  `INSERT INTO guild_config (guild_id, admin_roles) VALUES (?, ?)
+                   ON DUPLICATE KEY UPDATE guild_id = guild_id`,
+                  [guildId, JSON.stringify([])]
+                );
+              } catch (_) {}
+
+              // Build dynamic update
+              const sets = [];
+              const params = [];
+              if (typeof movie_channel_id !== 'undefined') { sets.push('movie_channel_id = ?'); params.push(movie_channel_id || null); }
+              if (typeof admin_channel_id !== 'undefined') { sets.push('admin_channel_id = ?'); params.push(admin_channel_id || null); }
+              if (typeof watch_party_channel_id !== 'undefined') { sets.push('watch_party_channel_id = ?'); params.push(watch_party_channel_id || null); }
+              if (typeof admin_roles !== 'undefined') {
+                const unique = Array.from(new Set((admin_roles || []).map(id => String(id))));
+                sets.push('admin_roles = ?'); params.push(JSON.stringify(unique));
+              }
+              if (typeof moderator_roles !== 'undefined') {
+                const unique = Array.from(new Set((moderator_roles || []).map(id => String(id))));
+                sets.push('moderator_roles = ?'); params.push(JSON.stringify(unique));
+              }
+              if (typeof voting_roles !== 'undefined') {
+                const unique = Array.from(new Set((voting_roles || []).map(id => String(id))));
+                sets.push('voting_roles = ?'); params.push(JSON.stringify(unique));
+              }
+
+              if (sets.length > 0) {
+                const sql = `UPDATE guild_config SET ${sets.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE guild_id = ?`;
+                params.push(guildId);
+                await pool.execute(sql, params);
+              }
+
+              // Emit event so dashboard can react if needed
+              try { global.wsClient?.send && global.wsClient.send({ type: 'config_updated', payload: { guildId } }); } catch (_) {}
+            } catch (e) {
+              const logger = require('../utils/logger');
+              logger?.warn?.(`[${guildId}] WS update_guild_config error:`, e?.message || e);
+            }
+            return;
+          }
+
           }
         } catch (e) {
           logger?.warn?.(`WS handler error: ${e?.message || e}`);
@@ -706,6 +856,8 @@ function initWebSocketClient(logger) {
 
       ws.on('close', (code, reason) => {
         if (heartbeat) { clearInterval(heartbeat); heartbeat = null; }
+        isConnected = false;
+        try { global.wsStatus = { connected: false, attempts: reconnectAttempts, ts: Date.now() }; } catch (_) {}
         const why = (reason && reason.toString && reason.toString()) || '';
         logger?.warn?.(`WS: connection closed (code=${code}${why ? `, reason=${why}` : ''})`);
         scheduleReconnect();
@@ -713,6 +865,8 @@ function initWebSocketClient(logger) {
 
       ws.on('error', (err) => {
         logger?.warn?.(`WS error: ${err?.message || err}`);
+        isConnected = false;
+        try { global.wsStatus = { connected: false, attempts: reconnectAttempts, ts: Date.now() }; } catch (_) {}
         // Ensure we schedule reconnects even if close is not emitted (e.g., HTTP 401 during upgrade)
         scheduleReconnect();
       });
@@ -748,5 +902,11 @@ function initWebSocketClient(logger) {
   };
 }
 
-module.exports = { initWebSocketClient };
+function getStatus() {
+  try { return { connected: Boolean(global.wsStatus?.connected ?? false), attempts: Number(global.wsStatus?.attempts ?? 0) }; } catch (_) {
+    return { connected: false, attempts: 0 };
+  }
+}
+
+module.exports = { initWebSocketClient, getStatus };
 

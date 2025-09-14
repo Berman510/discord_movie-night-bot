@@ -7,7 +7,7 @@ const { TIMEZONE_OPTIONS } = require('../config/timezones');
 
 const commands = [
   {
-    name: 'movie-night',
+    name: 'movienight',
     description: 'All Movie Night Bot commands in one place',
     options: [
       {
@@ -49,11 +49,10 @@ const commands = [
         required: false,
         choices: [
           { name: 'set-voting-channel', value: 'set-channel' },
-          { name: 'set-viewing-channel', value: 'set-viewing-channel' },
+          { name: 'set-watch-party-channel', value: 'set-watch-party-channel' },
           { name: 'set-admin-channel', value: 'set-admin-channel' },
           { name: 'add-admin-role', value: 'add-admin-role' },
           { name: 'remove-admin-role', value: 'remove-admin-role' },
-          { name: 'set-notification-role', value: 'set-notification-role' },
           { name: 'view-settings', value: 'view-settings' },
           { name: 'reset', value: 'reset' }
         ]
@@ -127,13 +126,10 @@ const commands = [
     ]
   },
   {
-    name: 'movie-queue',
+    name: 'movienight-queue',
     description: 'View current movie recommendations and voting status'
   },
-  {
-    name: 'movie-help',
-    description: 'Show help and usage information for the movie bot'
-  }
+
 ];
 
 module.exports = commands;

@@ -36,6 +36,14 @@ async function createAdminControlEmbed(guildName, guildId) {
     console.warn('Error getting channel info for admin panel:', error.message);
   }
 
+  // WS status display
+  let wsText = 'WS: disabled';
+  try {
+    const { getStatus } = require('../services/ws-client');
+    const s = typeof getStatus === 'function' ? getStatus() : null;
+    if (s) wsText = `WS: ${s.connected ? 'Connected' : 'Disconnected'}`;
+  } catch (_) {}
+
   embed.addFields(
     {
       name: '📋 Quick Actions',
@@ -57,7 +65,7 @@ async function createAdminControlEmbed(guildName, guildId) {
     },
     {
       name: '⚡ Status',
-      value: 'Control panel active and ready for use.',
+      value: `Control panel active and ready for use. • ${wsText}`,
       inline: false
     }
   )
@@ -460,21 +468,10 @@ async function handleSyncChannel(interaction) {
     let votingSynced = 0;
     const errors = [];
 
-    // Sync admin channel if configured
-    if (config.admin_channel_id) {
-      try {
-        const adminMirror = require('./admin-mirror');
-        const adminResult = await adminMirror.syncAdminChannel(interaction.client, interaction.guild.id);
-
-        if (adminResult.error) {
-          errors.push(`Admin channel: ${adminResult.error}`);
-        } else {
-          adminSynced = adminResult.synced;
-        }
-      } catch (error) {
-        errors.push(`Admin channel: ${error.message}`);
-      }
-    }
+    // Admin channel mirror is intentionally NOT refreshed by Sync Channels to avoid disrupting
+    // ongoing admin interactions (Pick Winner, Remove, Ban, etc.). Use the "Refresh Panel" button
+    // if the control panel itself needs to be re-rendered.
+    adminSynced = 0;
 
     // Sync voting channel if configured
     if (config.movie_channel_id) {
@@ -511,13 +508,16 @@ async function handleSyncChannel(interaction) {
             }
           }
 
-          // Get all active movies and recreate them (excluding carryover movies)
+          // Only recreate voting posts when there is an active session
+          const activeSession = await database.getActiveVotingSession(interaction.guild.id);
 
-          const movies = await database.getMoviesByStatusExcludingCarryover(interaction.guild.id, 'pending', 50);
-          const plannedMovies = await database.getMoviesByStatusExcludingCarryover(interaction.guild.id, 'planned', 50);
-          const scheduledMovies = await database.getMoviesByStatusExcludingCarryover(interaction.guild.id, 'scheduled', 50);
-
-          const allMovies = [...movies, ...plannedMovies, ...scheduledMovies];
+          let allMovies = [];
+          if (activeSession) {
+            const movies = await database.getMoviesByStatusExcludingCarryover(interaction.guild.id, 'pending', 50);
+            const plannedMovies = await database.getMoviesByStatusExcludingCarryover(interaction.guild.id, 'planned', 50);
+            const scheduledMovies = await database.getMoviesByStatusExcludingCarryover(interaction.guild.id, 'scheduled', 50);
+            allMovies = [...movies, ...plannedMovies, ...scheduledMovies];
+          }
 
           for (const movie of allMovies) {
             try {
@@ -548,7 +548,6 @@ async function handleSyncChannel(interaction) {
             await cleanup.ensureQuickActionAtBottom(votingChannel);
           } else if (forumChannels.isForumChannel(votingChannel)) {
             // Forum channels get recommendation post and cleanup
-            const activeSession = await database.getActiveVotingSession(interaction.guild.id);
 
             // If no active session, clean up all old movie posts first
             if (!activeSession) {

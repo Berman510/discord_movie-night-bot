@@ -13,51 +13,35 @@ async function handleSlashCommand(interaction) {
 
   try {
     switch (commandName) {
-      case 'movie-night':
+      case 'movienight':
         await handleMovieNight(interaction);
         break;
       
-      case 'movie-queue':
+      case 'movienight-queue':
         await handleMovieQueue(interaction);
         break;
       
-      case 'movie-help':
-        await handleMovieHelp(interaction);
-        break;
-      
-      case 'movie-session':
-        await sessions.handleMovieSession(interaction);
-        break;
-      
-      case 'movie-configure':
+      case 'movienight-configure':
         await handleMovieConfigure(interaction);
         break;
       
-      case 'movie-cleanup':
-        await handleMovieCleanup(interaction);
-        break;
-      
-      case 'movie-stats':
-        await handleMovieStats(interaction);
-        break;
-
-      case 'movie-setup':
+      case 'movienight-setup':
         await handleMovieSetup(interaction);
         break;
 
-      case 'movie-watched':
+      case 'movienight-watched':
         await handleMovieWatched(interaction);
         break;
 
-      case 'movie-skip':
+      case 'movienight-skip':
         await handleMovieSkip(interaction);
         break;
 
-      case 'movie-plan':
+      case 'movienight-plan':
         await handleMoviePlan(interaction);
         break;
 
-      case 'debug-config':
+      case 'movienight-debug-config':
         await handleDebugConfig(interaction);
         break;
 
@@ -96,7 +80,7 @@ async function handleMovieNight(interaction) {
 
   if (!activeSession) {
     await interaction.reply({
-      content: '❌ **No active voting session**\n\nMovie recommendations are only available during active voting sessions. An admin needs to use the "Plan Next Session" button in the admin channel to start a new voting session.\n\n💡 **Tip:** Use `/movie-setup` for easy bot configuration.',
+      content: '❌ **No active voting session**\n\nMovie recommendations are only available during active voting sessions. An admin needs to use the "Plan Next Session" button in the admin channel to start a new voting session.\n\n💡 **Tip:** Use `/movienight-setup` for easy bot configuration.',
       flags: MessageFlags.Ephemeral
     });
     return;
@@ -171,7 +155,7 @@ async function handleMovieQueue(interaction) {
 
     if (!movies || movies.length === 0) {
       await interaction.reply({
-        content: `📋 **${activeSession.name}** - No movies yet!\n\nUse \`/movie-night\` to add some recommendations for this voting session.`,
+        content: `📋 **${activeSession.name}** - No movies yet!\n\nUse \`/movienight\` to add some recommendations for this voting session.`,
         flags: MessageFlags.Ephemeral
       });
       return;
@@ -267,8 +251,8 @@ async function handleMovieConfigure(interaction) {
       case 'set-channel':
         await configuration.configureMovieChannel(interaction, guildId);
         break;
-      case 'set-viewing-channel':
-        await configuration.configureViewingChannel(interaction, guildId);
+      case 'set-watch-party-channel':
+        await configuration.configureWatchPartyChannel(interaction, guildId);
         break;
       case 'set-admin-channel':
         await configuration.configureAdminChannel(interaction, guildId);

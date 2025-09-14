@@ -5,6 +5,25 @@
 
 const { GuildScheduledEventEntityType, GuildScheduledEventPrivacyLevel } = require('discord.js');
 
+// Ensure event titles never include date/time (Discord doesn’t localize titles)
+function buildEventTitle(sessionData) {
+  try {
+    const raw = String(sessionData?.name || 'Movie Night');
+    const chunks = raw.split(' - ').map(s => s.trim()).filter(Boolean);
+
+    const isDateLike = (s) => /(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec|\b\d{1,2}:\d{2}\b|\b\d{4}\b|am|pm)/i.test(s);
+
+    let keep;
+    if (chunks.length === 0) keep = 'Movie Night';
+    else if (chunks.length === 1) keep = chunks[0];
+    else keep = isDateLike(chunks[1]) ? chunks[0] : `${chunks[0]} - ${chunks[1]}`;
+
+    return `🎬 ${keep || 'Movie Night'}`;
+  } catch (_) {
+    return '🎬 Movie Night';
+  }
+}
+
 async function createDiscordEvent(guild, sessionData, scheduledDate) {
   if (!scheduledDate) return null;
 
@@ -43,14 +62,19 @@ async function createDiscordEvent(guild, sessionData, scheduledDate) {
     endTime.setMinutes(endTime.getMinutes() + durationMinutes);
 
     // Create enhanced description with voting info and channel link
-    const baseDescription = sessionData.description || 'Join us for movie night voting and viewing!';
+    const baseDescription = sessionData.description || "It’s Movie Night! Cast your vote and join us for the screening.";
     let enhancedDescription = baseDescription;
 
     // Add voting information if available
     if (sessionData.votingEndTime) {
       const votingEndTimestamp = Math.floor(sessionData.votingEndTime.getTime() / 1000);
-      enhancedDescription += `\n\n🗳️ **Voting ends:** <t:${votingEndTimestamp}:F>`;
-      enhancedDescription += `\n⏰ **Time remaining:** <t:${votingEndTimestamp}:R>`;
+      enhancedDescription += `\n\n🗳️ **Voting ends:** <t:${votingEndTimestamp}:F> • <t:${votingEndTimestamp}:R>`;
+    }
+
+    // Add the session start using Discord timestamps (shows local time per user)
+    if (scheduledDate) {
+      const startTs = Math.floor(new Date(scheduledDate).getTime() / 1000);
+      enhancedDescription += `\n🎬 **Session starts:** <t:${startTs}:F> • <t:${startTs}:R>`;
     }
 
     // Add voting channel link and CTA if available
@@ -77,32 +101,31 @@ async function createDiscordEvent(guild, sessionData, scheduledDate) {
     // Note: We no longer include a SESSION_UID in the description because we track event IDs in the database
 
     // Determine event type and location
-    const startTimeStr = new Date(scheduledDate).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
     let eventConfig = {
-      name: `🎬 ${sessionData.name} @ ${startTimeStr}`,
+      name: buildEventTitle(sessionData),
       description: enhancedDescription,
       scheduledStartTime: scheduledDate,
       scheduledEndTime: endTime,
       privacyLevel: GuildScheduledEventPrivacyLevel.GuildOnly
     };
 
-    // Use session viewing channel if configured, otherwise external event
-    if (config && config.session_viewing_channel_id) {
+    // Use Watch Party Channel if configured, otherwise external event
+    if (config && config.watch_party_channel_id) {
       try {
         // Fetch the channel to verify it exists and get its type
-        const channel = await guild.channels.fetch(config.session_viewing_channel_id);
+        const channel = await guild.channels.fetch(config.watch_party_channel_id);
         if (channel) {
           const logger = require('../utils/logger');
-          logger.debug(`📍 Found session viewing channel: ${channel.name} (${channel.type})`);
+          logger.debug(`📍 Found Watch Party Channel: ${channel.name} (${channel.type})`);
 
           // Use appropriate event type based on channel type
           if (channel.type === 2) { // Voice channel
             eventConfig.entityType = GuildScheduledEventEntityType.Voice;
-            eventConfig.channel = config.session_viewing_channel_id;
+            eventConfig.channel = config.watch_party_channel_id;
             logger.debug(`📍 Setting voice event in channel: #${channel.name}`);
           } else if (channel.type === 13) { // Stage channel
             eventConfig.entityType = GuildScheduledEventEntityType.StageInstance;
-            eventConfig.channel = config.session_viewing_channel_id;
+            eventConfig.channel = config.watch_party_channel_id;
             console.log(`📍 Setting stage event in channel: #${channel.name}`);
           } else {
             // For text channels or other types, use external event with channel mention
@@ -116,7 +139,7 @@ async function createDiscordEvent(guild, sessionData, scheduledDate) {
           throw new Error('Channel not found');
         }
       } catch (error) {
-        console.warn(`📍 Error fetching session viewing channel ${config.session_viewing_channel_id}:`, error.message);
+        console.warn(`📍 Error fetching Watch Party Channel ${config.watch_party_channel_id}:`, error.message);
         // Fallback to external event
         eventConfig.entityType = GuildScheduledEventEntityType.External;
         eventConfig.entityMetadata = {
@@ -129,7 +152,7 @@ async function createDiscordEvent(guild, sessionData, scheduledDate) {
       eventConfig.entityMetadata = {
         location: 'Movie Night Session - Check voting channel for details'
       };
-      console.log(`📍 Using external event (no session viewing channel configured)`);
+      console.log(`📍 Using external event (no Watch Party Channel configured)`);
     }
 
     const event = await guild.scheduledEvents.create(eventConfig);
@@ -207,11 +230,11 @@ async function updateDiscordEvent(guild, eventId, sessionData, scheduledDate) {
 
     if (effectiveStart) {
       const startTs = Math.floor(new Date(effectiveStart).getTime() / 1000);
-      enhancedDescription += `\n\n🎟️ **Session starts:** <t:${startTs}:F> (<t:${startTs}:R>)`;
+      enhancedDescription += `\n🎬 **Session starts:** <t:${startTs}:F> • <t:${startTs}:R>`;
     }
     const startTimeStr2 = effectiveStart ? new Date(effectiveStart).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'TBD';
     await event.edit({
-      name: `🎬 ${sessionData.name} @ ${startTimeStr2}`,
+      name: buildEventTitle(sessionData),
       description: enhancedDescription,
       scheduledStartTime: effectiveStart || event.scheduledStartAt,
       scheduledEndTime: newEnd
@@ -245,10 +268,13 @@ async function deleteDiscordEvent(guild, eventId) {
 async function notifyRole(guild, event, sessionData) {
   try {
     const database = require('../database');
-    const notificationRoleId = await database.getNotificationRole(guild.id);
+    // Determine which roles to notify: use configured Voting Roles
+    const guildConfig = await database.getGuildConfig(guild.id);
+    const votingRoles = Array.isArray(guildConfig?.voting_roles) ? guildConfig.voting_roles : [];
+    const notifyRoleIds = [...new Set(votingRoles.filter(Boolean))];
 
-    if (!notificationRoleId) {
-      console.log('No notification role configured for guild');
+    if (notifyRoleIds.length === 0) {
+      console.log('No Voting Roles configured for guild announcements');
       return;
     }
 
@@ -256,7 +282,7 @@ async function notifyRole(guild, event, sessionData) {
     let notificationChannel = null;
 
     // Try to use the configured movie channel first (if it's a text channel)
-    const guildConfig = await database.getGuildConfig(guild.id);
+    // guildConfig fetched earlier
     if (guildConfig && guildConfig.movie_channel_id) {
       const movieChannel = guild.channels.cache.get(guildConfig.movie_channel_id);
       if (movieChannel && movieChannel.type === 0 && movieChannel.send) {
@@ -337,13 +363,14 @@ async function notifyRole(guild, event, sessionData) {
       });
     }
 
+    const mentions = notifyRoleIds.map(id => `<@&${id}>`).join(' ');
     await notificationChannel.send({
-      content: `<@&${notificationRoleId}> 🍿`,
+      content: `${mentions} 🍿`,
       embeds: [embed]
     });
 
     const logger = require('../utils/logger');
-    logger.debug(`✅ Notified role ${notificationRoleId} about event ${event.id}`);
+    logger.debug(`✅ Notified roles [${notifyRoleIds.join(', ')}] about event ${event.id}`);
 
     // ALWAYS restore admin panel after ANY notification to admin channel
     if (notificationChannel.id === guildConfig?.admin_channel_id) {
