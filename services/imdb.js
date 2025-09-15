@@ -3,7 +3,14 @@
  * Handles IMDb/OMDb API integration for movie data with fuzzy matching and spell checking
  */
 
-const Fuse = require('fuse.js');
+// Conditional import for fuse.js to handle environments where it might not be installed
+let Fuse = null;
+try {
+  Fuse = require('fuse.js');
+} catch (error) {
+  console.warn('⚠️ fuse.js not available - spell checking suggestions will be disabled');
+}
+
 const { OMDB_API_KEY, IMDB_CACHE_ENABLED, IMDB_CACHE_TTL_DAYS, IMDB_CACHE_MAX_ROWS } = process.env;
 
 async function searchMovie(title) {
@@ -92,7 +99,12 @@ async function searchContentWithSuggestions(title) {
       return { results: exactResults, suggestions: [] };
     }
 
-    // If no exact results, try fuzzy search with common variations
+    // If no exact results, try fuzzy search with common variations (if available)
+    if (!Fuse) {
+      console.log('⚠️ Spell checking disabled - fuse.js not available');
+      return { results: null, suggestions: [], originalTitle: title };
+    }
+
     const suggestions = await generateSpellingSuggestions(title);
     let bestResults = null;
     let bestSuggestion = null;
