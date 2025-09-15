@@ -232,6 +232,53 @@ class Database {
         FOREIGN KEY (session_id) REFERENCES movie_sessions(id) ON DELETE CASCADE,
         UNIQUE KEY unique_attendee (session_id, user_id),
         INDEX idx_guild_attendees (guild_id, user_id)
+      )`,
+
+      // TV Shows table - stores all TV show recommendations
+      `CREATE TABLE IF NOT EXISTS tv_shows (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        message_id VARCHAR(20) UNIQUE NOT NULL,
+        thread_id VARCHAR(20) NULL,
+        channel_type ENUM('text', 'forum') DEFAULT 'text',
+        guild_id VARCHAR(20) NOT NULL,
+        channel_id VARCHAR(20) NOT NULL,
+        title VARCHAR(255) NOT NULL,
+        show_type ENUM('series', 'episode') DEFAULT 'series',
+        season_number INT NULL,
+        episode_number INT NULL,
+        episode_title VARCHAR(255) NULL,
+        total_seasons INT NULL,
+        show_uid VARCHAR(64) NOT NULL,
+        where_to_watch VARCHAR(255) NOT NULL,
+        recommended_by VARCHAR(20) NOT NULL,
+        imdb_id VARCHAR(20) NULL,
+        series_imdb_id VARCHAR(20) NULL,
+        imdb_data JSON NULL,
+        poster_url VARCHAR(500) NULL,
+        status ENUM('pending', 'watched', 'planned', 'skipped', 'scheduled', 'banned') DEFAULT 'pending',
+        session_id INT NULL,
+        is_banned BOOLEAN DEFAULT FALSE,
+        watch_count INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        watched_at TIMESTAMP NULL,
+        INDEX idx_guild_status (guild_id, status),
+        INDEX idx_message_id (message_id),
+        INDEX idx_show_uid (guild_id, show_uid),
+        INDEX idx_banned (guild_id, is_banned)
+      )`,
+
+      // TV Show votes table - stores all votes for TV shows
+      `CREATE TABLE IF NOT EXISTS votes_tv (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        message_id VARCHAR(20) NOT NULL,
+        guild_id VARCHAR(20) NOT NULL,
+        user_id VARCHAR(20) NOT NULL,
+        vote_type ENUM('up', 'down') NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_tv_vote (message_id, user_id),
+        FOREIGN KEY (message_id) REFERENCES tv_shows(message_id) ON DELETE CASCADE,
+        INDEX idx_tv_message_votes (message_id, vote_type),
+        INDEX idx_tv_guild_votes (guild_id, vote_type)
       )`
     ];
 
@@ -342,13 +389,30 @@ class Database {
       }
     } catch (e) {
       logger.warn('initializeTables ensure vote cap columns warning:', e.message);
+    }
 
+    // Ensure content_type column exists in movie_sessions
+    try {
+      const [ctCols] = await this.pool.execute(`
+        SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'movie_sessions' AND COLUMN_NAME = 'content_type'
+      `);
+      if (ctCols.length === 0) {
+        await this.pool.execute(`ALTER TABLE movie_sessions ADD COLUMN content_type ENUM('movie', 'tv_show', 'mixed') DEFAULT 'movie' AFTER timezone`);
+        logger.debug('✅ Added content_type column via initializeTables');
+      }
+    } catch (e) {
+      logger.warn('initializeTables ensure content_type warning:', e.message);
     }
 
 
-    // Migrations are deprecated and permanently disabled to reduce startup noise and risk.
-    // If you really need them, run a past release that included migrations or execute SQL manually.
-    logger.info('⏭️ Database migrations are deprecated and skipped.');
+    // Run migrations if enabled via environment variable
+    if (process.env.DB_MIGRATIONS_ENABLED === 'true') {
+      logger.info('🔄 DB_MIGRATIONS_ENABLED=true - running migrations...');
+      await this.runMigrations();
+    } else {
+      logger.info('⏭️ Database migrations are disabled (set DB_MIGRATIONS_ENABLED=true to enable)');
+    }
     logger.info('✅ Database tables initialized');
   }
 
