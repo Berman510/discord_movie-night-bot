@@ -780,10 +780,34 @@ async function ensureRecommendationPost(channel, activeSession = null) {
       return;
     }
 
-    // Active session - edit pinned post to show recommendation
+    // Active session - edit pinned post to show recommendation with content-specific messaging
+    const contentType = activeSession.content_type || 'movie';
+    const isMovieSession = contentType === 'movie';
+    const isTVSession = contentType === 'tv_show';
+    const isMixedSession = contentType === 'mixed';
+
+    let title, description, buttonLabel, buttonEmoji;
+
+    if (isMovieSession) {
+      title = '🍿 Recommend Movies';
+      description = `**Current Session:** ${activeSession.name}\n\n🍿 Click the button below to recommend movies!\n\n📝 Each movie gets its own thread for voting and discussion.\n\n🗳️ Voting ends: <t:${Math.floor(new Date(activeSession.voting_end_time).getTime() / 1000)}:R>`;
+      buttonLabel = '🍿 Recommend Movie';
+      buttonEmoji = '🍿';
+    } else if (isTVSession) {
+      title = '📺 Recommend TV Shows';
+      description = `**Current Session:** ${activeSession.name}\n\n📺 Click the button below to recommend TV shows or episodes!\n\n📝 Each recommendation gets its own thread for voting and discussion.\n\n🗳️ Voting ends: <t:${Math.floor(new Date(activeSession.voting_end_time).getTime() / 1000)}:R>`;
+      buttonLabel = '📺 Recommend TV Show';
+      buttonEmoji = '📺';
+    } else {
+      title = '🎬 Recommend Content';
+      description = `**Current Session:** ${activeSession.name}\n\n🎬 Click the button below to recommend movies or TV shows!\n\n📝 Each recommendation gets its own thread for voting and discussion.\n\n🗳️ Voting ends: <t:${Math.floor(new Date(activeSession.voting_end_time).getTime() / 1000)}:R>`;
+      buttonLabel = '🎬 Recommend Content';
+      buttonEmoji = '🎬';
+    }
+
     const recommendEmbed = new EmbedBuilder()
-      .setTitle('🎬 Recommend Content')
-      .setDescription(`**Current Session:** ${activeSession.name}\n\n🎬 Click the button below to recommend movies or TV shows!\n\n📝 Each recommendation gets its own thread for voting and discussion.\n\n🗳️ Voting ends: <t:${Math.floor(new Date(activeSession.voting_end_time).getTime() / 1000)}:R>`)
+      .setTitle(title)
+      .setDescription(description)
       .setColor(0x5865f2)
       .setFooter({ text: `Session ID: ${activeSession.id}` });
 
@@ -791,7 +815,7 @@ async function ensureRecommendationPost(channel, activeSession = null) {
       .addComponents(
         new ButtonBuilder()
           .setCustomId('create_recommendation')
-          .setLabel('🎬 Recommend Content')
+          .setLabel(buttonLabel)
           .setStyle(ButtonStyle.Primary)
       );
 
@@ -823,7 +847,7 @@ async function ensureRecommendationPost(channel, activeSession = null) {
       try {
         const reuse = systemPosts[0].thread;
         if (reuse.archived) await reuse.setArchived(false);
-        await reuse.setName('🎬 Recommend Content');
+        await reuse.setName(title);
         const starterMessage = await reuse.fetchStarterMessage();
         if (starterMessage) {
           await starterMessage.edit({ embeds: [recommendEmbed], components: [recommendButton] });
@@ -840,7 +864,7 @@ async function ensureRecommendationPost(channel, activeSession = null) {
       // Create new pinned post
       try {
         const forumPost = await channel.threads.create({
-          name: '🎬 Recommend Content',
+          name: title,
           message: { embeds: [recommendEmbed], components: [recommendButton] }
         });
         await forumPost.pin();
@@ -876,7 +900,7 @@ async function ensureRecommendationPost(channel, activeSession = null) {
               // Try without pinning as fallback
               try {
                 const forumPost = await channel.threads.create({
-                  name: '🎬 Recommend Content',
+                  name: title,
                   message: { embeds: [recommendEmbed], components: [recommendButton] }
                 });
                 logger.debug('📋 Created recommendation post without pinning as fallback', guildId);

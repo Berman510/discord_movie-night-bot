@@ -1976,6 +1976,20 @@ class Database {
         logger.warn('Migration 32 warning:', e.message);
       }
 
+      // Migration 33: Add content_type to movie_sessions table
+      try {
+        await this.pool.execute(`
+          ALTER TABLE movie_sessions
+          ADD COLUMN content_type ENUM('movie', 'tv_show', 'mixed') DEFAULT 'movie'
+        `);
+
+        const logger = require('./utils/logger');
+        logger.debug('✅ Migration 33: Added content_type to movie_sessions table');
+      } catch (e) {
+        const logger = require('./utils/logger');
+        logger.warn('Migration 33 warning:', e.message);
+      }
+
       logger.info('✅ Database migrations completed');
 
   }
