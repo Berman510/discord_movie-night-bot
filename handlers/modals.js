@@ -510,5 +510,8 @@ async function handleDeepPurgeConfirmation(interaction, customId) {
 }
 
 module.exports = {
-  handleModal
+  handleModal,
+  showImdbSelection,
+  showSpellingSuggestions,
+  createMovieWithoutImdb
 };

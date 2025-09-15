@@ -782,8 +782,8 @@ async function ensureRecommendationPost(channel, activeSession = null) {
 
     // Active session - edit pinned post to show recommendation
     const recommendEmbed = new EmbedBuilder()
-      .setTitle('🍿 Recommend a Movie')
-      .setDescription(`**Current Session:** ${activeSession.name}\n\n🎬 Click the button below to recommend a movie!\n\n📝 Each movie gets its own thread for voting and discussion.\n\n🗳️ Voting ends: <t:${Math.floor(new Date(activeSession.voting_end_time).getTime() / 1000)}:R>`)
+      .setTitle('🎬 Recommend Content')
+      .setDescription(`**Current Session:** ${activeSession.name}\n\n🎬 Click the button below to recommend movies or TV shows!\n\n📝 Each recommendation gets its own thread for voting and discussion.\n\n🗳️ Voting ends: <t:${Math.floor(new Date(activeSession.voting_end_time).getTime() / 1000)}:R>`)
       .setColor(0x5865f2)
       .setFooter({ text: `Session ID: ${activeSession.id}` });
 
@@ -791,7 +791,7 @@ async function ensureRecommendationPost(channel, activeSession = null) {
       .addComponents(
         new ButtonBuilder()
           .setCustomId('create_recommendation')
-          .setLabel('🎬 Recommend a Movie')
+          .setLabel('🎬 Recommend Content')
           .setStyle(ButtonStyle.Primary)
       );
 
@@ -823,7 +823,7 @@ async function ensureRecommendationPost(channel, activeSession = null) {
       try {
         const reuse = systemPosts[0].thread;
         if (reuse.archived) await reuse.setArchived(false);
-        await reuse.setName('🍿 Recommend a Movie');
+        await reuse.setName('🎬 Recommend Content');
         const starterMessage = await reuse.fetchStarterMessage();
         if (starterMessage) {
           await starterMessage.edit({ embeds: [recommendEmbed], components: [recommendButton] });
@@ -840,7 +840,7 @@ async function ensureRecommendationPost(channel, activeSession = null) {
       // Create new pinned post
       try {
         const forumPost = await channel.threads.create({
-          name: '🍿 Recommend a Movie',
+          name: '🎬 Recommend Content',
           message: { embeds: [recommendEmbed], components: [recommendButton] }
         });
         await forumPost.pin();
@@ -855,7 +855,7 @@ async function ensureRecommendationPost(channel, activeSession = null) {
             logger.warn('📋 No threads were unpinned - creating recommendation post without pinning', guildId);
             try {
               const forumPost = await channel.threads.create({
-                name: '🍿 Recommend a Movie',
+                name: '🎬 Recommend Content',
                 message: { embeds: [recommendEmbed], components: [recommendButton] }
               });
               logger.debug('📋 Created recommendation post without pinning due to Discord API issue', guildId);
@@ -866,7 +866,7 @@ async function ensureRecommendationPost(channel, activeSession = null) {
             // Try again after unpinning
             try {
               const forumPost = await channel.threads.create({
-                name: '🍿 Recommend a Movie',
+                name: '🎬 Recommend Content',
                 message: { embeds: [recommendEmbed], components: [recommendButton] }
               });
               await forumPost.pin();
@@ -876,7 +876,7 @@ async function ensureRecommendationPost(channel, activeSession = null) {
               // Try without pinning as fallback
               try {
                 const forumPost = await channel.threads.create({
-                  name: '🍿 Recommend a Movie',
+                  name: '🎬 Recommend Content',
                   message: { embeds: [recommendEmbed], components: [recommendButton] }
                 });
                 logger.debug('📋 Created recommendation post without pinning as fallback', guildId);
@@ -946,10 +946,10 @@ async function createNoActiveSessionPost(channel) {
       .setDescription('**There is currently no active voting session.**\n\nAn admin needs to use the "Plan Next Session" button in the admin channel to start a new voting session.\n\n💡 **Tip:** Movie recommendations are only available during active voting sessions.')
       .setColor(0xed4245)
       .addFields(
-        { name: '🎬 Want to recommend a movie?', value: 'Wait for an admin to start the next voting session!', inline: false },
+        { name: '🎬 Want to recommend content?', value: 'Wait for an admin to start the next voting session!', inline: false },
         { name: '⚙️ Admin?', value: 'Use the admin channel to plan and start the next session.', inline: false }
       )
-      .setFooter({ text: 'Movie recommendations will be available when a session starts' });
+      .setFooter({ text: 'Content recommendations will be available when a session starts' });
 
     if (noSessionPost) {
       // Update existing post
@@ -1009,7 +1009,7 @@ async function setPinnedPostStatusNote(channel, title, description) {
     for (const [, t] of all) {
       const fresh = await channel.client.channels.fetch(t.id).catch(() => null);
       if (fresh && fresh.pinned) { pinnedPost = fresh; break; }
-      if (t.name.includes('Recommend a Movie') || t.name.includes('🍿')) pinnedPost = fresh || t;
+      if (t.name.includes('Recommend Content') || t.name.includes('Recommend a Movie') || t.name.includes('🍿') || t.name.includes('🎬')) pinnedPost = fresh || t;
     }
     if (!pinnedPost) return false;
 

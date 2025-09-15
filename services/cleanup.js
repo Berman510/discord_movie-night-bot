@@ -427,7 +427,7 @@ async function ensureQuickActionPinned(channel) {
       .addComponents(
         new ButtonBuilder()
           .setCustomId('create_recommendation')
-          .setLabel('🍿 Recommend a Movie')
+          .setLabel('🎬 Recommend Content')
           .setStyle(ButtonStyle.Primary)
       );
 
@@ -501,7 +501,7 @@ async function ensureQuickActionAtBottom(channel) {
       .addComponents(
         new ButtonBuilder()
           .setCustomId('create_recommendation')
-          .setLabel('🍿 Recommend a Movie')
+          .setLabel('🎬 Recommend Content')
           .setStyle(ButtonStyle.Primary)
       );
 
