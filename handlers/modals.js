@@ -266,17 +266,20 @@ async function showImdbSelection(interaction, title, where, imdbResults, suggest
     let typeLabel, displayTitle;
 
     if (isEpisode) {
-      // For episodes, show series name with season/episode info
-      const seriesTitle = content.seriesID ? content.seriesID : (content.Title || '').split(' - ')[0];
-      const episodeTitle = content.Title || '';
+      // For episodes, show detailed info in embed
+      const parts = (content.Title || '').split(' - ');
+      const seriesTitle = parts[0] || content.Title || 'Unknown Series';
+      const episodeTitle = parts.length > 1 ? parts.slice(1).join(' - ') : '';
       const season = content.Season ? `S${content.Season}` : '';
       const episode = content.Episode ? `E${content.Episode}` : '';
       const seasonEpisode = season && episode ? `${season}${episode}` : '';
 
-      if (seasonEpisode && seriesTitle !== episodeTitle) {
+      if (seasonEpisode && episodeTitle) {
         displayTitle = `${seriesTitle} - ${seasonEpisode} - ${episodeTitle}`;
+      } else if (seasonEpisode) {
+        displayTitle = `${seriesTitle} - ${seasonEpisode}`;
       } else {
-        displayTitle = episodeTitle;
+        displayTitle = content.Title;
       }
       typeLabel = 'TV Episode';
     } else if (isShow) {
@@ -305,17 +308,18 @@ async function showImdbSelection(interaction, title, where, imdbResults, suggest
     let label;
 
     if (isEpisode) {
-      // For episodes, show series name with season/episode info
-      const seriesTitle = content.seriesID ? content.seriesID : (content.Title || '').split(' - ')[0];
-      const episodeTitle = content.Title || '';
+      // For episodes, show concise format for buttons
       const season = content.Season ? `S${content.Season}` : '';
       const episode = content.Episode ? `E${content.Episode}` : '';
       const seasonEpisode = season && episode ? `${season}${episode}` : '';
 
-      if (seasonEpisode && seriesTitle !== episodeTitle) {
-        label = `${index + 1}. ${typeEmoji} ${seriesTitle} - ${seasonEpisode}`;
+      if (seasonEpisode) {
+        // Try to extract series name from title (before first " - ")
+        const parts = (content.Title || '').split(' - ');
+        const seriesName = parts[0] || content.Title || 'Unknown Series';
+        label = `${index + 1}. ${typeEmoji} ${seriesName} ${seasonEpisode}`;
       } else {
-        label = `${index + 1}. ${typeEmoji} ${episodeTitle}`;
+        label = `${index + 1}. ${typeEmoji} ${content.Title}`;
       }
     } else {
       label = `${index + 1}. ${typeEmoji} ${content.Title} (${content.Year})`;

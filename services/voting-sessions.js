@@ -279,8 +279,11 @@ async function handleVotingSessionRescheduleModal(interaction) {
       return;
     }
 
-    // Generate session name like creation flow
-    const sessionName = `Movie Night - ${startDateTime.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
+    // Generate session name like creation flow based on content type
+    const session = await database.getVotingSessionById(sessionId);
+    const contentTypeLabel = session?.content_type === 'tv_show' ? 'TV Show Night' :
+                             session?.content_type === 'mixed' ? 'Watch Party' : 'Movie Night';
+    const sessionName = `${contentTypeLabel} - ${startDateTime.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
 
     // Determine timezone preference similar to creation
     const cfg = await database.getGuildConfig(interaction.guild.id);
@@ -455,8 +458,10 @@ async function handleVotingSessionDateModal(interaction) {
     votingEndDateTime.setHours(votingEndDateTime.getHours() - 1);
   }
 
-  // Auto-generate session name from parsed date
-  const sessionName = `Movie Night - ${sessionDateTime.toLocaleDateString('en-US', {
+  // Auto-generate session name from parsed date and content type
+  const contentTypeLabel = state.contentType === 'tv_show' ? 'TV Show Night' :
+                           state.contentType === 'mixed' ? 'Watch Party' : 'Movie Night';
+  const sessionName = `${contentTypeLabel} - ${sessionDateTime.toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
