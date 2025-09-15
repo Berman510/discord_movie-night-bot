@@ -1,6 +1,6 @@
 /**
- * Movie Creation Service
- * Handles movie creation in both text and forum channels
+ * Content Creation Service
+ * Handles movie and TV show creation in both text and forum channels
  */
 
 const { embeds, components } = require('../utils');
@@ -9,12 +9,29 @@ const database = require('../database');
 const logger = require('../utils/logger');
 
 /**
- * Create a movie recommendation in the appropriate channel type
+ * Detect if content is a TV show or movie based on IMDb data
+ */
+function detectContentType(imdbData) {
+  if (!imdbData) return 'movie';
+
+  const type = imdbData.Type?.toLowerCase();
+  if (type === 'series' || type === 'episode') {
+    return 'tv_show';
+  }
+  return 'movie';
+}
+
+/**
+ * Create a content recommendation (movie or TV show) in the appropriate channel type
  */
 async function createMovieRecommendation(interaction, movieData) {
   const { title, where, imdbId = null, imdbData = null } = movieData;
 
   try {
+    // Detect content type
+    const contentType = detectContentType(imdbData);
+    logger.debug(`🔍 DEBUG: Detected content type: ${contentType} for "${title}"`);
+
     // Get the configured movie channel for this guild
     const database = require('../database');
     const config = await database.getGuildConfig(interaction.guild.id);
@@ -41,17 +58,29 @@ async function createMovieRecommendation(interaction, movieData) {
 
     logger.debug(`🔍 DEBUG: Fetched channel: ${channel.name} (${channel.id}) type=${channel.type} forum=${forumChannels.isForumChannel(channel)} text=${forumChannels.isTextChannel(channel)}`, interaction.guild?.id);
 
-    logger.info(`🎬 Creating movie recommendation: ${title} in ${forumChannels.getChannelTypeString(channel)} channel (${channel.name})`);
+    const contentTypeLabel = contentType === 'tv_show' ? 'TV show' : 'movie';
+    logger.info(`🎬 Creating ${contentTypeLabel} recommendation: ${title} in ${forumChannels.getChannelTypeString(channel)} channel (${channel.name})`);
 
-    if (forumChannels.isForumChannel(channel)) {
-      logger.debug(`🔍 DEBUG: Calling createForumMovieRecommendation`);
-      return await createForumMovieRecommendation(interaction, movieData, channel);
-    } else if (forumChannels.isTextChannel(channel)) {
-      logger.debug(`🔍 DEBUG: Calling createTextMovieRecommendation`);
-      return await createTextMovieRecommendation(interaction, movieData, channel);
+    // Route to appropriate creation function based on content type
+    if (contentType === 'tv_show') {
+      if (forumChannels.isForumChannel(channel)) {
+        logger.debug(`🔍 DEBUG: Calling createForumTVShowRecommendation`);
+        return await createForumTVShowRecommendation(interaction, movieData, channel);
+      } else if (forumChannels.isTextChannel(channel)) {
+        logger.debug(`🔍 DEBUG: Calling createTextTVShowRecommendation`);
+        return await createTextTVShowRecommendation(interaction, movieData, channel);
+      }
     } else {
-      throw new Error(`Unsupported channel type: ${channel.type}`);
+      if (forumChannels.isForumChannel(channel)) {
+        logger.debug(`🔍 DEBUG: Calling createForumMovieRecommendation`);
+        return await createForumMovieRecommendation(interaction, movieData, channel);
+      } else if (forumChannels.isTextChannel(channel)) {
+        logger.debug(`🔍 DEBUG: Calling createTextMovieRecommendation`);
+        return await createTextMovieRecommendation(interaction, movieData, channel);
+      }
     }
+
+    throw new Error(`Unsupported channel type: ${channel.type}`);
 
   } catch (error) {
     logger.error('Error creating movie recommendation:', error);
@@ -383,12 +412,233 @@ async function addDetailedMovieInfoToThread(thread, movieData) {
   }
 }
 
+/**
+ * Create TV show recommendation in a text channel
+ */
+async function createTextTVShowRecommendation(interaction, showData, channel) {
+  const { title, where, imdbId = null } = showData;
+
+  // Always use IMDb cache (no fallback to tv_shows.imdb_data)
+  let imdbData = null;
+  try {
+    if (imdbId) {
+      const imdb = require('./imdb');
+      imdbData = await imdb.getMovieDetailsCached(imdbId);
+      if (!imdbData) {
+        try { imdbData = await imdb.getMovieDetails(imdbId); } catch (_) {}
+      }
+    }
+  } catch (_) {}
+
+  // Create TV show embed (reuse movie embed for now, will enhance later)
+  const showEmbedData = {
+    title: title,
+    where_to_watch: where,
+    recommended_by: interaction.user.id,
+    status: 'pending',
+    imdb_id: imdbId
+  };
+
+  const showEmbed = embeds.createMovieEmbed(showEmbedData, imdbData);
+
+  // Create the message first without buttons
+  const message = await channel.send({
+    embeds: [showEmbed]
+  });
+
+  // Create buttons with the actual message ID (reuse voting buttons for now)
+  const showComponents = components.createVotingButtons(message.id);
+
+  // Update the message with the correct buttons
+  await message.edit({
+    embeds: [showEmbed],
+    components: showComponents
+  });
+
+  // Save to TV shows database
+  logger.debug(`💾 Saving text channel TV show to database: ${title} (${message.id})`);
+  const showId = await database.saveTVShow({
+    messageId: message.id,
+    guildId: interaction.guild.id,
+    channelId: channel.id,
+    title: title,
+    whereToWatch: where,
+    recommendedBy: interaction.user.id,
+    imdbId: imdbId,
+    imdbData: imdbData
+  });
+
+  if (!showId) {
+    // If database save failed, delete the message
+    await message.delete().catch(console.error);
+    throw new Error('Failed to save TV show to database');
+  }
+
+  // Create thread for discussion
+  try {
+    const thread = await message.startThread({
+      name: `💬 ${title}`,
+      autoArchiveDuration: 10080 // 7 days
+    });
+    logger.debug(`🧵 Created discussion thread: ${thread.name}`);
+
+    // Add detailed information to the thread
+    await addDetailedTVShowInfoToThread(thread, { title, where, imdbData });
+  } catch (error) {
+    logger.warn('Failed to create thread:', error.message);
+  }
+
+  return { message, showId };
+}
+
+/**
+ * Create TV show recommendation in a forum channel
+ */
+async function createForumTVShowRecommendation(interaction, showData, channel) {
+  const { title, where, imdbId = null } = showData;
+
+  logger.debug(`🔍 DEBUG: createForumTVShowRecommendation called with:`, {
+    title,
+    where,
+    channelId: channel.id,
+    channelName: channel.name,
+    channelType: channel.type
+  });
+
+  // Always use IMDb cache (no fallback to tv_shows.imdb_data)
+  let imdbData = null;
+  try {
+    if (imdbId) {
+      const imdb = require('./imdb');
+      imdbData = await imdb.getMovieDetailsCached(imdbId);
+      if (!imdbData) {
+        try { imdbData = await imdb.getMovieDetails(imdbId); } catch (_) {}
+      }
+    }
+  } catch (_) {}
+
+  // Create TV show embed (reuse movie embed for now)
+  const showEmbedData = {
+    title: title,
+    where_to_watch: where,
+    recommended_by: interaction.user.id,
+    status: 'pending',
+    imdb_id: imdbId
+  };
+
+  const showEmbed = embeds.createMovieEmbed(showEmbedData, imdbData);
+  logger.debug(`🔍 DEBUG: Created TV show embed for: ${title}`);
+
+  // Create forum post (reuse movie post creation for now)
+  logger.debug(`🔍 DEBUG: About to call createForumMoviePost for TV show`);
+  const result = await forumChannels.createForumMoviePost(
+    channel,
+    { title, embed: showEmbed },
+    [] // We'll add components after getting the message ID
+  );
+
+  logger.debug(`🔍 DEBUG: createForumMoviePost result:`, {
+    threadId: result.thread?.id,
+    messageId: result.message?.id
+  });
+
+  if (!result.message || !result.thread) {
+    throw new Error('Failed to create forum TV show post');
+  }
+
+  const { message, thread } = result;
+
+  // Create voting buttons with the actual message ID
+  const showComponents = components.createVotingButtons(message.id);
+
+  // Update the message with voting buttons
+  await message.edit({
+    embeds: [showEmbed],
+    components: showComponents
+  });
+
+  logger.debug(`🔍 DEBUG: Updated forum post with voting buttons and IMDb data`);
+
+  // Save to TV shows database with both message ID and thread ID
+  logger.debug(`💾 Saving forum TV show to database: ${title} (Message: ${message.id}, Thread: ${thread.id})`);
+  const showId = await database.addForumTVShow(
+    interaction.guild.id,
+    title,
+    where,
+    interaction.user.id,
+    message.id,
+    thread.id,
+    channel.id,
+    imdbId,
+    imdbData
+  );
+
+  if (!showId) {
+    // If database save failed, delete the forum post
+    await thread.delete().catch(logger.error);
+    throw new Error('Failed to save forum TV show to database');
+  }
+
+  return { message, thread, showId };
+}
+
+/**
+ * Add detailed TV show information to a thread
+ */
+async function addDetailedTVShowInfoToThread(thread, showInfo) {
+  try {
+    const { title, where, imdbData } = showInfo;
+
+    const detailEmbed = embeds.createMovieEmbed({
+      title: `📺 ${title}`,
+      where_to_watch: where,
+      status: 'pending'
+    }, imdbData);
+
+    if (imdbData) {
+      // Add TV show specific information
+      if (imdbData.Type === 'series' && imdbData.totalSeasons) {
+        detailEmbed.addFields({
+          name: '📺 Seasons',
+          value: imdbData.totalSeasons,
+          inline: true
+        });
+      }
+
+      if (imdbData.Type === 'episode') {
+        detailEmbed.addFields({
+          name: '📺 Episode',
+          value: `Season ${imdbData.Season}, Episode ${imdbData.Episode}`,
+          inline: true
+        });
+      }
+
+      // Add IMDb link if available
+      if (imdbData.imdbID && imdbData.imdbID !== 'N/A') {
+        detailEmbed.setURL(`https://www.imdb.com/title/${imdbData.imdbID}/`);
+      }
+    }
+
+    detailEmbed.setFooter({ text: 'Vote on the main post • Discuss here in the thread' });
+
+    await thread.send({ embeds: [detailEmbed] });
+    logger.debug(`📝 Added detailed TV show info to thread: ${thread.name}`);
+
+  } catch (error) {
+    logger.warn('Error adding detailed TV show info to thread:', error.message);
+  }
+}
+
 module.exports = {
   createMovieRecommendation,
   createTextMovieRecommendation,
   createForumMovieRecommendation,
+  createTextTVShowRecommendation,
+  createForumTVShowRecommendation,
   updateMovieStatus,
   getChannelMovies,
   cleanupChannelMovies,
-  addDetailedMovieInfoToThread
+  addDetailedMovieInfoToThread,
+  addDetailedTVShowInfoToThread,
+  detectContentType
 };

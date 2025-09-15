@@ -245,31 +245,42 @@ async function handleVoting(interaction, action, msgId, votes) {
 
     // Handle database voting
     if (database.isConnected) {
-      // First check if the movie exists in the database
+      // Check if this is a movie or TV show
       const movie = await database.getMovieById(msgId, interaction.guild.id);
-      if (!movie) {
-        console.error(`🚨 VOTING ERROR: Movie with message ID ${msgId} not found in database for guild ${interaction.guild.id}`);
+      const tvShow = await database.getTVShowByMessageId(msgId);
+      const content = movie || tvShow;
+
+      if (!content) {
+        console.error(`🚨 VOTING ERROR: Content with message ID ${msgId} not found in database for guild ${interaction.guild.id}`);
         await interaction.followUp({
-          content: '❌ This movie is not found in the database. Please try refreshing the channel.',
+          content: '❌ This content is not found in the database. Please try refreshing the channel.',
           ephemeral: true
         });
         return;
       }
 
+      const isMovie = !!movie;
+      const contentType = isMovie ? 'movie' : 'TV show';
+
       // Lazy backfill: if this is a forum thread and DB thread_id is missing, fill it from the interaction channel
       try {
         const ch = interaction.channel;
         const isThread = typeof ch?.isThread === 'function' ? ch.isThread() : false;
-        if (movie.channel_type === 'forum' && !movie.thread_id && isThread) {
-          await database.updateMovieThreadId(msgId, ch.id);
-          movie.thread_id = ch.id; // update local reference
+        if (content.channel_type === 'forum' && !content.thread_id && isThread) {
+          if (isMovie) {
+            await database.updateMovieThreadId(msgId, ch.id);
+            content.thread_id = ch.id; // update local reference
+          }
+          // TODO: Add updateTVShowThreadId function if needed
         }
       } catch (e) {
         console.warn('Backfill thread_id on vote failed:', e?.message);
       }
 
-      // Check current vote
-      const currentVote = await database.getUserVote(msgId, userId);
+      // Check current vote (works for both movies and TV shows)
+      const currentVote = isMovie
+        ? await database.getUserVote(msgId, userId)
+        : await database.getUserTVShowVote(msgId, userId);
 
       // Enforce per-session vote caps (configurable; defaults: up ~1/3, down ~1/5)
       try {
@@ -319,15 +330,19 @@ async function handleVoting(interaction, action, msgId, votes) {
 
       if (currentVote === action) {
         // Remove vote if clicking same button
-        const removeSuccess = await database.removeVote(msgId, userId, interaction.guild.id);
+        const removeSuccess = isMovie
+          ? await database.removeVote(msgId, userId, interaction.guild.id)
+          : await database.removeTVShowVote(msgId, userId, interaction.guild.id);
         if (!removeSuccess) {
-          console.error(`Failed to remove vote for message ${msgId} by user ${userId}`);
+          console.error(`Failed to remove ${contentType} vote for message ${msgId} by user ${userId}`);
         }
       } else {
         // Add or change vote
-        const saveSuccess = await database.saveVote(msgId, userId, action, interaction.guild.id);
+        const saveSuccess = isMovie
+          ? await database.saveVote(msgId, userId, action, interaction.guild.id)
+          : await database.addTVShowVote(msgId, userId, interaction.guild.id, action);
         if (!saveSuccess) {
-          console.error(`Failed to save vote for message ${msgId} by user ${userId}`);
+          console.error(`Failed to save ${contentType} vote for message ${msgId} by user ${userId}`);
           await interaction.followUp({
             content: '❌ Failed to save your vote. Please try again.',
             ephemeral: true
@@ -336,13 +351,15 @@ async function handleVoting(interaction, action, msgId, votes) {
         }
       }
 
-      // Get updated vote counts (movie data already retrieved above)
-      const voteCounts = await database.getVoteCounts(msgId);
+      // Get updated vote counts
+      const voteCounts = isMovie
+        ? await database.getVoteCounts(msgId)
+        : await database.getTVShowVoteCounts(msgId);
 
       // Update message with new vote counts and preserve all buttons
       const { components, embeds } = require('../utils');
-      const imdbData = movie && movie.imdb_data ? JSON.parse(movie.imdb_data) : null;
-      const updatedEmbed = movie ? embeds.createMovieEmbed(movie, imdbData, voteCounts) : null;
+      const imdbData = content && content.imdb_data ? JSON.parse(content.imdb_data) : null;
+      const updatedEmbed = embeds.createMovieEmbed(content, imdbData, voteCounts);
       const updatedComponents = components.createVotingButtons(msgId, voteCounts.up, voteCounts.down);
 
       const updateData = { components: updatedComponents };

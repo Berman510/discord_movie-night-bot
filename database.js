@@ -1910,10 +1910,182 @@ class Database {
         logger.warn('Migration 31 warning:', e.message);
       }
 
+      // Migration 32: Create separate tv_shows table for better organization
+      try {
+        await this.pool.execute(`
+          CREATE TABLE IF NOT EXISTS tv_shows (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            message_id VARCHAR(20) UNIQUE NOT NULL,
+            thread_id VARCHAR(20) NULL,
+            channel_type ENUM('text', 'forum') DEFAULT 'text',
+            guild_id VARCHAR(20) NOT NULL,
+            channel_id VARCHAR(20) NOT NULL,
+            title VARCHAR(255) NOT NULL,
+            show_uid VARCHAR(64) NOT NULL,
+            where_to_watch VARCHAR(255) NOT NULL,
+            recommended_by VARCHAR(20) NOT NULL,
+            imdb_id VARCHAR(20) NULL,
+            series_imdb_id VARCHAR(20) NULL,
+            imdb_data JSON NULL,
+            poster_url VARCHAR(500) NULL,
+            status ENUM('pending', 'watched', 'planned', 'skipped', 'scheduled', 'banned') DEFAULT 'pending',
+            session_id INT NULL,
+            next_session BOOLEAN DEFAULT FALSE,
+            is_banned BOOLEAN DEFAULT FALSE,
+            watch_count INT DEFAULT 0,
+
+            -- TV Show specific fields
+            show_type ENUM('series', 'episode') NOT NULL DEFAULT 'series',
+            season_number INT NULL,
+            episode_number INT NULL,
+            episode_title VARCHAR(255) NULL,
+            total_seasons INT NULL,
+
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            watched_at TIMESTAMP NULL,
+
+            INDEX idx_tv_guild_status (guild_id, status),
+            INDEX idx_tv_session (guild_id, session_id),
+            INDEX idx_tv_imdb (imdb_id),
+            INDEX idx_tv_series_imdb (series_imdb_id),
+            INDEX idx_tv_show_uid (show_uid),
+            INDEX idx_tv_message (message_id)
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        `);
+
+        // Create votes_tv table for TV show votes
+        await this.pool.execute(`
+          CREATE TABLE IF NOT EXISTS votes_tv (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            message_id VARCHAR(20) NOT NULL,
+            guild_id VARCHAR(20) NOT NULL,
+            user_id VARCHAR(20) NOT NULL,
+            vote_type ENUM('up', 'down') NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_tv_vote (message_id, user_id),
+            FOREIGN KEY (message_id) REFERENCES tv_shows(message_id) ON DELETE CASCADE,
+            INDEX idx_tv_message_votes (message_id, vote_type),
+            INDEX idx_tv_guild_votes (guild_id, vote_type)
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        `);
+
+        const logger = require('./utils/logger');
+        logger.debug('✅ Migration 32: Created tv_shows and votes_tv tables');
+      } catch (e) {
+        const logger = require('./utils/logger');
+        logger.warn('Migration 32 warning:', e.message);
+      }
+
       logger.info('✅ Database migrations completed');
 
   }
 
+  // TV Show operations
+  async saveTVShow(showData) {
+    if (!this.isConnected) return null;
+
+    try {
+      // Generate show UID for duplicate detection
+      const showUID = this.generateShowUID(showData.title, showData.guildId);
+
+      // Determine show type and extract metadata
+      let showType = 'series';
+      let seasonNumber = null;
+      let episodeNumber = null;
+      let episodeTitle = null;
+      let seriesImdbId = null;
+      let totalSeasons = null;
+
+      if (showData.imdbData) {
+        if (showData.imdbData.Type === 'episode') {
+          showType = 'episode';
+          seasonNumber = parseInt(showData.imdbData.Season) || null;
+          episodeNumber = parseInt(showData.imdbData.Episode) || null;
+          episodeTitle = showData.imdbData.Title || null;
+          seriesImdbId = showData.imdbData.seriesID || null;
+        } else if (showData.imdbData.Type === 'series') {
+          showType = 'series';
+          totalSeasons = parseInt(showData.imdbData.totalSeasons) || null;
+        }
+      }
+
+      // Get poster URL
+      const posterUrl = showData.imdbData?.Poster && showData.imdbData.Poster !== 'N/A'
+        ? showData.imdbData.Poster
+        : null;
+
+      // Get active session ID
+      const activeSession = await this.getActiveVotingSession(showData.guildId);
+      const sessionId = activeSession ? activeSession.id : null;
+
+      // For JSON fallback
+      if (!this.pool) {
+        const show = {
+          id: Date.now(),
+          message_id: showData.messageId,
+          guild_id: showData.guildId,
+          channel_id: showData.channelId,
+          title: showData.title,
+          show_type: showType,
+          season_number: seasonNumber,
+          episode_number: episodeNumber,
+          episode_title: episodeTitle,
+          total_seasons: totalSeasons,
+          show_uid: showUID,
+          where_to_watch: showData.whereToWatch,
+          recommended_by: showData.recommendedBy,
+          imdb_id: showData.imdbId || null,
+          series_imdb_id: seriesImdbId,
+          imdb_data: showData.imdbData || null,
+          poster_url: posterUrl,
+          status: 'pending',
+          is_banned: false,
+          watch_count: 0,
+          created_at: new Date().toISOString(),
+          watched_at: null
+        };
+
+        this.data.tv_shows = this.data.tv_shows || [];
+        this.data.tv_shows.push(show);
+        await this.saveToFile();
+        return show.id;
+      }
+
+      const [result] = await this.pool.execute(
+        `INSERT INTO tv_shows (message_id, guild_id, channel_id, title, show_type, season_number, episode_number, episode_title, total_seasons, show_uid, where_to_watch, recommended_by, imdb_id, series_imdb_id, imdb_data, poster_url, session_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          showData.messageId,
+          showData.guildId,
+          showData.channelId,
+          showData.title,
+          showType,
+          seasonNumber,
+          episodeNumber,
+          episodeTitle,
+          totalSeasons,
+          showUID,
+          showData.whereToWatch,
+          showData.recommendedBy,
+          showData.imdbId || null,
+          seriesImdbId,
+          showData.imdbData ? JSON.stringify(showData.imdbData) : null,
+          posterUrl,
+          sessionId
+        ]
+      );
+      return result.insertId;
+    } catch (error) {
+      console.error('Error saving TV show:', error.message);
+      return null;
+    }
+  }
+
+  generateShowUID(title, guildId) {
+    const crypto = require('crypto');
+    const normalizedTitle = title.toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim();
+    return crypto.createHash('sha256').update(`${normalizedTitle}:${guildId}`).digest('hex').substring(0, 16);
+  }
 
   // Movie operations
   async saveMovie(movieData) {
@@ -2431,6 +2603,199 @@ class Database {
     } catch (error) {
       console.error('Error getting guild timezone:', error.message);
       return 'UTC';
+    }
+  }
+
+  // TV Show operations
+  async getTVShowsByStatus(guildId, status = 'pending', limit = 10) {
+    if (!this.isConnected) return [];
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT t.*,
+         (SELECT COUNT(*) FROM votes_tv WHERE message_id = t.message_id AND vote_type = 'up') as up_votes,
+         (SELECT COUNT(*) FROM votes_tv WHERE message_id = t.message_id AND vote_type = 'down') as down_votes
+         FROM tv_shows t
+         WHERE t.guild_id = ? AND t.status = ?
+         ORDER BY t.created_at DESC
+         LIMIT ?`,
+        [guildId, status, limit]
+      );
+      return rows;
+    } catch (error) {
+      console.error('Error getting TV shows by status:', error.message);
+      return [];
+    }
+  }
+
+  async findTVShowByTitle(guildId, title) {
+    if (!this.isConnected) return null;
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT * FROM tv_shows WHERE guild_id = ? AND title = ? ORDER BY created_at DESC LIMIT 1`,
+        [guildId, title]
+      );
+      return rows.length > 0 ? rows[0] : null;
+    } catch (error) {
+      console.error('Error finding TV show by title:', error.message);
+      return null;
+    }
+  }
+
+  async getTVShowByMessageId(messageId) {
+    if (!this.isConnected) return null;
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT * FROM tv_shows WHERE message_id = ?`,
+        [messageId]
+      );
+      return rows.length > 0 ? rows[0] : null;
+    } catch (error) {
+      console.error('Error getting TV show by message ID:', error.message);
+      return null;
+    }
+  }
+
+  async updateTVShowStatus(messageId, status) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `UPDATE tv_shows SET status = ? WHERE message_id = ?`,
+        [status, messageId]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error updating TV show status:', error.message);
+      return false;
+    }
+  }
+
+  async addTVShowVote(messageId, userId, guildId, voteType) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `INSERT INTO votes_tv (message_id, user_id, guild_id, vote_type)
+         VALUES (?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE vote_type = VALUES(vote_type)`,
+        [messageId, userId, guildId, voteType]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error adding TV show vote:', error.message);
+      return false;
+    }
+  }
+
+  async getTVShowVoteCounts(messageId) {
+    if (!this.isConnected) return { up: 0, down: 0, voters: { up: [], down: [] } };
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT vote_type, user_id FROM votes_tv WHERE message_id = ?`,
+        [messageId]
+      );
+
+      const counts = { up: 0, down: 0, voters: { up: [], down: [] } };
+      rows.forEach(row => {
+        counts[row.vote_type]++;
+        counts.voters[row.vote_type].push(row.user_id);
+      });
+
+      return counts;
+    } catch (error) {
+      console.error('Error getting TV show vote counts:', error.message);
+      return { up: 0, down: 0, voters: { up: [], down: [] } };
+    }
+  }
+
+  async getUserTVShowVote(messageId, userId) {
+    if (!this.isConnected) return null;
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT vote_type FROM votes_tv WHERE message_id = ? AND user_id = ?`,
+        [messageId, userId]
+      );
+      return rows.length > 0 ? rows[0].vote_type : null;
+    } catch (error) {
+      console.error('Error getting user TV show vote:', error.message);
+      return null;
+    }
+  }
+
+  async removeTVShowVote(messageId, userId, guildId = null) {
+    if (!this.isConnected) return false;
+
+    try {
+      if (guildId) {
+        await this.pool.execute(
+          `DELETE FROM votes_tv WHERE message_id = ? AND user_id = ? AND guild_id = ?`,
+          [messageId, userId, guildId]
+        );
+      } else {
+        // Fallback without guild filter (kept for backward compatibility)
+        await this.pool.execute(
+          `DELETE FROM votes_tv WHERE message_id = ? AND user_id = ?`,
+          [messageId, userId]
+        );
+      }
+      return true;
+    } catch (error) {
+      console.error('Error removing TV show vote:', error.message);
+      return false;
+    }
+  }
+
+  async addForumTVShow(guildId, title, whereToWatch, recommendedBy, messageId, threadId, channelId, imdbId = null, imdbData = null) {
+    if (!this.isConnected) return false;
+
+    try {
+      // Generate show UID for duplicate detection
+      const showUID = this.generateShowUID(title, guildId);
+
+      // Determine show type and extract metadata
+      let showType = 'series';
+      let seasonNumber = null;
+      let episodeNumber = null;
+      let episodeTitle = null;
+      let seriesImdbId = null;
+      let totalSeasons = null;
+
+      if (imdbData) {
+        if (imdbData.Type === 'episode') {
+          showType = 'episode';
+          seasonNumber = parseInt(imdbData.Season) || null;
+          episodeNumber = parseInt(imdbData.Episode) || null;
+          episodeTitle = imdbData.Title || null;
+          seriesImdbId = imdbData.seriesID || null;
+        } else if (imdbData.Type === 'series') {
+          showType = 'series';
+          totalSeasons = parseInt(imdbData.totalSeasons) || null;
+        }
+      }
+
+      // Get poster URL
+      const posterUrl = imdbData?.Poster && imdbData.Poster !== 'N/A'
+        ? imdbData.Poster
+        : null;
+
+      // Get active session ID
+      const activeSession = await this.getActiveVotingSession(guildId);
+      const sessionId = activeSession ? activeSession.id : null;
+
+      const [result] = await this.pool.execute(
+        `INSERT INTO tv_shows (guild_id, channel_id, title, show_type, season_number, episode_number, episode_title, total_seasons, show_uid, where_to_watch, recommended_by, message_id, thread_id, channel_type, imdb_id, series_imdb_id, imdb_data, poster_url, status, session_id, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'forum', ?, ?, ?, ?, 'pending', ?, NOW())`,
+        [guildId, channelId, title, showType, seasonNumber, episodeNumber, episodeTitle, totalSeasons, showUID, whereToWatch, recommendedBy, messageId, threadId, imdbId, seriesImdbId, imdbData ? JSON.stringify(imdbData) : null, posterUrl, sessionId]
+      );
+      return result.insertId;
+    } catch (error) {
+      console.error('Error adding forum TV show:', error.message);
+      return false;
     }
   }
 
