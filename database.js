@@ -4821,12 +4821,21 @@ class Database {
       }
 
       if (movies) {
+        // Delete movies
         const [moviesResult] = await this.pool.execute(
           `DELETE FROM movies WHERE guild_id = ?`,
           [guildId]
         );
         results.deleted += moviesResult.affectedRows;
         console.log(`🗑️ Deep purge: Deleted ${moviesResult.affectedRows} movies`);
+
+        // Delete TV shows
+        const [tvShowsResult] = await this.pool.execute(
+          `DELETE FROM tv_shows WHERE guild_id = ?`,
+          [guildId]
+        );
+        results.deleted += tvShowsResult.affectedRows;
+        console.log(`🗑️ Deep purge: Deleted ${tvShowsResult.affectedRows} TV shows`);
       }
 
       if (config) {

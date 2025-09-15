@@ -5,6 +5,9 @@
 
 const { ChannelType, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 
+// Simple debounce mechanism to prevent multiple rapid calls
+const ensureRecommendationPostDebounce = new Map();
+
 /**
  * Check if a channel is a forum channel
  */
@@ -679,6 +682,19 @@ async function ensureRecommendationPost(channel, activeSession = null) {
 
     const logger = require('../utils/logger');
     const guildId = channel.guild?.id;
+
+    // Debounce rapid calls to prevent multiple posts
+    const debounceKey = `${guildId}-${channel.id}`;
+    const now = Date.now();
+    const lastCall = ensureRecommendationPostDebounce.get(debounceKey);
+
+    if (lastCall && (now - lastCall) < 5000) { // 5 second debounce
+      logger.debug(`📋 Skipping recommendation post update (debounced): ${channel.name}`, guildId);
+      return;
+    }
+
+    ensureRecommendationPostDebounce.set(debounceKey, now);
+
     logger.debug(`📋 Ensuring recommendation post in forum channel: ${channel.name}`, guildId);
     logger.debug(`📋 Active session provided:`, activeSession ? {
       id: activeSession.id,

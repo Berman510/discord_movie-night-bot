@@ -178,6 +178,16 @@ async function createTextMovieRecommendation(interaction, movieData, channel) {
     imdbData: imdbData
   });
 
+  // Cache IMDb data if available
+  if (imdbId && imdbData) {
+    try {
+      await database.upsertImdbCache(imdbId, imdbData);
+      logger.debug(`💾 Cached IMDb data for movie: ${imdbId}`);
+    } catch (error) {
+      logger.warn(`Failed to cache IMDb data for movie ${imdbId}:`, error.message);
+    }
+  }
+
   if (!movieId) {
     // If database save failed, delete the message
     await message.delete().catch(console.error);
@@ -501,6 +511,16 @@ async function createTextTVShowRecommendation(interaction, showData, channel) {
     imdbId: imdbId,
     imdbData: imdbData
   });
+
+  // Cache IMDb data if available
+  if (imdbId && imdbData) {
+    try {
+      await database.upsertImdbCache(imdbId, imdbData);
+      logger.debug(`💾 Cached IMDb data for TV show: ${imdbId}`);
+    } catch (error) {
+      logger.warn(`Failed to cache IMDb data for TV show ${imdbId}:`, error.message);
+    }
+  }
 
   if (!showId) {
     // If database save failed, delete the message

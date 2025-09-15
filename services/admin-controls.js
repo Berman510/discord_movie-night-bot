@@ -689,15 +689,18 @@ async function executePurgeQueue(interaction) {
     let threadsDeleted = 0;
 
     if (votingChannel) {
+      // Get both movies and TV shows
       const movies = await database.getMoviesByGuild(interaction.guild.id);
+      const tvShows = await database.getTVShowsByGuild(interaction.guild.id);
+      const allContent = [...movies, ...tvShows];
 
-      for (const movie of movies) {
+      for (const content of allContent) {
         try {
           if (forumChannels.isForumChannel(votingChannel)) {
-            // Delete forum threads matching this movie (by stored thread_id if present)
-            if (movie.thread_id) {
+            // Delete forum threads matching this content (by stored thread_id if present)
+            if (content.thread_id) {
               try {
-                const thread = await interaction.client.channels.fetch(movie.thread_id).catch(() => null);
+                const thread = await interaction.client.channels.fetch(content.thread_id).catch(() => null);
                 if (thread && thread.parentId === votingChannel.id) {
                   await thread.delete();
                   threadsDeleted++;
@@ -706,7 +709,7 @@ async function executePurgeQueue(interaction) {
             } else {
               const threads = await votingChannel.threads.fetchActive();
               for (const [, thread] of threads.threads) {
-                if (thread.name.includes(movie.title)) {
+                if (thread.name.includes(content.title)) {
                   await thread.delete();
                   threadsDeleted++;
                 }
@@ -714,12 +717,18 @@ async function executePurgeQueue(interaction) {
             }
           }
 
-          // Delete votes and movie from database
-          await database.pool.execute('DELETE FROM votes WHERE message_id = ?', [movie.message_id]);
-          await database.pool.execute('DELETE FROM movies WHERE message_id = ?', [movie.message_id]);
+          // Delete votes and content from database (check both tables)
+          await database.pool.execute('DELETE FROM votes WHERE message_id = ?', [content.message_id]);
+
+          // Delete from appropriate table based on content type or table structure
+          if (movies.includes(content)) {
+            await database.pool.execute('DELETE FROM movies WHERE message_id = ?', [content.message_id]);
+          } else {
+            await database.pool.execute('DELETE FROM tv_shows WHERE message_id = ?', [content.message_id]);
+          }
           purgedCount++;
         } catch (error) {
-          console.warn(`Error purging movie ${movie.title}:`, error.message);
+          console.warn(`Error purging content ${content.title}:`, error.message);
         }
       }
 

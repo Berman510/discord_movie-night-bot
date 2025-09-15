@@ -456,8 +456,13 @@ async function executeDeepPurge(guildId, categories, reason = null, client = nul
             }
 
             // Update admin panel - will show setup panel if config was cleared
-            const adminControls = require('./admin-controls');
-            await adminControls.ensureAdminControlPanel(client, guildId);
+            try {
+              const adminControls = require('./admin-controls');
+              await adminControls.ensureAdminControlPanel(client, guildId);
+              logger.debug('✅ Updated admin control panel after deep purge');
+            } catch (error) {
+              logger.warn('Error updating admin control panel after deep purge:', error.message);
+            }
           }
         } catch (error) {
           const logger = require('../utils/logger');
