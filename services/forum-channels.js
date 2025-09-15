@@ -958,7 +958,7 @@ async function ensureRecommendationPost(channel, activeSession = null) {
             logger.warn('📋 No threads were unpinned - creating recommendation post without pinning', guildId);
             try {
               const forumPost = await channel.threads.create({
-                name: '🎬 Recommend Content',
+                name: title, // Use the correct title, not hardcoded "Recommend Content"
                 message: { embeds: [recommendEmbed], components: [recommendButton] }
               });
               logger.debug('📋 Created recommendation post without pinning due to Discord API issue', guildId);
@@ -969,7 +969,7 @@ async function ensureRecommendationPost(channel, activeSession = null) {
             // Try again after unpinning
             try {
               const forumPost = await channel.threads.create({
-                name: '🎬 Recommend Content',
+                name: title, // Use the correct title, not hardcoded "Recommend Content"
                 message: { embeds: [recommendEmbed], components: [recommendButton] }
               });
               await forumPost.pin();
