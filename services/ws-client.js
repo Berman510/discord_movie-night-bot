@@ -611,6 +611,7 @@ function initWebSocketClient(logger) {
             const votingEndTs = msg?.payload?.votingEndTs;
             const name = msg?.payload?.name;
             const description = msg?.payload?.description;
+            const contentType = msg?.payload?.contentType || 'movie';
             if (!guildId || !startTs) return;
 
             const client = global.discordClient;
@@ -662,7 +663,7 @@ function initWebSocketClient(logger) {
                   if (voteChannel) {
                     const forumChannels = require('./forum-channels');
                     if (forumChannels.isForumChannel(voteChannel)) {
-                      const activeSession = { id: sessionId, name: sessionName, status: 'active', voting_end_time: votingEnd ? votingEnd.toISOString() : null };
+                      const activeSession = { id: sessionId, name: sessionName, status: 'active', voting_end_time: votingEnd ? votingEnd.toISOString() : null, content_type: contentType };
                       await forumChannels.ensureRecommendationPost(voteChannel, activeSession);
                     } else {
                       const cleanup = require('./cleanup');

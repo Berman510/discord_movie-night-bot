@@ -417,7 +417,7 @@ All notable changes to **Watch Party Bot** will be documented in this file.
 
 
 ### Added
-- Web Dashboard messaging in initial setup, guided setup, and admin panels. Manage the bot (minus voting) at https://movienight.bermanoc.net.
+- Web Dashboard messaging in initial setup, guided setup, and admin panels. Manage the bot  at https://movienight.bermanoc.net.
 
 
 ### Fixed

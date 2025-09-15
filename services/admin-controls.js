@@ -60,7 +60,7 @@ async function createAdminControlEmbed(guildName, guildId) {
     },
     {
       name: '🌐 Web Dashboard',
-      value: 'Manage the bot (minus voting) from the dashboard: https://movienight.bermanoc.net',
+      value: 'Manage the bot  from the dashboard: https://movienight.bermanoc.net',
       inline: false
     },
     {
@@ -268,11 +268,15 @@ async function createAdminControlButtons(guildId = null) {
         .setStyle(ButtonStyle.Secondary)
     );
   } else {
-    // Default buttons when no session
+    // Default buttons when no session - separate movie and TV planning
     row2.addComponents(
       new ButtonBuilder()
-        .setCustomId('admin_ctrl_plan_session')
-        .setLabel('🗳️ Plan Next Session')
+        .setCustomId('admin_ctrl_plan_movie_session')
+        .setLabel('🍿 Plan Movie Session')
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId('admin_ctrl_plan_tv_session')
+        .setLabel('📺 Plan TV Show Session')
         .setStyle(ButtonStyle.Success),
       new ButtonBuilder()
         .setCustomId('admin_ctrl_administration')

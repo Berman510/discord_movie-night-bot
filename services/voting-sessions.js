@@ -10,7 +10,7 @@ const ephemeralManager = require('../utils/ephemeral-manager');
 /**
  * Start the voting session creation process with date/time selection
  */
-async function startVotingSessionCreation(interaction) {
+async function startVotingSessionCreation(interaction, contentType = 'movie') {
   // Initialize session state if needed
   if (!global.votingSessionCreationState) {
     global.votingSessionCreationState = new Map();
@@ -22,7 +22,8 @@ async function startVotingSessionCreation(interaction) {
     selectedTime: null,
     selectedTimezone: null,
     sessionName: null,
-    sessionDescription: null
+    sessionDescription: null,
+    contentType: contentType
   };
 
   global.votingSessionCreationState.set(interaction.user.id, state);
@@ -528,6 +529,7 @@ async function createVotingSession(interaction, state) {
       scheduledDate: state.sessionDateTime,
       votingEndTime: state.votingEndDateTime,
       timezone: guildTimezone,
+      contentType: state.contentType || 'movie',
       createdBy: interaction.user.id,
       status: 'voting'
     };

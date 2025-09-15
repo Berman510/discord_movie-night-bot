@@ -789,18 +789,39 @@ async function handleCreateRecommendation(interaction) {
     return;
   }
 
-  // Show the movie recommendation modal
+  // Determine content type and appropriate examples
+  const contentType = activeSession.content_type || 'movie';
+  const isMovieSession = contentType === 'movie';
+  const isTVSession = contentType === 'tv_show';
+
+  let modalTitle, inputLabel, placeholder;
+
+  if (isMovieSession) {
+    modalTitle = '🍿 Recommend Movie';
+    inputLabel = 'Movie Title';
+    placeholder = 'e.g., The Matrix, Inception, Dune';
+  } else if (isTVSession) {
+    modalTitle = '📺 Recommend TV Show';
+    inputLabel = 'TV Show or Episode';
+    placeholder = 'e.g., Breaking Bad S1E1, The Office, Stranger Things';
+  } else {
+    modalTitle = '🎬 Recommend Content';
+    inputLabel = 'Movie or TV Show Title';
+    placeholder = 'e.g., The Matrix, Breaking Bad S1E1, The Office';
+  }
+
+  // Show the recommendation modal
   const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
 
   const modal = new ModalBuilder()
     .setCustomId('mn:modal')
-    .setTitle('🎬 Recommend Content');
+    .setTitle(modalTitle);
 
   const titleInput = new TextInputBuilder()
     .setCustomId('mn:title')
-    .setLabel('Movie or TV Show Title')
+    .setLabel(inputLabel)
     .setStyle(TextInputStyle.Short)
-    .setPlaceholder('e.g., The Matrix, Breaking Bad S1E1, The Office')
+    .setPlaceholder(placeholder)
     .setRequired(true);
 
   const whereInput = new TextInputBuilder()
@@ -2216,7 +2237,11 @@ async function handleAdminControlButtons(interaction, customId) {
         await handleDeepPurgeInitiation(interaction);
         break;
       case 'admin_ctrl_plan_session':
-        await handlePlanVotingSession(interaction);
+      case 'admin_ctrl_plan_movie_session':
+        await handlePlanVotingSession(interaction, 'movie');
+        break;
+      case 'admin_ctrl_plan_tv_session':
+        await handlePlanVotingSession(interaction, 'tv_show');
         break;
       case 'admin_ctrl_banned_list':
         await adminControls.handleBannedMoviesList(interaction);
@@ -2316,11 +2341,11 @@ async function handlePopulateForumChannel(interaction) {
 /**
  * Handle planning a new voting session
  */
-async function handlePlanVotingSession(interaction) {
+async function handlePlanVotingSession(interaction, contentType = 'movie') {
   const votingSessions = require('../services/voting-sessions');
 
   try {
-    await votingSessions.startVotingSessionCreation(interaction);
+    await votingSessions.startVotingSessionCreation(interaction, contentType);
   } catch (error) {
     console.error('Error planning voting session:', error);
     await interaction.reply({
@@ -3034,7 +3059,7 @@ async function handleAdministrationPanel(interaction) {
       },
       {
         name: '🌐 Web Dashboard',
-        value: 'Manage the bot (minus voting) at https://movienight.bermanoc.net',
+        value: 'Manage the bot  at https://movienight.bermanoc.net',
         inline: false
       }
     )
