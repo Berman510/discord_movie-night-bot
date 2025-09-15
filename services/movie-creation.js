@@ -34,6 +34,40 @@ async function createMovieRecommendation(interaction, movieData) {
 
     // Get the configured movie channel for this guild
     const database = require('../database');
+
+    // Validate content type matches session type
+    const activeSession = await database.getActiveVotingSession(interaction.guild.id);
+    if (activeSession && activeSession.content_type) {
+      const sessionContentType = activeSession.content_type;
+
+      // Check for content type mismatch
+      let mismatchError = null;
+
+      if (sessionContentType === 'movie' && contentType !== 'movie') {
+        const contentTypeLabel = contentType === 'tv_show' ? 'TV show' : 'episode';
+        mismatchError = `❌ **Content Type Mismatch**\n\n🍿 This is a **Movie session**, but you're trying to recommend a **${contentTypeLabel}**.\n\n💡 **Try instead:**\n• Use "📺 Plan TV Show Session" for TV content\n• Search for movies only during movie sessions`;
+      } else if (sessionContentType === 'tv_show' && contentType === 'movie') {
+        mismatchError = `❌ **Content Type Mismatch**\n\n📺 This is a **TV Show session**, but you're trying to recommend a **movie**.\n\n💡 **Try instead:**\n• Use "🍿 Plan Movie Session" for movies\n• Search for TV shows or episodes during TV sessions`;
+      }
+
+      if (mismatchError) {
+        const { MessageFlags } = require('discord.js');
+        if (interaction.deferred) {
+          await interaction.editReply({
+            content: mismatchError,
+            embeds: [],
+            components: []
+          });
+        } else {
+          await interaction.reply({
+            content: mismatchError,
+            flags: MessageFlags.Ephemeral
+          });
+        }
+        return { success: false, error: 'Content type mismatch' };
+      }
+    }
+
     const config = await database.getGuildConfig(interaction.guild.id);
 
     logger.debug(`Guild config for ${interaction.guild.id}:`, JSON.stringify(config, null, 2));

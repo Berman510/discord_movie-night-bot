@@ -270,8 +270,10 @@ async function handleVoting(interaction, action, msgId, votes) {
           if (isMovie) {
             await database.updateMovieThreadId(msgId, ch.id);
             content.thread_id = ch.id; // update local reference
+          } else {
+            await database.updateTVShowThreadId(msgId, ch.id);
+            content.thread_id = ch.id; // update local reference
           }
-          // TODO: Add updateTVShowThreadId function if needed
         }
       } catch (e) {
         console.warn('Backfill thread_id on vote failed:', e?.message);
@@ -875,6 +877,34 @@ async function handleImdbSelection(interaction) {
       // User selected a specific movie
       const index = parseInt(indexStr);
       const selectedMovie = imdbResults[index];
+
+      // Validate content type matches session type
+      const database = require('../database');
+      const activeSession = await database.getActiveVotingSession(interaction.guild.id);
+
+      if (activeSession && activeSession.content_type) {
+        const sessionContentType = activeSession.content_type;
+        const selectedContentType = selectedMovie.Type; // 'movie', 'series', or 'episode'
+
+        // Check for content type mismatch
+        let mismatchError = null;
+
+        if (sessionContentType === 'movie' && selectedContentType !== 'movie') {
+          const contentTypeLabel = selectedContentType === 'series' ? 'TV show' : 'episode';
+          mismatchError = `❌ **Content Type Mismatch**\n\n🍿 This is a **Movie session**, but you selected a **${contentTypeLabel}**.\n\n💡 **Try instead:**\n• Use "📺 Plan TV Show Session" for TV content\n• Search for movies only during movie sessions`;
+        } else if (sessionContentType === 'tv_show' && selectedContentType === 'movie') {
+          mismatchError = `❌ **Content Type Mismatch**\n\n📺 This is a **TV Show session**, but you selected a **movie**.\n\n💡 **Try instead:**\n• Use "🍿 Plan Movie Session" for movies\n• Search for TV shows or episodes during TV sessions`;
+        }
+
+        if (mismatchError) {
+          await interaction.followUp({
+            content: mismatchError,
+            flags: MessageFlags.Ephemeral
+          });
+          return;
+        }
+      }
+
       await createMovieWithImdb(interaction, title, where, selectedMovie);
     }
 
@@ -2678,6 +2708,12 @@ async function handleCancelSessionConfirmation(interaction) {
     });
 
     logger.info(`❌ Session ${session.name} cancelled by ${interaction.user.tag}`);
+
+    // Notify dashboard that session was cancelled
+    try {
+      const wsClient = require('../services/ws-client');
+      wsClient.sendMessage({ type: 'session_cancelled', payload: { guildId: interaction.guild.id, sessionId: session.id } });
+    } catch (_) { /* non-fatal */ }
 
   } catch (error) {
     console.error('Error handling cancel session confirmation:', error);

@@ -257,27 +257,31 @@ async function syncAdminChannel(client, guildId) {
       }
     }
 
-    // Prefer current voting session movies when a session is active (includes carryover)
-    let allMovies = [];
+    // Get both movies and TV shows for current voting session when active
+    let allContent = [];
     const activeSession = await database.getActiveVotingSession(guildId);
     if (activeSession) {
-      allMovies = await database.getMoviesForVotingSession(activeSession.id);
+      const movies = await database.getMoviesForVotingSession(activeSession.id);
+      const tvShows = await database.getTVShowsForVotingSession(activeSession.id);
+
+      // Combine and sort by creation time
+      allContent = [...movies, ...tvShows].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
     } else {
       // No active session: do not mirror queue into admin channel
-      allMovies = [];
+      allContent = [];
     }
 
-    // Do NOT post banned movies in the admin mirror list (managed via separate banned list UI)
+    // Do NOT post banned content in the admin mirror list (managed via separate banned list UI)
 
     let syncedCount = 0;
 
-    // Post each movie to admin channel
-    for (const movie of allMovies) {
-      const posted = await postMovieToAdminChannel(client, guildId, movie);
+    // Post each piece of content (movie or TV show) to admin channel
+    for (const content of allContent) {
+      const posted = await postContentToAdminChannel(client, guildId, content, content.content_type || 'movie');
       if (posted) {
         syncedCount++;
       }
-      
+
       // Small delay to avoid rate limits
       await new Promise(resolve => setTimeout(resolve, 100));
     }
@@ -372,10 +376,20 @@ async function postTieBreakingMovie(adminChannel, movie, winner) {
   }
 }
 
+/**
+ * Post content (movie or TV show) to admin channel
+ */
+async function postContentToAdminChannel(client, guildId, content, contentType = 'movie') {
+  // For now, use the existing movie function for both movies and TV shows
+  // The database structure should be similar enough
+  return await postMovieToAdminChannel(client, guildId, content);
+}
+
 module.exports = {
   createAdminMovieEmbed,
   createAdminActionButtons,
   postMovieToAdminChannel,
+  postContentToAdminChannel,
   syncAdminChannel,
   removeMovieFromAdminChannel,
   postTieBreakingMovie

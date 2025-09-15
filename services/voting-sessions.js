@@ -767,7 +767,8 @@ async function createVotingSession(interaction, state) {
             await cleanup.ensureQuickActionPinned(votingChannel);
           } else if (forumChannels.isForumChannel(votingChannel)) {
             // Forum channels get recommendation post with retry logic for session creation
-            const activeSession = await database.getActiveVotingSession(interaction.guild.id);
+            // Fetch the newly created session to get the correct content type
+            const activeSession = await database.getVotingSessionById(sessionId);
 
             // Add small delay to allow Discord API to be consistent
             await new Promise(resolve => setTimeout(resolve, 1000));

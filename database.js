@@ -3068,6 +3068,19 @@ class Database {
     }
   }
 
+  async getNotificationRole(guildId) {
+    if (!this.isConnected) return null;
+
+    try {
+      const config = await this.getGuildConfig(guildId);
+      return config?.notification_role_id || null;
+    } catch (error) {
+      const logger = require('./utils/logger');
+      logger.error('Error getting notification role:', error.message);
+      return null;
+    }
+  }
+
   async setVotingRoles(guildId, roleIds) {
     if (!this.isConnected) return false;
 
@@ -3198,8 +3211,8 @@ class Database {
 
     try {
       const [result] = await this.pool.execute(
-        `INSERT INTO movie_sessions (guild_id, channel_id, name, description, scheduled_date, voting_end_time, timezone, status, discord_event_id, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 'voting', ?, ?)`,
+        `INSERT INTO movie_sessions (guild_id, channel_id, name, description, scheduled_date, voting_end_time, timezone, content_type, status, discord_event_id, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'voting', ?, ?)`,
         [
           sessionData.guildId,
           sessionData.channelId,
@@ -3208,6 +3221,7 @@ class Database {
           sessionData.scheduledDate || null,
           sessionData.votingEndTime || null,
           sessionData.timezone || 'UTC',
+          sessionData.contentType || 'movie',
           sessionData.discordEventId || null,
           sessionData.createdBy
         ]
@@ -3248,6 +3262,36 @@ class Database {
       return rows;
     } catch (error) {
       console.error('Error getting movies by guild:', error.message);
+      return [];
+    }
+  }
+
+  async getTVShowsByGuild(guildId) {
+    if (!this.isConnected) return [];
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT * FROM tv_shows WHERE guild_id = ? ORDER BY created_at DESC`,
+        [guildId]
+      );
+      return rows;
+    } catch (error) {
+      console.error('Error getting TV shows by guild:', error.message);
+      return [];
+    }
+  }
+
+  async getTVShowsForVotingSession(sessionId) {
+    if (!this.isConnected) return [];
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT * FROM tv_shows WHERE session_id = ? ORDER BY created_at ASC`,
+        [sessionId]
+      );
+      return rows;
+    } catch (error) {
+      console.error('Error getting TV shows for voting session:', error.message);
       return [];
     }
   }
@@ -3647,6 +3691,21 @@ class Database {
       return true;
     } catch (error) {
       console.error('Error updating movie thread ID:', error.message);
+      return false;
+    }
+  }
+
+  async updateTVShowThreadId(messageId, threadId) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `UPDATE tv_shows SET thread_id = ? WHERE message_id = ?`,
+        [threadId, messageId]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error updating TV show thread ID:', error.message);
       return false;
     }
   }

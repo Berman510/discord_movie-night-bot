@@ -7,8 +7,10 @@
 let Fuse = null;
 try {
   Fuse = require('fuse.js');
+  console.log('✅ fuse.js loaded successfully - spell checking enabled');
 } catch (error) {
   console.warn('⚠️ fuse.js not available - spell checking suggestions will be disabled');
+  console.warn('⚠️ Error details:', error.message);
 }
 
 const { OMDB_API_KEY, IMDB_CACHE_ENABLED, IMDB_CACHE_TTL_DAYS, IMDB_CACHE_MAX_ROWS } = process.env;
@@ -296,7 +298,20 @@ async function generateSpellingSuggestions(title) {
     'jurassicpark': 'jurassic park',
     'backtothe': 'back to the',
     'indianajones': 'indiana jones',
-    'missionimpossible': 'mission impossible'
+    'missionimpossible': 'mission impossible',
+
+    // Specific movie corrections
+    'matrixc': 'matrix',
+    'matric': 'matrix',
+    'matrxi': 'matrix',
+    'matirx': 'matrix',
+    'inceptoin': 'inception',
+    'incepton': 'inception',
+    'incpetion': 'inception',
+    'avatr': 'avatar',
+    'avater': 'avatar',
+    'titanci': 'titanic',
+    'titanik': 'titanic'
   };
 
   // Apply common corrections
@@ -422,14 +437,39 @@ async function getSeasonDetails(imdbId, season) {
 function formatMovieForEmbed(movie) {
   if (!movie) return null;
 
-  // Determine if this is a TV show or movie
+  // Determine if this is a TV show, episode, or movie
   const isShow = movie.Type === 'series';
-  const emoji = isShow ? '📺' : '🍿';
-  const typeLabel = isShow ? 'TV Show' : 'Movie';
+  const isEpisode = movie.Type === 'episode';
+  const isTVContent = isShow || isEpisode;
+  const emoji = isTVContent ? '📺' : '🍿';
+
+  let typeLabel, title;
+
+  if (isEpisode) {
+    // For episodes, show series name with season/episode info
+    const seriesTitle = movie.seriesID ? movie.seriesID : (movie.Title || '').split(' - ')[0];
+    const episodeTitle = movie.Title || '';
+    const season = movie.Season ? `S${movie.Season}` : '';
+    const episode = movie.Episode ? `E${movie.Episode}` : '';
+    const seasonEpisode = season && episode ? `${season}${episode}` : '';
+
+    if (seasonEpisode && seriesTitle !== episodeTitle) {
+      title = `${emoji} ${seriesTitle} - ${seasonEpisode} - ${episodeTitle}`;
+    } else {
+      title = `${emoji} ${episodeTitle}`;
+    }
+    typeLabel = 'TV Episode';
+  } else if (isShow) {
+    title = `${emoji} ${movie.Title}`;
+    typeLabel = 'TV Show';
+  } else {
+    title = `${emoji} ${movie.Title}`;
+    typeLabel = 'Movie';
+  }
 
   const embed = {
-    title: `${emoji} ${movie.Title}`,
-    color: isShow ? 0xff6b35 : 0x5865f2, // Orange for TV shows, blue for movies
+    title: title,
+    color: isTVContent ? 0xff6b35 : 0x5865f2, // Orange for TV content, blue for movies
     fields: [],
     thumbnail: movie.Poster && movie.Poster !== 'N/A' ? { url: movie.Poster } : null
   };
@@ -447,10 +487,17 @@ function formatMovieForEmbed(movie) {
     embed.fields.push({ name: 'Rated', value: movie.Rated, inline: true });
   }
 
-  // For TV shows, show total seasons instead of runtime
+  // For TV shows, show total seasons; for episodes, show season/episode; for movies, show runtime
   if (isShow && movie.totalSeasons && movie.totalSeasons !== 'N/A') {
     embed.fields.push({ name: 'Seasons', value: movie.totalSeasons, inline: true });
-  } else if (!isShow && movie.Runtime && movie.Runtime !== 'N/A') {
+  } else if (isEpisode) {
+    if (movie.Season && movie.Episode) {
+      embed.fields.push({ name: 'Season/Episode', value: `S${movie.Season}E${movie.Episode}`, inline: true });
+    }
+    if (movie.Runtime && movie.Runtime !== 'N/A') {
+      embed.fields.push({ name: 'Runtime', value: movie.Runtime, inline: true });
+    }
+  } else if (!isTVContent && movie.Runtime && movie.Runtime !== 'N/A') {
     embed.fields.push({ name: 'Runtime', value: movie.Runtime, inline: true });
   }
 

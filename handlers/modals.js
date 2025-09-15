@@ -161,6 +161,37 @@ async function handleMovieRecommendationModal(interaction) {
         originalTitle = searchResult.originalTitle;
       }
 
+      // Filter results based on session content type
+      const database = require('../database');
+      const activeSession = await database.getActiveVotingSession(interaction.guild.id);
+
+      if (activeSession && activeSession.content_type && imdbResults.length > 0) {
+        const sessionContentType = activeSession.content_type;
+        const originalResultsCount = imdbResults.length;
+
+        if (sessionContentType === 'movie') {
+          // Movie sessions: only show movies
+          imdbResults = imdbResults.filter(result => result.Type === 'movie');
+        } else if (sessionContentType === 'tv_show') {
+          // TV show sessions: only show series and episodes
+          imdbResults = imdbResults.filter(result => result.Type === 'series' || result.Type === 'episode');
+        }
+        // Mixed sessions: show all results (no filtering)
+
+        // If all results were filtered out, show helpful message
+        if (originalResultsCount > 0 && imdbResults.length === 0) {
+          const sessionTypeLabel = sessionContentType === 'movie' ? 'Movie' : 'TV Show';
+          const expectedContentLabel = sessionContentType === 'movie' ? 'movies' : 'TV shows or episodes';
+          const wrongContentLabel = sessionContentType === 'movie' ? 'TV shows' : 'movies';
+
+          await interaction.reply({
+            content: `❌ **No ${expectedContentLabel} found**\n\n🔍 Found results for "${title}", but they were all **${wrongContentLabel}**.\n\n💡 **This is a ${sessionTypeLabel} session** - try searching for ${expectedContentLabel} instead.\n\n🎯 **Suggestions:**\n• Use "🍿 Plan Movie Session" for movies\n• Use "📺 Plan TV Show Session" for TV shows`,
+            flags: MessageFlags.Ephemeral
+          });
+          return;
+        }
+      }
+
       // Handle episode-specific cases
       if (searchResult.episodeNotFound && searchResult.episodeInfo) {
         const { showName, season, episode } = searchResult.episodeInfo;
@@ -227,10 +258,37 @@ async function showImdbSelection(interaction, title, where, imdbResults, suggest
   // Add up to 3 results (to leave room for "None of these" and "Cancel" buttons)
   const displayResults = imdbResults.slice(0, 3);
   displayResults.forEach((content, index) => {
-    const typeEmoji = content.Type === 'series' ? '📺' : '🍿';
-    const typeLabel = content.Type === 'series' ? 'TV Show' : 'Movie';
+    const isShow = content.Type === 'series';
+    const isEpisode = content.Type === 'episode';
+    const isTVContent = isShow || isEpisode;
+    const typeEmoji = isTVContent ? '📺' : '🍿';
+
+    let typeLabel, displayTitle;
+
+    if (isEpisode) {
+      // For episodes, show series name with season/episode info
+      const seriesTitle = content.seriesID ? content.seriesID : (content.Title || '').split(' - ')[0];
+      const episodeTitle = content.Title || '';
+      const season = content.Season ? `S${content.Season}` : '';
+      const episode = content.Episode ? `E${content.Episode}` : '';
+      const seasonEpisode = season && episode ? `${season}${episode}` : '';
+
+      if (seasonEpisode && seriesTitle !== episodeTitle) {
+        displayTitle = `${seriesTitle} - ${seasonEpisode} - ${episodeTitle}`;
+      } else {
+        displayTitle = episodeTitle;
+      }
+      typeLabel = 'TV Episode';
+    } else if (isShow) {
+      displayTitle = content.Title;
+      typeLabel = 'TV Show';
+    } else {
+      displayTitle = content.Title;
+      typeLabel = 'Movie';
+    }
+
     embed.addFields({
-      name: `${index + 1}. ${typeEmoji} ${content.Title} (${content.Year})`,
+      name: `${index + 1}. ${typeEmoji} ${displayTitle} (${content.Year})`,
       value: `*${typeLabel}*`, // Show content type
       inline: false
     });
@@ -239,15 +297,28 @@ async function showImdbSelection(interaction, title, where, imdbResults, suggest
   // Create selection buttons with short custom IDs
   const buttons = new ActionRowBuilder();
   displayResults.forEach((content, index) => {
-    let typeEmoji = '🍿'; // Default to movie
-    if (content.Type === 'series') typeEmoji = '📺';
-    else if (content.Type === 'episode') typeEmoji = '📺';
+    const isShow = content.Type === 'series';
+    const isEpisode = content.Type === 'episode';
+    const isTVContent = isShow || isEpisode;
+    const typeEmoji = isTVContent ? '📺' : '🍿';
 
-    let label = `${index + 1}. ${typeEmoji} ${content.Title} (${content.Year})`;
+    let label;
 
-    // Add episode info if it's an episode
-    if (content.Type === 'episode' && content.Season && content.Episode) {
-      label = `${index + 1}. ${typeEmoji} ${content.Title} S${content.Season}E${content.Episode}`;
+    if (isEpisode) {
+      // For episodes, show series name with season/episode info
+      const seriesTitle = content.seriesID ? content.seriesID : (content.Title || '').split(' - ')[0];
+      const episodeTitle = content.Title || '';
+      const season = content.Season ? `S${content.Season}` : '';
+      const episode = content.Episode ? `E${content.Episode}` : '';
+      const seasonEpisode = season && episode ? `${season}${episode}` : '';
+
+      if (seasonEpisode && seriesTitle !== episodeTitle) {
+        label = `${index + 1}. ${typeEmoji} ${seriesTitle} - ${seasonEpisode}`;
+      } else {
+        label = `${index + 1}. ${typeEmoji} ${episodeTitle}`;
+      }
+    } else {
+      label = `${index + 1}. ${typeEmoji} ${content.Title} (${content.Year})`;
     }
 
     if (label.length > 80) {
@@ -339,7 +410,7 @@ async function showSpellingSuggestions(interaction, title, where, suggestions) {
         .setStyle(ButtonStyle.Danger)
     );
 
-  const ephemeralManager = require('../services/ephemeral-manager');
+  const ephemeralManager = require('../utils/ephemeral-manager');
   await ephemeralManager.sendEphemeral(interaction, '', {
     embeds: [embed],
     components: [buttons, actionButtons]
@@ -369,6 +440,8 @@ async function createMovieWithoutImdb(interaction, title, where) {
     });
 
     console.log(`🔍 DEBUG: movieCreation.createMovieRecommendation result:`, {
+      success: result.success,
+      error: result.error,
       hasMessage: !!result.message,
       hasThread: !!result.thread,
       movieId: result.movieId,
@@ -376,14 +449,32 @@ async function createMovieWithoutImdb(interaction, title, where) {
       threadId: result.thread?.id
     });
 
+    // Check if creation failed (e.g., content type mismatch)
+    if (result.success === false) {
+      console.log(`🔍 DEBUG: Movie creation failed: ${result.error}`);
+      return; // Stop execution, error message already shown by movie creation service
+    }
+
     const { message, thread, movieId } = result;
 
     // Post to admin channel if configured
     try {
-      const movie = await database.getMovieByMessageId(message.id);
-      if (movie) {
+      const database = require('../database');
+
+      // Try to get from movies table first
+      let content = await database.getMovieByMessageId(message.id);
+      let contentType = 'movie';
+
+      // If not found in movies table, try TV shows table
+      if (!content) {
+        content = await database.getTVShowByMessageId(message.id);
+        contentType = 'tv_show';
+      }
+
+      if (content) {
         const adminMirror = require('../services/admin-mirror');
-        await adminMirror.postMovieToAdminChannel(interaction.client, interaction.guild.id, movie);
+        // Pass content type so admin mirror knows how to handle it
+        await adminMirror.postContentToAdminChannel(interaction.client, interaction.guild.id, content, contentType);
       }
     } catch (error) {
       console.error('Error posting to admin channel:', error);

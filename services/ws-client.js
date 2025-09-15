@@ -599,6 +599,11 @@ function initWebSocketClient(logger) {
               } catch (_) { /* non-fatal */ }
 
               try { await adminControls.ensureAdminControlPanel(client, guildId); } catch (_) {}
+
+              // Notify dashboard that session was cancelled
+              try {
+                sendMessage({ type: 'session_cancelled', payload: { guildId, sessionId } });
+              } catch (_) { /* non-fatal */ }
             } catch (e) {
               logger?.warn?.(`[${guildId}] WS cancel_session error (sessionId=${sessionId}):`, e?.message || e);
             }
@@ -645,6 +650,7 @@ function initWebSocketClient(logger) {
                 scheduledDate,
                 votingEndTime: votingEnd,
                 timezone: tz,
+                contentType: contentType,
                 discordEventId: event?.id || null,
                 createdBy: 'dashboard'
               });

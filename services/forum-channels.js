@@ -325,7 +325,7 @@ async function cleanupForumPosts(channel, olderThanDays = 30) {
 }
 
 /**
- * Clear all movie forum posts when session ends - DATABASE-DRIVEN SAFE DELETION
+ * Clear all movie and TV show forum posts when session ends - DATABASE-DRIVEN SAFE DELETION
  * Only deletes threads/messages that are tracked in our database
  */
 async function clearForumMoviePosts(channel, winnerMovieId = null, options = {}) {
@@ -335,7 +335,7 @@ async function clearForumMoviePosts(channel, winnerMovieId = null, options = {})
     const logger = require('../utils/logger');
     const database = require('../database');
     const guildId = channel.guild?.id;
-    logger.debug(`🧹 Clearing forum movie posts in channel: ${channel.name} (DATABASE-DRIVEN)`, guildId);
+    logger.debug(`🧹 Clearing forum content posts in channel: ${channel.name} (DATABASE-DRIVEN)`, guildId);
 
     const { deleteWinnerAnnouncements = false } = options;
 
@@ -347,7 +347,15 @@ async function clearForumMoviePosts(channel, winnerMovieId = null, options = {})
       movie.thread_id // Only process movies with thread IDs
     );
 
-    logger.debug(`📋 Found ${channelMovies.length} database-tracked forum movies to process`, guildId);
+    // Get all TV shows from database for this guild and channel
+    const allTVShows = await database.getTVShowsByGuild(guildId);
+    const channelTVShows = allTVShows.filter(show =>
+      show.channel_id === channel.id &&
+      show.channel_type === 'forum' &&
+      show.thread_id // Only process TV shows with thread IDs
+    );
+
+    logger.debug(`📋 Found ${channelMovies.length} database-tracked forum movies and ${channelTVShows.length} TV shows to process`, guildId);
 
     let deletedCount = 0;
     let skippedCount = 0;
@@ -396,6 +404,40 @@ async function clearForumMoviePosts(channel, winnerMovieId = null, options = {})
       }
     }
 
+    // Process each TV show
+    for (const tvShow of channelTVShows) {
+      try {
+        // Try to fetch and delete the thread
+        try {
+          const thread = await channel.client.channels.fetch(tvShow.thread_id);
+          if (thread && thread.parentId === channel.id) {
+            await thread.delete('TV show cleanup - session ended');
+            deletedCount++;
+            logger.info(`🗑️ Deleted forum thread: ${tvShow.title} (${tvShow.thread_id})`, guildId);
+          } else {
+            logger.debug(`📋 Thread not found or not in this channel: ${tvShow.title} (${tvShow.thread_id})`, guildId);
+          }
+        } catch (threadError) {
+          if (threadError.code === 10003) { // Unknown Channel
+            logger.debug(`📋 Thread already deleted: ${tvShow.title} (${tvShow.thread_id})`, guildId);
+          } else {
+            logger.warn(`Error deleting thread ${tvShow.title} (${tvShow.thread_id}):`, threadError.message, guildId);
+          }
+        }
+
+        // Clear thread reference for TV show
+        try {
+          await database.updateTVShowThreadId(tvShow.message_id, null);
+          logger.debug(`🗄️ Cleared thread reference for TV show: ${tvShow.title}`, guildId);
+        } catch (dbErr) {
+          logger.warn(`Error clearing thread reference for ${tvShow.title}:`, dbErr.message, guildId);
+        }
+
+      } catch (error) {
+        logger.warn(`Error processing TV show ${tvShow.title}:`, error.message, guildId);
+      }
+    }
+
     // ALSO DELETE SYSTEM POSTS regardless of winner - we will re-create the appropriate one after
     logger.debug(`🧹 Deleting system posts (Recommend/No Session${deleteWinnerAnnouncements ? '/Winner' : ''})`, guildId);
 
@@ -405,10 +447,19 @@ async function clearForumMoviePosts(channel, winnerMovieId = null, options = {})
     const allThreads = new Map([...threads.threads, ...archivedThreads.threads]);
 
     for (const [threadId, thread] of allThreads) {
-      // Delete system posts (No Active Session, Recommend a Movie)
-      const isSystemPost = thread.name.includes('No Active Voting Session') || thread.name.includes('🚫') ||
-                           thread.name.includes('Recommend a Movie') || thread.name.includes('🍿');
+      // Delete system posts (No Active Session, Recommend a Movie, Recommend TV Shows)
+      const hasNoSession = thread.name.includes('No Active Voting Session') || thread.name.includes('🚫');
+      const hasRecommendMovie = thread.name.includes('Recommend a Movie') || thread.name.includes('🍿');
+      const hasRecommendTV = thread.name.includes('Recommend TV Shows') || thread.name.includes('📺');
+      const hasRecommendContent = thread.name.includes('Recommend Content') || thread.name.includes('🎬');
+      const isSystemPost = hasNoSession || hasRecommendMovie || hasRecommendTV || hasRecommendContent;
       const isWinnerAnnouncement = thread.name.startsWith('🏆 Winner:');
+
+      logger.debug(`🔍 Thread: "${thread.name}"`, guildId);
+      logger.debug(`   - hasNoSession: ${hasNoSession}, hasRecommendMovie: ${hasRecommendMovie}`, guildId);
+      logger.debug(`   - hasRecommendTV: ${hasRecommendTV}, hasRecommendContent: ${hasRecommendContent}`, guildId);
+      logger.debug(`   - isSystemPost: ${isSystemPost}, isWinnerAnnouncement: ${isWinnerAnnouncement}`, guildId);
+
       if (isSystemPost || (deleteWinnerAnnouncements && isWinnerAnnouncement)) {
         try {
           await thread.delete('System post cleanup - session ended');
@@ -632,7 +683,8 @@ async function ensureRecommendationPost(channel, activeSession = null) {
     logger.debug(`📋 Active session provided:`, activeSession ? {
       id: activeSession.id,
       name: activeSession.name,
-      status: activeSession.status
+      status: activeSession.status,
+      content_type: activeSession.content_type
     } : 'null', guildId);
 
     // BETTER APPROACH: Use channel.threads.fetchActive with force refresh and check each thread individually
@@ -785,6 +837,8 @@ async function ensureRecommendationPost(channel, activeSession = null) {
     const isMovieSession = contentType === 'movie';
     const isTVSession = contentType === 'tv_show';
     const isMixedSession = contentType === 'mixed';
+
+    logger.debug(`📋 Content type determination: content_type=${contentType}, isMovie=${isMovieSession}, isTV=${isTVSession}, isMixed=${isMixedSession}`, guildId);
 
     let title, description, buttonLabel, buttonEmoji;
 
