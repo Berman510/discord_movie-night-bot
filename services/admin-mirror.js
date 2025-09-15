@@ -249,7 +249,12 @@ async function syncAdminChannel(client, guildId) {
                               message.embeds[0].title &&
                               message.embeds[0].title.includes('Admin Control Panel');
 
-        if (!isControlPanel) {
+        // Skip session success messages (they should auto-delete)
+        const isSessionMessage = message.content &&
+                                 (message.content.includes('Voting session created successfully') ||
+                                  message.content.includes('Session created successfully'));
+
+        if (!isControlPanel && !isSessionMessage) {
           await message.delete();
         }
       } catch (error) {

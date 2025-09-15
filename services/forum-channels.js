@@ -684,16 +684,25 @@ async function ensureRecommendationPost(channel, activeSession = null) {
     const guildId = channel.guild?.id;
 
     // Debounce rapid calls to prevent multiple posts
-    const debounceKey = `${guildId}-${channel.id}`;
+    // Include session state in debounce key to allow legitimate updates
+    const sessionKey = activeSession ? `${activeSession.id}-${activeSession.content_type}` : 'no-session';
+    const debounceKey = `${guildId}-${channel.id}-${sessionKey}`;
     const now = Date.now();
     const lastCall = ensureRecommendationPostDebounce.get(debounceKey);
 
-    if (lastCall && (now - lastCall) < 5000) { // 5 second debounce
+    if (lastCall && (now - lastCall) < 3000) { // 3 second debounce
       logger.debug(`📋 Skipping recommendation post update (debounced): ${channel.name}`, guildId);
       return;
     }
 
     ensureRecommendationPostDebounce.set(debounceKey, now);
+
+    // Clean up old debounce entries (older than 10 minutes)
+    for (const [key, timestamp] of ensureRecommendationPostDebounce.entries()) {
+      if (now - timestamp > 600000) { // 10 minutes
+        ensureRecommendationPostDebounce.delete(key);
+      }
+    }
 
     logger.debug(`📋 Ensuring recommendation post in forum channel: ${channel.name}`, guildId);
     logger.debug(`📋 Active session provided:`, activeSession ? {

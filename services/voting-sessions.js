@@ -803,20 +803,14 @@ async function createVotingSession(interaction, state) {
         }
       }
 
-      // Refresh admin control panel and mirror immediately so admin posts/buttons are available
+      // Refresh admin control panel immediately so admin posts/buttons are available
+      // Note: This also handles forum recommendation post setup, so no need for separate sync
       try {
         const adminControls = require('./admin-controls');
         await adminControls.ensureAdminControlPanel(interaction.client || global.discordClient, interaction.guild.id);
       } catch (e) {
         const logger = require('../utils/logger');
         logger.warn('Error refreshing admin control panel after session creation:', e.message);
-      }
-      try {
-        const adminMirror = require('./admin-mirror');
-        await adminMirror.syncAdminChannel(interaction.client || global.discordClient, interaction.guild.id);
-      } catch (e) {
-        const logger = require('../utils/logger');
-        logger.warn('Error syncing admin channel after session creation:', e.message);
       }
     } catch (error) {
       logger.warn('Error updating channels after session creation:', error.message);
