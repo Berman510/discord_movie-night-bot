@@ -1882,7 +1882,33 @@ class Database {
         logger.warn('Migration 30 warning:', e.message);
       }
 
+      // Migration 31: Add TV show support fields to movies table
+      try {
+        const [movieCols] = await this.pool.execute(`
+          SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'movies'
+        `);
+        const have = new Set((movieCols || []).map(r => r.COLUMN_NAME || r.column_name));
 
+        if (!have.has('content_type')) {
+          await this.pool.execute(`ALTER TABLE movies ADD COLUMN content_type ENUM('movie', 'series') DEFAULT 'movie' AFTER title`);
+        }
+        if (!have.has('season_number')) {
+          await this.pool.execute(`ALTER TABLE movies ADD COLUMN season_number INT NULL AFTER content_type`);
+        }
+        if (!have.has('episode_number')) {
+          await this.pool.execute(`ALTER TABLE movies ADD COLUMN episode_number INT NULL AFTER season_number`);
+        }
+        if (!have.has('total_seasons')) {
+          await this.pool.execute(`ALTER TABLE movies ADD COLUMN total_seasons INT NULL AFTER episode_number`);
+        }
+
+        const logger = require('./utils/logger');
+        logger.debug('✅ Migration 31: TV show support fields ensured on movies table');
+      } catch (e) {
+        const logger = require('./utils/logger');
+        logger.warn('Migration 31 warning:', e.message);
+      }
 
       logger.info('✅ Database migrations completed');
 
@@ -1908,12 +1934,23 @@ class Database {
           throw new Error('MOVIE_BANNED');
         }
 
-        // Extract poster URL from imdbData if available (JSON fallback)
+        // Extract poster URL and content type from imdbData if available (JSON fallback)
         let posterUrl = null;
+        let contentType = 'movie';
+        let totalSeasons = null;
+
         try {
           const imdbData = movieData.imdbData;
-          const poster = imdbData && typeof imdbData === 'string' ? JSON.parse(imdbData).Poster : (imdbData ? imdbData.Poster : null);
-          if (poster && poster !== 'N/A') posterUrl = poster;
+          const data = imdbData && typeof imdbData === 'string' ? JSON.parse(imdbData) : imdbData;
+          if (data) {
+            if (data.Poster && data.Poster !== 'N/A') posterUrl = data.Poster;
+            if (data.Type === 'series') {
+              contentType = 'series';
+              if (data.totalSeasons && data.totalSeasons !== 'N/A') {
+                totalSeasons = parseInt(data.totalSeasons);
+              }
+            }
+          }
         } catch (e) {}
 
         const movie = {
@@ -1922,6 +1959,10 @@ class Database {
           guild_id: movieData.guildId,
           channel_id: movieData.channelId,
           title: movieData.title,
+          content_type: contentType,
+          season_number: movieData.seasonNumber || null,
+          episode_number: movieData.episodeNumber || null,
+          total_seasons: totalSeasons,
           movie_uid: movieUID,
           where_to_watch: movieData.whereToWatch,
           recommended_by: movieData.recommendedBy,
@@ -1970,24 +2011,39 @@ class Database {
       }
 
 
-      // Extract poster URL from imdbData if available
+      // Extract poster URL and content type from imdbData if available
       let posterUrl = null;
+      let contentType = 'movie';
+      let totalSeasons = null;
+
       try {
         const imdbData = movieData.imdbData;
-        const poster = imdbData && typeof imdbData === 'string' ? JSON.parse(imdbData).Poster : (imdbData ? imdbData.Poster : null);
-        if (poster && poster !== 'N/A') posterUrl = poster;
+        const data = imdbData && typeof imdbData === 'string' ? JSON.parse(imdbData) : imdbData;
+        if (data) {
+          if (data.Poster && data.Poster !== 'N/A') posterUrl = data.Poster;
+          if (data.Type === 'series') {
+            contentType = 'series';
+            if (data.totalSeasons && data.totalSeasons !== 'N/A') {
+              totalSeasons = parseInt(data.totalSeasons);
+            }
+          }
+        }
       } catch (e) {
         // ignore parse errors
       }
 
       const [result] = await this.pool.execute(
-        `INSERT INTO movies (message_id, guild_id, channel_id, title, movie_uid, where_to_watch, recommended_by, imdb_id, imdb_data, poster_url, session_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO movies (message_id, guild_id, channel_id, title, content_type, season_number, episode_number, total_seasons, movie_uid, where_to_watch, recommended_by, imdb_id, imdb_data, poster_url, session_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           movieData.messageId,
           movieData.guildId,
           movieData.channelId,
           movieData.title,
+          contentType,
+          movieData.seasonNumber || null,
+          movieData.episodeNumber || null,
+          totalSeasons,
           movieUID,
           movieData.whereToWatch,
           movieData.recommendedBy,

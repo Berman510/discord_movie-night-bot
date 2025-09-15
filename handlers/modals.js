@@ -144,13 +144,13 @@ async function handleMovieRecommendationModal(interaction) {
       try { await interaction.deferReply({ flags: MessageFlags.Ephemeral }); } catch {}
     }
 
-    // Search IMDb for the movie with spell checking
+    // Search IMDb for movies and TV shows with spell checking
     let imdbResults = [];
     let suggestions = [];
     let originalTitle = title;
 
     try {
-      const searchResult = await imdb.searchMovieWithSuggestions(title);
+      const searchResult = await imdb.searchContentWithSuggestions(title);
       if (searchResult.results && Array.isArray(searchResult.results)) {
         imdbResults = searchResult.results;
       }
@@ -204,7 +204,7 @@ async function showImdbSelection(interaction, title, where, imdbResults, suggest
   });
 
   const embed = new EmbedBuilder()
-    .setTitle('🎬 Select the correct movie')
+    .setTitle('🎬 Select the correct content')
     .setColor(0x5865f2);
 
   // Add description with spell check info if applicable
@@ -216,18 +216,21 @@ async function showImdbSelection(interaction, title, where, imdbResults, suggest
 
   // Add up to 3 results (to leave room for "None of these" and "Cancel" buttons)
   const displayResults = imdbResults.slice(0, 3);
-  displayResults.forEach((movie, index) => {
+  displayResults.forEach((content, index) => {
+    const typeEmoji = content.Type === 'series' ? '📺' : '🍿';
+    const typeLabel = content.Type === 'series' ? 'TV Show' : 'Movie';
     embed.addFields({
-      name: `${index + 1}. ${movie.Title} (${movie.Year})`,
-      value: '\u200B', // Invisible character for clean display
+      name: `${index + 1}. ${typeEmoji} ${content.Title} (${content.Year})`,
+      value: `*${typeLabel}*`, // Show content type
       inline: false
     });
   });
 
   // Create selection buttons with short custom IDs
   const buttons = new ActionRowBuilder();
-  displayResults.forEach((movie, index) => {
-    let label = `${index + 1}. ${movie.Title} (${movie.Year})`;
+  displayResults.forEach((content, index) => {
+    const typeEmoji = content.Type === 'series' ? '📺' : '🍿';
+    let label = `${index + 1}. ${typeEmoji} ${content.Title} (${content.Year})`;
     if (label.length > 80) {
       label = label.slice(0, 77) + '...';
     }

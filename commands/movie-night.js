@@ -21,7 +21,7 @@ const commands = [
           { name: 'setup-guide', value: 'setup' },
 
           // Core functionality
-          { name: 'recommend-movie', value: 'recommend' },
+          { name: 'recommend-content', value: 'recommend' },
           { name: 'create-session', value: 'create-session' },
           { name: 'list-sessions', value: 'list-sessions' },
           { name: 'join-session', value: 'join-session' },

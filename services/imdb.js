@@ -28,7 +28,97 @@ async function searchMovie(title) {
 }
 
 /**
- * Enhanced search with fuzzy matching and spell checking suggestions
+ * Search for TV shows/series
+ */
+async function searchSeries(title) {
+  if (!OMDB_API_KEY) {
+    console.warn('⚠️ OMDB_API_KEY not set - IMDb features disabled');
+    return null;
+  }
+
+  try {
+    const response = await fetch(`http://www.omdbapi.com/?apikey=${OMDB_API_KEY}&s=${encodeURIComponent(title)}&type=series`);
+    const data = await response.json();
+
+    if (data.Response === 'True' && data.Search) {
+      return data.Search.slice(0, 10); // Return up to 10 results
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error searching IMDb for series:', error.message);
+    return null;
+  }
+}
+
+/**
+ * Search for both movies and TV shows
+ */
+async function searchContent(title) {
+  if (!OMDB_API_KEY) {
+    console.warn('⚠️ OMDB_API_KEY not set - IMDb features disabled');
+    return null;
+  }
+
+  try {
+    // Search without type restriction to get both movies and series
+    const response = await fetch(`http://www.omdbapi.com/?apikey=${OMDB_API_KEY}&s=${encodeURIComponent(title)}`);
+    const data = await response.json();
+
+    if (data.Response === 'True' && data.Search) {
+      return data.Search.slice(0, 10); // Return up to 10 results
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error searching IMDb for content:', error.message);
+    return null;
+  }
+}
+
+/**
+ * Enhanced search with fuzzy matching and spell checking suggestions (movies and TV shows)
+ */
+async function searchContentWithSuggestions(title) {
+  if (!OMDB_API_KEY) {
+    console.warn('⚠️ OMDB_API_KEY not set - IMDb features disabled');
+    return { results: null, suggestions: [] };
+  }
+
+  try {
+    // First, try exact search for both movies and series
+    const exactResults = await searchContent(title);
+    if (exactResults && exactResults.length > 0) {
+      return { results: exactResults, suggestions: [] };
+    }
+
+    // If no exact results, try fuzzy search with common variations
+    const suggestions = await generateSpellingSuggestions(title);
+    let bestResults = null;
+    let bestSuggestion = null;
+
+    for (const suggestion of suggestions) {
+      const suggestionResults = await searchContent(suggestion);
+      if (suggestionResults && suggestionResults.length > 0) {
+        bestResults = suggestionResults;
+        bestSuggestion = suggestion;
+        break;
+      }
+    }
+
+    return {
+      results: bestResults,
+      suggestions: bestSuggestion ? [bestSuggestion] : suggestions.slice(0, 3),
+      originalTitle: title
+    };
+  } catch (error) {
+    console.error('Error in enhanced content search:', error.message);
+    return { results: null, suggestions: [] };
+  }
+}
+
+/**
+ * Enhanced search with fuzzy matching and spell checking suggestions (movies only - for backward compatibility)
  */
 async function searchMovieWithSuggestions(title) {
   if (!OMDB_API_KEY) {
@@ -172,25 +262,86 @@ async function getMovieDetails(imdbId) {
   }
 }
 
+/**
+ * Get details for any content (movie or series)
+ */
+async function getContentDetails(imdbId) {
+  if (!OMDB_API_KEY) {
+    console.warn('⚠️ OMDB_API_KEY not set - IMDb features disabled');
+    return null;
+  }
+
+  try {
+    const response = await fetch(`http://www.omdbapi.com/?apikey=${OMDB_API_KEY}&i=${imdbId}&plot=short`);
+    const data = await response.json();
+
+    if (data.Response === 'True') {
+      return data;
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error getting content details:', error.message);
+    return null;
+  }
+}
+
+/**
+ * Get season information for a TV series
+ */
+async function getSeasonDetails(imdbId, season) {
+  if (!OMDB_API_KEY) {
+    console.warn('⚠️ OMDB_API_KEY not set - IMDb features disabled');
+    return null;
+  }
+
+  try {
+    const response = await fetch(`http://www.omdbapi.com/?apikey=${OMDB_API_KEY}&i=${imdbId}&Season=${season}`);
+    const data = await response.json();
+
+    if (data.Response === 'True') {
+      return data;
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error getting season details:', error.message);
+    return null;
+  }
+}
+
 function formatMovieForEmbed(movie) {
   if (!movie) return null;
 
+  // Determine if this is a TV show or movie
+  const isShow = movie.Type === 'series';
+  const emoji = isShow ? '📺' : '🍿';
+  const typeLabel = isShow ? 'TV Show' : 'Movie';
+
   const embed = {
-    title: `🍿 ${movie.Title}`,
-    color: 0x5865f2,
+    title: `${emoji} ${movie.Title}`,
+    color: isShow ? 0xff6b35 : 0x5865f2, // Orange for TV shows, blue for movies
     fields: [],
     thumbnail: movie.Poster && movie.Poster !== 'N/A' ? { url: movie.Poster } : null
   };
 
+  // Add type indicator
+  if (movie.Type && movie.Type !== 'N/A') {
+    embed.fields.push({ name: 'Type', value: typeLabel, inline: true });
+  }
+
   if (movie.Year && movie.Year !== 'N/A') {
-    embed.fields.push({ name: 'Year', value: movie.Year, inline: true });
+    embed.fields.push({ name: isShow ? 'Years' : 'Year', value: movie.Year, inline: true });
   }
 
   if (movie.Rated && movie.Rated !== 'N/A') {
     embed.fields.push({ name: 'Rated', value: movie.Rated, inline: true });
   }
 
-  if (movie.Runtime && movie.Runtime !== 'N/A') {
+  // For TV shows, show total seasons instead of runtime
+  if (isShow && movie.totalSeasons && movie.totalSeasons !== 'N/A') {
+    embed.fields.push({ name: 'Seasons', value: movie.totalSeasons, inline: true });
+  } else if (!isShow && movie.Runtime && movie.Runtime !== 'N/A') {
     embed.fields.push({ name: 'Runtime', value: movie.Runtime, inline: true });
   }
 
@@ -198,7 +349,10 @@ function formatMovieForEmbed(movie) {
     embed.fields.push({ name: 'Genre', value: movie.Genre, inline: false });
   }
 
-  if (movie.Director && movie.Director !== 'N/A') {
+  // For TV shows, show creator instead of director
+  if (isShow && movie.Writer && movie.Writer !== 'N/A') {
+    embed.fields.push({ name: 'Creator', value: movie.Writer, inline: true });
+  } else if (!isShow && movie.Director && movie.Director !== 'N/A') {
     embed.fields.push({ name: 'Director', value: movie.Director, inline: true });
   }
 
@@ -236,8 +390,13 @@ async function getMovieDetailsCached(imdbId) {
 
 module.exports = {
   searchMovie,
+  searchSeries,
+  searchContent,
   searchMovieWithSuggestions,
+  searchContentWithSuggestions,
   getMovieDetails,
+  getContentDetails,
+  getSeasonDetails,
   getMovieDetailsCached,
   formatMovieForEmbed
 };

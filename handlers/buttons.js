@@ -520,13 +520,13 @@ async function handleDuplicateConfirm(interaction, customIdParts) {
       // Proceed with movie creation
       const imdb = require('../services/imdb');
 
-      // Search IMDb for the movie with spell checking
+      // Search IMDb for movies and TV shows with spell checking
       let imdbResults = [];
       let suggestions = [];
       let originalTitle = movieTitle;
 
       try {
-        const searchResult = await imdb.searchMovieWithSuggestions(movieTitle);
+        const searchResult = await imdb.searchContentWithSuggestions(movieTitle);
         if (searchResult.results && Array.isArray(searchResult.results)) {
           imdbResults = searchResult.results;
         }
@@ -3121,11 +3121,11 @@ async function handleSpellingSuggestion(interaction) {
     // Defer the interaction for IMDb search
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-    // Search IMDb with the suggested title
+    // Search IMDb with the suggested title (movies and TV shows)
     const imdb = require('../services/imdb');
     let imdbResults = [];
     try {
-      const searchResult = await imdb.searchMovie(suggestedTitle);
+      const searchResult = await imdb.searchContent(suggestedTitle);
       if (searchResult && Array.isArray(searchResult)) {
         imdbResults = searchResult;
       }

@@ -81,22 +81,22 @@ async function handleMovieNight(interaction) {
 
   if (!activeSession) {
     await interaction.reply({
-      content: '❌ **No active voting session**\n\nMovie recommendations are only available during active voting sessions. An admin needs to use the "Plan Next Session" button in the admin channel to start a new voting session.\n\n💡 **Tip:** Use `/movienight-setup` for easy bot configuration.',
+      content: '❌ **No active voting session**\n\nContent recommendations are only available during active voting sessions. An admin needs to use the "Plan Next Session" button in the admin channel to start a new voting session.\n\n💡 **Tip:** Use `/movienight-setup` for easy bot configuration.',
       flags: MessageFlags.Ephemeral
     });
     return;
   }
 
-  // Show the movie recommendation modal
+  // Show the content recommendation modal (movies and TV shows)
   const modal = new ModalBuilder()
     .setCustomId('mn:modal')
-    .setTitle('🎬 Recommend Movie'); // Keep it short and simple
+    .setTitle('🎬 Recommend Content'); // Updated to be more inclusive
 
   const titleInput = new TextInputBuilder()
     .setCustomId('mn:title')
-    .setLabel('Movie Title')
+    .setLabel('Movie or TV Show Title')
     .setStyle(TextInputStyle.Short)
-    .setPlaceholder('e.g., The Matrix')
+    .setPlaceholder('e.g., The Matrix, Breaking Bad, The Office')
     .setRequired(true);
 
   const whereInput = new TextInputBuilder()

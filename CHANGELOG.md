@@ -12,10 +12,19 @@ All notable changes to **Movie Night Bot** will be documented in this file.
   - Supports variations like adding/removing "The", number/word conversions
   - Enhanced user experience with clear suggestion buttons and fallback options
 
+- **TV Shows Support**: Extended bot to support TV shows alongside movies
+  - Search and recommend TV series with seasons and episodes
+  - Enhanced IMDb integration with series-specific metadata
+  - Visual distinction between movies (🍿) and TV shows (📺)
+  - Database schema updated to store content type and season information
+  - Unified content search across both movies and TV shows
+
 ### 🔧 Technical Improvements
 - Added `fuse.js` dependency for advanced fuzzy matching capabilities
-- Enhanced IMDb service with `searchMovieWithSuggestions()` function
+- Enhanced IMDb service with `searchContentWithSuggestions()` and `searchContent()` functions
 - New spelling suggestion UI components with interactive buttons
+- Database migration (31) adds TV show support fields to movies table
+- Updated embed formatting to handle both movies and TV series
 - Improved error handling and user feedback for failed searches
 
 ## [1.15.1] - 2025-09-14
