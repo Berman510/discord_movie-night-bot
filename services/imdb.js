@@ -1,8 +1,9 @@
 /**
  * IMDb Service
- * Handles IMDb/OMDb API integration for movie data
+ * Handles IMDb/OMDb API integration for movie data with fuzzy matching and spell checking
  */
 
+const Fuse = require('fuse.js');
 const { OMDB_API_KEY, IMDB_CACHE_ENABLED, IMDB_CACHE_TTL_DAYS, IMDB_CACHE_MAX_ROWS } = process.env;
 
 async function searchMovie(title) {
@@ -24,6 +25,130 @@ async function searchMovie(title) {
     console.error('Error searching IMDb:', error.message);
     return null;
   }
+}
+
+/**
+ * Enhanced search with fuzzy matching and spell checking suggestions
+ */
+async function searchMovieWithSuggestions(title) {
+  if (!OMDB_API_KEY) {
+    console.warn('⚠️ OMDB_API_KEY not set - IMDb features disabled');
+    return { results: null, suggestions: [] };
+  }
+
+  try {
+    // First, try exact search
+    const exactResults = await searchMovie(title);
+    if (exactResults && exactResults.length > 0) {
+      return { results: exactResults, suggestions: [] };
+    }
+
+    // If no exact results, try fuzzy search with common variations
+    const suggestions = await generateSpellingSuggestions(title);
+    let bestResults = null;
+    let bestSuggestion = null;
+
+    for (const suggestion of suggestions) {
+      const suggestionResults = await searchMovie(suggestion);
+      if (suggestionResults && suggestionResults.length > 0) {
+        bestResults = suggestionResults;
+        bestSuggestion = suggestion;
+        break;
+      }
+    }
+
+    return {
+      results: bestResults,
+      suggestions: bestSuggestion ? [bestSuggestion] : suggestions.slice(0, 3),
+      originalTitle: title
+    };
+  } catch (error) {
+    console.error('Error in enhanced movie search:', error.message);
+    return { results: null, suggestions: [] };
+  }
+}
+
+/**
+ * Generate spelling suggestions for movie titles
+ */
+async function generateSpellingSuggestions(title) {
+  const suggestions = [];
+
+  // Common movie title corrections
+  const commonCorrections = {
+    // Common misspellings
+    'teh': 'the',
+    'adn': 'and',
+    'fo': 'of',
+    'wiht': 'with',
+    'taht': 'that',
+    'thier': 'their',
+    'recieve': 'receive',
+    'seperate': 'separate',
+    'definately': 'definitely',
+
+    // Movie-specific corrections
+    'avengers': 'avengers',
+    'spiderman': 'spider-man',
+    'xmen': 'x-men',
+    'starwars': 'star wars',
+    'lordoftherings': 'lord of the rings',
+    'harrypotter': 'harry potter',
+    'jurassicpark': 'jurassic park',
+    'backtothe': 'back to the',
+    'indianajones': 'indiana jones',
+    'missionimpossible': 'mission impossible'
+  };
+
+  // Apply common corrections
+  let correctedTitle = title.toLowerCase();
+  for (const [wrong, right] of Object.entries(commonCorrections)) {
+    correctedTitle = correctedTitle.replace(new RegExp(wrong, 'gi'), right);
+  }
+
+  if (correctedTitle !== title.toLowerCase()) {
+    suggestions.push(toTitleCase(correctedTitle));
+  }
+
+  // Generate variations
+  const variations = [
+    // Remove extra spaces
+    title.replace(/\s+/g, ' ').trim(),
+    // Add "The" prefix if not present
+    title.toLowerCase().startsWith('the ') ? title.slice(4) : `The ${title}`,
+    // Remove "The" prefix if present
+    title.toLowerCase().startsWith('the ') ? title.slice(4) : title,
+    // Replace numbers with words
+    title.replace(/\b2\b/g, 'Two').replace(/\b3\b/g, 'Three').replace(/\b4\b/g, 'Four'),
+    // Replace words with numbers
+    title.replace(/\bTwo\b/gi, '2').replace(/\bThree\b/gi, '3').replace(/\bFour\b/gi, '4'),
+    // Common abbreviations
+    title.replace(/\b&\b/g, 'and').replace(/\band\b/gi, '&'),
+    // Remove punctuation
+    title.replace(/[^\w\s]/g, ''),
+    // Add common suffixes
+    `${title}: The Movie`,
+    `${title} Movie`
+  ];
+
+  // Add unique variations
+  variations.forEach(variation => {
+    const trimmed = variation.trim();
+    if (trimmed && trimmed !== title && !suggestions.includes(trimmed)) {
+      suggestions.push(trimmed);
+    }
+  });
+
+  return suggestions.slice(0, 5); // Return top 5 suggestions
+}
+
+/**
+ * Convert string to title case
+ */
+function toTitleCase(str) {
+  return str.replace(/\w\S*/g, (txt) =>
+    txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
+  );
 }
 
 async function getMovieDetails(imdbId) {
@@ -111,6 +236,7 @@ async function getMovieDetailsCached(imdbId) {
 
 module.exports = {
   searchMovie,
+  searchMovieWithSuggestions,
   getMovieDetails,
   getMovieDetailsCached,
   formatMovieForEmbed

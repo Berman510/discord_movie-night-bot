@@ -144,12 +144,21 @@ async function handleMovieRecommendationModal(interaction) {
       try { await interaction.deferReply({ flags: MessageFlags.Ephemeral }); } catch {}
     }
 
-    // Search IMDb for the movie
+    // Search IMDb for the movie with spell checking
     let imdbResults = [];
+    let suggestions = [];
+    let originalTitle = title;
+
     try {
-      const searchResult = await imdb.searchMovie(title);
-      if (searchResult && Array.isArray(searchResult)) {
-        imdbResults = searchResult;
+      const searchResult = await imdb.searchMovieWithSuggestions(title);
+      if (searchResult.results && Array.isArray(searchResult.results)) {
+        imdbResults = searchResult.results;
+      }
+      if (searchResult.suggestions && Array.isArray(searchResult.suggestions)) {
+        suggestions = searchResult.suggestions;
+      }
+      if (searchResult.originalTitle) {
+        originalTitle = searchResult.originalTitle;
       }
     } catch (error) {
       console.warn('IMDb search failed:', error.message);
@@ -157,9 +166,12 @@ async function handleMovieRecommendationModal(interaction) {
 
     if (imdbResults.length > 0) {
       // Show IMDb selection buttons
-      await showImdbSelection(interaction, title, where, imdbResults);
+      await showImdbSelection(interaction, title, where, imdbResults, suggestions, originalTitle);
+    } else if (suggestions.length > 0) {
+      // Show spelling suggestions
+      await showSpellingSuggestions(interaction, title, where, suggestions);
     } else {
-      // No IMDb results, create movie without IMDb data
+      // No IMDb results and no suggestions, create movie without IMDb data
       await createMovieWithoutImdb(interaction, title, where);
     }
 
@@ -174,7 +186,7 @@ async function handleMovieRecommendationModal(interaction) {
   }
 }
 
-async function showImdbSelection(interaction, title, where, imdbResults) {
+async function showImdbSelection(interaction, title, where, imdbResults, suggestions = [], originalTitle = null) {
   const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
   const { pendingPayloads } = require('../utils/constants');
 
@@ -186,13 +198,21 @@ async function showImdbSelection(interaction, title, where, imdbResults) {
     title,
     where,
     imdbResults,
+    suggestions,
+    originalTitle,
     createdAt: Date.now()
   });
 
   const embed = new EmbedBuilder()
     .setTitle('🎬 Select the correct movie')
-    .setDescription(`Found ${imdbResults.length} matches for **${title}**`)
     .setColor(0x5865f2);
+
+  // Add description with spell check info if applicable
+  let description = `Found ${imdbResults.length} matches for **${title}**`;
+  if (originalTitle && originalTitle !== title) {
+    description = `Found ${imdbResults.length} matches for **${title}**\n💡 *Showing results for corrected spelling*`;
+  }
+  embed.setDescription(description);
 
   // Add up to 3 results (to leave room for "None of these" and "Cancel" buttons)
   const displayResults = imdbResults.slice(0, 3);
@@ -234,6 +254,73 @@ async function showImdbSelection(interaction, title, where, imdbResults) {
   await ephemeralManager.sendEphemeral(interaction, '', {
     embeds: [embed],
     components: [buttons]
+  });
+}
+
+/**
+ * Show spelling suggestions when no exact matches are found
+ */
+async function showSpellingSuggestions(interaction, title, where, suggestions) {
+  const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+  const { pendingPayloads } = require('../utils/constants');
+
+  // Generate a short key for storing the data temporarily
+  const dataKey = `spell_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+  // Store the data temporarily
+  pendingPayloads.set(dataKey, {
+    title,
+    where,
+    suggestions,
+    createdAt: Date.now()
+  });
+
+  const embed = new EmbedBuilder()
+    .setTitle('🔍 Did you mean...?')
+    .setDescription(`No exact matches found for **${title}**.\n\nHere are some suggestions:`)
+    .setColor(0xffa500); // Orange color for suggestions
+
+  // Add suggestions as fields
+  suggestions.slice(0, 3).forEach((suggestion, index) => {
+    embed.addFields({
+      name: `${index + 1}. ${suggestion}`,
+      value: '\u200B', // Invisible character
+      inline: false
+    });
+  });
+
+  // Create suggestion buttons
+  const buttons = new ActionRowBuilder();
+  suggestions.slice(0, 3).forEach((suggestion, index) => {
+    let label = `${index + 1}. ${suggestion}`;
+    if (label.length > 80) {
+      label = label.slice(0, 77) + '...';
+    }
+    buttons.addComponents(
+      new ButtonBuilder()
+        .setCustomId(`try_suggestion:${index}:${dataKey}`)
+        .setLabel(label)
+        .setStyle(ButtonStyle.Secondary)
+    );
+  });
+
+  // Add "Use Original" and "Cancel" buttons
+  const actionButtons = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId(`use_original:${dataKey}`)
+        .setLabel(`Use "${title}" anyway`)
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId(`cancel_suggestion:${dataKey}`)
+        .setLabel('Cancel')
+        .setStyle(ButtonStyle.Danger)
+    );
+
+  const ephemeralManager = require('../services/ephemeral-manager');
+  await ephemeralManager.sendEphemeral(interaction, '', {
+    embeds: [embed],
+    components: [buttons, actionButtons]
   });
 }
 

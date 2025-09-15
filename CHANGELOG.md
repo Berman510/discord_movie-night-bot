@@ -2,6 +2,22 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.16.0-rc1] - 2025-09-15
+
+### 🎯 Major Features
+- **Spell Checking Suggestions**: Added intelligent fuzzy matching for movie titles
+  - Automatically suggests corrections for common typos and misspellings
+  - Provides "Did you mean...?" interface when no exact matches are found
+  - Includes common movie title corrections (e.g., "spiderman" → "spider-man")
+  - Supports variations like adding/removing "The", number/word conversions
+  - Enhanced user experience with clear suggestion buttons and fallback options
+
+### 🔧 Technical Improvements
+- Added `fuse.js` dependency for advanced fuzzy matching capabilities
+- Enhanced IMDb service with `searchMovieWithSuggestions()` function
+- New spelling suggestion UI components with interactive buttons
+- Improved error handling and user feedback for failed searches
+
 ## [1.15.1] - 2025-09-14
 
 ### Enhanced

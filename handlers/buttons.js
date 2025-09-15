@@ -182,6 +182,22 @@ async function handleButton(interaction) {
       return;
     }
 
+    // Spelling suggestion buttons
+    if (customId.startsWith('try_suggestion:')) {
+      await handleSpellingSuggestion(interaction);
+      return;
+    }
+
+    if (customId.startsWith('use_original:')) {
+      await handleUseOriginalTitle(interaction);
+      return;
+    }
+
+    if (customId.startsWith('cancel_suggestion:')) {
+      await handleCancelSuggestion(interaction);
+      return;
+    }
+
     // Session list management buttons
     if (customId === 'session_refresh_list') {
       await sessions.listMovieSessions(interaction);
@@ -504,12 +520,21 @@ async function handleDuplicateConfirm(interaction, customIdParts) {
       // Proceed with movie creation
       const imdb = require('../services/imdb');
 
-      // Search IMDb for the movie
+      // Search IMDb for the movie with spell checking
       let imdbResults = [];
+      let suggestions = [];
+      let originalTitle = movieTitle;
+
       try {
-        const searchResult = await imdb.searchMovie(movieTitle);
-        if (searchResult && Array.isArray(searchResult)) {
-          imdbResults = searchResult;
+        const searchResult = await imdb.searchMovieWithSuggestions(movieTitle);
+        if (searchResult.results && Array.isArray(searchResult.results)) {
+          imdbResults = searchResult.results;
+        }
+        if (searchResult.suggestions && Array.isArray(searchResult.suggestions)) {
+          suggestions = searchResult.suggestions;
+        }
+        if (searchResult.originalTitle) {
+          originalTitle = searchResult.originalTitle;
         }
       } catch (error) {
         console.warn('IMDb search failed:', error.message);
@@ -518,9 +543,13 @@ async function handleDuplicateConfirm(interaction, customIdParts) {
       if (imdbResults.length > 0) {
         // Show IMDb selection buttons
         const { showImdbSelection } = require('./modals');
-        await showImdbSelection(interaction, movieTitle, movieWhere, imdbResults);
+        await showImdbSelection(interaction, movieTitle, movieWhere, imdbResults, suggestions, originalTitle);
+      } else if (suggestions.length > 0) {
+        // Show spelling suggestions
+        const { showSpellingSuggestions } = require('./modals');
+        await showSpellingSuggestions(interaction, movieTitle, movieWhere, suggestions);
       } else {
-        // No IMDb results, create movie without IMDb data
+        // No IMDb results and no suggestions, create movie without IMDb data
         const { createMovieWithoutImdb } = require('./modals');
         await createMovieWithoutImdb(interaction, movieTitle, movieWhere);
       }
@@ -3054,6 +3083,149 @@ async function handleBackToModerationPanel(interaction) {
       // Message might already be dismissed, ignore error
     }
   }, 3000);
+}
+
+/**
+ * Handle spelling suggestion button clicks
+ */
+async function handleSpellingSuggestion(interaction) {
+  try {
+    const { pendingPayloads } = require('../utils/constants');
+    const parts = interaction.customId.split(':');
+    const suggestionIndex = parseInt(parts[1]);
+    const dataKey = parts[2];
+
+    const payload = pendingPayloads.get(dataKey);
+    if (!payload) {
+      await interaction.reply({
+        content: '❌ This suggestion has expired. Please try recommending the movie again.',
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    const { title: originalTitle, where, suggestions } = payload;
+    const suggestedTitle = suggestions[suggestionIndex];
+
+    if (!suggestedTitle) {
+      await interaction.reply({
+        content: '❌ Invalid suggestion selected.',
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    // Clean up the payload
+    pendingPayloads.delete(dataKey);
+
+    // Defer the interaction for IMDb search
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+    // Search IMDb with the suggested title
+    const imdb = require('../services/imdb');
+    let imdbResults = [];
+    try {
+      const searchResult = await imdb.searchMovie(suggestedTitle);
+      if (searchResult && Array.isArray(searchResult)) {
+        imdbResults = searchResult;
+      }
+    } catch (error) {
+      console.warn('IMDb search failed for suggestion:', error.message);
+    }
+
+    if (imdbResults.length > 0) {
+      // Show IMDb selection for the suggested title
+      const { showImdbSelection } = require('./modals');
+      await showImdbSelection(interaction, suggestedTitle, where, imdbResults);
+    } else {
+      // No results for suggestion either, create without IMDb
+      const { createMovieWithoutImdb } = require('./modals');
+      await createMovieWithoutImdb(interaction, suggestedTitle, where);
+    }
+  } catch (error) {
+    console.error('Error handling spelling suggestion:', error);
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: '❌ Error processing suggestion. Please try again.',
+        flags: MessageFlags.Ephemeral
+      }).catch(console.error);
+    }
+  }
+}
+
+/**
+ * Handle "use original title" button click
+ */
+async function handleUseOriginalTitle(interaction) {
+  try {
+    const { pendingPayloads } = require('../utils/constants');
+    const dataKey = interaction.customId.split(':')[1];
+
+    const payload = pendingPayloads.get(dataKey);
+    if (!payload) {
+      await interaction.reply({
+        content: '❌ This request has expired. Please try recommending the movie again.',
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    const { title, where } = payload;
+
+    // Clean up the payload
+    pendingPayloads.delete(dataKey);
+
+    // Defer the interaction
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+    // Create movie with original title (no IMDb data)
+    const { createMovieWithoutImdb } = require('./modals');
+    await createMovieWithoutImdb(interaction, title, where);
+  } catch (error) {
+    console.error('Error handling use original title:', error);
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: '❌ Error processing request. Please try again.',
+        flags: MessageFlags.Ephemeral
+      }).catch(console.error);
+    }
+  }
+}
+
+/**
+ * Handle cancel suggestion button click
+ */
+async function handleCancelSuggestion(interaction) {
+  try {
+    const { pendingPayloads } = require('../utils/constants');
+    const dataKey = interaction.customId.split(':')[1];
+
+    // Clean up the payload
+    pendingPayloads.delete(dataKey);
+
+    await interaction.update({
+      content: '❌ **Movie recommendation cancelled**\n\nYou can try again anytime using `/movienight recommend-movie`.',
+      embeds: [],
+      components: []
+    });
+
+    // Auto-dismiss after 3 seconds
+    setTimeout(async () => {
+      try {
+        await interaction.deleteReply();
+      } catch {
+        // Message might already be dismissed, ignore error
+      }
+    }, 3000);
+  } catch (error) {
+    console.error('Error handling cancel suggestion:', error);
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: '❌ Error cancelling request.',
+        flags: MessageFlags.Ephemeral
+      }).catch(console.error);
+    }
+  }
 }
 
 module.exports = {
