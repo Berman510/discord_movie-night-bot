@@ -160,6 +160,16 @@ async function handleMovieRecommendationModal(interaction) {
       if (searchResult.originalTitle) {
         originalTitle = searchResult.originalTitle;
       }
+
+      // Handle episode-specific cases
+      if (searchResult.episodeNotFound && searchResult.episodeInfo) {
+        const { showName, season, episode } = searchResult.episodeInfo;
+        await interaction.reply({
+          content: `❌ **Episode not found**\n\n🔍 Could not find **${showName} Season ${season} Episode ${episode}** on IMDb.\n\n💡 **Suggestions:**\n• Check the episode number and season\n• Try searching for just the show name: "${showName}"\n• Use formats like "Show Name S1E1" or "Show Name Episode 101"`,
+          flags: MessageFlags.Ephemeral
+        });
+        return;
+      }
     } catch (error) {
       console.warn('IMDb search failed:', error.message);
     }
@@ -229,8 +239,17 @@ async function showImdbSelection(interaction, title, where, imdbResults, suggest
   // Create selection buttons with short custom IDs
   const buttons = new ActionRowBuilder();
   displayResults.forEach((content, index) => {
-    const typeEmoji = content.Type === 'series' ? '📺' : '🍿';
+    let typeEmoji = '🍿'; // Default to movie
+    if (content.Type === 'series') typeEmoji = '📺';
+    else if (content.Type === 'episode') typeEmoji = '📺';
+
     let label = `${index + 1}. ${typeEmoji} ${content.Title} (${content.Year})`;
+
+    // Add episode info if it's an episode
+    if (content.Type === 'episode' && content.Season && content.Episode) {
+      label = `${index + 1}. ${typeEmoji} ${content.Title} S${content.Season}E${content.Episode}`;
+    }
+
     if (label.length > 80) {
       label = label.slice(0, 77) + '...';
     }
@@ -396,8 +415,8 @@ async function createMovieWithoutImdb(interaction, title, where) {
     const channelType = movieChannel ? forumChannels.getChannelTypeString(movieChannel) : 'Unknown';
 
     const successMessage = thread
-      ? `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added as a new forum post in ${movieChannel} for voting and discussion.`
-      : `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added to the queue in ${movieChannel} for voting.`;
+      ? `✅ **Content recommendation added!**\n\n🍿 **${title}** has been added as a new forum post in ${movieChannel} for voting and discussion.`
+      : `✅ **Content recommendation added!**\n\n🍿 **${title}** has been added to the queue in ${movieChannel} for voting.`;
 
     let ephemeralMsg;
     if (interaction.deferred || interaction.replied) {

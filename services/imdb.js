@@ -84,7 +84,73 @@ async function searchContent(title) {
 }
 
 /**
- * Enhanced search with fuzzy matching and spell checking suggestions (movies and TV shows)
+ * Parse episode information from title
+ * Supports formats like "Show Name S1E1", "Show Name Season 1 Episode 1", "Show Name 1x01", "Show Name Episode 101"
+ */
+function parseEpisodeInfo(title) {
+  const episodePatterns = [
+    // S1E1, S01E01, s1e1 format
+    /^(.+?)\s+[Ss](\d+)[Ee](\d+)(?:\s|$)/,
+    // Season 1 Episode 1 format
+    /^(.+?)\s+[Ss]eason\s+(\d+)\s+[Ee]pisode\s+(\d+)(?:\s|$)/i,
+    // 1x01, 1x1 format
+    /^(.+?)\s+(\d+)x(\d+)(?:\s|$)/,
+    // Episode 101, Episode 302 format (season + episode as 3 digits)
+    /^(.+?)\s+[Ee]pisode\s+(\d)(\d{2})(?:\s|$)/,
+    // Ep 101, Ep302 format
+    /^(.+?)\s+[Ee]p\s*(\d)(\d{2})(?:\s|$)/,
+    // Show Name - 302 format
+    /^(.+?)\s*-\s*(\d)(\d{2})(?:\s|$)/
+  ];
+
+  for (const pattern of episodePatterns) {
+    const match = title.match(pattern);
+    if (match) {
+      const [, showName, season, episode] = match;
+      return {
+        isEpisode: true,
+        showName: showName.trim(),
+        season: parseInt(season),
+        episode: parseInt(episode),
+        originalTitle: title
+      };
+    }
+  }
+
+  return { isEpisode: false, originalTitle: title };
+}
+
+/**
+ * Search for a specific TV episode using OMDb API
+ */
+async function searchEpisode(showName, season, episode) {
+  if (!OMDB_API_KEY) {
+    console.warn('⚠️ OMDB_API_KEY not set - IMDb features disabled');
+    return null;
+  }
+
+  try {
+    const url = `http://www.omdbapi.com/?apikey=${OMDB_API_KEY}&t=${encodeURIComponent(showName)}&Season=${season}&Episode=${episode}`;
+    console.log(`🔍 Searching for episode: ${showName} S${season}E${episode}`);
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.Response === 'True') {
+      console.log(`✅ Found episode: ${data.Title} (${data.Year})`);
+      return data;
+    } else {
+      console.log(`❌ Episode not found: ${data.Error || 'Unknown error'}`);
+      return null;
+    }
+  } catch (error) {
+    console.error('Error searching for episode:', error.message);
+    return null;
+  }
+}
+
+/**
+ * Enhanced search with fuzzy matching and spell checking suggestions (movies, TV shows, and episodes)
  */
 async function searchContentWithSuggestions(title) {
   if (!OMDB_API_KEY) {
@@ -93,6 +159,37 @@ async function searchContentWithSuggestions(title) {
   }
 
   try {
+    // Check if this looks like an episode request
+    const episodeInfo = parseEpisodeInfo(title);
+
+    if (episodeInfo.isEpisode) {
+      console.log(`🔍 Detected episode request: ${episodeInfo.showName} S${episodeInfo.season}E${episodeInfo.episode}`);
+
+      // Search for the specific episode
+      const episodeResult = await searchEpisode(episodeInfo.showName, episodeInfo.season, episodeInfo.episode);
+      if (episodeResult) {
+        return {
+          results: [episodeResult],
+          suggestions: [],
+          isEpisode: true,
+          episodeInfo: episodeInfo
+        };
+      }
+
+      // If episode not found, try searching for the show itself
+      console.log(`❌ Episode not found, searching for show: ${episodeInfo.showName}`);
+      const showResults = await searchContent(episodeInfo.showName, 'series');
+      if (showResults && showResults.length > 0) {
+        return {
+          results: showResults,
+          suggestions: [],
+          isEpisode: false,
+          episodeInfo: episodeInfo,
+          episodeNotFound: true
+        };
+      }
+    }
+
     // First, try exact search for both movies and series
     const exactResults = await searchContent(title);
     if (exactResults && exactResults.length > 0) {
@@ -406,6 +503,8 @@ module.exports = {
   searchContent,
   searchMovieWithSuggestions,
   searchContentWithSuggestions,
+  searchEpisode,
+  parseEpisodeInfo,
   getMovieDetails,
   getContentDetails,
   getSeasonDetails,

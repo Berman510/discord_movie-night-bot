@@ -94,9 +94,9 @@ function createSessionEmbed(session, movie = null) {
   }
 
   if (movie) {
-    embed.addFields({ 
-      name: '🎬 Featured Movie', 
-      value: `**${movie.title}**\n📺 ${movie.where_to_watch}` 
+    embed.addFields({
+      name: '🎬 Featured Content',
+      value: `**${movie.title}**\n📺 ${movie.where_to_watch}`
     });
   }
 
@@ -150,7 +150,7 @@ function createQuickActionEmbed(activeSession = null) {
       description += `${activeSession.description}\n\n`;
     }
 
-    description += 'Click the button below to recommend a movie for this voting session!';
+    description += 'Click the button below to recommend content for this voting session!';
 
     // Add event link if available
     if (activeSession.discord_event_id) {

@@ -146,7 +146,7 @@ async function handleWatchPartyQueue(interaction) {
       }
 
       await interaction.reply({
-        content: '📋 **No active voting session**\n\nThere are currently no movies in the queue. An admin needs to use the "Plan Next Session" button in the admin channel to start a new voting session before movies can be recommended.',
+        content: '📋 **No active voting session**\n\nThere is currently no content in the queue. An admin needs to use the "Plan Next Session" button in the admin channel to start a new voting session before content can be recommended.',
         flags: MessageFlags.Ephemeral
       });
       return;
@@ -169,7 +169,7 @@ async function handleWatchPartyQueue(interaction) {
 
     const embed = new EmbedBuilder()
       .setTitle(`🍿 ${activeSession.name}`)
-      .setDescription(`Showing ${movies.length} movie recommendations for this voting session${channelTypeNote}`)
+      .setDescription(`Showing ${movies.length} content recommendations for this voting session${channelTypeNote}`)
       .setColor(0x5865f2);
 
     if (activeSession.scheduled_date) {
@@ -195,7 +195,7 @@ async function handleWatchPartyQueue(interaction) {
       });
     });
 
-    embed.setFooter({ text: 'Vote on movies in the voting channel!' });
+    embed.setFooter({ text: 'Vote on content in the voting channel!' });
 
     await interaction.reply({
       embeds: [embed],

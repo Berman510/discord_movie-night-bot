@@ -777,13 +777,13 @@ async function handleCreateRecommendation(interaction) {
 
   const modal = new ModalBuilder()
     .setCustomId('mn:modal')
-    .setTitle('Recommend Movie');
+    .setTitle('🎬 Recommend Content');
 
   const titleInput = new TextInputBuilder()
     .setCustomId('mn:title')
-    .setLabel('Movie Title')
+    .setLabel('Movie or TV Show Title')
     .setStyle(TextInputStyle.Short)
-    .setPlaceholder('e.g., The Matrix')
+    .setPlaceholder('e.g., The Matrix, Breaking Bad S1E1, The Office')
     .setRequired(true);
 
   const whereInput = new TextInputBuilder()
