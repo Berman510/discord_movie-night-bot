@@ -105,28 +105,28 @@ function createSessionEmbed(session, movie = null) {
 
 function createHelpEmbed() {
   const embed = new EmbedBuilder()
-    .setTitle('🎬 Movie Night Bot - Quick Guide')
-    .setDescription('Organize movie nights with voting, discussions, and scheduling!')
+    .setTitle('🎪 Watch Party Bot - Quick Guide')
+    .setDescription('Organize watch parties with voting, discussions, and scheduling!')
     .setColor(COLORS.primary)
     .addFields(
       {
         name: '🍿 Basic Commands',
-        value: '`/movie-night` - Recommend a movie\n`/movie-queue` - View current recommendations\n`/movie-help` - Show this help',
+        value: '`/watchparty` - Recommend content\n`/watchparty-queue` - View current recommendations\n`/watchparty-help` - Show this help',
         inline: false
       },
       {
-        name: '🎪 Movie Sessions',
-        value: '`/movie-session create` - Create interactive movie night events\n`/movie-session list` - View active sessions with details\n`/movie-session join [id]` - Join a session and get updates\n`/movie-session add-movie [id] [title]` - Add movie to session\n`/movie-session winner` - Pick top-voted movie',
+        name: '🎪 Watch Party Sessions',
+        value: '`/watchparty create-session` - Create interactive watch party events\n`/watchparty list-sessions` - View active sessions with details\n`/watchparty join-session [id]` - Join a session and get updates\n`/watchparty add-content [id] [title]` - Add content to session\n`/watchparty pick-winner` - Pick top-voted content',
         inline: false
       },
       {
         name: '📊 Statistics',
-        value: '`/movie-stats` - View voting statistics and history',
+        value: '`/watchparty stats` - View voting statistics and history',
         inline: false
       },
       {
         name: '⚙️ Admin Commands',
-        value: '`/movie-configure` - Configure movie channel and admin roles\n`/movie-cleanup` - Update old messages and create missing threads',
+        value: '`/watchparty configure` - Configure channels and admin roles\n`/watchparty-setup` - Interactive guided setup',
         inline: false
       },
       {
@@ -135,7 +135,7 @@ function createHelpEmbed() {
         inline: false
       }
     )
-    .setFooter({ text: `Movie Night Bot v${BOT_VERSION}` })
+    .setFooter({ text: `Watch Party Bot v${BOT_VERSION}` })
     .setTimestamp();
 
   return embed;
@@ -199,15 +199,15 @@ function createQuickActionEmbed(activeSession = null) {
 
 function createNoSessionEmbed() {
   const embed = new EmbedBuilder()
-    .setTitle('🎬 No Active Voting Session')
-    .setDescription('Movie recommendations are currently not available. An admin needs to start a new voting session using the "Plan Next Session" button in the admin channel.')
+    .setTitle('🎪 No Active Voting Session')
+    .setDescription('Content recommendations are currently not available. An admin needs to start a new voting session using the "Plan Next Session" button in the admin channel.')
     .setColor(COLORS.warning)
     .addFields({
       name: '🔧 For Admins',
       value: 'Use the admin channel controls to plan the next voting session.',
       inline: false
     })
-    .setFooter({ text: 'Use /movie-help for detailed commands and features' });
+    .setFooter({ text: 'Use /watchparty-help for detailed commands and features' });
 
   return embed;
 }

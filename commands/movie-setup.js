@@ -1,12 +1,12 @@
 /**
- * Movie Setup Commands
+ * Watch Party Setup Commands
  * Interactive guided configuration for easy bot setup
  */
 
 const commands = [
   {
-    name: 'movienight-setup',
-    description: '🎬 Interactive bot setup - configure your Movie Night Bot easily!'
+    name: 'watchparty-setup',
+    description: '🎪 Interactive bot setup - configure your Watch Party Bot easily!'
   }
 ];
 

@@ -1,7 +1,7 @@
 {
-  "name": "movie-night-bot",
+  "name": "watch-party-bot",
   "version": "1.16.0-rc1",
-  "description": "Discord bot for creating movie night recommendations with voting, threads, IMDb enrichment, and forum support.",
+  "description": "Discord bot for creating watch party recommendations with voting, threads, IMDb enrichment, and forum support for movies and TV shows.",
   "main": "index.js",
   "license": "MIT",
   "scripts": {

@@ -1,5 +1,5 @@
 /**
- * Unified Movie Night Commands
+ * Unified Watch Party Commands
  * Single command with all functionality for better discoverability
  */
 
@@ -7,8 +7,8 @@ const { TIMEZONE_OPTIONS } = require('../config/timezones');
 
 const commands = [
   {
-    name: 'movienight',
-    description: 'All Movie Night Bot commands in one place',
+    name: 'watchparty',
+    description: 'All Watch Party Bot commands in one place',
     options: [
       {
         name: 'action',
@@ -126,8 +126,8 @@ const commands = [
     ]
   },
   {
-    name: 'movienight-queue',
-    description: 'View current movie recommendations and voting status'
+    name: 'watchparty-queue',
+    description: 'View current content recommendations and voting status'
   },
 
 ];

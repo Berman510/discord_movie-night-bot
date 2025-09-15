@@ -14,35 +14,35 @@ async function handleSlashCommand(interaction) {
 
   try {
     switch (commandName) {
-      case 'movienight':
-        await handleMovieNight(interaction);
-        break;
-      
-      case 'movienight-queue':
-        await handleMovieQueue(interaction);
-        break;
-      
-      case 'movienight-configure':
-        await handleMovieConfigure(interaction);
-        break;
-      
-      case 'movienight-setup':
-        await handleMovieSetup(interaction);
+      case 'watchparty':
+        await handleWatchParty(interaction);
         break;
 
-      case 'movienight-watched':
-        await handleMovieWatched(interaction);
+      case 'watchparty-queue':
+        await handleWatchPartyQueue(interaction);
         break;
 
-      case 'movienight-skip':
-        await handleMovieSkip(interaction);
+      case 'watchparty-configure':
+        await handleWatchPartyConfigure(interaction);
         break;
 
-      case 'movienight-plan':
-        await handleMoviePlan(interaction);
+      case 'watchparty-setup':
+        await handleWatchPartySetup(interaction);
         break;
 
-      case 'movienight-debug-config':
+      case 'watchparty-watched':
+        await handleWatchPartyWatched(interaction);
+        break;
+
+      case 'watchparty-skip':
+        await handleWatchPartySkip(interaction);
+        break;
+
+      case 'watchparty-plan':
+        await handleWatchPartyPlan(interaction);
+        break;
+
+      case 'watchparty-debug-config':
         await handleDebugConfig(interaction);
         break;
 
@@ -64,8 +64,8 @@ async function handleSlashCommand(interaction) {
   }
 }
 
-// Movie recommendation command handler
-async function handleMovieNight(interaction) {
+// Content recommendation command handler
+async function handleWatchParty(interaction) {
   // First check if bot is configured
   const configCheck = require('../utils/config-check');
   const configStatus = await configCheck.checkConfiguration(interaction.guild.id);
@@ -81,7 +81,7 @@ async function handleMovieNight(interaction) {
 
   if (!activeSession) {
     await interaction.reply({
-      content: '❌ **No active voting session**\n\nContent recommendations are only available during active voting sessions. An admin needs to use the "Plan Next Session" button in the admin channel to start a new voting session.\n\n💡 **Tip:** Use `/movienight-setup` for easy bot configuration.',
+      content: '❌ **No active voting session**\n\nContent recommendations are only available during active voting sessions. An admin needs to use the "Plan Next Session" button in the admin channel to start a new voting session.\n\n💡 **Tip:** Use `/watchparty-setup` for easy bot configuration.',
       flags: MessageFlags.Ephemeral
     });
     return;
@@ -114,7 +114,7 @@ async function handleMovieNight(interaction) {
   await interaction.showModal(modal);
 }
 
-async function handleMovieQueue(interaction) {
+async function handleWatchPartyQueue(interaction) {
   try {
     // Check for active voting session
     const activeSession = await database.getActiveVotingSession(interaction.guild.id);
@@ -156,7 +156,7 @@ async function handleMovieQueue(interaction) {
 
     if (!movies || movies.length === 0) {
       await interaction.reply({
-        content: `📋 **${activeSession.name}** - No movies yet!\n\nUse \`/movienight\` to add some recommendations for this voting session.`,
+        content: `📋 **${activeSession.name}** - No content yet!\n\nUse \`/watchparty\` to add some recommendations for this voting session.`,
         flags: MessageFlags.Ephemeral
       });
       return;
@@ -539,10 +539,26 @@ async function handleDebugSession(interaction) {
   }
 }
 
+// Create aliases for renamed functions to maintain compatibility
+const handleWatchPartyConfigure = handleMovieConfigure;
+const handleWatchPartySetup = handleMovieSetup;
+const handleWatchPartyWatched = handleMovieWatched;
+const handleWatchPartySkip = handleMovieSkip;
+const handleWatchPartyPlan = handleMoviePlan;
+
 module.exports = {
   handleSlashCommand,
-  handleMovieNight,
-  handleMovieQueue,
+  // New watch party function names
+  handleWatchParty,
+  handleWatchPartyQueue,
+  handleWatchPartyConfigure,
+  handleWatchPartySetup,
+  handleWatchPartyWatched,
+  handleWatchPartySkip,
+  handleWatchPartyPlan,
+  // Legacy function names for backward compatibility
+  handleMovieNight: handleWatchParty,
+  handleMovieQueue: handleWatchPartyQueue,
   handleMovieHelp,
   handleMovieConfigure,
   handleMovieCleanup,

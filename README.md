@@ -1,36 +1,36 @@
-# Movie Night Bot
+# Watch Party Bot
 
 [![GitHub release (latest by date)](https://img.shields.io/github/v/release/Berman510/discord_movie-night-bot)](https://github.com/Berman510/discord_movie-night-bot/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
 
-A comprehensive Discord bot for managing movie recommendations, voting, and organized movie night sessions. Features persistent voting, IMDb integration, session scheduling with Discord events, comprehensive movie night statistics, and full dashboard integration.
+A comprehensive Discord bot for managing movie and TV show recommendations, voting, and organized watch party sessions. Features persistent voting, IMDb integration, session scheduling with Discord events, comprehensive watch party statistics, and full dashboard integration.
 
 > **🏗️ Modular Architecture**: Clean, maintainable codebase with separation of concerns. See [ARCHITECTURE.md](ARCHITECTURE.md) for technical details.
 > **🌐 Dashboard Integration**: Real-time WebSocket communication with the Movie Night Dashboard for web-based management.
 ## 🚀 Quick Start
 
 1. Invite the bot to your server (scopes: bot + applications.commands; see invite template below).
-2. Run `/movienight-setup` and configure:
-   - Movie Channel (recommendations)
+2. Run `/watchparty-setup` and configure:
+   - Content Channel (recommendations)
    - Admin Channel (management)
    - Watch Party Channel (Discord Events + attendance tracking)
    - Voting Roles and Vote Caps
-3. Plan your first session with `/movienight-plan` (Name, Date, Start Time, optional Voting End, Description).
+3. Plan your first session with `/watchparty create-session` (Name, Date, Start Time, optional Voting End, Description).
    - If you omit Voting End, it defaults to 1 hour before the session start.
-4. Members recommend via `/movienight`; everyone with permission can vote using the buttons on each movie post.
-5. Admins can open `/movienight-admin-panel` to manage sessions (Plan/Reschedule, Pick Winner, Skip, Sync/Refresh).
-6. Optional: Use the [Movie Night Dashboard](https://github.com/Berman510/movienight-dashboard) for web-based management with real-time updates.
+4. Members recommend via `/watchparty`; everyone with permission can vote using the buttons on each content post.
+5. Admins can open the admin panel to manage sessions (Plan/Reschedule, Pick Winner, Skip, Sync/Refresh).
+6. Optional: Use the [Watch Party Dashboard](https://github.com/Berman510/movienight-dashboard) for web-based management with real-time updates.
 
 
 ## ✨ Key Features
 
-### 🍿 **Movie Recommendations**
-- **IMDb Integration**: Automatic movie data fetching with posters, ratings, and details
-- **Smart Duplicate Detection**: Warns when movies have been previously recommended
+### 🍿 **Content Recommendations**
+- **IMDb Integration**: Automatic movie and TV show data fetching with posters, ratings, and details
+- **Smart Duplicate Detection**: Warns when content has been previously recommended
 - **Persistent Voting**: Real-time vote counting with button persistence
-- **Status Tracking**: Movies progress through pending → planned → watched/skipped
-- **Discussion Threads**: Automatic thread creation for movie discussions
+- **Status Tracking**: Content progresses through pending → planned → watched/skipped
+- **Discussion Threads**: Automatic thread creation for content discussions
 
 ### 🗳️ **Advanced Voting System**
 - **Automatic Voting Closure**: Sessions automatically close at scheduled times with winner selection

@@ -1,4 +1,4 @@
-# Movie Night Bot – Roadmap
+# Watch Party Bot – Roadmap
 
 This document captures planned features, technical improvements, and operational work that were previously listed as an ad‑hoc TODO in the README. It reflects intent rather than a strict promise; priorities can change based on feedback.
 

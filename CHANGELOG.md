@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to **Movie Night Bot** will be documented in this file.
+All notable changes to **Watch Party Bot** will be documented in this file.
 
 ## [1.16.0-rc1] - 2025-09-15
 
@@ -19,6 +19,13 @@ All notable changes to **Movie Night Bot** will be documented in this file.
   - Database schema updated to store content type and season information
   - Unified content search across both movies and TV shows
 
+- **Complete Rebranding to "Watch Party"**: Comprehensive rebrand from "Movie Night" to "Watch Party"
+  - Updated all command names: `/movienight` → `/watchparty`, `/movienight-setup` → `/watchparty-setup`
+  - Refreshed user interface text and embed titles throughout the bot
+  - Updated documentation, README, and package.json to reflect new branding
+  - Enhanced terminology: "movie recommendations" → "content recommendations"
+  - Modernized bot identity to better reflect expanded TV show support
+
 ### 🔧 Technical Improvements
 - Added `fuse.js` dependency for advanced fuzzy matching capabilities
 - Enhanced IMDb service with `searchContentWithSuggestions()` and `searchContent()` functions
@@ -26,6 +33,7 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - Database migration (31) adds TV show support fields to movies table
 - Updated embed formatting to handle both movies and TV series
 - Improved error handling and user feedback for failed searches
+- Comprehensive command and interface rebranding across all modules
 
 ## [1.15.1] - 2025-09-14
 
