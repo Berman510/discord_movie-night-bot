@@ -716,6 +716,11 @@ async function ensureRecommendationPost(channel, activeSession = null) {
       content_type: activeSession.content_type
     } : 'null', guildId);
 
+    // DEBUG: Log stack trace to identify caller
+    const stack = new Error().stack;
+    const caller = stack.split('\n')[2]?.trim() || 'unknown';
+    logger.debug(`📋 CALLER TRACE: ${caller}`, guildId);
+
     // BETTER APPROACH: Use channel.threads.fetchActive with force refresh and check each thread individually
     logger.debug(`📋 Fetching threads to find pinned posts...`, guildId);
 
