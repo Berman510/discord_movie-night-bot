@@ -49,8 +49,31 @@ class Database {
         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('watch_sessions', 'movie_sessions')
       `);
 
-      // Prefer watch_sessions if it exists, fall back to movie_sessions
-      this._sessionsTableName = tables.find(t => t.TABLE_NAME === 'watch_sessions') ? 'watch_sessions' : 'movie_sessions';
+      const hasWatchSessions = tables.some(t => t.TABLE_NAME === 'watch_sessions');
+      const hasMovieSessions = tables.some(t => t.TABLE_NAME === 'movie_sessions');
+
+      if (hasWatchSessions && hasMovieSessions) {
+        // Both exist - check which has data and use that one
+        const [watchCount] = await this.pool.execute('SELECT COUNT(*) as count FROM watch_sessions');
+        const [movieCount] = await this.pool.execute('SELECT COUNT(*) as count FROM movie_sessions');
+
+        if (movieCount[0].count > 0 && watchCount[0].count === 0) {
+          // movie_sessions has data, watch_sessions is empty - use movie_sessions
+          this._sessionsTableName = 'movie_sessions';
+          console.log('🗄️ Using movie_sessions table (has data, watch_sessions empty)');
+        } else {
+          // Use watch_sessions (either has data or both empty)
+          this._sessionsTableName = 'watch_sessions';
+          console.log('🗄️ Using watch_sessions table');
+        }
+      } else if (hasWatchSessions) {
+        this._sessionsTableName = 'watch_sessions';
+      } else if (hasMovieSessions) {
+        this._sessionsTableName = 'movie_sessions';
+      } else {
+        this._sessionsTableName = 'watch_sessions'; // Default for new installations
+      }
+
       return this._sessionsTableName;
     } catch (error) {
       console.warn('Error detecting sessions table name:', error.message);
