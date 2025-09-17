@@ -20,6 +20,8 @@ class Database {
       sessions: [],
       guilds: []
     };
+    this._sessionsTableName = null; // Cache for table name
+
     // Utility: generate a stable UID for a movie title per guild
     this.generateMovieUID = (guildId, title) => {
       const crypto = require('crypto');
@@ -27,6 +29,33 @@ class Database {
       return crypto.createHash('sha256').update(`${guildId}:${normalizedTitle}`).digest('hex');
     };
 
+  }
+
+  /**
+   * Get the correct sessions table name (watch_sessions or movie_sessions for backward compatibility)
+   */
+  async getSessionsTableName() {
+    if (this._sessionsTableName) {
+      return this._sessionsTableName;
+    }
+
+    if (!this.isConnected) {
+      return 'watch_sessions'; // Default for new installations
+    }
+
+    try {
+      const [tables] = await this.pool.execute(`
+        SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('watch_sessions', 'movie_sessions')
+      `);
+
+      // Prefer watch_sessions if it exists, fall back to movie_sessions
+      this._sessionsTableName = tables.find(t => t.TABLE_NAME === 'watch_sessions') ? 'watch_sessions' : 'movie_sessions';
+      return this._sessionsTableName;
+    } catch (error) {
+      console.warn('Error detecting sessions table name:', error.message);
+      return 'watch_sessions'; // Default fallback
+    }
   }
 
 
@@ -3222,8 +3251,9 @@ class Database {
     if (!this.isConnected) return null;
 
     try {
+      const sessionsTable = await this.getSessionsTableName();
       const [rows] = await this.pool.execute(
-        `SELECT * FROM movie_sessions
+        `SELECT * FROM ${sessionsTable}
          WHERE guild_id = ? AND status = 'voting'
          ORDER BY created_at DESC
          LIMIT 1`,
@@ -3240,8 +3270,9 @@ class Database {
     if (!this.isConnected) return null;
 
     try {
+      const sessionsTable = await this.getSessionsTableName();
       const [result] = await this.pool.execute(
-        `INSERT INTO movie_sessions (guild_id, channel_id, name, description, scheduled_date, voting_end_time, timezone, content_type, status, discord_event_id, created_by)
+        `INSERT INTO ${sessionsTable} (guild_id, channel_id, name, description, scheduled_date, voting_end_time, timezone, content_type, status, discord_event_id, created_by)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'voting', ?, ?)`,
         [
           sessionData.guildId,
@@ -4232,8 +4263,9 @@ class Database {
     if (!this.isConnected) return null;
 
     try {
+      const sessionsTable = await this.getSessionsTableName();
       const [rows] = await this.pool.execute(
-        `SELECT * FROM movie_sessions WHERE id = ?`,
+        `SELECT * FROM ${sessionsTable} WHERE id = ?`,
         [sessionId]
       );
       return rows.length > 0 ? rows[0] : null;
@@ -4264,8 +4296,9 @@ class Database {
     if (!this.isConnected) return [];
 
     try {
+      const sessionsTable = await this.getSessionsTableName();
       const [rows] = await this.pool.execute(
-        `SELECT * FROM movie_sessions WHERE guild_id = ? ORDER BY created_at DESC`,
+        `SELECT * FROM ${sessionsTable} WHERE guild_id = ? ORDER BY created_at DESC`,
         [guildId]
       );
       return rows;

@@ -155,8 +155,65 @@ function getStatusEmoji(status, contentType) {
   }
 }
 
+/**
+ * Channel type definitions and utilities
+ */
+const { ChannelType } = require('discord.js');
+
+const CHANNEL_TYPES = {
+  FORUM: 'forum',
+  TEXT: 'text'
+};
+
+/**
+ * Detect channel type from Discord channel object
+ */
+function detectChannelType(channel) {
+  if (!channel) return null;
+
+  if (channel.type === ChannelType.GuildForum || channel.isThreadOnly?.()) {
+    return CHANNEL_TYPES.FORUM;
+  }
+
+  if (channel.type === ChannelType.GuildText) {
+    return CHANNEL_TYPES.TEXT;
+  }
+
+  return null;
+}
+
+/**
+ * Check if channel is a forum channel
+ */
+function isForumChannel(channel) {
+  return detectChannelType(channel) === CHANNEL_TYPES.FORUM;
+}
+
+/**
+ * Check if channel is a text channel
+ */
+function isTextChannel(channel) {
+  return detectChannelType(channel) === CHANNEL_TYPES.TEXT;
+}
+
+/**
+ * Get channel type display string
+ */
+function getChannelTypeString(channel) {
+  const channelType = detectChannelType(channel);
+  switch (channelType) {
+    case CHANNEL_TYPES.FORUM:
+      return '📋 Forum Channel';
+    case CHANNEL_TYPES.TEXT:
+      return '💬 Text Channel';
+    default:
+      return '❓ Unknown Channel';
+  }
+}
+
 module.exports = {
   CONTENT_TYPES,
+  CHANNEL_TYPES,
   getContentTypeInfo,
   getRecommendationPostContent,
   getSessionDisplayName,
@@ -164,5 +221,9 @@ module.exports = {
   isContentTypeAllowed,
   getContentTable,
   detectContentType,
-  getStatusEmoji
+  getStatusEmoji,
+  detectChannelType,
+  isForumChannel,
+  isTextChannel,
+  getChannelTypeString
 };
