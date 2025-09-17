@@ -170,8 +170,8 @@ class Database {
         INDEX idx_guild_votes (guild_id, vote_type)
       )`,
 
-      // Movie sessions - organized movie nights
-      `CREATE TABLE IF NOT EXISTS movie_sessions (
+      // Watch sessions - organized watch parties (movies, TV shows, mixed)
+      `CREATE TABLE IF NOT EXISTS watch_sessions (
         id INT AUTO_INCREMENT PRIMARY KEY,
         guild_id VARCHAR(20) NOT NULL,
         channel_id VARCHAR(20) NOT NULL,
@@ -180,6 +180,7 @@ class Database {
         scheduled_date DATETIME NULL,
         voting_end_time DATETIME NULL,
         timezone VARCHAR(50) DEFAULT 'UTC',
+        content_type ENUM('movie', 'tv_show', 'mixed') DEFAULT 'movie',
         /* kept for backward compatibility with older code paths; not used by current code */
         voting_deadline DATETIME NULL,
         status ENUM('planning', 'voting', 'decided', 'completed', 'cancelled') DEFAULT 'planning',
@@ -391,15 +392,24 @@ class Database {
       logger.warn('initializeTables ensure vote cap columns warning:', e.message);
     }
 
-    // Ensure content_type column exists in movie_sessions
+    // Ensure content_type column exists in watch_sessions (or movie_sessions for backward compatibility)
     try {
+      // Check if we have the new table name
+      const [tables] = await this.pool.execute(`
+        SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('watch_sessions', 'movie_sessions')
+      `);
+
+      const tableName = tables.find(t => t.TABLE_NAME === 'watch_sessions') ? 'watch_sessions' : 'movie_sessions';
+
       const [ctCols] = await this.pool.execute(`
         SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'movie_sessions' AND COLUMN_NAME = 'content_type'
-      `);
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = 'content_type'
+      `, [tableName]);
+
       if (ctCols.length === 0) {
-        await this.pool.execute(`ALTER TABLE movie_sessions ADD COLUMN content_type ENUM('movie', 'tv_show', 'mixed') DEFAULT 'movie' AFTER timezone`);
-        logger.debug('✅ Added content_type column via initializeTables');
+        await this.pool.execute(`ALTER TABLE ${tableName} ADD COLUMN content_type ENUM('movie', 'tv_show', 'mixed') DEFAULT 'movie' AFTER timezone`);
+        logger.debug(`✅ Added content_type column to ${tableName} via initializeTables`);
       }
     } catch (e) {
       logger.warn('initializeTables ensure content_type warning:', e.message);
@@ -2052,6 +2062,26 @@ class Database {
       } catch (e) {
         const logger = require('./utils/logger');
         logger.warn('Migration 33 warning:', e.message);
+      }
+
+      // Migration 34: Rename movie_sessions to watch_sessions
+      try {
+        // Check if watch_sessions already exists
+        const [tables] = await this.pool.execute(`
+          SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'watch_sessions'
+        `);
+
+        if (tables.length === 0) {
+          // Rename the table
+          await this.pool.execute(`RENAME TABLE movie_sessions TO watch_sessions`);
+
+          const logger = require('./utils/logger');
+          logger.debug('✅ Migration 34: Renamed movie_sessions to watch_sessions');
+        }
+      } catch (e) {
+        const logger = require('./utils/logger');
+        logger.warn('Migration 34 warning:', e.message);
       }
 
       logger.info('✅ Database migrations completed');
