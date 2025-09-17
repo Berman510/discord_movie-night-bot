@@ -4,6 +4,7 @@
  */
 
 const { ChannelType, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const contentTypes = require('../utils/content-types');
 
 // Simple debounce mechanism to prevent multiple rapid calls
 const ensureRecommendationPostDebounce = new Map();
@@ -868,30 +869,10 @@ async function ensureRecommendationPost(channel, activeSession = null) {
 
     // Active session - edit pinned post to show recommendation with content-specific messaging
     const contentType = activeSession.content_type || 'movie';
-    const isMovieSession = contentType === 'movie';
-    const isTVSession = contentType === 'tv_show';
-    const isMixedSession = contentType === 'mixed';
+    logger.debug(`📋 Content type determination: content_type=${contentType}`, guildId);
 
-    logger.debug(`📋 Content type determination: content_type=${contentType}, isMovie=${isMovieSession}, isTV=${isTVSession}, isMixed=${isMixedSession}`, guildId);
-
-    let title, description, buttonLabel, buttonEmoji;
-
-    if (isMovieSession) {
-      title = '🍿 Recommend Movies';
-      description = `**Current Session:** ${activeSession.name}\n\n🍿 Click the button below to recommend movies!\n\n📝 Each movie gets its own thread for voting and discussion.\n\n🗳️ Voting ends: <t:${Math.floor(new Date(activeSession.voting_end_time).getTime() / 1000)}:R>`;
-      buttonLabel = '🍿 Recommend Movie';
-      buttonEmoji = '🍿';
-    } else if (isTVSession) {
-      title = '📺 Recommend TV Shows';
-      description = `**Current Session:** ${activeSession.name}\n\n📺 Click the button below to recommend TV shows or episodes!\n\n📝 Each recommendation gets its own thread for voting and discussion.\n\n🗳️ Voting ends: <t:${Math.floor(new Date(activeSession.voting_end_time).getTime() / 1000)}:R>`;
-      buttonLabel = '📺 Recommend TV Show';
-      buttonEmoji = '📺';
-    } else {
-      title = '🎬 Recommend Content';
-      description = `**Current Session:** ${activeSession.name}\n\n🎬 Click the button below to recommend movies or TV shows!\n\n📝 Each recommendation gets its own thread for voting and discussion.\n\n🗳️ Voting ends: <t:${Math.floor(new Date(activeSession.voting_end_time).getTime() / 1000)}:R>`;
-      buttonLabel = '🎬 Recommend Content';
-      buttonEmoji = '🎬';
-    }
+    // Use content-type utilities for dynamic content
+    const { title, description, buttonLabel, buttonEmoji } = contentTypes.getRecommendationPostContent(activeSession);
 
     const recommendEmbed = new EmbedBuilder()
       .setTitle(title)

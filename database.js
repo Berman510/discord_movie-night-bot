@@ -2144,8 +2144,26 @@ class Database {
           await this.pool.execute(`RENAME TABLE movie_sessions TO watch_sessions`);
           logger.debug('✅ Migration 34: Renamed movie_sessions to watch_sessions (data preserved)');
         } else if (hasMovieSessions && hasWatchSessions) {
-          // Both exist - this shouldn't happen, but let's be safe
-          logger.warn('Migration 34: Both movie_sessions and watch_sessions exist - manual intervention needed');
+          // Both exist - check which has data and drop the empty one
+          const [watchCount] = await this.pool.execute('SELECT COUNT(*) as count FROM watch_sessions');
+          const [movieCount] = await this.pool.execute('SELECT COUNT(*) as count FROM movie_sessions');
+
+          if (movieCount[0].count > 0 && watchCount[0].count === 0) {
+            // movie_sessions has data, watch_sessions is empty - drop watch_sessions
+            await this.pool.execute('DROP TABLE watch_sessions');
+            logger.debug('✅ Migration 34: Dropped empty watch_sessions table, keeping movie_sessions with data');
+          } else if (watchCount[0].count > 0 && movieCount[0].count === 0) {
+            // watch_sessions has data, movie_sessions is empty - drop movie_sessions
+            await this.pool.execute('DROP TABLE movie_sessions');
+            logger.debug('✅ Migration 34: Dropped empty movie_sessions table, keeping watch_sessions with data');
+          } else if (movieCount[0].count === 0 && watchCount[0].count === 0) {
+            // Both empty - drop watch_sessions, keep movie_sessions for compatibility
+            await this.pool.execute('DROP TABLE watch_sessions');
+            logger.debug('✅ Migration 34: Both tables empty, dropped watch_sessions, keeping movie_sessions');
+          } else {
+            // Both have data - this is a real conflict, needs manual intervention
+            logger.warn('Migration 34: Both movie_sessions and watch_sessions have data - manual intervention needed');
+          }
         } else if (!hasMovieSessions && !hasWatchSessions) {
           // Neither exists - fresh install, watch_sessions will be created by table creation
           logger.debug('Migration 34: Fresh install - watch_sessions will be created');

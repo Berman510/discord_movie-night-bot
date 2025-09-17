@@ -5,6 +5,7 @@
 
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
 const database = require('../database');
+const contentTypes = require('../utils/content-types');
 
 /**
  * Create the admin control panel embed
@@ -23,9 +24,8 @@ async function createAdminControlEmbed(guildName, guildId) {
       const client = global.discordClient;
       const channel = await client.channels.fetch(config.movie_channel_id).catch(() => null);
       if (channel) {
-        const { ChannelType } = require('discord.js');
-        const channelType = channel.type === ChannelType.GuildForum ? '📋 Forum Channel' : '💬 Text Channel';
-        channelInfo = `**Voting Channel:** ${channelType} <#${channel.id}>`;
+        const channelTypeString = contentTypes.getChannelTypeString(channel);
+        channelInfo = `**Voting Channel:** ${channelTypeString} <#${channel.id}>`;
       } else {
         channelInfo = '**Voting Channel:** ❌ Channel not found';
       }
