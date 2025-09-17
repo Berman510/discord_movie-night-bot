@@ -608,6 +608,7 @@ async function createVotingSession(interaction, state) {
     // Handle carryover content from previous session (content-type aware)
     try {
       let carryoverContent = [];
+      const contentType = state.contentType || 'movie';
 
       // Get carryover content based on session content type
       if (contentType === 'movie') {

@@ -2176,6 +2176,28 @@ class Database {
         logger.warn('Migration 34 warning:', e.message);
       }
 
+      // Migration 35: Add missing next_session column to tv_shows table
+      try {
+        const [columns] = await this.pool.execute(`
+          SELECT COLUMN_NAME FROM information_schema.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'tv_shows' AND COLUMN_NAME = 'next_session'
+        `);
+
+        if (columns.length === 0) {
+          await this.pool.execute(`
+            ALTER TABLE tv_shows ADD COLUMN next_session BOOLEAN DEFAULT FALSE
+          `);
+          const logger = require('./utils/logger');
+          logger.debug('✅ Migration 35: Added next_session column to tv_shows table');
+        } else {
+          const logger = require('./utils/logger');
+          logger.debug('✅ Migration 35: next_session column already exists in tv_shows table');
+        }
+      } catch (error) {
+        const logger = require('./utils/logger');
+        logger.warn('Migration 35 warning:', error.message);
+      }
+
       logger.info('✅ Database migrations completed');
 
   }
@@ -2552,10 +2574,21 @@ class Database {
     if (!this.isConnected) return { up: 0, down: 0, voters: { up: [], down: [] } };
 
     try {
-      const [rows] = await this.pool.execute(
+      // Try movies table first
+      const [movieRows] = await this.pool.execute(
         `SELECT vote_type, user_id FROM votes WHERE message_id = ?`,
         [messageId]
       );
+
+      // If no votes found in movies table, try TV shows table
+      let rows = movieRows;
+      if (movieRows.length === 0) {
+        const [tvRows] = await this.pool.execute(
+          `SELECT vote_type, user_id FROM votes_tv WHERE message_id = ?`,
+          [messageId]
+        );
+        rows = tvRows;
+      }
 
       const up = rows.filter(r => r.vote_type === 'up');
       const down = rows.filter(r => r.vote_type === 'down');
