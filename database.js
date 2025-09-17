@@ -32,63 +32,12 @@ class Database {
   }
 
   /**
-   * Get the correct sessions table name (watch_sessions or movie_sessions for backward compatibility)
+   * Get the correct sessions table name (always watch_sessions after Migration 36)
    */
   async getSessionsTableName() {
-    if (this._sessionsTableName) {
-      console.log(`🗄️ Using cached table name: ${this._sessionsTableName}`);
-      return this._sessionsTableName;
-    }
-
-    if (!this.isConnected) {
-      console.log('🗄️ Not connected - defaulting to watch_sessions');
-      return 'watch_sessions'; // Default for new installations
-    }
-
-    try {
-      console.log('🗄️ Detecting sessions table name...');
-      const [tables] = await this.pool.execute(`
-        SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
-        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('watch_sessions', 'movie_sessions')
-      `);
-
-      const hasWatchSessions = tables.some(t => t.TABLE_NAME === 'watch_sessions');
-      const hasMovieSessions = tables.some(t => t.TABLE_NAME === 'movie_sessions');
-
-      console.log(`🗄️ Table detection: watch_sessions=${hasWatchSessions}, movie_sessions=${hasMovieSessions}`);
-
-      if (hasWatchSessions && hasMovieSessions) {
-        // Both exist - check which has data and use that one
-        const [watchCount] = await this.pool.execute('SELECT COUNT(*) as count FROM watch_sessions');
-        const [movieCount] = await this.pool.execute('SELECT COUNT(*) as count FROM movie_sessions');
-
-        console.log(`🗄️ Row counts: watch_sessions=${watchCount[0].count}, movie_sessions=${movieCount[0].count}`);
-
-        if (movieCount[0].count > 0 && watchCount[0].count === 0) {
-          // movie_sessions has data, watch_sessions is empty - use movie_sessions
-          this._sessionsTableName = 'movie_sessions';
-          console.log('🗄️ Using movie_sessions table (has data, watch_sessions empty)');
-        } else {
-          // Use watch_sessions (either has data or both empty)
-          this._sessionsTableName = 'watch_sessions';
-          console.log('🗄️ Using watch_sessions table');
-        }
-      } else if (hasWatchSessions) {
-        this._sessionsTableName = 'watch_sessions';
-        console.log('🗄️ Using watch_sessions table (only table available)');
-      } else if (hasMovieSessions) {
-        this._sessionsTableName = 'movie_sessions';
-        console.log('🗄️ Using movie_sessions table (only table available)');
-      } else {
-        this._sessionsTableName = 'watch_sessions'; // Default for new installations
-        console.log('🗄️ No sessions table found - defaulting to watch_sessions');
-      }
-
-      return this._sessionsTableName;
-    } catch (error) {
-      console.warn('Error detecting sessions table name:', error.message);
-      return 'watch_sessions'; // Default fallback
-    }
+    // After Migration 36, we always use watch_sessions
+    console.log('🗄️ Using watch_sessions table (Migration 36 enforced)');
+    return 'watch_sessions';
   }
 
 
@@ -2196,6 +2145,52 @@ class Database {
       } catch (error) {
         const logger = require('./utils/logger');
         logger.warn('Migration 35 warning:', error.message);
+      }
+
+      // Migration 36: FORCE RENAME movie_sessions to watch_sessions (USER REQUIREMENT)
+      try {
+        const logger = require('./utils/logger');
+
+        // Check what tables exist
+        const [tables] = await this.pool.execute(`
+          SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('watch_sessions', 'movie_sessions')
+        `);
+
+        const hasWatchSessions = tables.some(t => t.TABLE_NAME === 'watch_sessions');
+        const hasMovieSessions = tables.some(t => t.TABLE_NAME === 'movie_sessions');
+
+        if (hasMovieSessions && !hasWatchSessions) {
+          // Simple case: just rename
+          await this.pool.execute(`RENAME TABLE movie_sessions TO watch_sessions`);
+          logger.debug('✅ Migration 36: Renamed movie_sessions to watch_sessions');
+        } else if (hasMovieSessions && hasWatchSessions) {
+          // Both exist - FORCE the rename by copying data and dropping movie_sessions
+          const [movieCount] = await this.pool.execute('SELECT COUNT(*) as count FROM movie_sessions');
+          const [watchCount] = await this.pool.execute('SELECT COUNT(*) as count FROM watch_sessions');
+
+          if (movieCount[0].count > 0) {
+            // Copy all data from movie_sessions to watch_sessions
+            await this.pool.execute(`
+              INSERT IGNORE INTO watch_sessions
+              SELECT * FROM movie_sessions
+            `);
+            logger.debug(`✅ Migration 36: Copied ${movieCount[0].count} records from movie_sessions to watch_sessions`);
+          }
+
+          // Always drop movie_sessions table (user requirement)
+          await this.pool.execute('DROP TABLE movie_sessions');
+          logger.debug('✅ Migration 36: Dropped movie_sessions table - now using watch_sessions only');
+        } else if (!hasMovieSessions && hasWatchSessions) {
+          // Already using watch_sessions - perfect
+          logger.debug('✅ Migration 36: Already using watch_sessions table');
+        } else {
+          // Neither exists - fresh install
+          logger.debug('✅ Migration 36: Fresh install - watch_sessions will be created');
+        }
+      } catch (error) {
+        const logger = require('./utils/logger');
+        logger.warn('Migration 36 warning:', error.message);
       }
 
       logger.info('✅ Database migrations completed');
