@@ -515,33 +515,54 @@ async function handleSyncChannel(interaction) {
           // Only recreate voting posts when there is an active session
           const activeSession = await database.getActiveVotingSession(interaction.guild.id);
 
-          let allMovies = [];
+          let allContent = [];
           if (activeSession) {
+            // Get movies
             const movies = await database.getMoviesByStatusExcludingCarryover(interaction.guild.id, 'pending', 50);
             const plannedMovies = await database.getMoviesByStatusExcludingCarryover(interaction.guild.id, 'planned', 50);
             const scheduledMovies = await database.getMoviesByStatusExcludingCarryover(interaction.guild.id, 'scheduled', 50);
-            allMovies = [...movies, ...plannedMovies, ...scheduledMovies];
+            const allMovies = [...movies, ...plannedMovies, ...scheduledMovies];
+
+            // Get TV shows (using similar status filtering)
+            const tvShows = await database.getTVShowsByGuild(interaction.guild.id);
+            const activeTVShows = tvShows.filter(show =>
+              show.status === 'pending' || show.status === 'planned' || show.status === 'scheduled'
+            );
+
+            // Combine all content
+            allContent = [...allMovies, ...activeTVShows];
           }
 
-          for (const movie of allMovies) {
+          for (const content of allContent) {
             try {
-              // Skip movies with purged message IDs - they need proper recreation
-              if (movie.message_id && movie.message_id.startsWith('purged_')) {
-                console.log(`⏭️ Skipping purged movie for voting sync: ${movie.title}`);
+              // Skip content with purged message IDs - they need proper recreation
+              if (content.message_id && content.message_id.startsWith('purged_')) {
+                console.log(`⏭️ Skipping purged content for voting sync: ${content.title}`);
                 continue;
               }
 
+              const isTV = content.show_type !== undefined; // TV shows have show_type field
+
               if (forumChannels.isForumChannel(votingChannel)) {
                 // For forum channels, create/update forum posts
-                await syncForumMoviePost(votingChannel, movie);
+                if (isTV) {
+                  await syncForumTVShowPost(votingChannel, content);
+                } else {
+                  await syncForumMoviePost(votingChannel, content);
+                }
               } else {
                 // For text channels, use existing cleanup logic
                 const cleanup = require('./cleanup');
-                await cleanup.recreateMoviePost(votingChannel, movie);
+                if (isTV) {
+                  // TODO: Add TV show support for text channels if needed
+                  console.log(`⏭️ TV show text channel sync not yet implemented: ${content.title}`);
+                } else {
+                  await cleanup.recreateMoviePost(votingChannel, content);
+                }
               }
               votingSynced++;
             } catch (error) {
-              console.warn(`Failed to recreate voting post for ${movie.title}:`, error.message);
+              console.warn(`Failed to recreate voting post for ${content.title}:`, error.message);
             }
           }
 
@@ -993,6 +1014,96 @@ async function syncForumMoviePost(forumChannel, movie) {
 }
 
 /**
+ * Sync a TV show post in a forum channel
+ */
+async function syncForumTVShowPost(forumChannel, tvShow) {
+  try {
+    const forumChannels = require('./forum-channels');
+    const { embeds, components } = require('../utils');
+
+    // Check if forum post already exists
+    let existingThread = null;
+    if (tvShow.thread_id) {
+      try {
+        existingThread = await forumChannel.threads.fetch(tvShow.thread_id);
+      } catch (error) {
+        console.log(`Forum thread ${tvShow.thread_id} not found, will create new one`);
+      }
+    }
+
+    if (existingThread) {
+      // Update existing forum post
+
+      const voteCounts = await database.getVoteCounts(tvShow.message_id);
+      // Parse IMDb data (handle single/double-encoded JSON)
+      let imdbData = null;
+      try {
+        if (tvShow.imdb_data) {
+          let parsed = typeof tvShow.imdb_data === 'string' ? JSON.parse(tvShow.imdb_data) : tvShow.imdb_data;
+          if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+          imdbData = parsed;
+        }
+      } catch (e) {
+        console.warn(`Failed to parse IMDb data for ${tvShow.title}:`, e.message);
+      }
+      const tvShowEmbed = embeds.createMovieEmbed(tvShow, imdbData, voteCounts, 'tv_show');
+      const tvShowComponents = components.createVotingButtons(tvShow.message_id, voteCounts.up, voteCounts.down);
+
+      // Update the starter message
+      const starterMessage = await existingThread.fetchStarterMessage();
+      if (starterMessage) {
+        await starterMessage.edit({
+          embeds: [tvShowEmbed],
+          components: tvShowComponents
+        });
+
+        // Update forum post title with vote counts (only for major status changes)
+        await forumChannels.updateForumPostTitle(existingThread, tvShow.title, tvShow.status, voteCounts.up, voteCounts.down);
+
+        console.log(`📝 Updated existing TV show forum post: ${tvShow.title}`);
+      }
+    } else {
+      // Create new forum post
+
+      const voteCounts = await database.getVoteCounts(tvShow.message_id);
+      // Parse IMDb data (handle single/double-encoded JSON)
+      let imdbData = null;
+      try {
+        if (tvShow.imdb_data) {
+          let parsed = typeof tvShow.imdb_data === 'string' ? JSON.parse(tvShow.imdb_data) : tvShow.imdb_data;
+          if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+          imdbData = parsed;
+        }
+      } catch (e) {
+        console.warn(`Failed to parse IMDb data for ${tvShow.title}:`, e.message);
+      }
+      const tvShowEmbed = embeds.createMovieEmbed(tvShow, imdbData, voteCounts, 'tv_show');
+      const tvShowComponents = components.createVotingButtons(tvShow.message_id, voteCounts.up, voteCounts.down);
+
+      const result = await forumChannels.createForumMoviePost(
+        forumChannel,
+        { title: tvShow.title, embed: tvShowEmbed, contentType: 'tv_show' },
+        tvShowComponents
+      );
+
+      const { thread, message } = result;
+
+      // Update database with new thread ID for TV show
+      await database.pool.execute(
+        'UPDATE tv_shows SET thread_id = ? WHERE message_id = ?',
+        [thread.id, tvShow.message_id]
+      );
+
+      console.log(`📝 Created new TV show forum post: ${tvShow.title} (Thread: ${thread.id})`);
+    }
+
+  } catch (error) {
+    console.error(`Error syncing forum TV show post for ${tvShow.title}:`, error);
+    throw error;
+  }
+}
+
+/**
  * Populate forum channel with existing active movies
  */
 async function populateForumChannel(client, guildId) {
@@ -1076,5 +1187,6 @@ module.exports = {
   handleBannedMoviesList,
   handleRefreshPanel,
   syncForumMoviePost,
+  syncForumTVShowPost,
   populateForumChannel
 };
