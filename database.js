@@ -2673,8 +2673,9 @@ class Database {
     if (!this.isConnected) return [];
 
     try {
+      const sessionsTable = await this.getSessionsTableName();
       const [rows] = await this.pool.execute(
-        `SELECT * FROM movie_sessions
+        `SELECT * FROM ${sessionsTable}
          WHERE guild_id = ? AND status = ?
          ORDER BY created_at DESC
          LIMIT ?`,
@@ -2707,11 +2708,13 @@ class Database {
     if (!this.isConnected) return false;
 
     try {
-      await this.pool.execute(
-        `UPDATE movie_sessions SET discord_event_id = ? WHERE id = ?`,
+      const sessionsTable = await this.getSessionsTableName();
+      const [result] = await this.pool.execute(
+        `UPDATE ${sessionsTable} SET discord_event_id = ? WHERE id = ?`,
         [discordEventId, sessionId]
       );
-      return true;
+      console.log(`🗄️ Database: Updated session ${sessionId} with event ID ${discordEventId} - affected rows: ${result.affectedRows}`);
+      return result.affectedRows > 0;
     } catch (error) {
       console.error('Error updating session Discord event:', error.message);
       return false;
@@ -3375,8 +3378,9 @@ class Database {
     if (!this.isConnected) return null;
 
     try {
+      const sessionsTable = await this.getSessionsTableName();
       const [rows] = await this.pool.execute(
-        `SELECT * FROM movie_sessions WHERE id = ?`,
+        `SELECT * FROM ${sessionsTable} WHERE id = ?`,
         [sessionId]
       );
       return rows.length > 0 ? rows[0] : null;
