@@ -716,11 +716,6 @@ async function ensureRecommendationPost(channel, activeSession = null) {
       content_type: activeSession.content_type
     } : 'null', guildId);
 
-    // DEBUG: Log stack trace to identify caller
-    const stack = new Error().stack;
-    const caller = stack.split('\n')[2]?.trim() || 'unknown';
-    logger.debug(`📋 CALLER TRACE: ${caller}`, guildId);
-
     // BETTER APPROACH: Use channel.threads.fetchActive with force refresh and check each thread individually
     logger.debug(`📋 Fetching threads to find pinned posts...`, guildId);
 
@@ -745,6 +740,8 @@ async function ensureRecommendationPost(channel, activeSession = null) {
 
         // Track system posts (recommendation and no session posts)
         if (thread.name.includes('Recommend a Movie') || thread.name.includes('🍿') ||
+            thread.name.includes('Recommend TV Shows') || thread.name.includes('📺') ||
+            thread.name.includes('Recommend Content') || thread.name.includes('🎬') ||
             thread.name.includes('No Active Voting Session') || thread.name.includes('🚫')) {
           systemPosts.push({ thread: freshThread, isPinned });
         }
@@ -858,7 +855,10 @@ async function ensureRecommendationPost(channel, activeSession = null) {
         const all = new Map([...active.threads, ...archived.threads]);
         for (const [tid, t] of all) {
           if (tid === forumPost.id) continue;
-          if (t.name.includes('No Active Voting Session') || t.name.includes('🚫') || t.name.includes('Recommend a Movie') || t.name.includes('🍿')) {
+          if (t.name.includes('No Active Voting Session') || t.name.includes('🚫') ||
+              t.name.includes('Recommend a Movie') || t.name.includes('🍿') ||
+              t.name.includes('Recommend TV Shows') || t.name.includes('📺') ||
+              t.name.includes('Recommend Content') || t.name.includes('🎬')) {
             try { await t.delete('Removing duplicate system post'); logger.debug(`📋 Deleted duplicate system post: ${t.name}`, guildId); } catch {}
           }
         }
