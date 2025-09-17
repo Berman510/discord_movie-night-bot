@@ -605,24 +605,48 @@ async function createVotingSession(interaction, state) {
     // Initialize logger for this function
     const logger = require('../utils/logger');
 
-    // Handle carryover movies from previous session
+    // Handle carryover content from previous session (content-type aware)
     try {
-      const carryoverMovies = await database.getNextSessionMovies(interaction.guild.id);
-      if (carryoverMovies.length > 0) {
-        logger.info(`🔄 Found ${carryoverMovies.length} carryover movies from previous session`);
+      let carryoverContent = [];
 
-        // Update carryover movies with new session ID and reset votes
-        for (const movie of carryoverMovies) {
-          await database.updateMovieSessionId(movie.message_id, sessionId);
-          await database.resetMovieVotes(movie.message_id);
-          logger.debug(`🔄 Added carryover movie: ${movie.title}`);
+      // Get carryover content based on session content type
+      if (contentType === 'movie') {
+        // Movie sessions only get movie carryover
+        carryoverContent = await database.getNextSessionMovies(interaction.guild.id);
+        logger.info(`🔄 Found ${carryoverContent.length} carryover movies from previous session`);
+      } else if (contentType === 'tv_show') {
+        // TV show sessions only get TV show carryover
+        carryoverContent = await database.getNextSessionTVShows(interaction.guild.id);
+        logger.info(`🔄 Found ${carryoverContent.length} carryover TV shows from previous session`);
+      } else if (contentType === 'mixed') {
+        // Mixed sessions get both movies and TV shows
+        const carryoverMovies = await database.getNextSessionMovies(interaction.guild.id);
+        const carryoverTVShows = await database.getNextSessionTVShows(interaction.guild.id);
+        carryoverContent = [...carryoverMovies, ...carryoverTVShows];
+        logger.info(`🔄 Found ${carryoverMovies.length} carryover movies and ${carryoverTVShows.length} carryover TV shows from previous session`);
+      }
+
+      if (carryoverContent.length > 0) {
+        // Update carryover content with new session ID and reset votes
+        for (const content of carryoverContent) {
+          const isTV = content.show_type !== undefined;
+          if (isTV) {
+            await database.updateTVShowSessionId(content.message_id, sessionId);
+            await database.resetTVShowVotes(content.message_id);
+            logger.debug(`🔄 Added carryover TV show: ${content.title}`);
+          } else {
+            await database.updateMovieSessionId(content.message_id, sessionId);
+            await database.resetMovieVotes(content.message_id);
+            logger.debug(`🔄 Added carryover movie: ${content.title}`);
+          }
         }
 
-        // Clear the next_session flags
+        // Clear the next_session flags for both content types
         await database.clearNextSessionFlag(interaction.guild.id);
+        await database.clearNextSessionTVShowFlag(interaction.guild.id);
       }
     } catch (error) {
-      console.warn('Error handling carryover movies:', error.message);
+      console.warn('Error handling carryover content:', error.message);
     }
 
     // Update voting channel to show the new session

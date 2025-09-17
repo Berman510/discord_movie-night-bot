@@ -268,7 +268,7 @@ async function createAdminControlButtons(guildId = null) {
         .setStyle(ButtonStyle.Secondary)
     );
   } else {
-    // Default buttons when no session - separate movie and TV planning
+    // Default buttons when no session - separate movie, TV, and mixed planning
     row2.addComponents(
       new ButtonBuilder()
         .setCustomId('admin_ctrl_plan_movie_session')
@@ -277,6 +277,10 @@ async function createAdminControlButtons(guildId = null) {
       new ButtonBuilder()
         .setCustomId('admin_ctrl_plan_tv_session')
         .setLabel('📺 Plan TV Show Session')
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId('admin_ctrl_plan_mixed_session')
+        .setLabel('🎬 Plan Mixed Session')
         .setStyle(ButtonStyle.Success),
       new ButtonBuilder()
         .setCustomId('admin_ctrl_administration')

@@ -3597,6 +3597,33 @@ class Database {
     }
   }
 
+  async markTVShowsForNextSession(guildId, excludeWinnerId = null) {
+    if (!this.isConnected) return false;
+
+    try {
+      // Mark all non-winning TV shows from current session for next session
+      let query = `
+        UPDATE tv_shows
+        SET next_session = TRUE, session_id = NULL, status = 'pending'
+        WHERE guild_id = ? AND status IN ('pending', 'planned')
+      `;
+      let params = [guildId];
+
+      if (excludeWinnerId) {
+        query += ` AND id != ?`;
+        params.push(excludeWinnerId);
+      }
+
+      await this.pool.execute(query, params);
+      const logger = require('./utils/logger');
+      logger.info('✅ Marked non-winning TV shows for next session');
+      return true;
+    } catch (error) {
+      console.error('Error marking TV shows for next session:', error.message);
+      return false;
+    }
+  }
+
   async getNextSessionMovies(guildId) {
     if (!this.isConnected) return [];
 
@@ -3612,6 +3639,21 @@ class Database {
     }
   }
 
+  async getNextSessionTVShows(guildId) {
+    if (!this.isConnected) return [];
+
+    try {
+      const [rows] = await this.pool.execute(
+        `SELECT * FROM tv_shows WHERE guild_id = ? AND next_session = TRUE ORDER BY created_at ASC`,
+        [guildId]
+      );
+      return rows;
+    } catch (error) {
+      console.error('Error getting next session TV shows:', error.message);
+      return [];
+    }
+  }
+
   async clearNextSessionFlag(guildId) {
     if (!this.isConnected) return false;
 
@@ -3621,10 +3663,27 @@ class Database {
         [guildId]
       );
       const logger = require('./utils/logger');
-      logger.debug('✅ Cleared next_session flags');
+      logger.debug('✅ Cleared next_session flags for movies');
       return true;
     } catch (error) {
       console.error('Error clearing next_session flags:', error.message);
+      return false;
+    }
+  }
+
+  async clearNextSessionTVShowFlag(guildId) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `UPDATE tv_shows SET next_session = FALSE WHERE guild_id = ? AND next_session = TRUE`,
+        [guildId]
+      );
+      const logger = require('./utils/logger');
+      logger.debug('✅ Cleared next_session flags for TV shows');
+      return true;
+    } catch (error) {
+      console.error('Error clearing next_session TV show flags:', error.message);
       return false;
     }
   }
@@ -3655,6 +3714,36 @@ class Database {
       return true;
     } catch (error) {
       console.error('Error updating movie session ID:', error.message);
+      return false;
+    }
+  }
+
+  async resetTVShowVotes(messageId) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `DELETE FROM votes_tv WHERE message_id = ?`,
+        [messageId]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error resetting TV show votes:', error.message);
+      return false;
+    }
+  }
+
+  async updateTVShowSessionId(messageId, sessionId) {
+    if (!this.isConnected) return false;
+
+    try {
+      await this.pool.execute(
+        `UPDATE tv_shows SET session_id = ? WHERE message_id = ?`,
+        [sessionId, messageId]
+      );
+      return true;
+    } catch (error) {
+      console.error('Error updating TV show session ID:', error.message);
       return false;
     }
   }

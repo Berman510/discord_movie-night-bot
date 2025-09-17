@@ -367,9 +367,10 @@ async function selectWinner(client, session, winner, config) {
     // Update session status
     await database.updateVotingSessionStatus(session.id, 'completed');
 
-    // Mark non-winning movies for next session
-    const winnerMovieId = winner.movie.id;
-    await database.markMoviesForNextSession(session.guild_id, winnerMovieId);
+    // Mark non-winning content for next session
+    const winnerContentId = winner.movie.id;
+    await database.markMoviesForNextSession(session.guild_id, winnerContentId);
+    await database.markTVShowsForNextSession(session.guild_id, winnerContentId);
 
     // Ensure "No Active Voting Session" message is posted in voting channel
     if (config && config.movie_channel_id) {

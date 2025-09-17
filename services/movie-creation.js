@@ -542,7 +542,7 @@ async function createTextTVShowRecommendation(interaction, showData, channel) {
     logger.warn('Failed to create thread:', error.message);
   }
 
-  return { message, showId };
+  return { message, movieId: showId };
 }
 
 /**
@@ -633,7 +633,7 @@ async function createForumTVShowRecommendation(interaction, showData, channel) {
     throw new Error('Failed to save forum TV show to database');
   }
 
-  return { message, thread, showId };
+  return { message, thread, movieId: showId };
 }
 
 /**

@@ -2286,6 +2286,9 @@ async function handleAdminControlButtons(interaction, customId) {
       case 'admin_ctrl_plan_tv_session':
         await handlePlanVotingSession(interaction, 'tv_show');
         break;
+      case 'admin_ctrl_plan_mixed_session':
+        await handlePlanVotingSession(interaction, 'mixed');
+        break;
       case 'admin_ctrl_banned_list':
         await adminControls.handleBannedMoviesList(interaction);
         break;
@@ -2621,11 +2624,12 @@ async function handleCancelSessionConfirmation(interaction) {
       }
     }
 
-    // CRITICAL: Mark movies for next session BEFORE clearing forum posts
-    // This must happen before clearForumMoviePosts which deletes movies from database
+    // CRITICAL: Mark content for next session BEFORE clearing forum posts
+    // This must happen before clearForumMoviePosts which deletes content from database
     await database.markMoviesForNextSession(interaction.guild.id, null);
+    await database.markTVShowsForNextSession(interaction.guild.id, null);
     const logger = require('../utils/logger');
-    logger.info('📋 Marked cancelled session movies for next session carryover');
+    logger.info('📋 Marked cancelled session content (movies & TV shows) for next session carryover');
 
     // Delete the session and all associated data
     await database.deleteVotingSession(sessionId);

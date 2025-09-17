@@ -457,11 +457,11 @@ async function clearForumMoviePosts(channel, winnerMovieId = null, options = {})
     const allThreads = new Map([...threads.threads, ...archivedThreads.threads]);
 
     for (const [threadId, thread] of allThreads) {
-      // Delete system posts (No Active Session, Recommend a Movie, Recommend TV Shows)
+      // Delete system posts (No Active Session, Recommend a Movie, Recommend TV Shows) - be specific to avoid content posts
       const hasNoSession = thread.name.includes('No Active Voting Session') || thread.name.includes('🚫');
-      const hasRecommendMovie = thread.name.includes('Recommend a Movie') || thread.name.includes('🍿');
-      const hasRecommendTV = thread.name.includes('Recommend TV Shows') || thread.name.includes('📺');
-      const hasRecommendContent = thread.name.includes('Recommend Content') || thread.name.includes('🎬');
+      const hasRecommendMovie = thread.name.includes('Recommend a Movie') || thread.name.includes('Recommend Movies');
+      const hasRecommendTV = thread.name.includes('Recommend TV Shows');
+      const hasRecommendContent = thread.name.includes('Recommend Content');
       const isSystemPost = hasNoSession || hasRecommendMovie || hasRecommendTV || hasRecommendContent;
       const isWinnerAnnouncement = thread.name.startsWith('🏆 Winner:');
 
@@ -739,11 +739,13 @@ async function ensureRecommendationPost(channel, activeSession = null) {
 
         logger.debug(`📋 Thread: ${thread.name} (${thread.id}) - pinned: ${isPinned}, archived: ${thread.archived}`, guildId);
 
-        // Track system posts (recommendation and no session posts)
-        if (thread.name.includes('Recommend a Movie') || thread.name.includes('🍿') ||
-            thread.name.includes('Recommend TV Shows') || thread.name.includes('📺') ||
-            thread.name.includes('Recommend Content') || thread.name.includes('🎬') ||
-            thread.name.includes('No Active Voting Session') || thread.name.includes('🚫')) {
+        // Track system posts (recommendation and no session posts) - be specific to avoid catching content posts
+        const isRecommendPost = thread.name.includes('Recommend a Movie') || thread.name.includes('Recommend Movies') ||
+                               thread.name.includes('Recommend TV Shows') || thread.name.includes('Recommend Content');
+        const isNoSessionPost = thread.name.includes('No Active Voting Session');
+        const isSystemPost = isRecommendPost || isNoSessionPost || thread.name.includes('🚫');
+
+        if (isSystemPost) {
           systemPosts.push({ thread: freshThread, isPinned });
         }
 
@@ -857,9 +859,8 @@ async function ensureRecommendationPost(channel, activeSession = null) {
         for (const [tid, t] of all) {
           if (tid === forumPost.id) continue;
           if (t.name.includes('No Active Voting Session') || t.name.includes('🚫') ||
-              t.name.includes('Recommend a Movie') || t.name.includes('🍿') ||
-              t.name.includes('Recommend TV Shows') || t.name.includes('📺') ||
-              t.name.includes('Recommend Content') || t.name.includes('🎬')) {
+              t.name.includes('Recommend a Movie') || t.name.includes('Recommend Movies') ||
+              t.name.includes('Recommend TV Shows') || t.name.includes('Recommend Content')) {
             try { await t.delete('Removing duplicate system post'); logger.debug(`📋 Deleted duplicate system post: ${t.name}`, guildId); } catch {}
           }
         }
@@ -1102,7 +1103,7 @@ async function setPinnedPostStatusNote(channel, title, description) {
     for (const [, t] of all) {
       const fresh = await channel.client.channels.fetch(t.id).catch(() => null);
       if (fresh && fresh.pinned) { pinnedPost = fresh; break; }
-      if (t.name.includes('Recommend Content') || t.name.includes('Recommend a Movie') || t.name.includes('🍿') || t.name.includes('🎬')) pinnedPost = fresh || t;
+      if (t.name.includes('Recommend Content') || t.name.includes('Recommend a Movie') || t.name.includes('Recommend Movies') || t.name.includes('Recommend TV Shows')) pinnedPost = fresh || t;
     }
     if (!pinnedPost) return false;
 
