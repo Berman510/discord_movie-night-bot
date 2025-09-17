@@ -2726,8 +2726,9 @@ class Database {
     if (!this.isConnected) return null;
 
     try {
+      const sessionsTable = await this.getSessionsTableName();
       const [result] = await this.pool.execute(
-        `INSERT INTO movie_sessions (guild_id, channel_id, name, description, scheduled_date, timezone, associated_movie_id, discord_event_id, created_by)
+        `INSERT INTO ${sessionsTable} (guild_id, channel_id, name, description, scheduled_date, timezone, associated_movie_id, discord_event_id, created_by)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           sessionData.guildId,
@@ -3274,8 +3275,9 @@ class Database {
     if (!this.isConnected) return [];
 
     try {
+      const sessionsTable = await this.getSessionsTableName();
       const [rows] = await this.pool.execute(
-        `SELECT * FROM movie_sessions WHERE guild_id = ? AND status != 'cancelled' ORDER BY created_at DESC`,
+        `SELECT * FROM ${sessionsTable} WHERE guild_id = ? AND status != 'cancelled' ORDER BY created_at DESC`,
         [guildId]
       );
       return rows;
@@ -3307,8 +3309,9 @@ class Database {
     if (!this.isConnected) return false;
 
     try {
+      const sessionsTable = await this.getSessionsTableName();
       await this.pool.execute(
-        `UPDATE movie_sessions SET winner_message_id = ? WHERE id = ?`,
+        `UPDATE ${sessionsTable} SET winner_message_id = ? WHERE id = ?`,
         [winnerMessageId, sessionId]
       );
       return true;
@@ -3323,7 +3326,8 @@ class Database {
     if (!this.isConnected) return false;
 
     try {
-      let query = `UPDATE movie_sessions SET name = ?, description = ?, scheduled_date = ?, timezone = ?`;
+      const sessionsTable = await this.getSessionsTableName();
+      let query = `UPDATE ${sessionsTable} SET name = ?, description = ?, scheduled_date = ?, timezone = ?`;
       const params = [name || null, description || null, scheduledDate || null, timezone || null];
 
       if (typeof votingEndTime !== 'undefined') {
@@ -3394,10 +3398,11 @@ class Database {
     if (!this.isConnected) return false;
 
     try {
+      const sessionsTable = await this.getSessionsTableName();
       const logger = require('./utils/logger');
       logger.debug(`🗄️ Database: Updating session ${sessionId} with event ID ${eventId}`);
       const [result] = await this.pool.execute(
-        `UPDATE movie_sessions SET discord_event_id = ? WHERE id = ?`,
+        `UPDATE ${sessionsTable} SET discord_event_id = ? WHERE id = ?`,
         [eventId, sessionId]
       );
       logger.debug(`🗄️ Database: Update result - affected rows: ${result.affectedRows}`);
@@ -3504,9 +3509,10 @@ class Database {
     if (!this.isConnected) return false;
 
     try {
+      const sessionsTable = await this.getSessionsTableName();
       // Store as JSON array for flexibility
       await this.pool.execute(
-        `UPDATE movie_sessions SET rsvp_user_ids = ? WHERE id = ?`,
+        `UPDATE ${sessionsTable} SET rsvp_user_ids = ? WHERE id = ?`,
         [JSON.stringify(userIdsArray || []), sessionId]
       );
       return true;
@@ -3520,8 +3526,9 @@ class Database {
     if (!this.isConnected) return [];
 
     try {
+      const sessionsTable = await this.getSessionsTableName();
       const [rows] = await this.pool.execute(
-        `SELECT * FROM movie_sessions WHERE status = 'voting' ORDER BY scheduled_date ASC`
+        `SELECT * FROM ${sessionsTable} WHERE status = 'voting' ORDER BY scheduled_date ASC`
       );
       return rows;
     } catch (error) {
@@ -3549,8 +3556,9 @@ class Database {
     if (!this.isConnected) return false;
 
     try {
+      const sessionsTable = await this.getSessionsTableName();
       await this.pool.execute(
-        `UPDATE movie_sessions SET status = ? WHERE id = ?`,
+        `UPDATE ${sessionsTable} SET status = ? WHERE id = ?`,
         [status, sessionId]
       );
       return true;
@@ -4042,9 +4050,10 @@ class Database {
     if (!this.isConnected) return false;
 
     try {
+      const sessionsTable = await this.getSessionsTableName();
       // Update session status and winner
       await this.pool.execute(
-        `UPDATE movie_sessions SET status = 'decided', winner_message_id = ? WHERE id = ?`,
+        `UPDATE ${sessionsTable} SET status = 'decided', winner_message_id = ? WHERE id = ?`,
         [winnerMovieId, sessionId]
       );
 
@@ -4072,8 +4081,9 @@ class Database {
     if (!this.isConnected) return false;
 
     try {
+      const sessionsTable = await this.getSessionsTableName();
       await this.pool.execute(
-        `UPDATE movie_sessions SET associated_movie_id = ? WHERE id = ?`,
+        `UPDATE ${sessionsTable} SET associated_movie_id = ? WHERE id = ?`,
         [movieMessageId, sessionId]
       );
       return true;
@@ -4199,8 +4209,9 @@ class Database {
       );
 
       // Count only sessions with active Discord events (scheduled sessions)
+      const sessionsTable = await this.getSessionsTableName();
       const [sessionStats] = await this.pool.execute(
-        `SELECT COUNT(*) as total_sessions FROM movie_sessions
+        `SELECT COUNT(*) as total_sessions FROM ${sessionsTable}
          WHERE guild_id = ? AND discord_event_id IS NOT NULL`,
         [guildId]
       );
@@ -4436,8 +4447,9 @@ class Database {
     if (!this.isConnected) return null;
 
     try {
+      const sessionsTable = await this.getSessionsTableName();
       const [rows] = await this.pool.execute(
-        `SELECT * FROM movie_sessions WHERE associated_movie_id = ? ORDER BY created_at DESC LIMIT 1`,
+        `SELECT * FROM ${sessionsTable} WHERE associated_movie_id = ? ORDER BY created_at DESC LIMIT 1`,
         [movieMessageId]
       );
       return rows.length > 0 ? rows[0] : null;
@@ -4500,9 +4512,10 @@ class Database {
     if (!this.isConnected) return null;
 
     try {
+      const sessionsTable = await this.getSessionsTableName();
       const [rows] = await this.pool.execute(
         `SELECT m.* FROM movies m
-         JOIN movie_sessions s ON m.message_id = s.associated_movie_id
+         JOIN ${sessionsTable} s ON m.message_id = s.associated_movie_id
          WHERE s.id = ?`,
         [sessionId]
       );
@@ -4517,8 +4530,9 @@ class Database {
   async getUpcomingDecidedSession(guildId) {
     if (!this.isConnected) return null;
     try {
+      const sessionsTable = await this.getSessionsTableName();
       const [rows] = await this.pool.execute(
-        `SELECT * FROM movie_sessions
+        `SELECT * FROM ${sessionsTable}
          WHERE guild_id = ?
            AND status IN ('decided', 'planning', 'active')
            AND scheduled_date IS NOT NULL
@@ -4538,8 +4552,9 @@ class Database {
   async getSessionByWinnerMessageId(guildId, messageId) {
     if (!this.isConnected) return null;
     try {
+      const sessionsTable = await this.getSessionsTableName();
       const [rows] = await this.pool.execute(
-        `SELECT * FROM movie_sessions
+        `SELECT * FROM ${sessionsTable}
          WHERE guild_id = ? AND winner_message_id = ?
          ORDER BY created_at DESC
          LIMIT 1`,
@@ -4556,8 +4571,9 @@ class Database {
     if (!this.isConnected) return false;
 
     try {
+      const sessionsTable = await this.getSessionsTableName();
       await this.pool.execute(
-        `UPDATE movie_sessions SET discord_event_id = ? WHERE id = ?`,
+        `UPDATE ${sessionsTable} SET discord_event_id = ? WHERE id = ?`,
         [eventId, sessionId]
       );
       return true;
@@ -4604,8 +4620,9 @@ class Database {
     if (!this.isConnected) return false;
 
     try {
+      const sessionsTable = await this.getSessionsTableName();
       await this.pool.execute(
-        `UPDATE movie_sessions SET associated_movie_id = ? WHERE id = ?`,
+        `UPDATE ${sessionsTable} SET associated_movie_id = ? WHERE id = ?`,
         [movieMessageId, sessionId]
       );
       console.log(`📊 Database: Updated session ${sessionId} movie association to ${movieMessageId || 'null'}`);
@@ -4653,10 +4670,11 @@ class Database {
     if (!this.isConnected) return false;
 
     try {
-      // If guildId is not provided, get it from the movie_sessions table
+      // If guildId is not provided, get it from the sessions table
       if (!guildId) {
+        const sessionsTable = await this.getSessionsTableName();
         const [sessionRows] = await this.pool.execute(
-          `SELECT guild_id FROM movie_sessions WHERE id = ?`,
+          `SELECT guild_id FROM ${sessionsTable} WHERE id = ?`,
           [sessionId]
         );
         if (sessionRows.length > 0) {
@@ -4809,10 +4827,11 @@ class Database {
     if (!this.isConnected) return false;
 
     try {
-      // If guildId is not provided, get it from the movie_sessions table
+      // If guildId is not provided, get it from the sessions table
       if (!guildId) {
+        const sessionsTable = await this.getSessionsTableName();
         const [sessionRows] = await this.pool.execute(
-          `SELECT guild_id FROM movie_sessions WHERE id = ?`,
+          `SELECT guild_id FROM ${sessionsTable} WHERE id = ?`,
           [sessionId]
         );
         if (sessionRows.length > 0) {
@@ -5064,8 +5083,9 @@ class Database {
       }
 
       if (sessions) {
+        const sessionsTable = await this.getSessionsTableName();
         const [sessionsResult] = await this.pool.execute(
-          `DELETE FROM movie_sessions WHERE guild_id = ?`,
+          `DELETE FROM ${sessionsTable} WHERE guild_id = ?`,
           [guildId]
         );
         results.deleted += sessionsResult.affectedRows;
