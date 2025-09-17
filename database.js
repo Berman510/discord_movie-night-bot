@@ -2093,20 +2093,32 @@ class Database {
         logger.warn('Migration 33 warning:', e.message);
       }
 
-      // Migration 34: Rename movie_sessions to watch_sessions
+      // Migration 34: Rename movie_sessions to watch_sessions (DATA PRESERVING)
       try {
-        // Check if watch_sessions already exists
+        const logger = require('./utils/logger');
+
+        // Check what tables exist
         const [tables] = await this.pool.execute(`
           SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
-          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'watch_sessions'
+          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('watch_sessions', 'movie_sessions')
         `);
 
-        if (tables.length === 0) {
-          // Rename the table
-          await this.pool.execute(`RENAME TABLE movie_sessions TO watch_sessions`);
+        const hasWatchSessions = tables.some(t => t.TABLE_NAME === 'watch_sessions');
+        const hasMovieSessions = tables.some(t => t.TABLE_NAME === 'movie_sessions');
 
-          const logger = require('./utils/logger');
-          logger.debug('✅ Migration 34: Renamed movie_sessions to watch_sessions');
+        if (hasMovieSessions && !hasWatchSessions) {
+          // Safe rename: movie_sessions exists, watch_sessions doesn't
+          await this.pool.execute(`RENAME TABLE movie_sessions TO watch_sessions`);
+          logger.debug('✅ Migration 34: Renamed movie_sessions to watch_sessions (data preserved)');
+        } else if (hasMovieSessions && hasWatchSessions) {
+          // Both exist - this shouldn't happen, but let's be safe
+          logger.warn('Migration 34: Both movie_sessions and watch_sessions exist - manual intervention needed');
+        } else if (!hasMovieSessions && !hasWatchSessions) {
+          // Neither exists - fresh install, watch_sessions will be created by table creation
+          logger.debug('Migration 34: Fresh install - watch_sessions will be created');
+        } else {
+          // Only watch_sessions exists - migration already complete
+          logger.debug('Migration 34: Already migrated to watch_sessions');
         }
       } catch (e) {
         const logger = require('./utils/logger');
@@ -2679,8 +2691,9 @@ class Database {
     if (!this.isConnected) return false;
 
     try {
+      const sessionsTable = await this.getSessionsTableName();
       await this.pool.execute(
-        `UPDATE movie_sessions SET status = ?, winner_message_id = ? WHERE id = ?`,
+        `UPDATE ${sessionsTable} SET status = ?, winner_message_id = ? WHERE id = ?`,
         [status, winnerMessageId, sessionId]
       );
       return true;
@@ -3196,8 +3209,9 @@ class Database {
     if (!this.isConnected) return false;
 
     try {
+      const sessionsTable = await this.getSessionsTableName();
       await this.pool.execute(
-        `UPDATE movie_sessions SET status = ? WHERE id = ?`,
+        `UPDATE ${sessionsTable} SET status = ? WHERE id = ?`,
         [status, sessionId]
       );
       return true;
@@ -3376,6 +3390,8 @@ class Database {
     if (!this.isConnected) return false;
 
     try {
+      const sessionsTable = await this.getSessionsTableName();
+
       // Delete associated movies first
       await this.pool.execute(
         `DELETE FROM movies WHERE session_id = ?`,
@@ -3390,7 +3406,7 @@ class Database {
 
       // Delete the session
       await this.pool.execute(
-        `DELETE FROM movie_sessions WHERE id = ?`,
+        `DELETE FROM ${sessionsTable} WHERE id = ?`,
         [sessionId]
       );
 
@@ -4399,8 +4415,9 @@ class Database {
     if (!this.isConnected) return false;
 
     try {
+      const sessionsTable = await this.getSessionsTableName();
       await this.pool.execute(
-        `DELETE FROM movie_sessions WHERE id = ?`,
+        `DELETE FROM ${sessionsTable} WHERE id = ?`,
         [sessionId]
       );
       console.log(`🗑️ Database: Deleted session ${sessionId}`);
