@@ -4,6 +4,79 @@
  */
 
 const { MessageFlags } = require('discord.js');
+
+/**
+ * Parse episode information from user input
+ * Handles formats like: "S1E2", "1x2", "102", "Cat's in the Bag...", etc.
+ */
+function parseEpisodeInfo(episodeInput) {
+  const input = episodeInput.trim();
+
+  // Season/Episode patterns: S1E2, S01E02, 1x2, 1-2
+  const seasonEpisodePatterns = [
+    /^[Ss](\d+)[Ee](\d+)$/,           // S1E2, s1e2
+    /^[Ss](\d+)[Xx](\d+)$/,           // S1X2, s1x2
+    /^(\d+)[xX](\d+)$/,               // 1x2, 1X2
+    /^(\d+)-(\d+)$/,                  // 1-2
+    /^(\d+)\.(\d+)$/                  // 1.2
+  ];
+
+  for (const pattern of seasonEpisodePatterns) {
+    const match = input.match(pattern);
+    if (match) {
+      const season = parseInt(match[1]);
+      const episode = parseInt(match[2]);
+      return {
+        type: 'season_episode',
+        season,
+        episode,
+        searchQuery: `S${season.toString().padStart(2, '0')}E${episode.toString().padStart(2, '0')}`,
+        displayFormat: `S${season}E${episode}`
+      };
+    }
+  }
+
+  // Episode number only: "102", "5", etc.
+  const episodeNumberMatch = input.match(/^(\d+)$/);
+  if (episodeNumberMatch) {
+    const episodeNum = parseInt(episodeNumberMatch[1]);
+
+    // If it's a 3-digit number like 102, treat as season 1 episode 2
+    if (episodeNum >= 100 && episodeNum <= 999) {
+      const season = Math.floor(episodeNum / 100);
+      const episode = episodeNum % 100;
+      if (episode > 0 && episode <= 50) { // Reasonable episode range
+        return {
+          type: 'episode_number_expanded',
+          season,
+          episode,
+          searchQuery: `S${season.toString().padStart(2, '0')}E${episode.toString().padStart(2, '0')}`,
+          displayFormat: `S${season}E${episode}`
+        };
+      }
+    }
+
+    // Otherwise treat as episode number only
+    return {
+      type: 'episode_number',
+      episode: episodeNum,
+      searchQuery: `E${episodeNum.toString().padStart(2, '0')}`,
+      displayFormat: `Episode ${episodeNum}`
+    };
+  }
+
+  // Episode title/name: "Cat's in the Bag...", "Pilot", etc.
+  if (input.length > 0) {
+    return {
+      type: 'episode_title',
+      title: input,
+      searchQuery: input,
+      displayFormat: `"${input}"`
+    };
+  }
+
+  return null;
+}
 const ephemeralManager = require('../utils/ephemeral-manager');
 const { sessions } = require('../services');
 const { imdb } = require('../services');
@@ -86,17 +159,39 @@ async function handleMovieRecommendationModal(interaction) {
   const title = interaction.fields.getTextInputValue('mn:title');
   const where = interaction.fields.getTextInputValue('mn:where');
 
+  // Check if episode field exists (TV show sessions)
+  let episode = null;
+  try {
+    episode = interaction.fields.getTextInputValue('mn:episode');
+  } catch (error) {
+    // Episode field doesn't exist (movie session)
+  }
+
   const logger = require('../utils/logger');
-  logger.debug(`🔍 DEBUG: handleMovieRecommendationModal called with title: ${title}, where: ${where}`);
-  logger.debug(`Movie recommendation: ${title} on ${where}`);
+  logger.debug(`🔍 DEBUG: handleMovieRecommendationModal called with title: ${title}, episode: ${episode}, where: ${where}`);
+  logger.debug(`Content recommendation: ${title}${episode ? ` (${episode})` : ''} on ${where}`);
 
   try {
     // Use the movie recommendation logic from the original backup
     const imdb = require('../services/imdb');
     const database = require('../database');
 
-    // Check for duplicate movies
-    const existingMovie = await database.findMovieByTitle(interaction.guild.id, title);
+    // For TV shows with episode info, create intelligent search query
+    let searchTitle = title;
+    let episodeInfo = null;
+
+    if (episode && episode.trim()) {
+      episodeInfo = parseEpisodeInfo(episode.trim());
+      if (episodeInfo) {
+        // Create search query combining show name and episode info
+        searchTitle = `${title} ${episodeInfo.searchQuery}`;
+        logger.debug(`🔍 Parsed episode info:`, episodeInfo);
+        logger.debug(`🔍 Combined search title: ${searchTitle}`);
+      }
+    }
+
+    // Check for duplicate movies/shows
+    const existingMovie = await database.findMovieByTitle(interaction.guild.id, searchTitle);
 
     if (existingMovie) {
       const statusEmoji = {
@@ -144,21 +239,43 @@ async function handleMovieRecommendationModal(interaction) {
       try { await interaction.deferReply({ flags: MessageFlags.Ephemeral }); } catch {}
     }
 
-    // Search IMDb for movies and TV shows with spell checking
+    // Search IMDb with intelligent episode matching
     let imdbResults = [];
     let suggestions = [];
     let originalTitle = title;
 
     try {
-      const searchResult = await imdb.searchContentWithSuggestions(title);
-      if (searchResult.results && Array.isArray(searchResult.results)) {
-        imdbResults = searchResult.results;
+      let searchResult;
+
+      if (episodeInfo && episodeInfo.type === 'season_episode') {
+        // For season/episode format, try specific episode search first
+        logger.debug(`🔍 Trying specific episode search for: ${title} S${episodeInfo.season}E${episodeInfo.episode}`);
+        const episodeData = await imdb.searchEpisode(title, episodeInfo.season, episodeInfo.episode);
+
+        if (episodeData) {
+          imdbResults = [episodeData];
+          logger.debug(`✅ Found specific episode: ${episodeData.Title}`);
+        } else {
+          // Fall back to series search
+          logger.debug(`❌ Episode not found, falling back to series search`);
+          searchResult = await imdb.searchContentWithSuggestions(title);
+        }
+      } else {
+        // For other cases, use general content search with the combined search title
+        searchResult = await imdb.searchContentWithSuggestions(searchTitle);
       }
-      if (searchResult.suggestions && Array.isArray(searchResult.suggestions)) {
-        suggestions = searchResult.suggestions;
-      }
-      if (searchResult.originalTitle) {
-        originalTitle = searchResult.originalTitle;
+
+      // Process search results if we got them from fallback or general search
+      if (searchResult) {
+        if (searchResult.results && Array.isArray(searchResult.results)) {
+          imdbResults = searchResult.results;
+        }
+        if (searchResult.suggestions && Array.isArray(searchResult.suggestions)) {
+          suggestions = searchResult.suggestions;
+        }
+        if (searchResult.originalTitle) {
+          originalTitle = searchResult.originalTitle;
+        }
       }
 
       // Filter results based on session content type
@@ -207,13 +324,13 @@ async function handleMovieRecommendationModal(interaction) {
 
     if (imdbResults.length > 0) {
       // Show IMDb selection buttons
-      await showImdbSelection(interaction, title, where, imdbResults, suggestions, originalTitle);
+      await showImdbSelection(interaction, searchTitle, where, imdbResults, suggestions, originalTitle, episodeInfo);
     } else if (suggestions.length > 0) {
       // Show spelling suggestions
-      await showSpellingSuggestions(interaction, title, where, suggestions);
+      await showSpellingSuggestions(interaction, searchTitle, where, suggestions, episodeInfo);
     } else {
-      // No IMDb results and no suggestions, create movie without IMDb data
-      await createMovieWithoutImdb(interaction, title, where);
+      // No IMDb results and no suggestions, create content without IMDb data
+      await createMovieWithoutImdb(interaction, searchTitle, where, episodeInfo);
     }
 
   } catch (error) {
@@ -227,7 +344,7 @@ async function handleMovieRecommendationModal(interaction) {
   }
 }
 
-async function showImdbSelection(interaction, title, where, imdbResults, suggestions = [], originalTitle = null) {
+async function showImdbSelection(interaction, title, where, imdbResults, suggestions = [], originalTitle = null, episodeInfo = null) {
   const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
   const { pendingPayloads } = require('../utils/constants');
 
@@ -241,6 +358,7 @@ async function showImdbSelection(interaction, title, where, imdbResults, suggest
     imdbResults,
     suggestions,
     originalTitle,
+    episodeInfo,
     createdAt: Date.now()
   });
 
@@ -357,7 +475,7 @@ async function showImdbSelection(interaction, title, where, imdbResults, suggest
 /**
  * Show spelling suggestions when no exact matches are found
  */
-async function showSpellingSuggestions(interaction, title, where, suggestions) {
+async function showSpellingSuggestions(interaction, title, where, suggestions, episodeInfo = null) {
   const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
   const { pendingPayloads } = require('../utils/constants');
 
@@ -421,7 +539,7 @@ async function showSpellingSuggestions(interaction, title, where, suggestions) {
   });
 }
 
-async function createMovieWithoutImdb(interaction, title, where) {
+async function createMovieWithoutImdb(interaction, title, where, episodeInfo = null) {
   const movieCreation = require('../services/movie-creation');
   const database = require('../database');
 

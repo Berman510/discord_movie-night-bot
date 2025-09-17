@@ -804,8 +804,8 @@ async function handleCreateRecommendation(interaction) {
     placeholder = 'e.g., The Matrix, Inception, Dune';
   } else if (isTVSession) {
     modalTitle = '📺 Recommend TV Show';
-    inputLabel = 'TV Show or Episode';
-    placeholder = 'e.g., Breaking Bad S1E1, The Office, Stranger Things';
+    inputLabel = 'TV Show Name';
+    placeholder = 'e.g., Breaking Bad, The Office, Stranger Things';
   } else {
     modalTitle = '🎬 Recommend Content';
     inputLabel = 'Movie or TV Show Title';
@@ -836,7 +836,20 @@ async function handleCreateRecommendation(interaction) {
   const titleRow = new ActionRowBuilder().addComponents(titleInput);
   const whereRow = new ActionRowBuilder().addComponents(whereInput);
 
-  modal.addComponents(titleRow, whereRow);
+  // Add episode field for TV sessions
+  if (isTVSession) {
+    const episodeInput = new TextInputBuilder()
+      .setCustomId('mn:episode')
+      .setLabel('Episode Name or Number (Optional)')
+      .setStyle(TextInputStyle.Short)
+      .setPlaceholder("e.g., 'Cat\'s in the Bag...', 'S1E2', '102'")
+      .setRequired(false);
+
+    const episodeRow = new ActionRowBuilder().addComponents(episodeInput);
+    modal.addComponents(titleRow, episodeRow, whereRow);
+  } else {
+    modal.addComponents(titleRow, whereRow);
+  }
 
   await interaction.showModal(modal);
 }
@@ -865,7 +878,7 @@ async function handleImdbSelection(interaction) {
       return;
     }
 
-    const { title, where, imdbResults } = data;
+    const { title, where, imdbResults, episodeInfo } = data;
 
     if (indexStr === 'cancel') {
       // User cancelled the submission entirely
@@ -3182,7 +3195,7 @@ async function handleSpellingSuggestion(interaction) {
       return;
     }
 
-    const { title: originalTitle, where, suggestions } = payload;
+    const { title: originalTitle, where, suggestions, episodeInfo } = payload;
     const suggestedTitle = suggestions[suggestionIndex];
 
     if (!suggestedTitle) {
@@ -3248,7 +3261,7 @@ async function handleUseOriginalTitle(interaction) {
       return;
     }
 
-    const { title, where } = payload;
+    const { title, where, episodeInfo } = payload;
 
     // Clean up the payload
     pendingPayloads.delete(dataKey);
