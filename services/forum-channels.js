@@ -9,6 +9,35 @@ const { ChannelType, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle 
 const ensureRecommendationPostDebounce = new Map();
 
 /**
+ * Get recommendation post content based on session type
+ */
+function getRecommendationPostContent(activeSession) {
+  const isMovieSession = activeSession.content_type === 'movie';
+  const isTVSession = activeSession.content_type === 'tv_show';
+
+  let title, description, buttonLabel, buttonEmoji;
+
+  if (isMovieSession) {
+    title = '🍿 Recommend Movies';
+    description = `**Current Session:** ${activeSession.name}\n\n🍿 Click the button below to recommend movies!\n\n📝 Each movie gets its own thread for voting and discussion.\n\n🗳️ Voting ends: <t:${Math.floor(new Date(activeSession.voting_end_time).getTime() / 1000)}:R>`;
+    buttonLabel = '🍿 Recommend Movie';
+    buttonEmoji = '🍿';
+  } else if (isTVSession) {
+    title = '📺 Recommend TV Shows';
+    description = `**Current Session:** ${activeSession.name}\n\n📺 Click the button below to recommend TV shows or episodes!\n\n📝 Each recommendation gets its own thread for voting and discussion.\n\n🗳️ Voting ends: <t:${Math.floor(new Date(activeSession.voting_end_time).getTime() / 1000)}:R>`;
+    buttonLabel = '📺 Recommend TV Show';
+    buttonEmoji = '📺';
+  } else {
+    title = '🎬 Recommend Content';
+    description = `**Current Session:** ${activeSession.name}\n\n🎬 Click the button below to recommend movies or TV shows!\n\n📝 Each recommendation gets its own thread for voting and discussion.\n\n🗳️ Voting ends: <t:${Math.floor(new Date(activeSession.voting_end_time).getTime() / 1000)}:R>`;
+    buttonLabel = '🎬 Recommend Content';
+    buttonEmoji = '🎬';
+  }
+
+  return { title, description, buttonLabel, buttonEmoji };
+}
+
+/**
  * Check if a channel is a forum channel
  */
 function isForumChannel(channel) {
@@ -47,16 +76,22 @@ async function createForumMoviePost(channel, movieData, components) {
 
     { const logger = require('../utils/logger'); logger.info(`📋 Creating forum post for movie: ${movieData.title} in channel: ${channel.name}`, channel.guild?.id); }
 
-    // Create forum post with movie as the topic
+    // Create forum post with appropriate emoji based on content type
     console.log(`🔍 DEBUG: About to call channel.threads.create`);
+
+    // Determine content type from embed or movieData
+    const isTV = movieData.contentType === 'tv_show' ||
+                 (movieData.embed && movieData.embed.data && movieData.embed.data.description && movieData.embed.data.description.includes('📺'));
+    const emoji = isTV ? '📺' : '🎬';
+
     const forumPost = await channel.threads.create({
-      name: `🎬 ${movieData.title}`,
+      name: `${emoji} ${movieData.title}`,
       message: {
         embeds: [movieData.embed],
         components: components
       },
       appliedTags: await getMovieStatusTags(channel, 'pending'),
-      reason: `Movie recommendation: ${movieData.title}`
+      reason: `${isTV ? 'TV show' : 'Movie'} recommendation: ${movieData.title}`
     });
 
     { const logger = require('../utils/logger'); logger.info(`✅ Created forum post: ${forumPost.name} (ID: ${forumPost.id}) in channel: ${channel.name}`, channel.guild?.id); }
@@ -109,16 +144,16 @@ async function updateForumPostTitle(thread, movieTitle, status, upVotes = 0, dow
 /**
  * Get status emoji for forum post titles
  */
-function getStatusEmoji(status) {
+function getStatusEmoji(status, isTV = false) {
   const statusEmojis = {
-    'pending': '🎬',
+    'pending': isTV ? '📺' : '🎬',
     'planned': '📌',
     'scheduled': '🎪',
     'watched': '✅',
     'skipped': '⏭️',
     'banned': '🚫'
   };
-  return statusEmojis[status] || '🎬';
+  return statusEmojis[status] || (isTV ? '📺' : '🎬');
 }
 
 /**
@@ -683,15 +718,13 @@ async function ensureRecommendationPost(channel, activeSession = null) {
     const logger = require('../utils/logger');
     const guildId = channel.guild?.id;
 
-    // Debounce rapid calls to prevent multiple posts
-    // Include session state in debounce key to allow legitimate updates
-    const sessionKey = activeSession ? `${activeSession.id}-${activeSession.content_type}` : 'no-session';
-    const debounceKey = `${guildId}-${channel.id}-${sessionKey}`;
+    // AGGRESSIVE debounce to prevent multiple posts - use channel-only key
+    const debounceKey = `${guildId}-${channel.id}`;
     const now = Date.now();
     const lastCall = ensureRecommendationPostDebounce.get(debounceKey);
 
-    if (lastCall && (now - lastCall) < 3000) { // 3 second debounce
-      logger.debug(`📋 Skipping recommendation post update (debounced): ${channel.name}`, guildId);
+    if (lastCall && (now - lastCall) < 10000) { // 10 second aggressive debounce
+      logger.debug(`📋 BLOCKED recommendation post update (debounced): ${channel.name} - last call ${Math.round((now - lastCall)/1000)}s ago`, guildId);
       return;
     }
 
@@ -711,6 +744,75 @@ async function ensureRecommendationPost(channel, activeSession = null) {
       status: activeSession.status,
       content_type: activeSession.content_type
     } : 'null', guildId);
+
+    // FIRST: Check if we already have the correct recommendation post
+    const active = await channel.threads.fetchActive({ cache: false });
+    const archived = await channel.threads.fetchArchived({ limit: 50, cache: false });
+    const allThreads = new Map([...active.threads, ...archived.threads]);
+
+    // Look for existing recommendation posts
+    const existingRecommendationPosts = [];
+    for (const [threadId, thread] of allThreads) {
+      if (thread.name.includes('Recommend Movies') ||
+          thread.name.includes('Recommend TV Shows') ||
+          thread.name.includes('Recommend Content') ||
+          thread.name.includes('🍿') ||
+          thread.name.includes('📺') ||
+          thread.name.includes('🎬')) {
+        existingRecommendationPosts.push(thread);
+      }
+    }
+
+    logger.debug(`📋 Found ${existingRecommendationPosts.length} existing recommendation posts`, guildId);
+
+    // If we have multiple recommendation posts, this is the problem!
+    if (existingRecommendationPosts.length > 1) {
+      logger.warn(`📋 FOUND MULTIPLE RECOMMENDATION POSTS (${existingRecommendationPosts.length}) - cleaning up duplicates`, guildId);
+
+      // Keep the most recent one, delete the rest
+      existingRecommendationPosts.sort((a, b) => b.createdTimestamp - a.createdTimestamp);
+      const keepPost = existingRecommendationPosts[0];
+
+      for (let i = 1; i < existingRecommendationPosts.length; i++) {
+        try {
+          await existingRecommendationPosts[i].delete();
+          logger.debug(`📋 Deleted duplicate recommendation post: ${existingRecommendationPosts[i].name}`, guildId);
+        } catch (error) {
+          logger.warn(`📋 Failed to delete duplicate post: ${error.message}`, guildId);
+        }
+      }
+
+      // Update the remaining post and return
+      if (keepPost) {
+        try {
+          const starter = await keepPost.fetchStarterMessage();
+          if (starter && activeSession) {
+            // Update with correct content
+            const { title, description, buttonLabel, buttonEmoji } = getRecommendationPostContent(activeSession);
+            const recommendEmbed = new EmbedBuilder()
+              .setTitle(title)
+              .setDescription(description)
+              .setColor(0x5865f2)
+              .setFooter({ text: `Session ID: ${activeSession.id}` });
+
+            const recommendButton = new ActionRowBuilder()
+              .addComponents(
+                new ButtonBuilder()
+                  .setCustomId('mn:recommend')
+                  .setLabel(buttonLabel)
+                  .setStyle(ButtonStyle.Primary)
+                  .setEmoji(buttonEmoji)
+              );
+
+            await starter.edit({ embeds: [recommendEmbed], components: [recommendButton] });
+            logger.debug(`📋 Updated existing recommendation post after cleanup`, guildId);
+          }
+        } catch (error) {
+          logger.warn(`📋 Failed to update remaining post: ${error.message}`, guildId);
+        }
+      }
+      return; // Exit early after cleanup
+    }
 
     // BETTER APPROACH: Use channel.threads.fetchActive with force refresh and check each thread individually
     logger.debug(`📋 Fetching threads to find pinned posts...`, guildId);

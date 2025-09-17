@@ -388,7 +388,9 @@ async function syncAdminChannel(client, guildId) {
 
     // Post each piece of content (movie or TV show) to admin channel
     for (const content of allContent) {
-      const posted = await postContentToAdminChannel(client, guildId, content, content.content_type || 'movie');
+      // Determine content type: TV shows have show_type field, movies don't
+      const contentType = content.show_type ? 'tv_show' : 'movie';
+      const posted = await postContentToAdminChannel(client, guildId, content, contentType);
       if (posted) {
         syncedCount++;
       }

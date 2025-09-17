@@ -657,16 +657,20 @@ async function createVotingSession(interaction, state) {
             }
           }
 
-          // Add carryover movies to the voting channel
+          // Add carryover content (movies and TV shows) to the voting channel
           const carryoverMovies = await database.getMoviesBySession(sessionId);
-          if (carryoverMovies.length > 0) {
-            logger.debug(`📝 Creating posts for ${carryoverMovies.length} carryover movies`);
+          const carryoverTVShows = await database.getTVShowsBySession ? await database.getTVShowsBySession(sessionId) : [];
+          const allCarryoverContent = [...carryoverMovies, ...carryoverTVShows];
 
-            for (const movie of carryoverMovies) {
+          if (allCarryoverContent.length > 0) {
+            logger.debug(`📝 Creating posts for ${carryoverMovies.length} carryover movies and ${carryoverTVShows.length} carryover TV shows`);
+
+            for (const content of allCarryoverContent) {
+              const isTV = content.show_type !== undefined; // TV shows have show_type field
               try {
-                // Refresh IMDB data for carryover movie if it has an IMDB ID
-                let updatedMovie = movie;
-                if (movie.imdb_id) {
+                // Refresh IMDB data for carryover content if it has an IMDB ID
+                let updatedContent = content;
+                if (content.imdb_id) {
                   try {
                     // Only fetch IMDb data if we do not already have it stored
                     if (!movie.imdb_data) {

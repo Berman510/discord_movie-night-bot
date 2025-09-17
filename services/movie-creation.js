@@ -580,14 +580,14 @@ async function createForumTVShowRecommendation(interaction, showData, channel) {
     imdb_id: imdbId
   };
 
-  const showEmbed = embeds.createMovieEmbed(showEmbedData, imdbData);
+  const showEmbed = embeds.createMovieEmbed(showEmbedData, imdbData, null, 'tv_show');
   logger.debug(`🔍 DEBUG: Created TV show embed for: ${title}`);
 
-  // Create forum post (reuse movie post creation for now)
+  // Create forum post for TV show
   logger.debug(`🔍 DEBUG: About to call createForumMoviePost for TV show`);
   const result = await forumChannels.createForumMoviePost(
     channel,
-    { title, embed: showEmbed },
+    { title, embed: showEmbed, contentType: 'tv_show' },
     [] // We'll add components after getting the message ID
   );
 

@@ -7,9 +7,28 @@ const { EmbedBuilder } = require('discord.js');
 const { COLORS, STATUS_EMOJIS, BOT_VERSION } = require('./constants');
 const { formatDateWithTimezone } = require('../services/timezone');
 
-function createMovieEmbed(movie, imdbData = null, voteCounts = null) {
+function createMovieEmbed(movie, imdbData = null, voteCounts = null, contentType = 'movie') {
+  // Determine if this is TV content
+  const isTV = contentType === 'tv_show' ||
+               (imdbData && (imdbData.Type === 'series' || imdbData.Type === 'episode')) ||
+               (movie.show_type); // TV show database field
+
+  // Use appropriate emoji for content type
+  const statusEmoji = isTV ?
+    (movie.status === 'pending' ? '📺' : STATUS_EMOJIS[movie.status] || '📺') :
+    (STATUS_EMOJIS[movie.status] || STATUS_EMOJIS.pending);
+
+  // Format title for TV episodes
+  let displayTitle = movie.title;
+  if (isTV && imdbData && imdbData.Type === 'episode') {
+    // For episodes, show series name and episode info
+    if (imdbData.seriesID && imdbData.Season && imdbData.Episode) {
+      displayTitle = `${movie.title} - S${imdbData.Season}E${imdbData.Episode}`;
+    }
+  }
+
   const embed = new EmbedBuilder()
-    .setTitle(`${STATUS_EMOJIS[movie.status] || STATUS_EMOJIS.pending} ${movie.title}`)
+    .setTitle(`${statusEmoji} ${displayTitle}`)
     .setColor(COLORS[movie.status] || COLORS.pending);
 
   // Add vote counts prominently if provided (especially useful for forum channels)
@@ -24,8 +43,13 @@ function createMovieEmbed(movie, imdbData = null, voteCounts = null) {
     embed.addFields({ name: '🗳️ Votes', value: voteText, inline: false });
   }
 
+  // Add episode title as description for TV episodes
+  if (isTV && imdbData && imdbData.Type === 'episode' && imdbData.Title && imdbData.Title !== movie.title) {
+    embed.setDescription(`📺 ${imdbData.Title}`);
+  }
+
   embed.addFields(
-    { name: '📺 Where to Watch', value: movie.where_to_watch, inline: true },
+    { name: isTV ? '📺 Where to Watch' : '🍿 Where to Watch', value: movie.where_to_watch, inline: true },
     { name: '👤 Recommended by', value: `<@${movie.recommended_by}>`, inline: true }
   );
 
