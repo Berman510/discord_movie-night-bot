@@ -1146,5 +1146,6 @@ module.exports = {
   getMovieStatusTags,
   ensureRecommendationPost,
   unpinOtherForumPosts,
-  setPinnedPostStatusNote
+  setPinnedPostStatusNote,
+  createNoActiveSessionPost
 };

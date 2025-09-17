@@ -1049,10 +1049,20 @@ async function createMovieWithImdb(interaction, title, where, imdbData) {
 
     // Post to admin channel if configured (movie creation service handles database save)
     try {
-      const movie = await database.getMovieByMessageId(message.id);
-      if (movie) {
+      // Try to get from movies table first
+      let content = await database.getMovieByMessageId(message.id);
+      let contentType = 'movie';
+
+      // If not found in movies table, try TV shows table
+      if (!content) {
+        content = await database.getTVShowByMessageId(message.id);
+        contentType = 'tv_show';
+      }
+
+      if (content) {
         const adminMirror = require('../services/admin-mirror');
-        await adminMirror.postMovieToAdminChannel(interaction.client, interaction.guild.id, movie);
+        // Use the unified postContentToAdminChannel function that handles both content types
+        await adminMirror.postContentToAdminChannel(interaction.client, interaction.guild.id, content, contentType);
       }
     } catch (error) {
       console.error('Error posting to admin channel:', error);
