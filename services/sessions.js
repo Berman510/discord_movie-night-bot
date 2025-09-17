@@ -1133,13 +1133,21 @@ async function handleCancelConfirmation(interaction) {
     }
 
     // Delete Discord event if it exists
+    console.log(`🔍 Session discord_event_id: ${session.discord_event_id}`);
     if (session.discord_event_id) {
       try {
-        await discordEvents.deleteDiscordEvent(interaction.guild, session.discord_event_id);
-        console.log(`✅ Deleted Discord event ${session.discord_event_id}`);
+        console.log(`🗑️ Attempting to delete Discord event: ${session.discord_event_id}`);
+        const deleted = await discordEvents.deleteDiscordEvent(interaction.guild, session.discord_event_id);
+        if (deleted) {
+          console.log(`✅ Successfully deleted Discord event ${session.discord_event_id}`);
+        } else {
+          console.warn(`❌ Failed to delete Discord event ${session.discord_event_id} (returned false)`);
+        }
       } catch (error) {
         console.warn('Failed to delete Discord event:', error.message);
       }
+    } else {
+      console.warn('❌ No discord_event_id found in session - event will not be deleted');
     }
 
 

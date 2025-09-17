@@ -36,14 +36,17 @@ class Database {
    */
   async getSessionsTableName() {
     if (this._sessionsTableName) {
+      console.log(`🗄️ Using cached table name: ${this._sessionsTableName}`);
       return this._sessionsTableName;
     }
 
     if (!this.isConnected) {
+      console.log('🗄️ Not connected - defaulting to watch_sessions');
       return 'watch_sessions'; // Default for new installations
     }
 
     try {
+      console.log('🗄️ Detecting sessions table name...');
       const [tables] = await this.pool.execute(`
         SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('watch_sessions', 'movie_sessions')
@@ -52,10 +55,14 @@ class Database {
       const hasWatchSessions = tables.some(t => t.TABLE_NAME === 'watch_sessions');
       const hasMovieSessions = tables.some(t => t.TABLE_NAME === 'movie_sessions');
 
+      console.log(`🗄️ Table detection: watch_sessions=${hasWatchSessions}, movie_sessions=${hasMovieSessions}`);
+
       if (hasWatchSessions && hasMovieSessions) {
         // Both exist - check which has data and use that one
         const [watchCount] = await this.pool.execute('SELECT COUNT(*) as count FROM watch_sessions');
         const [movieCount] = await this.pool.execute('SELECT COUNT(*) as count FROM movie_sessions');
+
+        console.log(`🗄️ Row counts: watch_sessions=${watchCount[0].count}, movie_sessions=${movieCount[0].count}`);
 
         if (movieCount[0].count > 0 && watchCount[0].count === 0) {
           // movie_sessions has data, watch_sessions is empty - use movie_sessions
@@ -68,10 +75,13 @@ class Database {
         }
       } else if (hasWatchSessions) {
         this._sessionsTableName = 'watch_sessions';
+        console.log('🗄️ Using watch_sessions table (only table available)');
       } else if (hasMovieSessions) {
         this._sessionsTableName = 'movie_sessions';
+        console.log('🗄️ Using movie_sessions table (only table available)');
       } else {
         this._sessionsTableName = 'watch_sessions'; // Default for new installations
+        console.log('🗄️ No sessions table found - defaulting to watch_sessions');
       }
 
       return this._sessionsTableName;
