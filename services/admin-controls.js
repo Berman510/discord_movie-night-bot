@@ -558,9 +558,12 @@ async function handleSyncChannel(interaction) {
               const logger = require('../utils/logger');
               logger.debug('📋 No active session - cleaning up forum movie posts');
               await forumChannels.clearForumMoviePosts(votingChannel, null);
+              // Create no session post
+              await forumChannels.createNoActiveSessionPost(votingChannel);
+            } else {
+              // Only ensure recommendation post if there's an active session
+              await forumChannels.ensureRecommendationPost(votingChannel, activeSession);
             }
-
-            await forumChannels.ensureRecommendationPost(votingChannel, activeSession);
           }
         } else {
           errors.push('Voting channel not found');

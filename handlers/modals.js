@@ -608,17 +608,14 @@ async function createMovieWithoutImdb(interaction, title, where, episodeInfo = n
     const database = require('../database');
     const config = await database.getGuildConfig(interaction.guild.id);
 
+    // Note: Forum recommendation posts are managed by session creation and sync operations
+    // No need to call ensureRecommendationPost here as it causes duplicate posts
     if (config && config.movie_channel_id) {
       const movieChannel = await interaction.client.channels.fetch(config.movie_channel_id);
-      if (movieChannel) {
-        if (forumChannels.isTextChannel(movieChannel)) {
-          // Text channels get quick action pinned
-          await cleanup.ensureQuickActionPinned(movieChannel);
-        } else if (forumChannels.isForumChannel(movieChannel)) {
-          // Forum channels get recommendation post
-          const activeSession = await database.getActiveVotingSession(interaction.guild.id);
-          await forumChannels.ensureRecommendationPost(movieChannel, activeSession);
-        }
+      if (movieChannel && forumChannels.isTextChannel(movieChannel)) {
+        // Only update text channels with quick action pinned
+        const cleanup = require('../services/cleanup');
+        await cleanup.ensureQuickActionPinned(movieChannel);
       }
     }
 
