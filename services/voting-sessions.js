@@ -659,7 +659,7 @@ async function createVotingSession(interaction, state) {
 
           // Add carryover content (movies and TV shows) to the voting channel
           const carryoverMovies = await database.getMoviesBySession(sessionId);
-          const carryoverTVShows = await database.getTVShowsBySession ? await database.getTVShowsBySession(sessionId) : [];
+          const carryoverTVShows = await database.getTVShowsForVotingSession(sessionId);
           const allCarryoverContent = [...carryoverMovies, ...carryoverTVShows];
 
           if (allCarryoverContent.length > 0) {
@@ -673,95 +673,118 @@ async function createVotingSession(interaction, state) {
                 if (content.imdb_id) {
                   try {
                     // Only fetch IMDb data if we do not already have it stored
-                    if (!movie.imdb_data) {
+                    if (!content.imdb_data) {
                       const imdb = require('./imdb');
-                      const imdbData = await imdb.getMovieDetailsCached(movie.imdb_id);
+                      const imdbData = await imdb.getMovieDetailsCached(content.imdb_id);
                       if (imdbData) {
-                        await database.updateMovieImdbData(movie.message_id, JSON.stringify(imdbData));
-                        updatedMovie = { ...movie, imdb_data: JSON.stringify(imdbData) };
-                        logger.debug(`🎬 Cached IMDb data for carryover movie: ${movie.title}`);
+                        // Update appropriate table based on content type
+                        if (isTV) {
+                          // Update TV show IMDb data
+                          await database.pool.execute(
+                            'UPDATE tv_shows SET imdb_data = ? WHERE message_id = ?',
+                            [JSON.stringify(imdbData), content.message_id]
+                          );
+                        } else {
+                          await database.updateMovieImdbData(content.message_id, JSON.stringify(imdbData));
+                        }
+                        updatedContent = { ...content, imdb_data: JSON.stringify(imdbData) };
+                        logger.debug(`${isTV ? '📺' : '🎬'} Cached IMDb data for carryover ${isTV ? 'TV show' : 'movie'}: ${content.title}`);
                       }
                     } else {
-                      updatedMovie = movie;
+                      updatedContent = content;
                     }
                   } catch (error) {
-                    logger.warn(`IMDb fetch skipped/failed for ${movie.title}:`, error.message);
+                    logger.warn(`IMDb fetch skipped/failed for ${content.title}:`, error.message);
                   }
                 }
 
                 if (forumChannels.isForumChannel(votingChannel)) {
-                  // Create forum post for carryover movie WITHOUT components first (we need the new message ID)
+                  // Create forum post for carryover content WITHOUT components first (we need the new message ID)
                   const { embeds, components } = require('../utils');
                   // Include IMDb data in embed if available
                   let imdbDataForEmbed = null;
                   try {
-                    if (updatedMovie.imdb_data) {
-                      let parsed = typeof updatedMovie.imdb_data === 'string' ? JSON.parse(updatedMovie.imdb_data) : updatedMovie.imdb_data;
+                    if (updatedContent.imdb_data) {
+                      let parsed = typeof updatedContent.imdb_data === 'string' ? JSON.parse(updatedContent.imdb_data) : updatedContent.imdb_data;
                       if (typeof parsed === 'string') parsed = JSON.parse(parsed);
                       imdbDataForEmbed = parsed;
                     }
                   } catch (e) { /* non-fatal */ }
-                  const movieEmbed = embeds.createMovieEmbed(updatedMovie, imdbDataForEmbed);
+                  const contentEmbed = embeds.createMovieEmbed(updatedContent, imdbDataForEmbed, null, isTV ? 'tv_show' : 'movie');
 
                   const result = await forumChannels.createForumMoviePost(
                     votingChannel,
-                    { title: updatedMovie.title, embed: movieEmbed },
+                    { title: updatedContent.title, embed: contentEmbed, contentType: isTV ? 'tv_show' : 'movie' },
                     []
                   );
 
                   const { thread, message } = result;
 
                   // Update database with new message and thread IDs
-                  await database.updateMovieMessageId(updatedMovie.guild_id, updatedMovie.title, message.id);
-                  await database.updateMovieThreadId(message.id, thread.id);
+                  if (isTV) {
+                    await database.pool.execute(
+                      'UPDATE tv_shows SET message_id = ?, thread_id = ? WHERE guild_id = ? AND title = ?',
+                      [message.id, thread.id, updatedContent.guild_id, updatedContent.title]
+                    );
+                  } else {
+                    await database.updateMovieMessageId(updatedContent.guild_id, updatedContent.title, message.id);
+                    await database.updateMovieThreadId(message.id, thread.id);
+                  }
 
                   // Now that we have the new message ID, attach voting buttons referencing the correct ID
                   try {
                     const voteCounts = await database.getVoteCounts(message.id);
-                    const movieComponents = components.createVotingButtons(message.id, voteCounts.up, voteCounts.down);
-                    await message.edit({ components: movieComponents });
+                    const contentComponents = components.createVotingButtons(message.id, voteCounts.up, voteCounts.down);
+                    await message.edit({ components: contentComponents });
                   } catch (e) {
                     logger.warn(`Error attaching voting buttons to forum post ${message.id}: ${e.message}`);
                   }
 
-                  logger.info(`📝 Created forum post for carryover movie: ${updatedMovie.title} (Thread: ${thread.id})`);
+                  logger.info(`📝 Created forum post for carryover ${isTV ? 'TV show' : 'movie'}: ${updatedContent.title} (Thread: ${thread.id})`);
                 } else {
-                  // Create text channel message for carryover movie WITHOUT components first (need new message ID)
+                  // Create text channel message for carryover content WITHOUT components first (need new message ID)
                   const { embeds, components } = require('../utils');
                   // Include IMDb data in embed if available
                   let imdbDataForEmbed = null;
                   try {
-                    if (updatedMovie.imdb_data) {
-                      let parsed = typeof updatedMovie.imdb_data === 'string' ? JSON.parse(updatedMovie.imdb_data) : updatedMovie.imdb_data;
+                    if (updatedContent.imdb_data) {
+                      let parsed = typeof updatedContent.imdb_data === 'string' ? JSON.parse(updatedContent.imdb_data) : updatedContent.imdb_data;
                       if (typeof parsed === 'string') parsed = JSON.parse(parsed);
                       imdbDataForEmbed = parsed;
                     }
                   } catch (e) { /* non-fatal */ }
-                  const movieEmbed = embeds.createMovieEmbed(updatedMovie, imdbDataForEmbed);
+                  const contentEmbed = embeds.createMovieEmbed(updatedContent, imdbDataForEmbed, null, isTV ? 'tv_show' : 'movie');
 
                   const newMessage = await votingChannel.send({
-                    embeds: [movieEmbed]
+                    embeds: [contentEmbed]
                   });
 
                   // Update database with new message ID
-                  await database.updateMovieMessageId(updatedMovie.guild_id, updatedMovie.title, newMessage.id);
+                  if (isTV) {
+                    await database.pool.execute(
+                      'UPDATE tv_shows SET message_id = ? WHERE guild_id = ? AND title = ?',
+                      [newMessage.id, updatedContent.guild_id, updatedContent.title]
+                    );
+                  } else {
+                    await database.updateMovieMessageId(updatedContent.guild_id, updatedContent.title, newMessage.id);
+                  }
 
                   // Attach voting buttons that reference the new message ID
                   try {
                     const voteCounts = await database.getVoteCounts(newMessage.id);
-                    const movieComponents = components.createVotingButtons(newMessage.id, voteCounts.up, voteCounts.down);
-                    await newMessage.edit({ components: movieComponents });
+                    const contentComponents = components.createVotingButtons(newMessage.id, voteCounts.up, voteCounts.down);
+                    await newMessage.edit({ components: contentComponents });
                   } catch (e) {
                     logger.warn(`Error attaching voting buttons to message ${newMessage.id}: ${e.message}`);
                   }
 
-                  // Create thread for the movie
+                  // Create thread for the content
                   const thread = await newMessage.startThread({
-                    name: `💬 ${updatedMovie.title}`,
+                    name: `💬 ${updatedContent.title}`,
                     autoArchiveDuration: 10080 // 7 days
                   });
 
-                  console.log(`📝 Created post and thread for carryover movie: ${updatedMovie.title}`);
+                  console.log(`📝 Created post and thread for carryover ${isTV ? 'TV show' : 'movie'}: ${updatedContent.title}`);
                 }
               } catch (error) {
                 logger.warn(`Error creating post for carryover movie ${movie.title}:`, error.message);
