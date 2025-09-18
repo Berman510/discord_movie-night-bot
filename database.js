@@ -227,7 +227,7 @@ class Database {
         guild_id VARCHAR(20) NOT NULL,
         user_id VARCHAR(20) NOT NULL,
         joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (session_id) REFERENCES movie_sessions(id) ON DELETE CASCADE,
+        FOREIGN KEY (session_id) REFERENCES watch_sessions(id) ON DELETE CASCADE,
         UNIQUE KEY unique_participant (session_id, user_id),
         INDEX idx_guild_participants (guild_id, user_id)
       )`,
@@ -241,7 +241,7 @@ class Database {
         joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         left_at TIMESTAMP NULL,
         duration_minutes INT DEFAULT 0,
-        FOREIGN KEY (session_id) REFERENCES movie_sessions(id) ON DELETE CASCADE,
+        FOREIGN KEY (session_id) REFERENCES watch_sessions(id) ON DELETE CASCADE,
         UNIQUE KEY unique_attendee (session_id, user_id),
         INDEX idx_guild_attendees (guild_id, user_id)
       )`,
@@ -325,10 +325,10 @@ class Database {
     try {
       const [cols] = await this.pool.execute(`
         SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'movie_sessions' AND COLUMN_NAME = 'voting_end_time'
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'watch_sessions' AND COLUMN_NAME = 'voting_end_time'
       `);
       if (cols.length === 0) {
-        await this.pool.execute(`ALTER TABLE movie_sessions ADD COLUMN voting_end_time DATETIME NULL AFTER scheduled_date`);
+        await this.pool.execute(`ALTER TABLE watch_sessions ADD COLUMN voting_end_time DATETIME NULL AFTER scheduled_date`);
         logger.debug('✅ Added voting_end_time column via initializeTables');
       }
     } catch (e) {
@@ -337,10 +337,10 @@ class Database {
     try {
       const [rsvpCols] = await this.pool.execute(`
         SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'movie_sessions' AND COLUMN_NAME = 'rsvp_user_ids'
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'watch_sessions' AND COLUMN_NAME = 'rsvp_user_ids'
       `);
       if (rsvpCols.length === 0) {
-        await this.pool.execute(`ALTER TABLE movie_sessions ADD COLUMN rsvp_user_ids JSON NULL AFTER discord_event_id`);
+        await this.pool.execute(`ALTER TABLE watch_sessions ADD COLUMN rsvp_user_ids JSON NULL AFTER discord_event_id`);
         logger.debug('✅ Added rsvp_user_ids column via initializeTables');
       }
     } catch (e) {
@@ -1541,7 +1541,7 @@ class Database {
           await this.pool.execute(`
             ALTER TABLE movies
             ADD CONSTRAINT fk_movies_session_simple
-            FOREIGN KEY (session_id) REFERENCES movie_sessions(id)
+            FOREIGN KEY (session_id) REFERENCES watch_sessions(id)
             ON DELETE SET NULL
           `);
         } catch (error) {
@@ -4295,9 +4295,10 @@ class Database {
       );
 
       // Get user's session creation count
+      const sessionsTable = await this.getSessionsTableName();
       const [sessionRows] = await this.pool.execute(
         `SELECT COUNT(*) as sessions_created
-         FROM movie_sessions
+         FROM ${sessionsTable}
          WHERE guild_id = ? AND created_by = ?`,
         [guildId, userId]
       );
@@ -4764,9 +4765,10 @@ class Database {
         console.log(`🧹 Guild ${guildId}: Cleaned up ${orphanedVotes.affectedRows} orphaned votes`);
 
         // Clean up session participants for non-existent sessions in this guild
+        const sessionsTable = await this.getSessionsTableName();
         const [orphanedParticipants] = await this.pool.execute(`
           DELETE sp FROM session_participants sp
-          LEFT JOIN movie_sessions ms ON sp.session_id = ms.id AND ms.guild_id = ?
+          LEFT JOIN ${sessionsTable} ms ON sp.session_id = ms.id AND ms.guild_id = ?
           WHERE sp.guild_id = ? AND ms.id IS NULL
         `, [guildId, guildId]);
         results.cleaned += orphanedParticipants.affectedRows;
@@ -4775,7 +4777,7 @@ class Database {
         // Clean up session attendees for non-existent sessions in this guild
         const [orphanedAttendees] = await this.pool.execute(`
           DELETE sa FROM session_attendees sa
-          LEFT JOIN movie_sessions ms ON sa.session_id = ms.id AND ms.guild_id = ?
+          LEFT JOIN ${sessionsTable} ms ON sa.session_id = ms.id AND ms.guild_id = ?
           WHERE sa.guild_id = ? AND ms.id IS NULL
         `, [guildId, guildId]);
         results.cleaned += orphanedAttendees.affectedRows;
@@ -4805,9 +4807,10 @@ class Database {
         console.log(`🧹 Global: Cleaned up ${orphanedParticipants.affectedRows} orphaned session participants`);
 
         // Clean up session attendees for non-existent sessions (global)
+        const sessionsTable = await this.getSessionsTableName();
         const [orphanedAttendees] = await this.pool.execute(`
           DELETE sa FROM session_attendees sa
-          LEFT JOIN movie_sessions ms ON sa.session_id = ms.id
+          LEFT JOIN ${sessionsTable} ms ON sa.session_id = ms.id
           WHERE ms.id IS NULL
         `);
         results.cleaned += orphanedAttendees.affectedRows;

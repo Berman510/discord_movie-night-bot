@@ -488,12 +488,20 @@ async function postContentToAdminChannel(client, guildId, content, contentType =
 }
 
 module.exports = {
+  // Unified content-agnostic functions (preferred)
+  createAdminContentEmbed,
+  createAdminContentActionButtons,
+  postContentToAdminChannel,
+  detectContentType,
+
+  // Legacy functions (backward compatibility)
   createAdminMovieEmbed,
   createAdminTVShowEmbed,
   createAdminActionButtons,
   createAdminTVShowActionButtons,
   postMovieToAdminChannel,
-  postContentToAdminChannel,
+
+  // Other functions
   syncAdminChannel,
   removeMovieFromAdminChannel,
   postTieBreakingMovie

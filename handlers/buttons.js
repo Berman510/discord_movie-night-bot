@@ -286,8 +286,9 @@ async function handleVoting(interaction, action, msgId, votes) {
 
       // Enforce per-session vote caps (configurable; defaults: up ~1/3, down ~1/5)
       try {
-        const movieSessionId = movie.session_id;
-        if (movieSessionId) {
+        // Get session ID from the appropriate content type
+        const contentSessionId = isMovie ? movie?.session_id : tvShow?.session_id;
+        if (contentSessionId) {
           // Only enforce caps when attempting to add/change a vote
           if (currentVote !== action) {
             // Read guild config; default to enabled with asymmetric ratios if absent
@@ -299,12 +300,12 @@ async function handleVoting(interaction, action, msgId, votes) {
               const ratioDown = config && config.vote_cap_ratio_down != null ? Number(config.vote_cap_ratio_down) : 1/5;
               const minCap = config && config.vote_cap_min != null ? Math.max(1, Number(config.vote_cap_min)) : 1;
 
-              const totalInSession = await database.countMoviesInSession(movieSessionId);
+              const totalInSession = await database.countMoviesInSession(contentSessionId);
               const upCap = Math.max(minCap, Math.floor(totalInSession * ratioUp));
               const downCap = Math.max(minCap, Math.floor(totalInSession * ratioDown));
 
               const type = isUpvote ? 'up' : 'down';
-              const used = await database.countUserVotesInSession(userId, movieSessionId, type);
+              const used = await database.countUserVotesInSession(userId, contentSessionId, type);
               const cap = isUpvote ? upCap : downCap;
 
               if (used >= cap) {
@@ -1481,14 +1482,21 @@ async function handlePickWinner(interaction, guildId, movieId) {
       const isConfirm = interaction.customId && interaction.customId.startsWith('admin_pick_winner_confirm');
       if (!isConfirm) {
         const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-        // Try to resolve movie title for the confirmation prompt
-        let movieTitle = null;
+        // Try to resolve content title for the confirmation prompt (movies or TV shows)
+        let contentTitle = null;
         try {
-          const m = await database.getMovieByMessageId(movieId);
-          if (m) movieTitle = m.title;
+          // Try movies first
+          const movie = await database.getMovieByMessageId(movieId);
+          if (movie) {
+            contentTitle = movie.title;
+          } else {
+            // Try TV shows
+            const tvShow = await database.getTVShowByMessageId(movieId);
+            if (tvShow) contentTitle = tvShow.title;
+          }
         } catch (e) {}
-        if (!movieTitle && interaction.message && interaction.message.embeds?.length > 0) {
-          movieTitle = interaction.message.embeds[0].title?.replace('\ud83c\udfac ', '') || 'this movie';
+        if (!contentTitle && interaction.message && interaction.message.embeds?.length > 0) {
+          contentTitle = interaction.message.embeds[0].title?.replace(/🎬 |📺 /, '') || 'this content';
         }
 
         const row = new ActionRowBuilder().addComponents(
@@ -1503,7 +1511,7 @@ async function handlePickWinner(interaction, guildId, movieId) {
         );
 
         await interaction.reply({
-          content: `\u26a0\ufe0f Are you sure you want to pick ${movieTitle || 'this movie'} as the winner? This will finalize the session and clear voting posts.`,
+          content: `⚠️ Are you sure you want to pick ${contentTitle || 'this content'} as the winner? This will finalize the session and clear voting posts.`,
           components: [row],
           flags: MessageFlags.Ephemeral
         });
@@ -1518,52 +1526,82 @@ async function handlePickWinner(interaction, guildId, movieId) {
   try {
     // Defer the interaction immediately to prevent timeout
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-    // Get the movie - first try by message ID, then by finding from the interaction message
-    let movie = await database.getMovieByMessageId(movieId);
 
-    if (!movie) {
-      // Try to get movie info from the admin message embed
+    // Get the content - try both movies and TV shows
+    let content = await database.getMovieByMessageId(movieId);
+    let contentType = 'movie';
+
+    if (!content) {
+      content = await database.getTVShowByMessageId(movieId);
+      contentType = 'tv_show';
+    }
+
+    if (!content) {
+      // Try to get content info from the admin message embed
       const adminMessage = interaction.message;
       if (adminMessage && adminMessage.embeds.length > 0) {
-        const movieTitle = adminMessage.embeds[0].title?.replace('🎬 ', '');
-        if (movieTitle) {
-          // Find movie by title in the guild
-          const allMovies = await database.getMoviesByGuild(guildId);
-          movie = allMovies.find(m => m.title === movieTitle && ['pending', 'planned'].includes(m.status));
+        const embedTitle = adminMessage.embeds[0].title;
+        const isMovie = embedTitle?.startsWith('🎬');
+        const isTVShow = embedTitle?.startsWith('📺');
+        const contentTitle = embedTitle?.replace(/🎬 |📺 /, '');
+
+        if (contentTitle) {
+          if (isMovie) {
+            const allMovies = await database.getMoviesByGuild(guildId);
+            content = allMovies.find(m => m.title === contentTitle && ['pending', 'planned'].includes(m.status));
+            contentType = 'movie';
+          } else if (isTVShow) {
+            const allTVShows = await database.getTVShowsByGuild(guildId);
+            content = allTVShows.find(s => s.title === contentTitle && ['pending', 'planned'].includes(s.status));
+            contentType = 'tv_show';
+          }
         }
       }
     }
 
-    if (!movie) {
+    if (!content) {
       await interaction.editReply({
-        content: '❌ Movie not found. Please try syncing the channels first.'
+        content: '❌ Content not found. Please try syncing the channels first.'
       });
       return;
     }
 
-    // Get all movies in the guild for vote breakdown
+    // Get all content in the guild for vote breakdown (movies and TV shows)
     const allMovies = await database.getMoviesByStatus(guildId, 'pending', 50);
     const plannedMovies = await database.getMoviesByStatus(guildId, 'planned', 50);
-    const allVotingMovies = [...allMovies, ...plannedMovies];
+    const allTVShows = await database.getTVShowsByStatus(guildId, 'pending', 50);
+    const plannedTVShows = await database.getTVShowsByStatus(guildId, 'planned', 50);
 
-    // Get vote details for all movies
+    const allVotingContent = [
+      ...allMovies.map(m => ({ ...m, contentType: 'movie' })),
+      ...plannedMovies.map(m => ({ ...m, contentType: 'movie' })),
+      ...allTVShows.map(s => ({ ...s, contentType: 'tv_show' })),
+      ...plannedTVShows.map(s => ({ ...s, contentType: 'tv_show' }))
+    ];
+
+    // Get vote details for all content
     const voteBreakdown = [];
-    for (const votingMovie of allVotingMovies) {
-      const voteCounts = await database.getVoteCounts(votingMovie.message_id);
+    for (const votingContent of allVotingContent) {
+      const voteCounts = await database.getVoteCounts(votingContent.message_id);
       voteBreakdown.push({
-        title: votingMovie.title,
+        title: votingContent.title,
         upVotes: voteCounts.up,
         downVotes: voteCounts.down,
         score: voteCounts.up - voteCounts.down,
-        isWinner: votingMovie.message_id === movieId
+        isWinner: votingContent.message_id === movieId,
+        contentType: votingContent.contentType
       });
     }
 
     // Sort by score (highest first)
     voteBreakdown.sort((a, b) => b.score - a.score);
 
-    // Update winner movie to scheduled
-    await database.updateMovieStatus(movieId, 'scheduled');
+    // Update winner content to scheduled
+    if (contentType === 'movie') {
+      await database.updateMovieStatus(movieId, 'scheduled');
+    } else {
+      await database.updateTVShowStatus(movieId, 'scheduled');
+    }
 
     // Create Discord event for the winner
     let eventCreated = false;
@@ -1572,17 +1610,18 @@ async function handlePickWinner(interaction, guildId, movieId) {
 
       // Parse IMDb data for event description
       let imdbData = null;
-      if (movie.imdb_data) {
+      if (content.imdb_data) {
         try {
-          imdbData = typeof movie.imdb_data === 'string' ? JSON.parse(movie.imdb_data) : movie.imdb_data;
+          imdbData = typeof content.imdb_data === 'string' ? JSON.parse(content.imdb_data) : content.imdb_data;
         } catch (error) {
           console.warn('Error parsing IMDb data for event:', error);
         }
       }
 
+      const contentTypeLabel = contentType === 'movie' ? 'Movie Night' : 'TV Show Night';
       const eventData = {
-        name: `Movie Night: ${movie.title}`,
-        description: `🏆 Winner: ${movie.title}\n📺 Platform: ${movie.where_to_watch || 'TBD'}\n👤 Recommended by: <@${movie.recommended_by}>\n\n${imdbData?.Plot || 'Join us for movie night!'}`,
+        name: `${contentTypeLabel}: ${content.title}`,
+        description: `🏆 Winner: ${content.title}\n📺 Platform: ${content.where_to_watch || 'TBD'}\n👤 Recommended by: <@${content.recommended_by}>\n\n${imdbData?.Plot || 'Join us for watch party!'}`,
         scheduledStartTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Default to 1 week from now
         entityType: 3, // External event
         privacyLevel: 2 // Guild only
@@ -1607,7 +1646,8 @@ async function handlePickWinner(interaction, guildId, movieId) {
           if (forumChannels.isForumChannel(votingChannel)) {
             // Forum channel - remove ALL voting threads (including the winner recommendation), then post winner announcement
             await forumChannels.clearForumMoviePosts(votingChannel, null);
-            await forumChannels.postForumWinnerAnnouncement(votingChannel, movie, 'Movie Night', { event: null, selectedByUserId: interaction.user.id });
+            const sessionName = contentType === 'movie' ? 'Movie Night' : 'TV Show Night';
+            await forumChannels.postForumWinnerAnnouncement(votingChannel, content, sessionName, { event: null, selectedByUserId: interaction.user.id });
 
             // Reset pinned post since session is ending
             await forumChannels.ensureRecommendationPost(votingChannel, null);
@@ -1675,37 +1715,39 @@ async function handlePickWinner(interaction, guildId, movieId) {
         if (votingChannel) {
           // Parse IMDb data for announcement
           let imdbData = null;
-          if (movie.imdb_data) {
+          if (content.imdb_data) {
             try {
-              imdbData = typeof movie.imdb_data === 'string' ? JSON.parse(movie.imdb_data) : movie.imdb_data;
+              imdbData = typeof content.imdb_data === 'string' ? JSON.parse(content.imdb_data) : content.imdb_data;
             } catch (error) {
               console.warn('Error parsing IMDb data:', error);
             }
           }
           // Fallback to cache/live fetch if no embedded data
-          if (!imdbData && movie.imdb_id) {
+          if (!imdbData && content.imdb_id) {
             try {
               const imdbSvc = require('../services/imdb');
-              imdbData = await imdbSvc.getMovieDetailsCached(movie.imdb_id) || await imdbSvc.getMovieDetails(movie.imdb_id);
+              imdbData = await imdbSvc.getMovieDetailsCached(content.imdb_id) || await imdbSvc.getMovieDetails(content.imdb_id);
             } catch (_) {}
           }
 
           // Build description with event link if available
-          let winnerDescription = `**${movie.title}** has been selected for our next movie night!`;
+          const sessionName = contentType === 'movie' ? 'movie night' : 'TV show night';
+          let winnerDescription = `**${content.title}** has been selected for our next ${sessionName}!`;
 
           // Add event link if available
           const activeSession = await database.getActiveVotingSession(guildId);
           if (activeSession && activeSession.discord_event_id) {
-            winnerDescription += `\n\n📅 [**Join the Discord Event**](https://discord.com/events/${guildId}/${activeSession.discord_event_id}) to RSVP for movie night!`;
+            winnerDescription += `\n\n📅 [**Join the Discord Event**](https://discord.com/events/${guildId}/${activeSession.discord_event_id}) to RSVP for ${sessionName}!`;
           }
 
+          const sessionTitle = contentType === 'movie' ? 'Movie Night' : 'TV Show Night';
           const winnerEmbed = new EmbedBuilder()
-            .setTitle('🏆 Movie Night Winner Announced!')
+            .setTitle(`🏆 ${sessionTitle} Winner Announced!`)
             .setDescription(winnerDescription)
             .setColor(0xffd700)
             .addFields(
-              { name: '📺 Platform', value: movie.where_to_watch || 'TBD', inline: true },
-              { name: '👤 Recommended by', value: `<@${movie.recommended_by}>`, inline: true }
+              { name: '📺 Platform', value: content.where_to_watch || 'TBD', inline: true },
+              { name: '👤 Recommended by', value: `<@${content.recommended_by}>`, inline: true }
             );
 
           if (imdbData) {
@@ -1741,9 +1783,9 @@ async function handlePickWinner(interaction, guildId, movieId) {
           winnerEmbed.setFooter({ text: 'Thanks to everyone who voted!' });
 
           // Mention notification role if configured
-          let content = '';
+          let notificationContent = '';
           if (config.notification_role_id) {
-            content = `<@&${config.notification_role_id}>`;
+            notificationContent = `<@&${config.notification_role_id}>`;
           }
 
           // Check if this is a forum channel
@@ -1755,7 +1797,7 @@ async function handlePickWinner(interaction, guildId, movieId) {
           } else {
             // Text channel - send winner announcement
             await votingChannel.send({
-              content: content,
+              content: notificationContent,
               embeds: [winnerEmbed]
             });
           }
@@ -1770,29 +1812,29 @@ async function handlePickWinner(interaction, guildId, movieId) {
     try {
       const activeSession = await database.getActiveVotingSession(guildId);
       if (activeSession && activeSession.discord_event_id) {
-        console.log(`📅 Manual Pick Winner: Updating Discord event ${activeSession.discord_event_id} with winner: ${movie.title}`);
+        console.log(`📅 Manual Pick Winner: Updating Discord event ${activeSession.discord_event_id} with winner: ${content.title}`);
         const guild = interaction.guild;
         const event = await guild.scheduledEvents.fetch(activeSession.discord_event_id);
         if (event) {
           console.log(`📅 Found event: ${event.name}, updating with manual winner...`);
 
-          // Get vote count for this movie
-          const votes = await database.getVotesByMessageId(movie.message_id);
+          // Get vote count for this content
+          const votes = await database.getVotesByMessageId(content.message_id);
           const upVotes = votes.filter(v => v.vote_type === 'up').length;
           const downVotes = votes.filter(v => v.vote_type === 'down').length;
           const totalScore = upVotes - downVotes;
 
-          // Get movie details for event update (cached)
+          // Get content details for event update (cached)
           let imdbData = null;
-          if (movie.imdb_id) {
+          if (content.imdb_id) {
             const imdbSvc = require('../services/imdb');
-            imdbData = await imdbSvc.getMovieDetailsCached(movie.imdb_id);
+            imdbData = await imdbSvc.getMovieDetailsCached(content.imdb_id);
             if (!imdbData) {
-              try { imdbData = await imdbSvc.getMovieDetails(movie.imdb_id); } catch (_) {}
+              try { imdbData = await imdbSvc.getMovieDetails(content.imdb_id); } catch (_) {}
             }
           }
 
-          let updatedDescription = `🏆 **WINNER SELECTED: ${movie.title}**\n\n`;
+          let updatedDescription = `🏆 **WINNER SELECTED: ${content.title}**\n\n`;
           let posterBuffer = null;
           if (imdbData && imdbData.Plot && imdbData.Plot !== 'N/A') {
             updatedDescription += `📖 ${imdbData.Plot}\n\n`;
@@ -1820,10 +1862,12 @@ async function handlePickWinner(interaction, guildId, movieId) {
               console.warn('Could not fetch poster image for event cover (manual):', imgErr.message);
             }
           }
-          updatedDescription += `📅 Join us for movie night!\n\n🔗 SESSION_UID:${activeSession.id}`;
+          const sessionName = contentType === 'movie' ? 'movie night' : 'TV show night';
+          updatedDescription += `📅 Join us for ${sessionName}!\n\n🔗 SESSION_UID:${activeSession.id}`;
 
+          const eventEmoji = contentType === 'movie' ? '🎬' : '📺';
           const editPayload = {
-            name: `🎬 ${activeSession.name} - ${movie.title}`,
+            name: `${eventEmoji} ${activeSession.name} - ${content.title}`,
             description: updatedDescription
           };
           if (posterBuffer) {
@@ -1831,7 +1875,7 @@ async function handlePickWinner(interaction, guildId, movieId) {
           }
           await event.edit(editPayload);
 
-          console.log(`📅 Successfully updated Discord event with manual winner: ${movie.title} (Score: ${totalScore})`);
+          console.log(`📅 Successfully updated Discord event with manual winner: ${content.title} (Score: ${totalScore})`);
         } else {
           console.warn(`📅 Discord event not found: ${activeSession.discord_event_id}`);
         }
@@ -1863,7 +1907,7 @@ async function handlePickWinner(interaction, guildId, movieId) {
     }
 
     await interaction.editReply({
-      content: `🏆 **${movie.title}** has been selected as the winner! Announcement posted, channels cleared, and event updated.`
+      content: `🏆 **${content.title}** has been selected as the winner! Announcement posted, channels cleared, and event updated.`
     });
     setTimeout(async () => { try { await interaction.deleteReply(); } catch (_) {} }, 8000);
 
@@ -1877,7 +1921,7 @@ async function handlePickWinner(interaction, guildId, movieId) {
     }
 
     const logger = require('../utils/logger');
-    logger.info(`🏆 Movie ${movie.title} picked as winner by ${interaction.user.tag}`);
+    logger.info(`🏆 ${contentType === 'movie' ? 'Movie' : 'TV Show'} ${content.title} picked as winner by ${interaction.user.tag}`);
 
   } catch (error) {
     console.error('Error picking winner:', error);
@@ -2211,19 +2255,24 @@ async function handleSkipToNext(interaction, guildId, movieId) {
 }
 
 /**
- * Update the admin message with new movie status
+ * Update the admin message with new content status (content-agnostic)
  */
-async function updateAdminMessage(interaction, movie) {
+async function updateAdminMessage(interaction, content, contentType = null) {
   try {
     const adminMirror = require('../services/admin-mirror');
     const database = require('../database');
 
-    // Get updated vote counts
-    const voteCounts = await database.getVoteCounts(movie.message_id);
+    // Auto-detect content type if not provided
+    if (!contentType) {
+      contentType = content.show_type ? 'tv_show' : 'movie';
+    }
 
-    // Create updated embed and buttons
-    const embed = adminMirror.createAdminMovieEmbed(movie, voteCounts);
-    const components = adminMirror.createAdminActionButtons(movie.message_id, movie.status, movie.is_banned);
+    // Get updated vote counts
+    const voteCounts = await database.getVoteCounts(content.message_id);
+
+    // Create updated embed and buttons using unified functions
+    const embed = adminMirror.createAdminContentEmbed(content, voteCounts, contentType);
+    const components = await adminMirror.createAdminContentActionButtons(content.message_id, content.status, content.is_banned, interaction.guild.id, contentType);
 
     // Update the message
     await interaction.message.edit({
