@@ -581,21 +581,12 @@ async function createMovieWithoutImdb(interaction, title, where, episodeInfo = n
 
     // Post to admin channel if configured
     try {
-      const database = require('../database');
+      const adminMirror = require('../services/admin-mirror');
 
-      // Try to get from movies table first
-      let content = await database.getMovieByMessageId(message.id);
-      let contentType = 'movie';
-
-      // If not found in movies table, try TV shows table
-      if (!content) {
-        content = await database.getTVShowByMessageId(message.id);
-        contentType = 'tv_show';
-      }
+      // Use unified content retrieval
+      const { content, contentType } = await adminMirror.getContentByMessageId(message.id);
 
       if (content) {
-        const adminMirror = require('../services/admin-mirror');
-        // Pass content type so admin mirror knows how to handle it
         await adminMirror.postContentToAdminChannel(interaction.client, interaction.guild.id, content, contentType);
       }
     } catch (error) {

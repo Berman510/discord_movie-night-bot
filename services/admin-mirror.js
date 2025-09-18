@@ -28,6 +28,27 @@ async function detectContentType(messageId) {
 }
 
 /**
+ * Get content by message ID (content-agnostic)
+ */
+async function getContentByMessageId(messageId) {
+  try {
+    // Try movies table first
+    const movie = await database.getMovieByMessageId(messageId);
+    if (movie) return { content: movie, contentType: 'movie' };
+
+    // Try TV shows table
+    const tvShow = await database.getTVShowByMessageId(messageId);
+    if (tvShow) return { content: tvShow, contentType: 'tv_show' };
+
+    // Not found
+    return { content: null, contentType: null };
+  } catch (error) {
+    console.warn('Error getting content by message ID:', error.message);
+    return { content: null, contentType: null };
+  }
+}
+
+/**
  * Create unified admin embed for any content type
  */
 function createAdminContentEmbed(content, voteCounts, contentType) {
@@ -488,12 +509,21 @@ async function postContentToAdminChannel(client, guildId, content, contentType =
 }
 
 module.exports = {
+  // Unified content-agnostic functions (preferred)
+  createAdminContentEmbed,
+  createAdminContentActionButtons,
+  postContentToAdminChannel,
+  detectContentType,
+  getContentByMessageId,
+
+  // Legacy functions (backward compatibility)
   createAdminMovieEmbed,
   createAdminTVShowEmbed,
   createAdminActionButtons,
   createAdminTVShowActionButtons,
   postMovieToAdminChannel,
-  postContentToAdminChannel,
+
+  // Other functions
   syncAdminChannel,
   removeMovieFromAdminChannel,
   postTieBreakingMovie

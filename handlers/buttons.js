@@ -1051,17 +1051,12 @@ async function createMovieWithImdb(interaction, title, where, imdbData) {
     // Post to admin channel if configured (movie creation service handles database save)
     try {
       // Try to get from movies table first
-      let content = await database.getMovieByMessageId(message.id);
-      let contentType = 'movie';
+      const adminMirror = require('../services/admin-mirror');
 
-      // If not found in movies table, try TV shows table
-      if (!content) {
-        content = await database.getTVShowByMessageId(message.id);
-        contentType = 'tv_show';
-      }
+      // Use unified content retrieval
+      const { content, contentType } = await adminMirror.getContentByMessageId(message.id);
 
       if (content) {
-        const adminMirror = require('../services/admin-mirror');
         // Use the unified postContentToAdminChannel function that handles both content types
         await adminMirror.postContentToAdminChannel(interaction.client, interaction.guild.id, content, contentType);
       }
@@ -1527,17 +1522,12 @@ async function handlePickWinner(interaction, guildId, movieId) {
     // Defer the interaction immediately to prevent timeout
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-    // Get the content - try both movies and TV shows
-    let content = await database.getMovieByMessageId(movieId);
-    let contentType = 'movie';
+    // Get the content using unified retrieval
+    const adminMirror = require('../services/admin-mirror');
+    let { content, contentType } = await adminMirror.getContentByMessageId(movieId);
 
     if (!content) {
-      content = await database.getTVShowByMessageId(movieId);
-      contentType = 'tv_show';
-    }
-
-    if (!content) {
-      // Try to get content info from the admin message embed
+      // Try to get content info from the admin message embed as fallback
       const adminMessage = interaction.message;
       if (adminMessage && adminMessage.embeds.length > 0) {
         const embedTitle = adminMessage.embeds[0].title;
