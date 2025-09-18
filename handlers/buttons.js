@@ -245,10 +245,9 @@ async function handleVoting(interaction, action, msgId, votes) {
 
     // Handle database voting
     if (database.isConnected) {
-      // Check if this is a movie or TV show
-      const movie = await database.getMovieById(msgId, interaction.guild.id);
-      const tvShow = await database.getTVShowByMessageId(msgId);
-      const content = movie || tvShow;
+      // Use unified content service
+      const contentService = require('../services/content-service');
+      const { content, contentType, isMovie, isTVShow } = await contentService.getContentByMessageId(msgId, interaction.guild.id);
 
       if (!content) {
         console.error(`🚨 VOTING ERROR: Content with message ID ${msgId} not found in database for guild ${interaction.guild.id}`);
@@ -259,35 +258,27 @@ async function handleVoting(interaction, action, msgId, votes) {
         return;
       }
 
-      const isMovie = !!movie;
-      const contentType = isMovie ? 'movie' : 'TV show';
+      const contentTypeLabel = contentService.getContentTypeLabel(contentType);
 
       // Lazy backfill: if this is a forum thread and DB thread_id is missing, fill it from the interaction channel
       try {
         const ch = interaction.channel;
         const isThread = typeof ch?.isThread === 'function' ? ch.isThread() : false;
         if (content.channel_type === 'forum' && !content.thread_id && isThread) {
-          if (isMovie) {
-            await database.updateMovieThreadId(msgId, ch.id);
-            content.thread_id = ch.id; // update local reference
-          } else {
-            await database.updateTVShowThreadId(msgId, ch.id);
-            content.thread_id = ch.id; // update local reference
-          }
+          await contentService.updateThreadId(msgId, ch.id, contentType);
+          content.thread_id = ch.id; // update local reference
         }
       } catch (e) {
         console.warn('Backfill thread_id on vote failed:', e?.message);
       }
 
-      // Check current vote (works for both movies and TV shows)
-      const currentVote = isMovie
-        ? await database.getUserVote(msgId, userId)
-        : await database.getUserTVShowVote(msgId, userId);
+      // Check current vote using unified service
+      const currentVote = await contentService.getUserVote(msgId, userId, contentType);
 
       // Enforce per-session vote caps (configurable; defaults: up ~1/3, down ~1/5)
       try {
-        // Get session ID from the appropriate content type
-        const contentSessionId = isMovie ? movie?.session_id : tvShow?.session_id;
+        // Get session ID from content
+        const contentSessionId = content?.session_id;
         if (contentSessionId) {
           // Only enforce caps when attempting to add/change a vote
           if (currentVote !== action) {
@@ -333,19 +324,15 @@ async function handleVoting(interaction, action, msgId, votes) {
 
       if (currentVote === action) {
         // Remove vote if clicking same button
-        const removeSuccess = isMovie
-          ? await database.removeVote(msgId, userId, interaction.guild.id)
-          : await database.removeTVShowVote(msgId, userId, interaction.guild.id);
+        const removeSuccess = await contentService.removeVote(msgId, userId, interaction.guild.id, contentType);
         if (!removeSuccess) {
-          console.error(`Failed to remove ${contentType} vote for message ${msgId} by user ${userId}`);
+          console.error(`Failed to remove ${contentTypeLabel} vote for message ${msgId} by user ${userId}`);
         }
       } else {
         // Add or change vote
-        const saveSuccess = isMovie
-          ? await database.saveVote(msgId, userId, action, interaction.guild.id)
-          : await database.addTVShowVote(msgId, userId, interaction.guild.id, action);
+        const saveSuccess = await contentService.saveVote(msgId, userId, action, interaction.guild.id, contentType);
         if (!saveSuccess) {
-          console.error(`Failed to save ${contentType} vote for message ${msgId} by user ${userId}`);
+          console.error(`Failed to save ${contentTypeLabel} vote for message ${msgId} by user ${userId}`);
           await interaction.followUp({
             content: '❌ Failed to save your vote. Please try again.',
             ephemeral: true
@@ -354,10 +341,8 @@ async function handleVoting(interaction, action, msgId, votes) {
         }
       }
 
-      // Get updated vote counts
-      const voteCounts = isMovie
-        ? await database.getVoteCounts(msgId)
-        : await database.getTVShowVoteCounts(msgId);
+      // Get updated vote counts using unified service
+      const voteCounts = await contentService.getVoteCounts(msgId, contentType);
 
       // Update message with new vote counts and preserve all buttons
       const { components, embeds } = require('../utils');
