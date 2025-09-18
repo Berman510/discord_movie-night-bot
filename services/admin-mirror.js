@@ -7,81 +7,116 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('
 const database = require('../database');
 
 /**
- * Create a simplified admin movie embed
+ * Auto-detect content type based on message ID
  */
-function createAdminMovieEmbed(movie, voteCounts = { up: 0, down: 0 }) {
+async function detectContentType(messageId) {
+  try {
+    // Try movies table first
+    const movie = await database.getMovieByMessageId(messageId);
+    if (movie) return 'movie';
+
+    // Try TV shows table
+    const tvShow = await database.getTVShowByMessageId(messageId);
+    if (tvShow) return 'tv_show';
+
+    // Default fallback
+    return 'movie';
+  } catch (error) {
+    console.warn('Error detecting content type:', error.message);
+    return 'movie';
+  }
+}
+
+/**
+ * Create unified admin embed for any content type
+ */
+function createAdminContentEmbed(content, voteCounts, contentType) {
+  // Get content type info for proper emoji and formatting
+  const contentTypes = require('../utils/content-types');
+  const { emoji, label } = contentTypes.getContentTypeInfo(contentType);
+
+  // Format title based on content type
+  let displayTitle = content.title;
+  if (contentType === 'tv_show' && content.show_type === 'episode' && content.season_number && content.episode_number) {
+    displayTitle = `${content.title} - S${content.season_number}E${content.episode_number}`;
+    if (content.episode_title) {
+      displayTitle += ` - ${content.episode_title}`;
+    }
+  }
+
+  // Handle vote counts (can be from either votes or votes_tv table)
+  const upvotes = voteCounts?.up || voteCounts?.upvotes || 0;
+  const downvotes = voteCounts?.down || voteCounts?.downvotes || 0;
+  const netVotes = upvotes - downvotes;
+
   const embed = new EmbedBuilder()
-    .setTitle(`🎬 ${movie.title}`)
-    .setColor(getStatusColor(movie.status))
+    .setTitle(`${emoji} ${displayTitle}`)
+    .setColor(getStatusColor(content.status))
     .addFields(
       {
         name: '👤 Recommended by',
-        value: `<@${movie.recommended_by}>`,
+        value: `<@${content.recommended_by}>`,
         inline: true
       },
       {
         name: '📺 Platform',
-        value: movie.where_to_watch || 'Unknown',
+        value: content.where_to_watch || 'Unknown',
         inline: true
       },
       {
         name: '📅 Status',
-        value: getStatusDisplay(movie.status),
+        value: getStatusDisplay(content.status),
         inline: true
-      }
-    )
-    .setFooter({ text: `Movie ID: ${movie.message_id} • UID: ${movie.movie_uid?.substring(0, 8)}...` })
-    .setTimestamp(new Date(movie.created_at));
-
-  return embed;
-}
-
-/**
- * Create admin embed for TV show
- */
-function createAdminTVShowEmbed(tvShow, voteCounts) {
-  const { upvotes = 0, downvotes = 0 } = voteCounts;
-  const netVotes = upvotes - downvotes;
-
-  // Format TV show title based on type
-  let displayTitle = tvShow.title;
-  if (tvShow.show_type === 'episode' && tvShow.season_number && tvShow.episode_number) {
-    displayTitle = `${tvShow.title} - S${tvShow.season_number}E${tvShow.episode_number}`;
-    if (tvShow.episode_title) {
-      displayTitle += ` - ${tvShow.episode_title}`;
-    }
-  }
-
-  const embed = new EmbedBuilder()
-    .setTitle(`📺 ${displayTitle}`)
-    .setDescription(tvShow.where_to_watch || 'No streaming info provided')
-    .setColor(tvShow.status === 'chosen' ? 0x57f287 : tvShow.status === 'decided' ? 0x5865f2 : 0xfee75c)
-    .addFields(
-      { name: '👤 Recommended by', value: `<@${tvShow.recommended_by}>`, inline: true },
-      { name: '📊 Votes', value: `👍 ${upvotes} | 👎 ${downvotes} | Net: ${netVotes >= 0 ? '+' : ''}${netVotes}`, inline: true },
-      { name: '📋 Status', value: tvShow.status.charAt(0).toUpperCase() + tvShow.status.slice(1), inline: true },
+      },
       {
-        name: '📺 Type',
-        value: tvShow.show_type === 'episode' ? 'Episode' : 'Series',
+        name: '📊 Votes',
+        value: `👍 ${upvotes} | 👎 ${downvotes} | Net: ${netVotes >= 0 ? '+' : ''}${netVotes}`,
         inline: true
       }
-    )
-    .setFooter({ text: `TV Show ID: ${tvShow.message_id} • UID: ${tvShow.show_uid?.substring(0, 8)}...` })
-    .setTimestamp(new Date(tvShow.created_at));
+    );
+
+  // Add content-specific footer
+  const uidField = contentType === 'movie' ? content.movie_uid : content.show_uid;
+  const idLabel = contentType === 'movie' ? 'Movie ID' : 'TV Show ID';
+  embed.setFooter({ text: `${idLabel}: ${content.message_id} • UID: ${uidField?.substring(0, 8)}...` });
+  embed.setTimestamp(new Date(content.created_at));
 
   // Add poster if available
-  if (tvShow.poster_url) {
-    embed.setThumbnail(tvShow.poster_url);
+  if (content.poster_url) {
+    embed.setThumbnail(content.poster_url);
   }
 
   return embed;
 }
 
 /**
- * Create admin action buttons for a movie
+ * Legacy movie embed function - kept for backward compatibility
  */
-async function createAdminActionButtons(movieId, status, isBanned = false, guildId = null) {
+function createAdminMovieEmbed(movie, voteCounts = { up: 0, down: 0 }) {
+  return createAdminContentEmbed(movie, voteCounts, 'movie');
+}
+
+/**
+ * Legacy TV show embed function - kept for backward compatibility
+ */
+function createAdminTVShowEmbed(tvShow, voteCounts) {
+  return createAdminContentEmbed(tvShow, voteCounts, 'tv_show');
+}
+
+/**
+ * Create unified admin action buttons for any content type
+ */
+async function createAdminContentActionButtons(contentId, status, isBanned = false, guildId = null, contentType = null) {
   const row = new ActionRowBuilder();
+
+  // Auto-detect content type if not provided
+  if (!contentType) {
+    contentType = await detectContentType(contentId);
+  }
+
+  // Get content type info for proper labeling
+  const contentTypes = require('../utils/content-types');
+  const { label } = contentTypes.getContentTypeInfo(contentType);
 
   // Check if there's an active voting session
   let isInVotingSession = false;
@@ -91,32 +126,34 @@ async function createAdminActionButtons(movieId, status, isBanned = false, guild
       console.log(`🔍 Active voting session for guild ${guildId}:`, activeSession ? `Session ${activeSession.id}` : 'None');
 
       if (activeSession) {
-        // Check if this movie is part of the voting session
-        const movie = await database.getMovieByMessageId(movieId);
-        isInVotingSession = movie && movie.session_id === activeSession.id;
-        console.log(`🔍 Movie ${movieId} in voting session:`, isInVotingSession, `(movie session_id: ${movie?.session_id})`);
+        // Check if this content is part of the voting session
+        const content = contentType === 'movie'
+          ? await database.getMovieByMessageId(contentId)
+          : await database.getTVShowByMessageId(contentId);
+        isInVotingSession = content && content.session_id === activeSession.id;
+        console.log(`🔍 ${label} ${contentId} in voting session:`, isInVotingSession, `(content session_id: ${content?.session_id})`);
       }
     } catch (error) {
       console.warn('Error checking voting session status:', error.message);
     }
   }
 
-  // Always show Pick Winner for pending/planned movies (new workflow)
+  // Always show Pick Winner for pending/planned content (new workflow)
   if (['pending', 'planned'].includes(status) && !isBanned) {
     row.addComponents(
       new ButtonBuilder()
-        .setCustomId(`admin_pick_winner:${movieId}`)
+        .setCustomId(`admin_pick_winner:${contentId}`)
         .setLabel('🏆 Pick Winner')
         .setStyle(ButtonStyle.Success)
     );
   }
 
-  // Mark as watched button (for scheduled movies) — only after event start
+  // Mark as watched button (for scheduled content) — only after event start
   if (status === 'scheduled' && !isBanned) {
     let canMarkWatched = true;
     try {
       if (guildId) {
-        const session = await database.getSessionByWinnerMessageId(guildId, movieId);
+        const session = await database.getSessionByWinnerMessageId(guildId, contentId);
         if (session && session.scheduled_date) {
           const now = new Date();
           const start = new Date(session.scheduled_date);
@@ -130,46 +167,46 @@ async function createAdminActionButtons(movieId, status, isBanned = false, guild
     if (canMarkWatched) {
       row.addComponents(
         new ButtonBuilder()
-          .setCustomId(`admin_watched:${movieId}`)
+          .setCustomId(`admin_watched:${contentId}`)
           .setLabel('✅ Mark Watched')
           .setStyle(ButtonStyle.Success)
       );
     }
   }
 
-  // Skip to Next button (for pending/planned movies)
+  // Skip to Next button (for pending/planned content)
   if (['pending', 'planned'].includes(status) && !isBanned) {
     row.addComponents(
       new ButtonBuilder()
-        .setCustomId(`admin_skip_vote:${movieId}`)
+        .setCustomId(`admin_skip_vote:${contentId}`)
         .setLabel('⏭️ Skip to Next')
         .setStyle(ButtonStyle.Secondary)
     );
   }
 
-  // Remove Suggestion button (for pending/planned movies)
+  // Remove Suggestion button (for pending/planned content)
   if (['pending', 'planned'].includes(status) && !isBanned) {
     row.addComponents(
       new ButtonBuilder()
-        .setCustomId(`admin_remove:${movieId}`)
+        .setCustomId(`admin_remove:${contentId}`)
         .setLabel('🗑️ Remove')
         .setStyle(ButtonStyle.Danger)
     );
   }
 
-  // Ban/Unban button (always available)
+  // Ban/Unban button (always available) - content-agnostic labels
   if (!isBanned) {
     row.addComponents(
       new ButtonBuilder()
-        .setCustomId(`admin_ban:${movieId}`)
-        .setLabel('🚫 Ban Movie')
+        .setCustomId(`admin_ban:${contentId}`)
+        .setLabel(`🚫 Ban ${label}`)
         .setStyle(ButtonStyle.Danger)
     );
   } else {
     row.addComponents(
       new ButtonBuilder()
-        .setCustomId(`admin_unban:${movieId}`)
-        .setLabel('✅ Unban Movie')
+        .setCustomId(`admin_unban:${contentId}`)
+        .setLabel(`✅ Unban ${label}`)
         .setStyle(ButtonStyle.Success)
     );
   }
@@ -177,7 +214,7 @@ async function createAdminActionButtons(movieId, status, isBanned = false, guild
   // View Details button (always available)
   row.addComponents(
     new ButtonBuilder()
-      .setCustomId(`admin_details:${movieId}`)
+      .setCustomId(`admin_details:${contentId}`)
       .setLabel('📋 Details')
       .setStyle(ButtonStyle.Secondary)
   );
@@ -186,68 +223,17 @@ async function createAdminActionButtons(movieId, status, isBanned = false, guild
 }
 
 /**
- * Create admin action buttons for a TV show
+ * Legacy movie action buttons function - kept for backward compatibility
+ */
+async function createAdminActionButtons(movieId, status, isBanned = false, guildId = null) {
+  return createAdminContentActionButtons(movieId, status, isBanned, guildId, 'movie');
+}
+
+/**
+ * Legacy TV show action buttons function - kept for backward compatibility
  */
 async function createAdminTVShowActionButtons(tvShowId, status, isBanned = false, guildId = null) {
-  const row = new ActionRowBuilder();
-
-  // Check if there's an active voting session
-  let isInVotingSession = false;
-  if (guildId) {
-    try {
-      const activeSession = await database.getActiveVotingSession(guildId);
-      console.log(`🔍 Active voting session for guild ${guildId}:`, activeSession ? `Session ${activeSession.id}` : 'None');
-
-      if (activeSession) {
-        // Check if this TV show is part of the voting session
-        const tvShow = await database.getTVShowByMessageId(tvShowId);
-        isInVotingSession = tvShow && tvShow.session_id === activeSession.id;
-        console.log(`🔍 TV Show ${tvShowId} in voting session:`, isInVotingSession, `(show session_id: ${tvShow?.session_id})`);
-      }
-    } catch (error) {
-      console.warn('Error checking voting session status:', error.message);
-    }
-  }
-
-  // Pick Winner button (only if in voting session and not banned)
-  if (isInVotingSession && !isBanned) {
-    row.addComponents(
-      new ButtonBuilder()
-        .setCustomId(`admin_pick_winner_tvshow_${tvShowId}`)
-        .setLabel('Pick Winner')
-        .setStyle(ButtonStyle.Success)
-        .setEmoji('🏆')
-    );
-  }
-
-  // Ban/Unban button
-  if (isBanned) {
-    row.addComponents(
-      new ButtonBuilder()
-        .setCustomId(`admin_unban_tvshow_${tvShowId}`)
-        .setLabel('Unban')
-        .setStyle(ButtonStyle.Secondary)
-        .setEmoji('✅')
-    );
-  } else {
-    row.addComponents(
-      new ButtonBuilder()
-        .setCustomId(`admin_ban_tvshow_${tvShowId}`)
-        .setLabel('Ban')
-        .setStyle(ButtonStyle.Danger)
-        .setEmoji('🚫')
-    );
-  }
-
-  // View Details button (always available)
-  row.addComponents(
-    new ButtonBuilder()
-      .setCustomId(`admin_details_tvshow_${tvShowId}`)
-      .setLabel('📋 Details')
-      .setStyle(ButtonStyle.Secondary)
-  );
-
-  return row.components.length > 0 ? [row] : [];
+  return createAdminContentActionButtons(tvShowId, status, isBanned, guildId, 'tv_show');
 }
 
 /**
@@ -281,52 +267,10 @@ function getStatusDisplay(status) {
 }
 
 /**
- * Post or update a movie in the admin mirror channel
+ * Legacy movie posting function - kept for backward compatibility
  */
 async function postMovieToAdminChannel(client, guildId, movie) {
-  try {
-    const config = await database.getGuildConfig(guildId);
-    if (!config || !config.admin_channel_id) {
-      console.log('No admin channel configured for guild:', guildId);
-      return null;
-    }
-
-    const adminChannel = await client.channels.fetch(config.admin_channel_id);
-    if (!adminChannel) {
-      console.log('Admin channel not found:', config.admin_channel_id);
-      return null;
-    }
-
-    // Get vote counts
-    const voteCounts = await database.getVoteCounts(movie.message_id);
-    
-    // Create admin embed and buttons
-    const embed = createAdminMovieEmbed(movie, voteCounts);
-    const components = await createAdminActionButtons(movie.message_id, movie.status, movie.is_banned, guildId);
-
-    // Post to admin channel
-    const adminMessage = await adminChannel.send({
-      embeds: [embed],
-      components: components
-    });
-
-    // Ensure admin control panel stays at the bottom
-    try {
-      const adminControls = require('./admin-controls');
-      await adminControls.ensureAdminControlPanel(client, guildId);
-    } catch (error) {
-      const logger = require('../utils/logger');
-      logger.warn('Error ensuring admin control panel after movie post:', error.message);
-    }
-
-    const logger = require('../utils/logger');
-    logger.debug(`📋 Posted movie to admin channel: ${movie.title}`);
-    return adminMessage;
-
-  } catch (error) {
-    console.error('Error posting movie to admin channel:', error);
-    return null;
-  }
+  return postContentToAdminChannel(client, guildId, movie, 'movie');
 }
 
 /**
@@ -509,18 +453,14 @@ async function postContentToAdminChannel(client, guildId, content, contentType =
     // Get vote counts
     const voteCounts = await database.getVoteCounts(content.message_id);
 
-    // Create appropriate embed and buttons based on content type
-    let embed, components;
-
-    if (contentType === 'tv_show' || content.show_type) {
-      // TV Show embed
-      embed = createAdminTVShowEmbed(content, voteCounts);
-      components = await createAdminTVShowActionButtons(content.message_id, content.status, content.is_banned, guildId);
-    } else {
-      // Movie embed
-      embed = createAdminMovieEmbed(content, voteCounts);
-      components = await createAdminActionButtons(content.message_id, content.status, content.is_banned, guildId);
+    // Auto-detect content type if not provided
+    if (!contentType || contentType === 'movie') {
+      contentType = content.show_type ? 'tv_show' : 'movie';
     }
+
+    // Create unified embed and buttons
+    const embed = createAdminContentEmbed(content, voteCounts, contentType);
+    const components = await createAdminContentActionButtons(content.message_id, content.status, content.is_banned, guildId, contentType);
 
     // Post to admin channel
     const adminMessage = await adminChannel.send({
