@@ -14,11 +14,11 @@ function parseEpisodeInfo(episodeInput) {
 
   // Season/Episode patterns: S1E2, S01E02, 1x2, 1-2
   const seasonEpisodePatterns = [
-    /^[Ss](\d+)[Ee](\d+)$/,           // S1E2, s1e2
-    /^[Ss](\d+)[Xx](\d+)$/,           // S1X2, s1x2
-    /^(\d+)[xX](\d+)$/,               // 1x2, 1X2
-    /^(\d+)-(\d+)$/,                  // 1-2
-    /^(\d+)\.(\d+)$/                  // 1.2
+    /^[Ss](\d+)[Ee](\d+)$/, // S1E2, s1e2
+    /^[Ss](\d+)[Xx](\d+)$/, // S1X2, s1x2
+    /^(\d+)[xX](\d+)$/, // 1x2, 1X2
+    /^(\d+)-(\d+)$/, // 1-2
+    /^(\d+)\.(\d+)$/, // 1.2
   ];
 
   for (const pattern of seasonEpisodePatterns) {
@@ -31,7 +31,7 @@ function parseEpisodeInfo(episodeInput) {
         season,
         episode,
         searchQuery: `S${season.toString().padStart(2, '0')}E${episode.toString().padStart(2, '0')}`,
-        displayFormat: `S${season}E${episode}`
+        displayFormat: `S${season}E${episode}`,
       };
     }
   }
@@ -45,13 +45,14 @@ function parseEpisodeInfo(episodeInput) {
     if (episodeNum >= 100 && episodeNum <= 999) {
       const season = Math.floor(episodeNum / 100);
       const episode = episodeNum % 100;
-      if (episode > 0 && episode <= 50) { // Reasonable episode range
+      if (episode > 0 && episode <= 50) {
+        // Reasonable episode range
         return {
           type: 'episode_number_expanded',
           season,
           episode,
           searchQuery: `S${season.toString().padStart(2, '0')}E${episode.toString().padStart(2, '0')}`,
-          displayFormat: `S${season}E${episode}`
+          displayFormat: `S${season}E${episode}`,
         };
       }
     }
@@ -61,7 +62,7 @@ function parseEpisodeInfo(episodeInput) {
       type: 'episode_number',
       episode: episodeNum,
       searchQuery: `E${episodeNum.toString().padStart(2, '0')}`,
-      displayFormat: `Episode ${episodeNum}`
+      displayFormat: `Episode ${episodeNum}`,
     };
   }
 
@@ -71,7 +72,7 @@ function parseEpisodeInfo(episodeInput) {
       type: 'episode_title',
       title: input,
       searchQuery: input,
-      displayFormat: `"${input}"`
+      displayFormat: `"${input}"`,
     };
   }
 
@@ -141,16 +142,17 @@ async function handleModal(interaction) {
     console.warn(`Unknown modal interaction: ${customId}`);
     await interaction.reply({
       content: '❌ Unknown modal interaction.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
-
   } catch (error) {
     console.error('Error handling modal interaction:', error);
     if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({
-        content: '❌ An error occurred while processing the modal.',
-        flags: MessageFlags.Ephemeral
-      }).catch(console.error);
+      await interaction
+        .reply({
+          content: '❌ An error occurred while processing the modal.',
+          flags: MessageFlags.Ephemeral,
+        })
+        .catch(console.error);
     }
   }
 }
@@ -168,7 +170,9 @@ async function handleMovieRecommendationModal(interaction) {
   }
 
   const logger = require('../utils/logger');
-  logger.debug(`🔍 DEBUG: handleMovieRecommendationModal called with title: ${title}, episode: ${episode}, where: ${where}`);
+  logger.debug(
+    `🔍 DEBUG: handleMovieRecommendationModal called with title: ${title}, episode: ${episode}, where: ${where}`
+  );
   logger.debug(`Content recommendation: ${title}${episode ? ` (${episode})` : ''} on ${where}`);
 
   try {
@@ -194,13 +198,14 @@ async function handleMovieRecommendationModal(interaction) {
     const existingMovie = await database.findMovieByTitle(interaction.guild.id, searchTitle);
 
     if (existingMovie) {
-      const statusEmoji = {
-        'pending': '🍿',
-        'planned': '📌',
-        'watched': '✅',
-        'skipped': '⏭️',
-        'scheduled': '📅'
-      }[existingMovie.status] || '🎬';
+      const statusEmoji =
+        {
+          pending: '🍿',
+          planned: '📌',
+          watched: '✅',
+          skipped: '⏭️',
+          scheduled: '📅',
+        }[existingMovie.status] || '🎬';
 
       let statusMessage = `**${title}** has already been added and is currently ${statusEmoji} ${existingMovie.status}`;
 
@@ -229,14 +234,16 @@ async function handleMovieRecommendationModal(interaction) {
       await interaction.reply({
         content: `⚠️ ${statusMessage}`,
         components: [confirmRow],
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
 
     // Defer early for potentially long IMDb/network operations
     if (!interaction.deferred && !interaction.replied) {
-      try { await interaction.deferReply({ flags: MessageFlags.Ephemeral }); } catch {}
+      try {
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+      } catch {}
     }
 
     // Search IMDb with intelligent episode matching
@@ -249,8 +256,14 @@ async function handleMovieRecommendationModal(interaction) {
 
       if (episodeInfo && episodeInfo.type === 'season_episode') {
         // For season/episode format, try specific episode search first
-        logger.debug(`🔍 Trying specific episode search for: ${title} S${episodeInfo.season}E${episodeInfo.episode}`);
-        const episodeData = await imdb.searchEpisode(title, episodeInfo.season, episodeInfo.episode);
+        logger.debug(
+          `🔍 Trying specific episode search for: ${title} S${episodeInfo.season}E${episodeInfo.episode}`
+        );
+        const episodeData = await imdb.searchEpisode(
+          title,
+          episodeInfo.season,
+          episodeInfo.episode
+        );
 
         if (episodeData) {
           imdbResults = [episodeData];
@@ -288,22 +301,25 @@ async function handleMovieRecommendationModal(interaction) {
 
         if (sessionContentType === 'movie') {
           // Movie sessions: only show movies
-          imdbResults = imdbResults.filter(result => result.Type === 'movie');
+          imdbResults = imdbResults.filter((result) => result.Type === 'movie');
         } else if (sessionContentType === 'tv_show') {
           // TV show sessions: only show series and episodes
-          imdbResults = imdbResults.filter(result => result.Type === 'series' || result.Type === 'episode');
+          imdbResults = imdbResults.filter(
+            (result) => result.Type === 'series' || result.Type === 'episode'
+          );
         }
         // Mixed sessions: show all results (no filtering)
 
         // If all results were filtered out, show helpful message
         if (originalResultsCount > 0 && imdbResults.length === 0) {
           const sessionTypeLabel = sessionContentType === 'movie' ? 'Movie' : 'TV Show';
-          const expectedContentLabel = sessionContentType === 'movie' ? 'movies' : 'TV shows or episodes';
+          const expectedContentLabel =
+            sessionContentType === 'movie' ? 'movies' : 'TV shows or episodes';
           const wrongContentLabel = sessionContentType === 'movie' ? 'TV shows' : 'movies';
 
           await interaction.reply({
             content: `❌ **No ${expectedContentLabel} found**\n\n🔍 Found results for "${title}", but they were all **${wrongContentLabel}**.\n\n💡 **This is a ${sessionTypeLabel} session** - try searching for ${expectedContentLabel} instead.\n\n🎯 **Suggestions:**\n• Use "🍿 Plan Movie Session" for movies\n• Use "📺 Plan TV Show Session" for TV shows`,
-            flags: MessageFlags.Ephemeral
+            flags: MessageFlags.Ephemeral,
           });
           return;
         }
@@ -314,7 +330,7 @@ async function handleMovieRecommendationModal(interaction) {
         const { showName, season, episode } = searchResult.episodeInfo;
         await interaction.reply({
           content: `❌ **Episode not found**\n\n🔍 Could not find **${showName} Season ${season} Episode ${episode}** on IMDb.\n\n💡 **Suggestions:**\n• Check the episode number and season\n• Try searching for just the show name: "${showName}"\n• Use formats like "Show Name S1E1" or "Show Name Episode 101"`,
-          flags: MessageFlags.Ephemeral
+          flags: MessageFlags.Ephemeral,
         });
         return;
       }
@@ -324,7 +340,15 @@ async function handleMovieRecommendationModal(interaction) {
 
     if (imdbResults.length > 0) {
       // Show IMDb selection buttons
-      await showImdbSelection(interaction, searchTitle, where, imdbResults, suggestions, originalTitle, episodeInfo);
+      await showImdbSelection(
+        interaction,
+        searchTitle,
+        where,
+        imdbResults,
+        suggestions,
+        originalTitle,
+        episodeInfo
+      );
     } else if (suggestions.length > 0) {
       // Show spelling suggestions
       await showSpellingSuggestions(interaction, searchTitle, where, suggestions, episodeInfo);
@@ -332,19 +356,28 @@ async function handleMovieRecommendationModal(interaction) {
       // No IMDb results and no suggestions, create content without IMDb data
       await createMovieWithoutImdb(interaction, searchTitle, where, episodeInfo);
     }
-
   } catch (error) {
     console.error('Error handling movie recommendation modal:', error);
     if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({
-        content: '❌ Error processing movie recommendation.',
-        flags: MessageFlags.Ephemeral
-      }).catch(console.error);
+      await interaction
+        .reply({
+          content: '❌ Error processing movie recommendation.',
+          flags: MessageFlags.Ephemeral,
+        })
+        .catch(console.error);
     }
   }
 }
 
-async function showImdbSelection(interaction, title, where, imdbResults, suggestions = [], originalTitle = null, episodeInfo = null) {
+async function showImdbSelection(
+  interaction,
+  title,
+  where,
+  imdbResults,
+  suggestions = [],
+  originalTitle = null,
+  episodeInfo = null
+) {
   const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
   const { pendingPayloads } = require('../utils/constants');
 
@@ -359,12 +392,10 @@ async function showImdbSelection(interaction, title, where, imdbResults, suggest
     suggestions,
     originalTitle,
     episodeInfo,
-    createdAt: Date.now()
+    createdAt: Date.now(),
   });
 
-  const embed = new EmbedBuilder()
-    .setTitle('🎬 Select the correct content')
-    .setColor(0x5865f2);
+  const embed = new EmbedBuilder().setTitle('🎬 Select the correct content').setColor(0x5865f2);
 
   // Add description with spell check info if applicable
   let description = `Found ${imdbResults.length} matches for **${title}**`;
@@ -411,7 +442,7 @@ async function showImdbSelection(interaction, title, where, imdbResults, suggest
     embed.addFields({
       name: `${index + 1}. ${typeEmoji} ${displayTitle} (${content.Year})`,
       value: `*${typeLabel}*`, // Show content type
-      inline: false
+      inline: false,
     });
   });
 
@@ -468,7 +499,7 @@ async function showImdbSelection(interaction, title, where, imdbResults, suggest
 
   await ephemeralManager.sendEphemeral(interaction, '', {
     embeds: [embed],
-    components: [buttons]
+    components: [buttons],
   });
 }
 
@@ -487,7 +518,7 @@ async function showSpellingSuggestions(interaction, title, where, suggestions, e
     title,
     where,
     suggestions,
-    createdAt: Date.now()
+    createdAt: Date.now(),
   });
 
   const embed = new EmbedBuilder()
@@ -500,7 +531,7 @@ async function showSpellingSuggestions(interaction, title, where, suggestions, e
     embed.addFields({
       name: `${index + 1}. ${suggestion}`,
       value: '\u200B', // Invisible character
-      inline: false
+      inline: false,
     });
   });
 
@@ -520,22 +551,21 @@ async function showSpellingSuggestions(interaction, title, where, suggestions, e
   });
 
   // Add "Use Original" and "Cancel" buttons
-  const actionButtons = new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId(`use_original:${dataKey}`)
-        .setLabel(`Use "${title}" anyway`)
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId(`cancel_suggestion:${dataKey}`)
-        .setLabel('Cancel')
-        .setStyle(ButtonStyle.Danger)
-    );
+  const actionButtons = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`use_original:${dataKey}`)
+      .setLabel(`Use "${title}" anyway`)
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId(`cancel_suggestion:${dataKey}`)
+      .setLabel('Cancel')
+      .setStyle(ButtonStyle.Danger)
+  );
 
   const ephemeralManager = require('../utils/ephemeral-manager');
   await ephemeralManager.sendEphemeral(interaction, '', {
     embeds: [embed],
-    components: [buttons, actionButtons]
+    components: [buttons, actionButtons],
   });
 }
 
@@ -548,7 +578,7 @@ async function createMovieWithoutImdb(interaction, title, where, episodeInfo = n
     where,
     guildId: interaction.guild.id,
     userId: interaction.user.id,
-    channelId: interaction.channel?.id
+    channelId: interaction.channel?.id,
   });
 
   try {
@@ -558,7 +588,7 @@ async function createMovieWithoutImdb(interaction, title, where, episodeInfo = n
       title,
       where,
       imdbId: null,
-      imdbData: null
+      imdbData: null,
     });
 
     console.log(`🔍 DEBUG: movieCreation.createMovieRecommendation result:`, {
@@ -568,7 +598,7 @@ async function createMovieWithoutImdb(interaction, title, where, episodeInfo = n
       hasThread: !!result.thread,
       movieId: result.movieId,
       messageId: result.message?.id,
-      threadId: result.thread?.id
+      threadId: result.thread?.id,
     });
 
     // Check if creation failed (e.g., content type mismatch)
@@ -587,7 +617,12 @@ async function createMovieWithoutImdb(interaction, title, where, episodeInfo = n
       const { content, contentType } = await adminMirror.getContentByMessageId(message.id);
 
       if (content) {
-        await adminMirror.postContentToAdminChannel(interaction.client, interaction.guild.id, content, contentType);
+        await adminMirror.postContentToAdminChannel(
+          interaction.client,
+          interaction.guild.id,
+          content,
+          contentType
+        );
       }
     } catch (error) {
       console.error('Error posting to admin channel:', error);
@@ -611,8 +646,10 @@ async function createMovieWithoutImdb(interaction, title, where, episodeInfo = n
     }
 
     // Success message varies by channel type (use the actual movie channel)
-    const movieChannel = config && config.movie_channel_id ?
-      await interaction.client.channels.fetch(config.movie_channel_id) : null;
+    const movieChannel =
+      config && config.movie_channel_id
+        ? await interaction.client.channels.fetch(config.movie_channel_id)
+        : null;
     const channelType = movieChannel ? forumChannels.getChannelTypeString(movieChannel) : 'Unknown';
 
     const successMessage = thread
@@ -621,9 +658,15 @@ async function createMovieWithoutImdb(interaction, title, where, episodeInfo = n
 
     let ephemeralMsg;
     if (interaction.deferred || interaction.replied) {
-      ephemeralMsg = await interaction.followUp({ content: successMessage, flags: MessageFlags.Ephemeral });
+      ephemeralMsg = await interaction.followUp({
+        content: successMessage,
+        flags: MessageFlags.Ephemeral,
+      });
     } else {
-      ephemeralMsg = await interaction.reply({ content: successMessage, flags: MessageFlags.Ephemeral });
+      ephemeralMsg = await interaction.reply({
+        content: successMessage,
+        flags: MessageFlags.Ephemeral,
+      });
     }
     // Auto-clean the ephemeral confirmation after 5 seconds
     setTimeout(async () => {
@@ -635,15 +678,20 @@ async function createMovieWithoutImdb(interaction, title, where, episodeInfo = n
         }
       } catch (_) {}
     }, 5000);
-
   } catch (error) {
     const logger = require('../utils/logger');
     logger.error('🔍 DEBUG: Error in createMovieWithoutImdb:', error);
     logger.debug('🔍 DEBUG: Error stack:', error.stack);
     if (interaction.deferred || interaction.replied) {
-      await interaction.followUp({ content: `❌ Failed to create movie recommendation: ${error.message}` , flags: MessageFlags.Ephemeral });
+      await interaction.followUp({
+        content: `❌ Failed to create movie recommendation: ${error.message}`,
+        flags: MessageFlags.Ephemeral,
+      });
     } else {
-      await interaction.reply({ content: `❌ Failed to create movie recommendation: ${error.message}`, flags: MessageFlags.Ephemeral });
+      await interaction.reply({
+        content: `❌ Failed to create movie recommendation: ${error.message}`,
+        flags: MessageFlags.Ephemeral,
+      });
     }
   }
 }
@@ -659,8 +707,9 @@ async function handleDeepPurgeConfirmation(interaction, customId) {
   const hasPermission = await permissions.checkMovieAdminPermission(interaction);
   if (!hasPermission) {
     await interaction.reply({
-      content: '❌ You need Administrator permissions or a configured admin role to use this action.',
-      flags: MessageFlags.Ephemeral
+      content:
+        '❌ You need Administrator permissions or a configured admin role to use this action.',
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -677,7 +726,7 @@ async function handleDeepPurgeConfirmation(interaction, customId) {
   if (confirmationText !== 'DELETE EVERYTHING') {
     await interaction.reply({
       content: '❌ Confirmation text must be exactly "DELETE EVERYTHING" to proceed.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -686,26 +735,33 @@ async function handleDeepPurgeConfirmation(interaction, customId) {
 
   try {
     // Execute deep purge
-    const result = await deepPurge.executeDeepPurge(interaction.guild.id, categories, reason, interaction.client);
+    const result = await deepPurge.executeDeepPurge(
+      interaction.guild.id,
+      categories,
+      reason,
+      interaction.client
+    );
 
     // Create success embed
     const successEmbed = deepPurge.createSuccessEmbed(interaction.guild.name, result, categories);
 
     await interaction.editReply({
-      embeds: [successEmbed]
+      embeds: [successEmbed],
     });
 
     // Log the purge action
     const logger = require('../utils/logger');
-    logger.info(`🗑️ Deep purge executed by ${interaction.user.tag} (${interaction.user.id}) in guild ${interaction.guild.name} (${interaction.guild.id})`);
+    logger.info(
+      `🗑️ Deep purge executed by ${interaction.user.tag} (${interaction.user.id}) in guild ${interaction.guild.name} (${interaction.guild.id})`
+    );
     logger.info(`📋 Categories: ${categories.join(', ')}`);
     logger.info(`📝 Reason: ${reason || 'No reason provided'}`);
     logger.info(`📊 Result: ${result.deleted} items deleted, ${result.errors.length} errors`);
-
   } catch (error) {
     console.error('Error executing deep purge:', error);
     await interaction.editReply({
-      content: '❌ An error occurred while executing the deep purge. Please check the logs and try again.'
+      content:
+        '❌ An error occurred while executing the deep purge. Please check the logs and try again.',
     });
   }
 }
@@ -714,5 +770,5 @@ module.exports = {
   handleModal,
   showImdbSelection,
   showSpellingSuggestions,
-  createMovieWithoutImdb
+  createMovieWithoutImdb,
 };

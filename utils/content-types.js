@@ -9,7 +9,7 @@
 const CONTENT_TYPES = {
   MOVIE: 'movie',
   TV_SHOW: 'tv_show',
-  MIXED: 'mixed'
+  MIXED: 'mixed',
 };
 
 /**
@@ -28,9 +28,9 @@ function getContentTypeInfo(contentType) {
         verbLower: 'watch',
         recommendAction: 'Recommend Movie',
         recommendTitle: '🍿 Recommend Movies',
-        sessionType: 'Movie Night'
+        sessionType: 'Movie Night',
       };
-    
+
     case CONTENT_TYPES.TV_SHOW:
       return {
         emoji: '📺',
@@ -42,9 +42,9 @@ function getContentTypeInfo(contentType) {
         verbLower: 'watch',
         recommendAction: 'Recommend TV Show',
         recommendTitle: '📺 Recommend TV Shows',
-        sessionType: 'TV Show Night'
+        sessionType: 'TV Show Night',
       };
-    
+
     case CONTENT_TYPES.MIXED:
       return {
         emoji: '🎬',
@@ -56,9 +56,9 @@ function getContentTypeInfo(contentType) {
         verbLower: 'watch',
         recommendAction: 'Recommend Content',
         recommendTitle: '🎬 Recommend Content',
-        sessionType: 'Watch Party'
+        sessionType: 'Watch Party',
       };
-    
+
     default:
       // Default to movie for backward compatibility
       return getContentTypeInfo(CONTENT_TYPES.MOVIE);
@@ -70,12 +70,12 @@ function getContentTypeInfo(contentType) {
  */
 function getRecommendationPostContent(session) {
   const info = getContentTypeInfo(session.content_type);
-  
+
   const title = info.recommendTitle;
   const description = `**Current Session:** ${session.name}\n\n${info.emoji} Click the button below to recommend ${info.pluralLower}!\n\n📝 Each ${info.singularLower} gets its own thread for voting and discussion.\n\n🗳️ Voting ends: <t:${Math.floor(new Date(session.voting_end_time).getTime() / 1000)}:R>`;
   const buttonLabel = info.recommendAction;
   const buttonEmoji = info.emoji;
-  
+
   return { title, description, buttonLabel, buttonEmoji };
 }
 
@@ -92,7 +92,9 @@ function getSessionDisplayName(session) {
  */
 function getEventName(session) {
   const info = getContentTypeInfo(session.content_type);
-  return session.name || `${info.sessionType} - ${new Date(session.scheduled_date).toLocaleDateString()}`;
+  return (
+    session.name || `${info.sessionType} - ${new Date(session.scheduled_date).toLocaleDateString()}`
+  );
 }
 
 /**
@@ -103,7 +105,7 @@ function isContentTypeAllowed(contentType, sessionContentType) {
   if (sessionContentType === CONTENT_TYPES.MIXED) {
     return true;
   }
-  
+
   // Specific sessions only allow matching content
   return contentType === sessionContentType;
 }
@@ -130,7 +132,7 @@ function detectContentType(record) {
   if (record.show_type !== undefined) {
     return CONTENT_TYPES.TV_SHOW;
   }
-  
+
   // Movies have content_type field or no show_type
   return CONTENT_TYPES.MOVIE;
 }
@@ -140,7 +142,7 @@ function detectContentType(record) {
  */
 function getStatusEmoji(status, contentType) {
   const info = getContentTypeInfo(contentType);
-  
+
   switch (status) {
     case 'pending':
       return info.emoji;
@@ -162,7 +164,7 @@ const { ChannelType } = require('discord.js');
 
 const CHANNEL_TYPES = {
   FORUM: 'forum',
-  TEXT: 'text'
+  TEXT: 'text',
 };
 
 /**
@@ -225,5 +227,5 @@ module.exports = {
   detectChannelType,
   isForumChannel,
   isTextChannel,
-  getChannelTypeString
+  getChannelTypeString,
 };

@@ -37,8 +37,8 @@ const commands = [
 
           // Admin functions
           { name: 'cleanup-sync', value: 'cleanup-sync' },
-          { name: 'cleanup-purge', value: 'cleanup-purge' }
-        ]
+          { name: 'cleanup-purge', value: 'cleanup-purge' },
+        ],
       },
 
       // Configuration sub-options
@@ -54,8 +54,8 @@ const commands = [
           { name: 'add-admin-role', value: 'add-admin-role' },
           { name: 'remove-admin-role', value: 'remove-admin-role' },
           { name: 'view-settings', value: 'view-settings' },
-          { name: 'reset', value: 'reset' }
-        ]
+          { name: 'reset', value: 'reset' },
+        ],
       },
 
       // Channel parameter
@@ -63,7 +63,7 @@ const commands = [
         name: 'channel',
         description: 'Channel to set (for configuration actions)',
         type: 7, // CHANNEL
-        required: false
+        required: false,
       },
 
       // Role parameter
@@ -71,7 +71,7 @@ const commands = [
         name: 'role',
         description: 'Role to add/remove as admin or set as notification role',
         type: 8, // ROLE
-        required: false
+        required: false,
       },
 
       // Session parameters
@@ -79,7 +79,7 @@ const commands = [
         name: 'session-id',
         description: 'Session ID (for session-related actions)',
         type: 4, // INTEGER
-        required: false
+        required: false,
       },
 
       // Movie title parameter
@@ -87,7 +87,7 @@ const commands = [
         name: 'movie-title',
         description: 'Movie title (for add-movie action)',
         type: 3, // STRING
-        required: false
+        required: false,
       },
 
       // Stats type parameter
@@ -100,8 +100,8 @@ const commands = [
           { name: 'overview', value: 'overview' },
           { name: 'top-movies', value: 'top-movies' },
           { name: 'user-stats', value: 'user-stats' },
-          { name: 'monthly', value: 'monthly' }
-        ]
+          { name: 'monthly', value: 'monthly' },
+        ],
       },
 
       // User parameter for stats
@@ -109,7 +109,7 @@ const commands = [
         name: 'user',
         description: 'User to show stats for (defaults to yourself)',
         type: 6, // USER
-        required: false
+        required: false,
       },
 
       // Cleanup action parameter
@@ -120,16 +120,15 @@ const commands = [
         required: false,
         choices: [
           { name: 'sync', value: 'sync' },
-          { name: 'purge', value: 'purge' }
-        ]
-      }
-    ]
+          { name: 'purge', value: 'purge' },
+        ],
+      },
+    ],
   },
   {
     name: 'watchparty-queue',
-    description: 'View current content recommendations and voting status'
+    description: 'View current content recommendations and voting status',
   },
-
 ];
 
 module.exports = commands;

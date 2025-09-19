@@ -8,6 +8,7 @@ A comprehensive Discord bot for managing movie and TV show recommendations, voti
 
 > **🏗️ Modular Architecture**: Clean, maintainable codebase with separation of concerns. See [ARCHITECTURE.md](ARCHITECTURE.md) for technical details.
 > **🌐 Dashboard Integration**: Real-time WebSocket communication with the Movie Night Dashboard for web-based management.
+
 ## 🚀 Quick Start
 
 1. Invite the bot to your server (scopes: bot + applications.commands; see invite template below).
@@ -22,10 +23,10 @@ A comprehensive Discord bot for managing movie and TV show recommendations, voti
 5. Admins can open the admin panel to manage sessions (Plan/Reschedule, Pick Winner, Skip, Sync/Refresh).
 6. Optional: Use the [Watch Party Dashboard](https://github.com/Berman510/movienight-dashboard) for web-based management with real-time updates.
 
-
 ## ✨ Key Features
 
 ### 🍿 **Content Recommendations**
+
 - **IMDb Integration**: Automatic movie and TV show data fetching with posters, ratings, and details
 - **Smart Duplicate Detection**: Warns when content has been previously recommended
 - **Persistent Voting**: Real-time vote counting with button persistence
@@ -33,6 +34,7 @@ A comprehensive Discord bot for managing movie and TV show recommendations, voti
 - **Discussion Threads**: Automatic thread creation for content discussions
 
 ### 🗳️ **Advanced Voting System**
+
 - **Automatic Voting Closure**: Sessions automatically close at scheduled times with winner selection
 - **Intelligent Winner Selection**: Automatic winner selection with tie-breaking interface for admins
 - **Real-time Vote Counts**: Live updates on recommendation posts with persistent buttons
@@ -40,6 +42,7 @@ A comprehensive Discord bot for managing movie and TV show recommendations, voti
 - **User Vote Tracking**: Complete database tracking of all voting activity
 
 ### 🎪 **Enhanced Session Management**
+
 - **Discord Event Integration**: Full event creation, updates, and RSVP functionality with channel integration
 - **Event Title Policy**: Event titles do not include date/time; localized times appear in the description using Discord timestamps (<t:…:F>/<t:…:R>).
 
@@ -51,6 +54,7 @@ A comprehensive Discord bot for managing movie and TV show recommendations, voti
 - **Session Participants**: Track who joins sessions vs. who actually attends with comprehensive analytics
 
 ### 🔧 **Admin Control Panel**
+
 - **Comprehensive Admin Interface**: Complete session management, movie controls, and system operations
 - **Movie Management**: Pick Winner, Skip to Next, Remove, Ban Movie, and Details buttons for each movie
 - **Admin Channel Mirroring**: Dedicated admin channel with movie posts and management controls
@@ -58,12 +62,14 @@ A comprehensive Discord bot for managing movie and TV show recommendations, voti
 - **Session Controls**: Plan, cancel, reschedule sessions with proper state management
 
 ### 📊 **Statistics & Analytics**
+
 - **Movie Statistics**: Track recommendations, votes, and watch history
 - **User Analytics**: Individual user stats and preferences
 - **Guild Overview**: Server-wide movie night statistics
 - **Voting Patterns**: Complete voting history and trends
 
 ### ⚙️ **Enhanced Configuration**
+
 - **Channel Management**: Dedicated movie recommendation channels with admin channel support
 - **Watch Party Channels**: Configurable channels for Discord events (Voice, Stage, or Text channels)
 - **Admin Roles**: Role-based permission system with comprehensive admin controls
@@ -72,6 +78,7 @@ A comprehensive Discord bot for managing movie and TV show recommendations, voti
 - **Time Formats**: User-friendly 12-hour or 24-hour time formats and US date format (MM/DD/YYYY)
 
 ### 🌐 **Dashboard Integration**
+
 - **Real-time WebSocket Communication**: Seamless integration with Movie Night Dashboard
 - **Configuration Synchronization**: Bot serves as single source of truth for all settings
 - **Live Updates**: Dashboard receives real-time updates for votes, sessions, and configuration changes
@@ -81,12 +88,10 @@ A comprehensive Discord bot for managing movie and TV show recommendations, voti
 
 ---
 
-
-
-
 ---
 
 ## Prerequisites
+
 - Node.js 18+ (fetch built-in).
 - Discord application + bot token.
 - (Optional) OMDb API key: <http://www.omdbapi.com/apikey.aspx>
@@ -97,7 +102,9 @@ A comprehensive Discord bot for managing movie and TV show recommendations, voti
 - `applications.commands`
 
 ### IMDb Caching (cross-guild)
+
 The bot prefers the imdb_cache table for all IMDb data. If a movie is not in cache, the bot will perform a one-time live OMDb fetch for display and attempt to cache the result when possible. This ensures posters/ratings/plots appear reliably in:
+
 - Movie recommendation embeds (text/forum)
 - Discussion thread details
 - Winner announcements and Discord Event updates
@@ -105,6 +112,7 @@ The bot prefers the imdb_cache table for all IMDb data. If a movie is not in cac
 - Deep purge does not clear this cache
 
 Notes:
+
 - Set `OMDB_API_KEY` to enable the live fetch fallback
 - Cache maintenance/env toggles:
   - IMDB_CACHE_ENABLED=true
@@ -112,6 +120,7 @@ Notes:
   - IMDB_CACHE_MAX_ROWS=10000
 
 ### Required Bot Permissions
+
 - **Send Messages** (post movie recommendations and responses)
 - **Embed Links** (rich movie information displays)
 - **Read Message History** (access existing movie posts)
@@ -126,11 +135,14 @@ Notes:
 **Updated Permissions Integer:** `2147765248`
 
 ### Required Gateway Intents
+
 In Discord Developer Portal → Bot section, enable:
+
 - ✅ **Guild Voice States** (required for attendance tracking in Watch Party Channel)
 - ✅ **Message Content Intent** (optional; only needed if you use legacy message-based features)
 
 ### Discord Developer Portal Setup
+
 1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
 2. Create **New Application** → give it a name (e.g., "Movie Night Bot")
 3. Go to **Bot** section → **Add Bot** → copy the **Bot Token**
@@ -141,11 +153,13 @@ In Discord Developer Portal → Bot section, enable:
 6. Use generated URL to invite bot to your server
 
 **Invite link template:**
+
 ```
 https://discord.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&scope=bot%20applications.commands&permissions=2147765248
 ```
 
 ---
+
 ## 🔐 Role-based Access
 
 - Admins: Have Administrator or Manage Server permissions, or are in configured Admin Roles.
@@ -196,9 +210,10 @@ All commands use the unified movienight prefix:
 
 Deprecated/removed commands (replaced by the above): /movie-session, /movie-cleanup, /movie-stats, /movie-help, /movie-night, /movie-setup, /movie-queue, /movie-plan, /movie-watched, /movie-skip, /admin-panel, /debug-config
 
-
 ## .env
+
 Create a `.env` in the project root (copy from `.env.example`):
+
 ```
 DISCORD_TOKEN=YOUR_BOT_TOKEN
 CLIENT_ID=YOUR_APPLICATION_ID
@@ -215,12 +230,15 @@ DB_NAME=YOUR_DB_NAME
 ```
 
 ### Dashboard Integration (WS-only)
+
 Use the WebSocket bridge (bot-initiated):
+
 ```
 MOVIENIGHT_WS_ENABLED=true
 MOVIENIGHT_WS_URL=wss://bot-movienight.bermanoc.net/socket
 MOVIENIGHT_WS_TOKEN=YOUR_LONG_RANDOM_TOKEN
 ```
+
 Note: for beta use `wss://bot-movienight-beta.bermanoc.net/socket`.
 
 Webhook support has been removed. The bot now operates WS-only.
@@ -228,10 +246,13 @@ Webhook support has been removed. The bot now operates WS-only.
 ## Database Setup (Optional but Recommended)
 
 ### MySQL Database Configuration
+
 The bot supports MySQL for persistent data storage. Here's how to set it up:
 
 #### Option 1: Hosting Provider Database
+
 **PebbleHost, Railway, Heroku, etc.**
+
 1. Access your hosting provider's database section
 2. Create a new MySQL database
 3. Copy the connection details (host, user, password, database name)
@@ -239,7 +260,9 @@ The bot supports MySQL for persistent data storage. Here's how to set it up:
 5. The bot will automatically create required tables on first run
 
 #### Option 2: Self-Hosted MySQL
+
 **Local or VPS MySQL installation**
+
 1. Install MySQL on your server
 2. Create a database: `CREATE DATABASE movie_night_bot;`
 3. Create a user with permissions: `CREATE USER 'moviebot'@'%' IDENTIFIED BY 'your_password';`
@@ -247,30 +270,33 @@ The bot supports MySQL for persistent data storage. Here's how to set it up:
 5. Add connection details to your `.env` file
 
 #### Option 3: Cloud Database Services
+
 **AWS RDS, Google Cloud SQL, Azure Database, PlanetScale, etc.**
+
 1. Create a MySQL instance through your cloud provider
 2. Configure connection settings and security groups
 3. Add the connection details to your `.env` file
 
 ### Storage Options Comparison
 
-| Feature | MySQL Database | JSON File Storage | Memory-Only |
-|---------|----------------|-------------------|-------------|
-| **Basic Functionality** | ✅ Full | ✅ Full | ✅ Full |
-| **Movie Recommendations** | ✅ Persistent | ✅ Persistent | ✅ Works until restart |
-| **Voting** | ✅ Permanent | ✅ Permanent | ✅ Works until restart |
-| **Status Management** | ✅ Permanent | ✅ Permanent | ❌ Lost on restart |
-| **Queue Management** | ✅ `/movienight-queue` | ✅ `/movienight-queue` | ❌ Not available |
-| **Statistics** | ✅ Dashboard | ✅ Dashboard | ❌ Not available |
-| **Session Management** | ✅ Admin Panel + `/movienight-plan` | ✅ Admin Panel + `/movienight-plan` | ❌ Not available |
-| **Configuration** | ✅ Guided Setup + `/movienight-configure` | ✅ Guided Setup + `/movienight-configure` | ❌ Not available |
-| **Channel Sync** | ✅ Admin Panel (Sync/Refresh) | ✅ Admin Panel (Sync/Refresh) | ❌ Not available |
-| **Data Persistence** | ✅ Survives restarts | ✅ Survives restarts | ❌ Lost on restart |
-| **Setup Complexity** | 🔧 Moderate | ✅ Simple | ✅ None |
-| **Scalability** | ✅ Excellent | ⚠️ Good for small/medium | ⚠️ Session only |
-| **Backup/Migration** | ✅ Standard tools | ✅ Simple file copy | ❌ Not applicable |
+| Feature                   | MySQL Database                            | JSON File Storage                         | Memory-Only            |
+| ------------------------- | ----------------------------------------- | ----------------------------------------- | ---------------------- |
+| **Basic Functionality**   | ✅ Full                                   | ✅ Full                                   | ✅ Full                |
+| **Movie Recommendations** | ✅ Persistent                             | ✅ Persistent                             | ✅ Works until restart |
+| **Voting**                | ✅ Permanent                              | ✅ Permanent                              | ✅ Works until restart |
+| **Status Management**     | ✅ Permanent                              | ✅ Permanent                              | ❌ Lost on restart     |
+| **Queue Management**      | ✅ `/movienight-queue`                    | ✅ `/movienight-queue`                    | ❌ Not available       |
+| **Statistics**            | ✅ Dashboard                              | ✅ Dashboard                              | ❌ Not available       |
+| **Session Management**    | ✅ Admin Panel + `/movienight-plan`       | ✅ Admin Panel + `/movienight-plan`       | ❌ Not available       |
+| **Configuration**         | ✅ Guided Setup + `/movienight-configure` | ✅ Guided Setup + `/movienight-configure` | ❌ Not available       |
+| **Channel Sync**          | ✅ Admin Panel (Sync/Refresh)             | ✅ Admin Panel (Sync/Refresh)             | ❌ Not available       |
+| **Data Persistence**      | ✅ Survives restarts                      | ✅ Survives restarts                      | ❌ Lost on restart     |
+| **Setup Complexity**      | 🔧 Moderate                               | ✅ Simple                                 | ✅ None                |
+| **Scalability**           | ✅ Excellent                              | ⚠️ Good for small/medium                  | ⚠️ Session only        |
+| **Backup/Migration**      | ✅ Standard tools                         | ✅ Simple file copy                       | ❌ Not applicable      |
 
 ### JSON File Storage (Recommended for Small Servers)
+
 If you don't want to set up MySQL, the bot can use a local JSON file for persistence:
 
 1. **Automatic Fallback:** If no database credentials are provided, the bot automatically uses JSON storage
@@ -282,6 +308,7 @@ If you don't want to set up MySQL, the bot can use a local JSON file for persist
 **Perfect for:** Self-hosted bots, small servers, development, or when you want persistence without database complexity.
 
 ### Advantages of Database Mode
+
 - **Persistent Data:** All votes, movies, and settings survive bot restarts
 - **Advanced Features:** Queue management, statistics, and session tracking
 - **Configuration:** Server-specific settings and admin role management
@@ -291,7 +318,9 @@ If you don't want to set up MySQL, the bot can use a local JSON file for persist
 - **Advanced Rules:** Per-session vote caps (up ~1/3, down ~1/5 by default) with admin-configurable ratios in the Administration panel; requires database. In memory-only mode, voting remains open (no caps).
 
 ### Memory-Only Mode (No Database)
+
 The bot will automatically fall back to memory-only mode if no database is configured. This provides:
+
 - ✅ **Core Features:** Movie recommendations, voting, and discussions work perfectly
 - ✅ **IMDb Integration:** Movie details and posters still work
 - ✅ **Real-time Voting:** Vote counts update live during the session
@@ -305,6 +334,7 @@ The bot will automatically fall back to memory-only mode if no database is confi
 ---
 
 ## Windows Setup (PowerShell)
+
 ```powershell
 mkdir "$env:USERPROFILE\movie-night-bot"
 cd "$env:USERPROFILE\movie-night-bot"
@@ -314,11 +344,13 @@ cd "$env:USERPROFILE\movie-night-bot"
 npm install
 node index.js
 ```
+
 > If PowerShell blocks scripts, run: `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser`
 
 ---
 
 ## Linux Setup (Debian/Ubuntu/DietPi)
+
 ```bash
 sudo apt update && sudo apt -y upgrade
 curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
@@ -332,7 +364,9 @@ node index.js
 ```
 
 ### Keep it running (optional)
+
 **PM2**
+
 ```bash
 sudo npm i -g pm2
 pm2 start index.js --name movie-night-bot
@@ -345,6 +379,7 @@ pm2 startup  # follow the printed instructions
 ## Usage
 
 ### Creating Recommendations
+
 1. In a server text channel, run `/movienight`
 2. Click **🎬 Create recommendation**
 3. Fill the modal (Title + Where to stream) → Submit
@@ -352,6 +387,7 @@ pm2 startup  # follow the printed instructions
 5. The bot posts an embed with poster, ratings, and interactive buttons
 
 ### Managing Movies
+
 - **Vote:** Use 👍/👎 buttons to vote on recommendations
 - **Status:** Use ✅ Watched, 📌 Plan Later, or ⏭️ Skip buttons to manage movies
 - **Finality:** Marking a movie as "Watched" removes all buttons and closes the discussion thread
@@ -359,6 +395,7 @@ pm2 startup  # follow the printed instructions
 - **Stats:** View statistics on the Dashboard
 
 ### Enhanced Movie Night Sessions
+
 - **Admin Control Panel:** Comprehensive admin interface with "Plan Next Session" button and session management
 - **User-Friendly Formats:** 12-hour or 24-hour time formats (e.g., 7:30 PM or 19:30) and US date format (MM/DD/YYYY)
 - **Session Descriptions:** Add custom themes like "Holiday Movie Night - Let's watch festive films!"
@@ -369,6 +406,7 @@ pm2 startup  # follow the printed instructions
 - **Rich Event Details:** Events include IMDB information, plot summaries, and comprehensive movie details
 
 ### Admin Control Panel
+
 - **Comprehensive Interface:** Dedicated admin channel with complete session and movie management
 - **Session Controls:** Plan Next Session, Cancel Event, Reschedule Session with proper state management
 - **Movie Management:** Pick Winner, Skip to Next, Remove Suggestion, Ban Movie, and Details for each movie
@@ -379,6 +417,7 @@ pm2 startup  # follow the printed instructions
 - **Real-time Updates:** Admin interface updates automatically with session changes
 
 ### Enhanced Server Configuration
+
 - **Channel Setup:** `/movienight-configure set-channel` for voting channel and admin channel configuration
 - **Watch Party Channel(s):** Configure channels for Discord events (Voice, Stage, or Text channels)
 - **Timezone Management:** `/movienight-configure set-timezone` with automatic voting closure support
@@ -387,12 +426,14 @@ pm2 startup  # follow the printed instructions
 - **View Settings:** `/movienight-configure view-settings` shows all current configuration including new features
 
 ### Logging Configuration
+
 - **Log Levels:** `ERROR`, `WARN`, `INFO`, `DEBUG` - Control console output verbosity
 - **Debug Mode:** Enable detailed debugging for troubleshooting and development
 - **Colored Output:** Optional colored console logs for better readability
 - **Environment Variables:** Configure logging behavior via `.env` file
 
 ### Channel Maintenance
+
 - **Sync & Cleanup:** Use the Admin Control Panel (Sync Channels / Refresh Admin Panel) to update posts and create missing threads
 - **Thread Creation:** Automatically creates missing discussion threads for movies up for vote
 - **Channel Safety:** Cleanup only works in the configured movie channel
@@ -400,6 +441,7 @@ pm2 startup  # follow the printed instructions
 - **Legacy Support:** Modernizes messages posted before new features were added
 
 ### Features
+
 - **Persistent Data:** All votes and movie data survive bot restarts (with database)
 - **Smart Organization:** Movies are automatically categorized by status
 - **Discussion Threads:** Each recommendation gets its own discussion thread
@@ -410,15 +452,17 @@ pm2 startup  # follow the printed instructions
 ---
 
 ## Troubleshooting
+
 - **Slash command not appearing**: Commands are registered globally and to new guilds automatically. Wait up to 1 hour for global propagation or restart the bot.
 - **“Invalid Form Body … SELECT_COMPONENT_OPTION_VALUE_DUPLICATED”**: fixed by deduping `imdbID` in v1.3.0.
-- **Threads not created**: ensure bot has *Create Public Threads* and *Send Messages in Threads*.
+- **Threads not created**: ensure bot has _Create Public Threads_ and _Send Messages in Threads_.
 - **Missing discussion threads**: run `/movie-cleanup` to automatically create threads for movies that are missing them.
 - **Global vs Guild**: Commands are now registered globally for all servers. `GUILD_ID` is optional for additional development server registration.
 
 ---
 
 ## Version Information
+
 - **Release History**: See [CHANGELOG.md](CHANGELOG.md) for detailed release notes
 - **Version Source**: `package.json` holds the canonical version
 - **Startup Logging**: Bot displays current version on startup
@@ -426,10 +470,11 @@ pm2 startup  # follow the printed instructions
 ---
 
 ## 🚀 Future Features (Planned)
+
 See the full roadmap for details and priorities: [ROADMAP.md](./ROADMAP.md)
 
-
 ### Enhanced Session Participant Tracking
+
 - **Automatic Attendance Monitoring**: Bot monitors the configured Watch Party Channel during session times
 - **Real-time Participant Tracking**: Track users who join/leave voice channels during movie nights
 - **Attendance Analytics**: Compare registered participants vs. actual attendees
@@ -438,6 +483,7 @@ See the full roadmap for details and priorities: [ROADMAP.md](./ROADMAP.md)
 - **Attendance Reports**: Generate detailed reports for completed sessions
 
 ### Advanced Voting Analytics
+
 - **User Voting Patterns**: Analyze individual user preferences and voting history
 - **Taste Similarity Analysis**: Find users with similar movie preferences
 - **Voting Trends**: Track voting patterns over time and by genre
@@ -446,6 +492,7 @@ See the full roadmap for details and priorities: [ROADMAP.md](./ROADMAP.md)
 - **Preference Learning**: Bot learns user tastes for better recommendations
 
 ### Enhanced Configuration
+
 - **Watch Party Channels**: Configure voice/text channels for automatic attendance tracking
 - **Flexible Session Duration**: Configurable session lengths for different types of events
 - **Advanced Permissions**: Granular permission control for different bot features
@@ -455,4 +502,5 @@ See the full roadmap for details and priorities: [ROADMAP.md](./ROADMAP.md)
 ---
 
 ## License
+
 MIT License - See [LICENSE](LICENSE) file for details.

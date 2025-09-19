@@ -9,14 +9,17 @@ const { formatDateWithTimezone } = require('../services/timezone');
 
 function createMovieEmbed(movie, imdbData = null, voteCounts = null, contentType = 'movie') {
   // Determine if this is TV content
-  const isTV = contentType === 'tv_show' ||
-               (imdbData && (imdbData.Type === 'series' || imdbData.Type === 'episode')) ||
-               (movie.show_type); // TV show database field
+  const isTV =
+    contentType === 'tv_show' ||
+    (imdbData && (imdbData.Type === 'series' || imdbData.Type === 'episode')) ||
+    movie.show_type; // TV show database field
 
   // Use appropriate emoji for content type
-  const statusEmoji = isTV ?
-    (movie.status === 'pending' ? '📺' : STATUS_EMOJIS[movie.status] || '📺') :
-    (STATUS_EMOJIS[movie.status] || STATUS_EMOJIS.pending);
+  const statusEmoji = isTV
+    ? movie.status === 'pending'
+      ? '📺'
+      : STATUS_EMOJIS[movie.status] || '📺'
+    : STATUS_EMOJIS[movie.status] || STATUS_EMOJIS.pending;
 
   // Format title for TV episodes
   let displayTitle = movie.title;
@@ -44,12 +47,22 @@ function createMovieEmbed(movie, imdbData = null, voteCounts = null, contentType
   }
 
   // Add episode title as description for TV episodes
-  if (isTV && imdbData && imdbData.Type === 'episode' && imdbData.Title && imdbData.Title !== movie.title) {
+  if (
+    isTV &&
+    imdbData &&
+    imdbData.Type === 'episode' &&
+    imdbData.Title &&
+    imdbData.Title !== movie.title
+  ) {
     embed.setDescription(`📺 ${imdbData.Title}`);
   }
 
   embed.addFields(
-    { name: isTV ? '📺 Where to Watch' : '🍿 Where to Watch', value: movie.where_to_watch, inline: true },
+    {
+      name: isTV ? '📺 Where to Watch' : '🍿 Where to Watch',
+      value: movie.where_to_watch,
+      inline: true,
+    },
     { name: '👤 Recommended by', value: `<@${movie.recommended_by}>`, inline: true }
   );
 
@@ -65,27 +78,27 @@ function createMovieEmbed(movie, imdbData = null, voteCounts = null, contentType
     if (imdbData.Year && imdbData.Year !== 'N/A') {
       embed.addFields({ name: '📅 Year', value: imdbData.Year, inline: true });
     }
-    
+
     if (imdbData.Rated && imdbData.Rated !== 'N/A') {
       embed.addFields({ name: '🎭 Rated', value: imdbData.Rated, inline: true });
     }
-    
+
     if (imdbData.Runtime && imdbData.Runtime !== 'N/A') {
       embed.addFields({ name: '⏱️ Runtime', value: imdbData.Runtime, inline: true });
     }
-    
+
     if (imdbData.Genre && imdbData.Genre !== 'N/A') {
       embed.addFields({ name: '🎬 Genre', value: imdbData.Genre, inline: false });
     }
-    
+
     if (imdbData.Plot && imdbData.Plot !== 'N/A') {
       embed.setDescription(imdbData.Plot);
     }
-    
+
     if (imdbData.Poster && imdbData.Poster !== 'N/A') {
       embed.setThumbnail(imdbData.Poster);
     }
-    
+
     if (imdbData.imdbRating && imdbData.imdbRating !== 'N/A') {
       embed.addFields({ name: '⭐ IMDb Rating', value: `${imdbData.imdbRating}/10`, inline: true });
     }
@@ -96,7 +109,7 @@ function createMovieEmbed(movie, imdbData = null, voteCounts = null, contentType
 
 function createSessionEmbed(session, movie = null) {
   const sessionTimezone = session.timezone || 'UTC';
-  const dateDisplay = session.scheduled_date 
+  const dateDisplay = session.scheduled_date
     ? formatDateWithTimezone(new Date(session.scheduled_date), sessionTimezone)
     : 'No specific date';
 
@@ -108,8 +121,8 @@ function createSessionEmbed(session, movie = null) {
       { name: '👤 Organizer', value: `<@${session.created_by}>`, inline: true },
       { name: '📍 Channel', value: `<#${session.channel_id}>`, inline: true }
     )
-    .setFooter({ 
-      text: `Session ID: ${session.id}${session.discord_event_id ? ' • Discord Event Created' : ''}` 
+    .setFooter({
+      text: `Session ID: ${session.id}${session.discord_event_id ? ' • Discord Event Created' : ''}`,
     })
     .setTimestamp();
 
@@ -120,7 +133,7 @@ function createSessionEmbed(session, movie = null) {
   if (movie) {
     embed.addFields({
       name: '🎬 Featured Content',
-      value: `**${movie.title}**\n📺 ${movie.where_to_watch}`
+      value: `**${movie.title}**\n📺 ${movie.where_to_watch}`,
     });
   }
 
@@ -135,28 +148,32 @@ function createHelpEmbed() {
     .addFields(
       {
         name: '🍿 Basic Commands',
-        value: '`/watchparty` - Recommend content\n`/watchparty-queue` - View current recommendations\n`/watchparty-help` - Show this help',
-        inline: false
+        value:
+          '`/watchparty` - Recommend content\n`/watchparty-queue` - View current recommendations\n`/watchparty-help` - Show this help',
+        inline: false,
       },
       {
         name: '🎪 Watch Party Sessions',
-        value: '`/watchparty create-session` - Create interactive watch party events\n`/watchparty list-sessions` - View active sessions with details\n`/watchparty join-session [id]` - Join a session and get updates\n`/watchparty add-content [id] [title]` - Add content to session\n`/watchparty pick-winner` - Pick top-voted content',
-        inline: false
+        value:
+          '`/watchparty create-session` - Create interactive watch party events\n`/watchparty list-sessions` - View active sessions with details\n`/watchparty join-session [id]` - Join a session and get updates\n`/watchparty add-content [id] [title]` - Add content to session\n`/watchparty pick-winner` - Pick top-voted content',
+        inline: false,
       },
       {
         name: '📊 Statistics',
         value: '`/watchparty stats` - View voting statistics and history',
-        inline: false
+        inline: false,
       },
       {
         name: '⚙️ Admin Commands',
-        value: '`/watchparty configure` - Configure channels and admin roles\n`/watchparty-setup` - Interactive guided setup',
-        inline: false
+        value:
+          '`/watchparty configure` - Configure channels and admin roles\n`/watchparty-setup` - Interactive guided setup',
+        inline: false,
       },
       {
         name: '🌍 Timezone Handling',
-        value: 'Select your timezone when creating sessions - no server setup needed!\nSupports 10+ common timezones with automatic time conversion.',
-        inline: false
+        value:
+          'Select your timezone when creating sessions - no server setup needed!\nSupports 10+ common timezones with automatic time conversion.',
+        inline: false,
       }
     )
     .setFooter({ text: `Watch Party Bot v${BOT_VERSION}` })
@@ -196,9 +213,9 @@ function createQuickActionEmbed(activeSession = null) {
           month: 'long',
           day: 'numeric',
           hour: '2-digit',
-          minute: '2-digit'
+          minute: '2-digit',
         }),
-        inline: false
+        inline: false,
       });
     }
 
@@ -208,9 +225,9 @@ function createQuickActionEmbed(activeSession = null) {
         name: '🗳️ Voting Ends',
         value: new Date(activeSession.voting_end_time).toLocaleTimeString('en-US', {
           hour: '2-digit',
-          minute: '2-digit'
+          minute: '2-digit',
         }),
-        inline: true
+        inline: true,
       });
     }
 
@@ -224,12 +241,14 @@ function createQuickActionEmbed(activeSession = null) {
 function createNoSessionEmbed() {
   const embed = new EmbedBuilder()
     .setTitle('🎪 No Active Voting Session')
-    .setDescription('Content recommendations are currently not available. An admin needs to start a new voting session using the "Plan Next Session" button in the admin channel.')
+    .setDescription(
+      'Content recommendations are currently not available. An admin needs to start a new voting session using the "Plan Next Session" button in the admin channel.'
+    )
     .setColor(COLORS.warning)
     .addFields({
       name: '🔧 For Admins',
       value: 'Use the admin channel controls to plan the next voting session.',
-      inline: false
+      inline: false,
     })
     .setFooter({ text: 'Use /watchparty-help for detailed commands and features' });
 
@@ -265,5 +284,5 @@ module.exports = {
   createNoSessionEmbed,
   createErrorEmbed,
   createSuccessEmbed,
-  createWarningEmbed
+  createWarningEmbed,
 };

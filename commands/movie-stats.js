@@ -17,17 +17,17 @@ const commands = [
           { name: 'overview', value: 'overview' },
           { name: 'top-movies', value: 'top-movies' },
           { name: 'user-stats', value: 'user-stats' },
-          { name: 'monthly', value: 'monthly' }
-        ]
+          { name: 'monthly', value: 'monthly' },
+        ],
       },
       {
         name: 'user',
         description: 'User to view statistics for (for user-stats type)',
         type: 6, // USER
-        required: false
-      }
-    ]
-  }
+        required: false,
+      },
+    ],
+  },
 ];
 
 module.exports = commands;

@@ -56,12 +56,12 @@ async function createMovieRecommendation(interaction, movieData) {
           await interaction.editReply({
             content: mismatchError,
             embeds: [],
-            components: []
+            components: [],
           });
         } else {
           await interaction.reply({
             content: mismatchError,
-            flags: MessageFlags.Ephemeral
+            flags: MessageFlags.Ephemeral,
           });
         }
         return { success: false, error: 'Content type mismatch' };
@@ -74,7 +74,9 @@ async function createMovieRecommendation(interaction, movieData) {
 
     if (!config || !config.movie_channel_id) {
       logger.debug(`No movie channel configured. Config:`, config);
-      throw new Error('No movie channel configured for this guild. Use /movie-configure set-channel to set one.');
+      throw new Error(
+        'No movie channel configured for this guild. Use /movie-configure set-channel to set one.'
+      );
     }
 
     logger.debug(`Configured movie channel ID: ${config.movie_channel_id}`);
@@ -90,10 +92,15 @@ async function createMovieRecommendation(interaction, movieData) {
       throw new Error('Configured movie channel not found');
     }
 
-    logger.debug(`🔍 DEBUG: Fetched channel: ${channel.name} (${channel.id}) type=${channel.type} forum=${forumChannels.isForumChannel(channel)} text=${forumChannels.isTextChannel(channel)}`, interaction.guild?.id);
+    logger.debug(
+      `🔍 DEBUG: Fetched channel: ${channel.name} (${channel.id}) type=${channel.type} forum=${forumChannels.isForumChannel(channel)} text=${forumChannels.isTextChannel(channel)}`,
+      interaction.guild?.id
+    );
 
     const contentTypeLabel = contentType === 'tv_show' ? 'TV show' : 'movie';
-    logger.info(`🎬 Creating ${contentTypeLabel} recommendation: ${title} in ${forumChannels.getChannelTypeString(channel)} channel (${channel.name})`);
+    logger.info(
+      `🎬 Creating ${contentTypeLabel} recommendation: ${title} in ${forumChannels.getChannelTypeString(channel)} channel (${channel.name})`
+    );
 
     // Route to appropriate creation function based on content type
     if (contentType === 'tv_show') {
@@ -115,7 +122,6 @@ async function createMovieRecommendation(interaction, movieData) {
     }
 
     throw new Error(`Unsupported channel type: ${channel.type}`);
-
   } catch (error) {
     logger.error('Error creating movie recommendation:', error);
     throw error;
@@ -135,7 +141,9 @@ async function createTextMovieRecommendation(interaction, movieData, channel) {
       const imdb = require('./imdb');
       imdbData = await imdb.getMovieDetailsCached(imdbId);
       if (!imdbData) {
-        try { imdbData = await imdb.getMovieDetails(imdbId); } catch (_) {}
+        try {
+          imdbData = await imdb.getMovieDetails(imdbId);
+        } catch (_) {}
       }
     }
   } catch (_) {}
@@ -146,14 +154,14 @@ async function createTextMovieRecommendation(interaction, movieData, channel) {
     where_to_watch: where,
     recommended_by: interaction.user.id,
     status: 'pending',
-    imdb_id: imdbId
+    imdb_id: imdbId,
   };
 
   const movieEmbed = embeds.createMovieEmbed(movieEmbedData, imdbData);
 
   // Create the message first without buttons
   const message = await channel.send({
-    embeds: [movieEmbed]
+    embeds: [movieEmbed],
   });
 
   // Create buttons with the actual message ID
@@ -162,7 +170,7 @@ async function createTextMovieRecommendation(interaction, movieData, channel) {
   // Update the message with the correct buttons
   await message.edit({
     embeds: [movieEmbed],
-    components: movieComponents
+    components: movieComponents,
   });
 
   // Save to database
@@ -175,7 +183,7 @@ async function createTextMovieRecommendation(interaction, movieData, channel) {
     whereToWatch: where,
     recommendedBy: interaction.user.id,
     imdbId: imdbId,
-    imdbData: imdbData
+    imdbData: imdbData,
   });
 
   // Cache IMDb data if available
@@ -198,7 +206,7 @@ async function createTextMovieRecommendation(interaction, movieData, channel) {
   try {
     const thread = await message.startThread({
       name: `💬 ${title}`,
-      autoArchiveDuration: 10080 // 7 days
+      autoArchiveDuration: 10080, // 7 days
     });
     logger.debug(`🧵 Created discussion thread: ${thread.name}`);
 
@@ -222,7 +230,7 @@ async function createForumMovieRecommendation(interaction, movieData, channel) {
     where,
     channelId: channel.id,
     channelName: channel.name,
-    channelType: channel.type
+    channelType: channel.type,
   });
 
   // Always use IMDb cache (no fallback to movies.imdb_data)
@@ -232,7 +240,9 @@ async function createForumMovieRecommendation(interaction, movieData, channel) {
       const imdb = require('./imdb');
       imdbData = await imdb.getMovieDetailsCached(imdbId);
       if (!imdbData) {
-        try { imdbData = await imdb.getMovieDetails(imdbId); } catch (_) {}
+        try {
+          imdbData = await imdb.getMovieDetails(imdbId);
+        } catch (_) {}
       }
     }
   } catch (_) {}
@@ -243,7 +253,7 @@ async function createForumMovieRecommendation(interaction, movieData, channel) {
     where_to_watch: where,
     recommended_by: interaction.user.id,
     status: 'pending',
-    imdb_id: imdbId
+    imdb_id: imdbId,
   };
 
   const movieEmbed = embeds.createMovieEmbed(movieEmbedData, imdbData);
@@ -259,7 +269,7 @@ async function createForumMovieRecommendation(interaction, movieData, channel) {
 
   logger.debug(`🔍 DEBUG: createForumMoviePost result:`, {
     threadId: result.thread?.id,
-    messageId: result.message?.id
+    messageId: result.message?.id,
   });
 
   const { thread, message } = result;
@@ -269,23 +279,28 @@ async function createForumMovieRecommendation(interaction, movieData, channel) {
   logger.debug(`🔍 DEBUG: Created voting buttons for forum post: ${message.id}`);
 
   // Recreate the embed with IMDb data to ensure it's included in the update
-  const updatedMovieEmbed = embeds.createMovieEmbed({
-    title: title,
-    where_to_watch: where,
-    recommended_by: interaction.user.id,
-    status: 'pending',
-    imdb_id: imdbId
-  }, imdbData);
+  const updatedMovieEmbed = embeds.createMovieEmbed(
+    {
+      title: title,
+      where_to_watch: where,
+      recommended_by: interaction.user.id,
+      status: 'pending',
+      imdb_id: imdbId,
+    },
+    imdbData
+  );
 
   // Update the starter message with buttons and proper embed
   await message.edit({
     embeds: [updatedMovieEmbed],
-    components: movieComponents
+    components: movieComponents,
   });
   logger.debug(`🔍 DEBUG: Updated forum post with voting buttons and IMDb data`);
 
   // Save to database with both message ID and thread ID
-  logger.debug(`💾 Saving forum movie to database: ${title} (Message: ${message.id}, Thread: ${thread.id})`);
+  logger.debug(
+    `💾 Saving forum movie to database: ${title} (Message: ${message.id}, Thread: ${thread.id})`
+  );
   const movieId = await database.addForumMovie(
     interaction.guild.id,
     title,
@@ -318,21 +333,26 @@ async function updateMovieStatus(movie, newStatus, upVotes = 0, downVotes = 0) {
       // Update forum post title and tags
       const client = require('../index').client;
       const thread = await client.channels.fetch(movie.thread_id).catch(() => null);
-      
+
       if (thread) {
-        await forumChannels.updateForumPostTitle(thread, movie.title, newStatus, upVotes, downVotes);
+        await forumChannels.updateForumPostTitle(
+          thread,
+          movie.title,
+          newStatus,
+          upVotes,
+          downVotes
+        );
         await forumChannels.updateForumPostTags(thread, newStatus);
-        
+
         // Archive completed movies
         if (['watched', 'skipped'].includes(newStatus)) {
           await forumChannels.archiveForumPost(thread, `Movie marked as ${newStatus}`);
         }
       }
     }
-    
+
     // Update database status
     await database.updateMovieStatus(movie.message_id, newStatus);
-    
   } catch (error) {
     console.error('Error updating movie status:', error);
   }
@@ -450,7 +470,6 @@ async function addDetailedMovieInfoToThread(thread, movieData) {
 
     await thread.send({ embeds: [detailEmbed] });
     logger.debug(`📝 Added detailed movie info to thread: ${thread.name}`);
-
   } catch (error) {
     logger.warn('Error adding detailed info to thread:', error.message);
   }
@@ -469,7 +488,9 @@ async function createTextTVShowRecommendation(interaction, showData, channel) {
       const imdb = require('./imdb');
       imdbData = await imdb.getMovieDetailsCached(imdbId);
       if (!imdbData) {
-        try { imdbData = await imdb.getMovieDetails(imdbId); } catch (_) {}
+        try {
+          imdbData = await imdb.getMovieDetails(imdbId);
+        } catch (_) {}
       }
     }
   } catch (_) {}
@@ -480,14 +501,14 @@ async function createTextTVShowRecommendation(interaction, showData, channel) {
     where_to_watch: where,
     recommended_by: interaction.user.id,
     status: 'pending',
-    imdb_id: imdbId
+    imdb_id: imdbId,
   };
 
   const showEmbed = embeds.createMovieEmbed(showEmbedData, imdbData);
 
   // Create the message first without buttons
   const message = await channel.send({
-    embeds: [showEmbed]
+    embeds: [showEmbed],
   });
 
   // Create buttons with the actual message ID (reuse voting buttons for now)
@@ -496,7 +517,7 @@ async function createTextTVShowRecommendation(interaction, showData, channel) {
   // Update the message with the correct buttons
   await message.edit({
     embeds: [showEmbed],
-    components: showComponents
+    components: showComponents,
   });
 
   // Save to TV shows database
@@ -509,7 +530,7 @@ async function createTextTVShowRecommendation(interaction, showData, channel) {
     whereToWatch: where,
     recommendedBy: interaction.user.id,
     imdbId: imdbId,
-    imdbData: imdbData
+    imdbData: imdbData,
   });
 
   // Cache IMDb data if available
@@ -532,7 +553,7 @@ async function createTextTVShowRecommendation(interaction, showData, channel) {
   try {
     const thread = await message.startThread({
       name: `💬 ${title}`,
-      autoArchiveDuration: 10080 // 7 days
+      autoArchiveDuration: 10080, // 7 days
     });
     logger.debug(`🧵 Created discussion thread: ${thread.name}`);
 
@@ -556,7 +577,7 @@ async function createForumTVShowRecommendation(interaction, showData, channel) {
     where,
     channelId: channel.id,
     channelName: channel.name,
-    channelType: channel.type
+    channelType: channel.type,
   });
 
   // Always use IMDb cache (no fallback to tv_shows.imdb_data)
@@ -566,7 +587,9 @@ async function createForumTVShowRecommendation(interaction, showData, channel) {
       const imdb = require('./imdb');
       imdbData = await imdb.getMovieDetailsCached(imdbId);
       if (!imdbData) {
-        try { imdbData = await imdb.getMovieDetails(imdbId); } catch (_) {}
+        try {
+          imdbData = await imdb.getMovieDetails(imdbId);
+        } catch (_) {}
       }
     }
   } catch (_) {}
@@ -577,7 +600,7 @@ async function createForumTVShowRecommendation(interaction, showData, channel) {
     where_to_watch: where,
     recommended_by: interaction.user.id,
     status: 'pending',
-    imdb_id: imdbId
+    imdb_id: imdbId,
   };
 
   const showEmbed = embeds.createMovieEmbed(showEmbedData, imdbData, null, 'tv_show');
@@ -593,7 +616,7 @@ async function createForumTVShowRecommendation(interaction, showData, channel) {
 
   logger.debug(`🔍 DEBUG: createForumMoviePost result:`, {
     threadId: result.thread?.id,
-    messageId: result.message?.id
+    messageId: result.message?.id,
   });
 
   if (!result.message || !result.thread) {
@@ -608,13 +631,15 @@ async function createForumTVShowRecommendation(interaction, showData, channel) {
   // Update the message with voting buttons
   await message.edit({
     embeds: [showEmbed],
-    components: showComponents
+    components: showComponents,
   });
 
   logger.debug(`🔍 DEBUG: Updated forum post with voting buttons and IMDb data`);
 
   // Save to TV shows database with both message ID and thread ID
-  logger.debug(`💾 Saving forum TV show to database: ${title} (Message: ${message.id}, Thread: ${thread.id})`);
+  logger.debug(
+    `💾 Saving forum TV show to database: ${title} (Message: ${message.id}, Thread: ${thread.id})`
+  );
   const showId = await database.addForumTVShow(
     interaction.guild.id,
     title,
@@ -643,11 +668,14 @@ async function addDetailedTVShowInfoToThread(thread, showInfo) {
   try {
     const { title, where, imdbData } = showInfo;
 
-    const detailEmbed = embeds.createMovieEmbed({
-      title: `📺 ${title}`,
-      where_to_watch: where,
-      status: 'pending'
-    }, imdbData);
+    const detailEmbed = embeds.createMovieEmbed(
+      {
+        title: `📺 ${title}`,
+        where_to_watch: where,
+        status: 'pending',
+      },
+      imdbData
+    );
 
     if (imdbData) {
       // Add TV show specific information
@@ -655,7 +683,7 @@ async function addDetailedTVShowInfoToThread(thread, showInfo) {
         detailEmbed.addFields({
           name: '📺 Seasons',
           value: imdbData.totalSeasons,
-          inline: true
+          inline: true,
         });
       }
 
@@ -663,7 +691,7 @@ async function addDetailedTVShowInfoToThread(thread, showInfo) {
         detailEmbed.addFields({
           name: '📺 Episode',
           value: `Season ${imdbData.Season}, Episode ${imdbData.Episode}`,
-          inline: true
+          inline: true,
         });
       }
 
@@ -677,7 +705,6 @@ async function addDetailedTVShowInfoToThread(thread, showInfo) {
 
     await thread.send({ embeds: [detailEmbed] });
     logger.debug(`📝 Added detailed TV show info to thread: ${thread.name}`);
-
   } catch (error) {
     logger.warn('Error adding detailed TV show info to thread:', error.message);
   }
@@ -694,5 +721,5 @@ module.exports = {
   cleanupChannelMovies,
   addDetailedMovieInfoToThread,
   addDetailedTVShowInfoToThread,
-  detectContentType
+  detectContentType,
 };

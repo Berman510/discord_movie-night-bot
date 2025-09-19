@@ -13,9 +13,9 @@ const TIMEZONE_OPTIONS = [
   { label: 'Paris/Berlin (CET)', value: 'Europe/Paris', emoji: '🇪🇺' },
   { label: 'Tokyo (JST)', value: 'Asia/Tokyo', emoji: '🇯🇵' },
   { label: 'Sydney (AEST)', value: 'Australia/Sydney', emoji: '🇦🇺' },
-  { label: 'India (IST)', value: 'Asia/Kolkata', emoji: '🇮🇳' }
+  { label: 'India (IST)', value: 'Asia/Kolkata', emoji: '🇮🇳' },
 ];
 
 module.exports = {
-  TIMEZONE_OPTIONS
+  TIMEZONE_OPTIONS,
 };

@@ -60,11 +60,13 @@ class SessionScheduler {
       this.checkSessionsEndingToday();
 
       // Then run every 24 hours
-      this.dailyCheckInterval = setInterval(() => {
-        console.log('🕐 Running daily session check...');
-        this.checkSessionsEndingToday();
-      }, 24 * 60 * 60 * 1000); // 24 hours
-
+      this.dailyCheckInterval = setInterval(
+        () => {
+          console.log('🕐 Running daily session check...');
+          this.checkSessionsEndingToday();
+        },
+        24 * 60 * 60 * 1000
+      ); // 24 hours
     }, msUntilMidnight);
 
     const hoursUntilMidnight = Math.round(msUntilMidnight / (1000 * 60 * 60));
@@ -90,7 +92,8 @@ class SessionScheduler {
         return;
       }
 
-      if (msUntilEnd <= 24 * 60 * 60 * 1000) { // Within 24 hours
+      if (msUntilEnd <= 24 * 60 * 60 * 1000) {
+        // Within 24 hours
         // Use setTimeout for precise timing
         const timeoutId = setTimeout(async () => {
           const logger = require('../utils/logger');
@@ -108,7 +111,9 @@ class SessionScheduler {
         // More than 24 hours away - will be picked up by daily check
         const daysUntilEnd = Math.round(msUntilEnd / (1000 * 60 * 60 * 24));
         const logger = require('../utils/logger');
-        logger.debug(`⏰ Session ${sessionId} voting ends in ${daysUntilEnd} days - will be checked daily`);
+        logger.debug(
+          `⏰ Session ${sessionId} voting ends in ${daysUntilEnd} days - will be checked daily`
+        );
       }
     } catch (error) {
       console.error(`Error scheduling voting end for session ${sessionId}:`, error);
@@ -171,7 +176,9 @@ class SessionScheduler {
 
           if (votingEndTime <= now) {
             const logger = require('../utils/logger');
-            logger.info(`⏰ Recovering missed session: ${session.name} (should have ended ${votingEndTime})`);
+            logger.info(
+              `⏰ Recovering missed session: ${session.name} (should have ended ${votingEndTime})`
+            );
             await this.closeVotingForSession(session.id);
           }
         }
@@ -233,9 +240,12 @@ class SessionScheduler {
 
     // Run once immediately, then every 5 minutes
     this.pollRsvps().catch(() => {});
-    this.rsvpPollInterval = setInterval(() => {
-      this.pollRsvps().catch(err => console.warn('RSVP poll error:', err?.message));
-    }, 5 * 60 * 1000);
+    this.rsvpPollInterval = setInterval(
+      () => {
+        this.pollRsvps().catch((err) => console.warn('RSVP poll error:', err?.message));
+      },
+      5 * 60 * 1000
+    );
   }
 
   /**
@@ -255,7 +265,9 @@ class SessionScheduler {
         if (!guild) continue;
 
         try {
-          const event = await guild.scheduledEvents.fetch(String(s.discord_event_id)).catch(() => null);
+          const event = await guild.scheduledEvents
+            .fetch(String(s.discord_event_id))
+            .catch(() => null);
           if (!event) continue;
 
           // Fetch up to 100 subscribers; for most guilds this is sufficient
@@ -264,7 +276,9 @@ class SessionScheduler {
             const subs = await event.fetchSubscribers({ limit: 100, withMember: false });
             if (subs && subs?.size >= 0) {
               // subs is a Collection of {user, member}
-              userIds = Array.from(subs.values()).map(x => x?.user?.id).filter(Boolean);
+              userIds = Array.from(subs.values())
+                .map((x) => x?.user?.id)
+                .filter(Boolean);
             }
           } catch (e) {
             logger.warn(`fetchSubscribers failed for event ${s.discord_event_id}: ${e.message}`);
@@ -280,7 +294,6 @@ class SessionScheduler {
       console.warn('RSVP poll error:', error?.message || error);
     }
   }
-
 
   /**
    * Reschedule a session (clear old timeout, set new one)

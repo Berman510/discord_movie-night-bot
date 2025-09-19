@@ -33,5 +33,4 @@ jobs:
 
       - name: Check formatting (Prettier)
         run: npm run format:check
-        continue-on-error: true
 

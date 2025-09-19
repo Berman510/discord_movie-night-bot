@@ -6,8 +6,8 @@
 const commands = [
   {
     name: 'watchparty-setup',
-    description: '🎪 Interactive bot setup - configure your Watch Party Bot easily!'
-  }
+    description: '🎪 Interactive bot setup - configure your Watch Party Bot easily!',
+  },
 ];
 
 module.exports = commands;

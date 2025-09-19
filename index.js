@@ -19,11 +19,13 @@ try {
       cp.execSync('npm install --only=prod', { stdio: 'inherit' });
       console.log('[startup] Dependencies installed via npm install.');
     } catch (err2) {
-      console.error('[startup] Failed to install dependencies automatically. Please run npm install.', err2?.message || err2);
+      console.error(
+        '[startup] Failed to install dependencies automatically. Please run npm install.',
+        err2?.message || err2
+      );
     }
   }
 }
-
 
 try {
   require('dotenv').config();
@@ -31,7 +33,15 @@ try {
   console.warn('[startup] dotenv not found; proceeding with process.env only');
 }
 
-const { Client, GatewayIntentBits, REST, Routes, InteractionType, MessageFlags, EmbedBuilder } = require('discord.js');
+const {
+  Client,
+  GatewayIntentBits,
+  REST,
+  Routes,
+  InteractionType,
+  MessageFlags,
+  EmbedBuilder,
+} = require('discord.js');
 const logger = require('./utils/logger');
 const database = require('./database');
 const { commands, registerCommands } = require('./commands');
@@ -62,8 +72,8 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.GuildMessageReactions,
     GatewayIntentBits.GuildScheduledEvents,
-    GatewayIntentBits.GuildVoiceStates  // For voice channel monitoring
-  ]
+    GatewayIntentBits.GuildVoiceStates, // For voice channel monitoring
+  ],
 });
 
 // Make client globally available for session tracking
@@ -137,10 +147,11 @@ client.on('guildCreate', async (guild) => {
       if (panel) {
         logger.info(`🔧 Admin control panel initialized for ${guild.name}`);
       } else {
-        logger.warn(`⚠️ Skipped admin panel for ${guild.name} (Missing Access or channel not found)`);
+        logger.warn(
+          `⚠️ Skipped admin panel for ${guild.name} (Missing Access or channel not found)`
+        );
       }
     }
-
   } catch (error) {
     logger.error(`❌ Error setting up new guild ${guild.name}:`, error);
   }
@@ -163,15 +174,16 @@ client.on('interactionCreate', async (interaction) => {
 
     // Handle other interactions (buttons, modals, selects)
     await handleInteraction(interaction);
-
   } catch (error) {
     console.error('Error handling interaction:', error);
 
     if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({
-        content: '❌ An error occurred while processing your request.',
-        flags: MessageFlags.Ephemeral
-      }).catch(console.error);
+      await interaction
+        .reply({
+          content: '❌ An error occurred while processing your request.',
+          flags: MessageFlags.Ephemeral,
+        })
+        .catch(console.error);
     }
   }
 });
@@ -239,25 +251,33 @@ async function startBot() {
     await client.login(DISCORD_TOKEN);
 
     // Wait a moment for guild cache to populate
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    await new Promise((resolve) => setTimeout(resolve, 2000));
 
     // Also register to specific development guilds if specified for instant testing
     if (GUILD_ID && GUILD_ID.trim()) {
-      const guildIds = GUILD_ID.split(',').map(id => id.trim()).filter(id => id);
-      logger.info(`🧪 Also registering to ${guildIds.length} development guild(s) for instant testing`);
+      const guildIds = GUILD_ID.split(',')
+        .map((id) => id.trim())
+        .filter((id) => id);
+      logger.info(
+        `🧪 Also registering to ${guildIds.length} development guild(s) for instant testing`
+      );
       for (const guildId of guildIds) {
         try {
           // Check if bot is actually in the guild before trying to register commands
           const guild = client.guilds.cache.get(guildId);
           if (!guild) {
-            logger.warn(`⚠️ Bot is not in development guild ${guildId} - skipping command registration`);
+            logger.warn(
+              `⚠️ Bot is not in development guild ${guildId} - skipping command registration`
+            );
             continue;
           }
 
           await registerCommands(DISCORD_TOKEN, CLIENT_ID, guildId);
           logger.info(`✅ Commands registered to development guild: ${guild.name}`);
         } catch (error) {
-          logger.warn(`⚠️ Failed to register commands to development guild ${guildId}: ${error.message}`);
+          logger.warn(
+            `⚠️ Failed to register commands to development guild ${guildId}: ${error.message}`
+          );
           logger.debug('This is non-critical - bot will continue with global commands only');
         }
       }
@@ -268,7 +288,9 @@ async function startBot() {
     // Initialize WebSocket client to dashboard (no-op if disabled)
     try {
       global.wsClient = initWebSocketClient(logger);
-      logger.info(`🔗 WebSocket client initialized: ${global.wsClient?.enabled ? 'enabled' : 'disabled'}`);
+      logger.info(
+        `🔗 WebSocket client initialized: ${global.wsClient?.enabled ? 'enabled' : 'disabled'}`
+      );
     } catch (e) {
       logger.warn(`WS init failed: ${e?.message || e}`);
       global.wsClient = { enabled: false };
@@ -276,7 +298,6 @@ async function startBot() {
 
     // Start payload cleanup
     startPayloadCleanup();
-
   } catch (error) {
     logger.error('❌ Failed to start bot:', error);
     process.exit(1);

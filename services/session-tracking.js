@@ -22,7 +22,10 @@ async function handleVoiceStateChange(oldState, newState) {
     const activeSessionsList = await getActiveSessionsForGuild(guildId);
     if (activeSessionsList.length > 0) {
       const logger = require('../utils/logger');
-      logger.warn(`⚠️ No Watch Party Channel configured but ${activeSessionsList.length} active session(s)`, guildId);
+      logger.warn(
+        `⚠️ No Watch Party Channel configured but ${activeSessionsList.length} active session(s)`,
+        guildId
+      );
     }
     return; // No watch party channel configured
   }
@@ -30,16 +33,24 @@ async function handleVoiceStateChange(oldState, newState) {
   const viewingChannelId = config.watch_party_channel_id;
 
   // Only process and log if the change involves the configured watch party channel
-  const joinedViewingChannel = newState.channelId === viewingChannelId && oldState.channelId !== viewingChannelId;
-  const leftViewingChannel = oldState.channelId === viewingChannelId && newState.channelId !== viewingChannelId;
+  const joinedViewingChannel =
+    newState.channelId === viewingChannelId && oldState.channelId !== viewingChannelId;
+  const leftViewingChannel =
+    oldState.channelId === viewingChannelId && newState.channelId !== viewingChannelId;
 
   if (joinedViewingChannel) {
-    { const logger = require('../utils/logger'); logger.info(`🎬 User ${userId} joined Watch Party Channel`, guildId); }
+    {
+      const logger = require('../utils/logger');
+      logger.info(`🎬 User ${userId} joined Watch Party Channel`, guildId);
+    }
     await handleUserJoinedViewingChannel(guildId, userId, viewingChannelId);
   }
 
   if (leftViewingChannel) {
-    { const logger = require('../utils/logger'); logger.info(`🎤 User ${userId} left session viewing channel`, guildId); }
+    {
+      const logger = require('../utils/logger');
+      logger.info(`🎤 User ${userId} left session viewing channel`, guildId);
+    }
     await handleUserLeftViewingChannel(guildId, userId, viewingChannelId);
   }
 }
@@ -88,11 +99,11 @@ function isSessionActive(session) {
   if (!session.scheduled_date) {
     return false;
   }
-  
+
   const now = new Date();
   const sessionStart = new Date(session.scheduled_date);
-  const sessionEnd = new Date(sessionStart.getTime() + (3 * 60 * 60 * 1000)); // 3 hours default
-  
+  const sessionEnd = new Date(sessionStart.getTime() + 3 * 60 * 60 * 1000); // 3 hours default
+
   return now >= sessionStart && now <= sessionEnd;
 }
 
@@ -102,10 +113,11 @@ function isSessionActive(session) {
 async function getActiveSessionsForGuild(guildId) {
   try {
     const sessions = await database.getAllSessions(guildId);
-    return sessions.filter(session => 
-      session.scheduled_date && 
-      session.discord_event_id && // Only track sessions with Discord events
-      isSessionActive(session)
+    return sessions.filter(
+      (session) =>
+        session.scheduled_date &&
+        session.discord_event_id && // Only track sessions with Discord events
+        isSessionActive(session)
     );
   } catch (error) {
     console.error('Error getting active sessions:', error);
@@ -143,11 +155,17 @@ async function startSessionMonitoring(sessionId, guildId, viewingChannelId) {
     guildId,
     channelId: viewingChannelId,
     startTime: new Date(),
-    participants: new Set()
+    participants: new Set(),
   };
 
   activeSessions.set(sessionId, session);
-  { const logger = require('../utils/logger'); logger.info(`🎬 Started monitoring session ${sessionId} in channel ${viewingChannelId}`, guildId); }
+  {
+    const logger = require('../utils/logger');
+    logger.info(
+      `🎬 Started monitoring session ${sessionId} in channel ${viewingChannelId}`,
+      guildId
+    );
+  }
 
   // Check for users already in the viewing channel
   await checkExistingUsersInChannel(sessionId, guildId, viewingChannelId);
@@ -182,9 +200,10 @@ async function checkExistingUsersInChannel(sessionId, guildId, viewingChannelId)
     // Add all users currently in the channel
     for (const [userId, member] of channel.members) {
       await addSessionAttendee(sessionId, userId);
-      console.log(`👥 User ${userId} was already in viewing channel when session ${sessionId} started`);
+      console.log(
+        `👥 User ${userId} was already in viewing channel when session ${sessionId} started`
+      );
     }
-
   } catch (error) {
     console.error('Error checking existing users in channel:', error);
   }
@@ -196,7 +215,13 @@ async function checkExistingUsersInChannel(sessionId, guildId, viewingChannelId)
 async function stopSessionMonitoring(sessionId) {
   if (activeSessions.has(sessionId)) {
     const session = activeSessions.get(sessionId);
-    { const logger = require('../utils/logger'); logger.info(`🎬 Stopped monitoring session ${sessionId}, tracked ${session.participants.size} participants`, session?.guildId); }
+    {
+      const logger = require('../utils/logger');
+      logger.info(
+        `🎬 Stopped monitoring session ${sessionId}, tracked ${session.participants.size} participants`,
+        session?.guildId
+      );
+    }
     activeSessions.delete(sessionId);
   }
 }
@@ -208,16 +233,17 @@ async function getSessionAttendanceReport(sessionId) {
   try {
     const attendees = await database.getSessionAttendees(sessionId);
     const registeredParticipants = await database.getSessionParticipants(sessionId);
-    
+
     return {
       sessionId,
       registeredCount: registeredParticipants.length,
       actualAttendees: attendees.length,
       registeredParticipants,
       actualAttendees: attendees,
-      attendanceRate: registeredParticipants.length > 0 
-        ? (attendees.length / registeredParticipants.length * 100).toFixed(1)
-        : '0'
+      attendanceRate:
+        registeredParticipants.length > 0
+          ? ((attendees.length / registeredParticipants.length) * 100).toFixed(1)
+          : '0',
     };
   } catch (error) {
     console.error('Error getting attendance report:', error);
@@ -278,5 +304,5 @@ module.exports = {
   stopSessionMonitoring,
   getSessionAttendanceReport,
   isSessionActive,
-  getActiveSessionsForGuild
+  getActiveSessionsForGuild,
 };

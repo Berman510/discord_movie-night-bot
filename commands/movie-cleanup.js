@@ -15,11 +15,11 @@ const commands = [
         required: true,
         choices: [
           { name: 'sync', value: 'sync' },
-          { name: 'purge', value: 'purge' }
-        ]
-      }
-    ]
-  }
+          { name: 'purge', value: 'purge' },
+        ],
+      },
+    ],
+  },
 ];
 
 module.exports = commands;

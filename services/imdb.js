@@ -22,7 +22,9 @@ async function searchMovie(title) {
   }
 
   try {
-    const response = await fetch(`http://www.omdbapi.com/?apikey=${OMDB_API_KEY}&s=${encodeURIComponent(title)}&type=movie`);
+    const response = await fetch(
+      `http://www.omdbapi.com/?apikey=${OMDB_API_KEY}&s=${encodeURIComponent(title)}&type=movie`
+    );
     const data = await response.json();
 
     if (data.Response === 'True' && data.Search) {
@@ -46,7 +48,9 @@ async function searchSeries(title) {
   }
 
   try {
-    const response = await fetch(`http://www.omdbapi.com/?apikey=${OMDB_API_KEY}&s=${encodeURIComponent(title)}&type=series`);
+    const response = await fetch(
+      `http://www.omdbapi.com/?apikey=${OMDB_API_KEY}&s=${encodeURIComponent(title)}&type=series`
+    );
     const data = await response.json();
 
     if (data.Response === 'True' && data.Search) {
@@ -71,7 +75,9 @@ async function searchContent(title) {
 
   try {
     // Search without type restriction to get both movies and series
-    const response = await fetch(`http://www.omdbapi.com/?apikey=${OMDB_API_KEY}&s=${encodeURIComponent(title)}`);
+    const response = await fetch(
+      `http://www.omdbapi.com/?apikey=${OMDB_API_KEY}&s=${encodeURIComponent(title)}`
+    );
     const data = await response.json();
 
     if (data.Response === 'True' && data.Search) {
@@ -102,7 +108,7 @@ function parseEpisodeInfo(title) {
     // Ep 101, Ep302 format
     /^(.+?)\s+[Ee]p\s*(\d)(\d{2})(?:\s|$)/,
     // Show Name - 302 format
-    /^(.+?)\s*-\s*(\d)(\d{2})(?:\s|$)/
+    /^(.+?)\s*-\s*(\d)(\d{2})(?:\s|$)/,
   ];
 
   for (const pattern of episodePatterns) {
@@ -114,7 +120,7 @@ function parseEpisodeInfo(title) {
         showName: showName.trim(),
         season: parseInt(season),
         episode: parseInt(episode),
-        originalTitle: title
+        originalTitle: title,
       };
     }
   }
@@ -165,16 +171,22 @@ async function searchContentWithSuggestions(title) {
     const episodeInfo = parseEpisodeInfo(title);
 
     if (episodeInfo.isEpisode) {
-      console.log(`🔍 Detected episode request: ${episodeInfo.showName} S${episodeInfo.season}E${episodeInfo.episode}`);
+      console.log(
+        `🔍 Detected episode request: ${episodeInfo.showName} S${episodeInfo.season}E${episodeInfo.episode}`
+      );
 
       // Search for the specific episode
-      const episodeResult = await searchEpisode(episodeInfo.showName, episodeInfo.season, episodeInfo.episode);
+      const episodeResult = await searchEpisode(
+        episodeInfo.showName,
+        episodeInfo.season,
+        episodeInfo.episode
+      );
       if (episodeResult) {
         return {
           results: [episodeResult],
           suggestions: [],
           isEpisode: true,
-          episodeInfo: episodeInfo
+          episodeInfo: episodeInfo,
         };
       }
 
@@ -187,7 +199,7 @@ async function searchContentWithSuggestions(title) {
           suggestions: [],
           isEpisode: false,
           episodeInfo: episodeInfo,
-          episodeNotFound: true
+          episodeNotFound: true,
         };
       }
     }
@@ -220,7 +232,7 @@ async function searchContentWithSuggestions(title) {
     return {
       results: bestResults,
       suggestions: bestSuggestion ? [bestSuggestion] : suggestions.slice(0, 3),
-      originalTitle: title
+      originalTitle: title,
     };
   } catch (error) {
     console.error('Error in enhanced content search:', error.message);
@@ -261,7 +273,7 @@ async function searchMovieWithSuggestions(title) {
     return {
       results: bestResults,
       suggestions: bestSuggestion ? [bestSuggestion] : suggestions.slice(0, 3),
-      originalTitle: title
+      originalTitle: title,
     };
   } catch (error) {
     console.error('Error in enhanced movie search:', error.message);
@@ -278,40 +290,40 @@ async function generateSpellingSuggestions(title) {
   // Common movie title corrections
   const commonCorrections = {
     // Common misspellings
-    'teh': 'the',
-    'adn': 'and',
-    'fo': 'of',
-    'wiht': 'with',
-    'taht': 'that',
-    'thier': 'their',
-    'recieve': 'receive',
-    'seperate': 'separate',
-    'definately': 'definitely',
+    teh: 'the',
+    adn: 'and',
+    fo: 'of',
+    wiht: 'with',
+    taht: 'that',
+    thier: 'their',
+    recieve: 'receive',
+    seperate: 'separate',
+    definately: 'definitely',
 
     // Movie-specific corrections
-    'avengers': 'avengers',
-    'spiderman': 'spider-man',
-    'xmen': 'x-men',
-    'starwars': 'star wars',
-    'lordoftherings': 'lord of the rings',
-    'harrypotter': 'harry potter',
-    'jurassicpark': 'jurassic park',
-    'backtothe': 'back to the',
-    'indianajones': 'indiana jones',
-    'missionimpossible': 'mission impossible',
+    avengers: 'avengers',
+    spiderman: 'spider-man',
+    xmen: 'x-men',
+    starwars: 'star wars',
+    lordoftherings: 'lord of the rings',
+    harrypotter: 'harry potter',
+    jurassicpark: 'jurassic park',
+    backtothe: 'back to the',
+    indianajones: 'indiana jones',
+    missionimpossible: 'mission impossible',
 
     // Specific movie corrections
-    'matrixc': 'matrix',
-    'matric': 'matrix',
-    'matrxi': 'matrix',
-    'matirx': 'matrix',
-    'inceptoin': 'inception',
-    'incepton': 'inception',
-    'incpetion': 'inception',
-    'avatr': 'avatar',
-    'avater': 'avatar',
-    'titanci': 'titanic',
-    'titanik': 'titanic'
+    matrixc: 'matrix',
+    matric: 'matrix',
+    matrxi: 'matrix',
+    matirx: 'matrix',
+    inceptoin: 'inception',
+    incepton: 'inception',
+    incpetion: 'inception',
+    avatr: 'avatar',
+    avater: 'avatar',
+    titanci: 'titanic',
+    titanik: 'titanic',
   };
 
   // Apply common corrections
@@ -335,18 +347,21 @@ async function generateSpellingSuggestions(title) {
     // Replace numbers with words
     title.replace(/\b2\b/g, 'Two').replace(/\b3\b/g, 'Three').replace(/\b4\b/g, 'Four'),
     // Replace words with numbers
-    title.replace(/\bTwo\b/gi, '2').replace(/\bThree\b/gi, '3').replace(/\bFour\b/gi, '4'),
+    title
+      .replace(/\bTwo\b/gi, '2')
+      .replace(/\bThree\b/gi, '3')
+      .replace(/\bFour\b/gi, '4'),
     // Common abbreviations
     title.replace(/\b&\b/g, 'and').replace(/\band\b/gi, '&'),
     // Remove punctuation
     title.replace(/[^\w\s]/g, ''),
     // Add common suffixes
     `${title}: The Movie`,
-    `${title} Movie`
+    `${title} Movie`,
   ];
 
   // Add unique variations
-  variations.forEach(variation => {
+  variations.forEach((variation) => {
     const trimmed = variation.trim();
     if (trimmed && trimmed !== title && !suggestions.includes(trimmed)) {
       suggestions.push(trimmed);
@@ -360,9 +375,7 @@ async function generateSpellingSuggestions(title) {
  * Convert string to title case
  */
 function toTitleCase(str) {
-  return str.replace(/\w\S*/g, (txt) =>
-    txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
-  );
+  return str.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
 }
 
 async function getMovieDetails(imdbId) {
@@ -372,7 +385,9 @@ async function getMovieDetails(imdbId) {
   }
 
   try {
-    const response = await fetch(`http://www.omdbapi.com/?apikey=${OMDB_API_KEY}&i=${imdbId}&plot=short`);
+    const response = await fetch(
+      `http://www.omdbapi.com/?apikey=${OMDB_API_KEY}&i=${imdbId}&plot=short`
+    );
     const data = await response.json();
 
     if (data.Response === 'True') {
@@ -396,7 +411,9 @@ async function getContentDetails(imdbId) {
   }
 
   try {
-    const response = await fetch(`http://www.omdbapi.com/?apikey=${OMDB_API_KEY}&i=${imdbId}&plot=short`);
+    const response = await fetch(
+      `http://www.omdbapi.com/?apikey=${OMDB_API_KEY}&i=${imdbId}&plot=short`
+    );
     const data = await response.json();
 
     if (data.Response === 'True') {
@@ -420,7 +437,9 @@ async function getSeasonDetails(imdbId, season) {
   }
 
   try {
-    const response = await fetch(`http://www.omdbapi.com/?apikey=${OMDB_API_KEY}&i=${imdbId}&Season=${season}`);
+    const response = await fetch(
+      `http://www.omdbapi.com/?apikey=${OMDB_API_KEY}&i=${imdbId}&Season=${season}`
+    );
     const data = await response.json();
 
     if (data.Response === 'True') {
@@ -471,7 +490,7 @@ function formatMovieForEmbed(movie) {
     title: title,
     color: isTVContent ? 0xff6b35 : 0x5865f2, // Orange for TV content, blue for movies
     fields: [],
-    thumbnail: movie.Poster && movie.Poster !== 'N/A' ? { url: movie.Poster } : null
+    thumbnail: movie.Poster && movie.Poster !== 'N/A' ? { url: movie.Poster } : null,
   };
 
   // Add type indicator
@@ -492,7 +511,11 @@ function formatMovieForEmbed(movie) {
     embed.fields.push({ name: 'Seasons', value: movie.totalSeasons, inline: true });
   } else if (isEpisode) {
     if (movie.Season && movie.Episode) {
-      embed.fields.push({ name: 'Season/Episode', value: `S${movie.Season}E${movie.Episode}`, inline: true });
+      embed.fields.push({
+        name: 'Season/Episode',
+        value: `S${movie.Season}E${movie.Episode}`,
+        inline: true,
+      });
     }
     if (movie.Runtime && movie.Runtime !== 'N/A') {
       embed.fields.push({ name: 'Runtime', value: movie.Runtime, inline: true });
@@ -527,7 +550,6 @@ function formatMovieForEmbed(movie) {
   return embed;
 }
 
-
 async function getMovieDetailsCached(imdbId) {
   // Always read from cache; no live fetch fallback
   const database = require('../database');
@@ -535,7 +557,11 @@ async function getMovieDetailsCached(imdbId) {
   try {
     const cached = await database.getImdbCache(imdbId);
     if (cached && cached.data) {
-      try { return typeof cached.data === 'string' ? JSON.parse(cached.data) : cached.data; } catch { return cached.data; }
+      try {
+        return typeof cached.data === 'string' ? JSON.parse(cached.data) : cached.data;
+      } catch {
+        return cached.data;
+      }
     }
     return null;
   } catch (e) {
@@ -556,5 +582,5 @@ module.exports = {
   getContentDetails,
   getSeasonDetails,
   getMovieDetailsCached,
-  formatMovieForEmbed
+  formatMovieForEmbed,
 };

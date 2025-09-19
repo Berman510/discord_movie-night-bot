@@ -30,9 +30,10 @@ async function configureMovieChannel(interaction, guildId) {
     const row = new ActionRowBuilder().addComponents(channelSelect);
 
     await interaction.update({
-      content: '🎬 **Select Voting Channel**\n\nChoose a Text channel or Forum channel for movie recommendations:',
+      content:
+        '🎬 **Select Voting Channel**\n\nChoose a Text channel or Forum channel for movie recommendations:',
       embeds: [],
-      components: [row]
+      components: [row],
     });
     return;
   }
@@ -42,7 +43,7 @@ async function configureMovieChannel(interaction, guildId) {
     await interaction.update({
       content: '❌ Movie channel must be a Text channel or Forum channel.',
       embeds: [],
-      components: []
+      components: [],
     });
     return;
   }
@@ -57,13 +58,13 @@ async function configureMovieChannel(interaction, guildId) {
     await interaction.update({
       content: `✅ **Movie channel set to ${channel}**\n\n📋 **Channel Type**: ${channelType}\n🎬 **Behavior**: ${description}\n\n🔧 Cleanup commands will only work in this channel.`,
       embeds: [],
-      components: []
+      components: [],
     });
   } else {
     await interaction.update({
       content: '❌ Failed to set movie channel.',
       embeds: [],
-      components: []
+      components: [],
     });
   }
 }
@@ -74,7 +75,7 @@ async function addAdminRole(interaction, guildId) {
   if (!role) {
     await interaction.reply({
       content: '❌ Please specify a role to add as admin.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -83,12 +84,12 @@ async function addAdminRole(interaction, guildId) {
   if (success) {
     await interaction.reply({
       content: `✅ Added ${role} as an admin role. Members with this role can now use admin commands.`,
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   } else {
     await interaction.reply({
       content: '❌ Failed to add admin role.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -99,7 +100,7 @@ async function removeAdminRole(interaction, guildId) {
   if (!role) {
     await interaction.reply({
       content: '❌ Please specify a role to remove from admin.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -108,23 +109,31 @@ async function removeAdminRole(interaction, guildId) {
   if (success) {
     await interaction.reply({
       content: `✅ Removed ${role} from admin roles.`,
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   } else {
     await interaction.reply({
       content: '❌ Failed to remove admin role.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
 
 async function setNotificationRole(interaction, guildId) {
   const dashboardUrl = 'https://movienight.bermanoc.net';
-  const msg = 'Notification Role is deprecated. The bot now pings your configured Voting Roles for announcements. Please configure Voting Roles in the dashboard.';
+  const msg =
+    'Notification Role is deprecated. The bot now pings your configured Voting Roles for announcements. Please configure Voting Roles in the dashboard.';
   if (interaction.isButton()) {
-    await interaction.update({ content: `ℹ️ ${msg}\n\nDashboard: ${dashboardUrl}`, embeds: [], components: [] });
+    await interaction.update({
+      content: `ℹ️ ${msg}\n\nDashboard: ${dashboardUrl}`,
+      embeds: [],
+      components: [],
+    });
   } else {
-    await interaction.reply({ content: `ℹ️ ${msg}\n\nDashboard: ${dashboardUrl}`, flags: MessageFlags.Ephemeral });
+    await interaction.reply({
+      content: `ℹ️ ${msg}\n\nDashboard: ${dashboardUrl}`,
+      flags: MessageFlags.Ephemeral,
+    });
   }
 }
 
@@ -135,7 +144,7 @@ async function viewSettings(interaction, guildId) {
     if (!config) {
       await interaction.reply({
         content: '❌ Failed to retrieve guild configuration.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -147,45 +156,48 @@ async function viewSettings(interaction, guildId) {
       .addFields(
         {
           name: '📺 Movie Voting Channel',
-          value: config.movie_channel_id ?
-            `<#${config.movie_channel_id}>\n*Movies and cleanup restricted to this channel*` :
-            'Not set\n*Bot works in any channel*',
-          inline: false
+          value: config.movie_channel_id
+            ? `<#${config.movie_channel_id}>\n*Movies and cleanup restricted to this channel*`
+            : 'Not set\n*Bot works in any channel*',
+          inline: false,
         },
         {
           name: '🔧 Admin Channel',
-          value: config.admin_channel_id ?
-            `<#${config.admin_channel_id}>\n*Admin controls and movie management*` :
-            'Not set\n*No admin channel configured*',
-          inline: false
+          value: config.admin_channel_id
+            ? `<#${config.admin_channel_id}>\n*Admin controls and movie management*`
+            : 'Not set\n*No admin channel configured*',
+          inline: false,
         },
         {
           name: '👑 Admin Roles',
-          value: config.admin_roles && config.admin_roles.length > 0 ?
-            `${config.admin_roles.map(id => `<@&${id}>`).join('\n')}\n*These roles can use admin commands*` :
-            'None configured\n*Only Discord Administrators can use admin commands*',
-          inline: false
+          value:
+            config.admin_roles && config.admin_roles.length > 0
+              ? `${config.admin_roles.map((id) => `<@&${id}>`).join('\n')}\n*These roles can use admin commands*`
+              : 'None configured\n*Only Discord Administrators can use admin commands*',
+          inline: false,
         },
         {
           name: '🛡️ Moderator Roles',
-          value: config.moderator_roles && config.moderator_roles.length > 0 ?
-            `${config.moderator_roles.map(id => `<@&${id}>`).join('\n')}\n*These roles can moderate movies and sessions*` :
-            'None configured\n*Only admins can moderate*',
-          inline: false
+          value:
+            config.moderator_roles && config.moderator_roles.length > 0
+              ? `${config.moderator_roles.map((id) => `<@&${id}>`).join('\n')}\n*These roles can moderate movies and sessions*`
+              : 'None configured\n*Only admins can moderate*',
+          inline: false,
         },
         {
           name: '👥 Voting Roles (used for announcements)',
-          value: (config.voting_roles && config.voting_roles.length > 0) ?
-            `${config.voting_roles.map(id => `<@&${id}>`).join('\n')}\n*Also used for event announcement pings*` :
-            'None configured\n*Only Admins/Moderators can vote; no announcement pings will be sent*',
-          inline: false
+          value:
+            config.voting_roles && config.voting_roles.length > 0
+              ? `${config.voting_roles.map((id) => `<@&${id}>`).join('\n')}\n*Also used for event announcement pings*`
+              : 'None configured\n*Only Admins/Moderators can vote; no announcement pings will be sent*',
+          inline: false,
         },
         {
           name: '🎥 Watch Party Channel',
-          value: config.watch_party_channel_id ?
-            `<#${config.watch_party_channel_id}>\n*Bot tracks attendance during sessions in this channel*` :
-            'Not set\n*No automatic attendance tracking*',
-          inline: false
+          value: config.watch_party_channel_id
+            ? `<#${config.watch_party_channel_id}>\n*Bot tracks attendance during sessions in this channel*`
+            : 'Not set\n*No automatic attendance tracking*',
+          inline: false,
         }
       )
       .setFooter({ text: `Configuration for ${interaction.guild.name}` })
@@ -193,14 +205,13 @@ async function viewSettings(interaction, guildId) {
 
     await interaction.reply({
       embeds: [embed],
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
-
   } catch (error) {
     console.error('Error viewing settings:', error);
     await interaction.reply({
       content: '❌ Error retrieving configuration settings.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -210,12 +221,12 @@ async function resetConfiguration(interaction, guildId) {
   if (success) {
     await interaction.reply({
       content: '✅ Server configuration reset. All settings cleared.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   } else {
     await interaction.reply({
       content: '❌ Failed to reset server configuration.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -235,18 +246,20 @@ async function configureWatchPartyChannel(interaction, guildId) {
     const row = new ActionRowBuilder().addComponents(channelSelect);
 
     await interaction.update({
-      content: '🎥 **Select Watch Party Channel**\n\nChoose a Text channel where watch parties will be coordinated:',
+      content:
+        '🎥 **Select Watch Party Channel**\n\nChoose a Text channel where watch parties will be coordinated:',
       embeds: [],
-      components: [row]
+      components: [row],
     });
     return;
   }
 
   // Validate channel type (voice or text)
-  if (![0, 2].includes(channel.type)) { // 0 = text, 2 = voice
+  if (![0, 2].includes(channel.type)) {
+    // 0 = text, 2 = voice
     await interaction.reply({
       content: '❌ Please select a text or voice channel for session viewing.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -256,28 +269,31 @@ async function configureWatchPartyChannel(interaction, guildId) {
     const channelType = channel.type === 2 ? 'voice' : 'text';
     await interaction.reply({
       content: `✅ Watch Party Channel set to ${channel} (${channelType} channel). The bot will now track attendance during scheduled movie sessions.`,
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   } else {
     await interaction.reply({
       content: '❌ Failed to set watch party channel.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
 
-
 async function configureVoteCaps(interaction, guildId) {
   const cfg = await database.getGuildConfig(guildId).catch(() => null);
-  const enabled = cfg && typeof cfg.vote_cap_enabled !== 'undefined' ? Boolean(Number(cfg.vote_cap_enabled)) : true;
-  const ratioUp = cfg && cfg.vote_cap_ratio_up != null ? Number(cfg.vote_cap_ratio_up) : 1/3;
-  const ratioDown = cfg && cfg.vote_cap_ratio_down != null ? Number(cfg.vote_cap_ratio_down) : 1/5;
+  const enabled =
+    cfg && typeof cfg.vote_cap_enabled !== 'undefined'
+      ? Boolean(Number(cfg.vote_cap_enabled))
+      : true;
+  const ratioUp = cfg && cfg.vote_cap_ratio_up != null ? Number(cfg.vote_cap_ratio_up) : 1 / 3;
+  const ratioDown =
+    cfg && cfg.vote_cap_ratio_down != null ? Number(cfg.vote_cap_ratio_down) : 1 / 5;
   const minCap = cfg && cfg.vote_cap_min != null ? Number(cfg.vote_cap_min) : 1;
 
   const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
   const embed = new EmbedBuilder()
     .setTitle('⚖️ Vote Caps Settings')
-    .setColor(enabled ? 0x57F287 : 0xED4245)
+    .setColor(enabled ? 0x57f287 : 0xed4245)
     .setDescription('Limit how many movies each user can upvote/downvote per voting session.')
     .addFields(
       { name: 'Status', value: enabled ? 'Enabled' : 'Disabled', inline: true },
@@ -287,19 +303,43 @@ async function configureVoteCaps(interaction, guildId) {
     );
 
   const row1 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('config_vote_caps_enable').setLabel('Enable').setStyle(ButtonStyle.Success),
-    new ButtonBuilder().setCustomId('config_vote_caps_disable').setLabel('Disable').setStyle(ButtonStyle.Danger),
-    new ButtonBuilder().setCustomId('config_vote_caps_set').setLabel('Set Ratios/Min').setStyle(ButtonStyle.Primary)
+    new ButtonBuilder()
+      .setCustomId('config_vote_caps_enable')
+      .setLabel('Enable')
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId('config_vote_caps_disable')
+      .setLabel('Disable')
+      .setStyle(ButtonStyle.Danger),
+    new ButtonBuilder()
+      .setCustomId('config_vote_caps_set')
+      .setLabel('Set Ratios/Min')
+      .setStyle(ButtonStyle.Primary)
   );
   const row2 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('config_vote_caps_reset').setLabel('Reset to Defaults').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('open_configuration').setLabel('⬅ Back').setStyle(ButtonStyle.Secondary)
+    new ButtonBuilder()
+      .setCustomId('config_vote_caps_reset')
+      .setLabel('Reset to Defaults')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('open_configuration')
+      .setLabel('⬅ Back')
+      .setStyle(ButtonStyle.Secondary)
   );
 
   if (interaction.isButton()) {
-    await interaction.update({ content: '⚙️ Configure: Vote Caps', embeds: [embed], components: [row1, row2] });
+    await interaction.update({
+      content: '⚙️ Configure: Vote Caps',
+      embeds: [embed],
+      components: [row1, row2],
+    });
   } else {
-    await interaction.reply({ content: '⚙️ Configure: Vote Caps', embeds: [embed], components: [row1, row2], flags: MessageFlags.Ephemeral });
+    await interaction.reply({
+      content: '⚙️ Configure: Vote Caps',
+      embeds: [embed],
+      components: [row1, row2],
+      flags: MessageFlags.Ephemeral,
+    });
   }
 }
 
@@ -309,17 +349,28 @@ async function setVoteCapsEnabled(interaction, guildId, enabled) {
 }
 
 async function resetVoteCapsDefaults(interaction, guildId) {
-  await database.updateVoteCaps(guildId, { enabled: true, ratioUp: 1/3, ratioDown: 1/5, min: 1 });
+  await database.updateVoteCaps(guildId, {
+    enabled: true,
+    ratioUp: 1 / 3,
+    ratioDown: 1 / 5,
+    min: 1,
+  });
   await configureVoteCaps(interaction, guildId);
 }
 
 async function openVoteCapsModal(interaction, guildId) {
   const cfg = await database.getGuildConfig(guildId).catch(() => null);
   const ratioUp = cfg && cfg.vote_cap_ratio_up != null ? String(cfg.vote_cap_ratio_up) : '0.3333';
-  const ratioDown = cfg && cfg.vote_cap_ratio_down != null ? String(cfg.vote_cap_ratio_down) : '0.2';
+  const ratioDown =
+    cfg && cfg.vote_cap_ratio_down != null ? String(cfg.vote_cap_ratio_down) : '0.2';
   const minCap = cfg && cfg.vote_cap_min != null ? String(cfg.vote_cap_min) : '1';
 
-  const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
+  const {
+    ModalBuilder,
+    TextInputBuilder,
+    TextInputStyle,
+    ActionRowBuilder,
+  } = require('discord.js');
   const modal = new ModalBuilder().setCustomId('config_vote_caps_modal').setTitle('Set Vote Caps');
 
   const upInput = new TextInputBuilder()
@@ -358,8 +409,18 @@ async function applyVoteCapsFromModal(interaction) {
   const ratioDown = Number(interaction.fields.getTextInputValue('ratio_down'));
   const minCap = Math.max(1, parseInt(interaction.fields.getTextInputValue('min_cap'), 10) || 1);
 
-  if (!isFinite(ratioUp) || !isFinite(ratioDown) || ratioUp <= 0 || ratioUp > 1 || ratioDown <= 0 || ratioDown > 1) {
-    await interaction.reply({ content: '❌ Invalid ratios. Use decimals in (0,1], e.g., 0.3333 for 1/3.', flags: MessageFlags.Ephemeral });
+  if (
+    !isFinite(ratioUp) ||
+    !isFinite(ratioDown) ||
+    ratioUp <= 0 ||
+    ratioUp > 1 ||
+    ratioDown <= 0 ||
+    ratioDown > 1
+  ) {
+    await interaction.reply({
+      content: '❌ Invalid ratios. Use decimals in (0,1], e.g., 0.3333 for 1/3.',
+      flags: MessageFlags.Ephemeral,
+    });
     return;
   }
 
@@ -382,18 +443,20 @@ async function configureAdminChannel(interaction, guildId) {
     const row = new ActionRowBuilder().addComponents(channelSelect);
 
     await interaction.update({
-      content: '🔧 **Select Admin Channel**\n\nChoose a Text channel for admin controls and management:',
+      content:
+        '🔧 **Select Admin Channel**\n\nChoose a Text channel for admin controls and management:',
       embeds: [],
-      components: [row]
+      components: [row],
     });
     return;
   }
 
   // Validate channel type (text only)
-  if (channel.type !== 0) { // 0 = text
+  if (channel.type !== 0) {
+    // 0 = text
     await interaction.reply({
       content: '❌ Please select a text channel for admin operations.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -410,12 +473,12 @@ async function configureAdminChannel(interaction, guildId) {
 
     await interaction.reply({
       content: `✅ Admin channel set to ${channel}. This channel will display admin controls and movie management tools.`,
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   } else {
     await interaction.reply({
       content: '❌ Failed to set admin channel.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -424,11 +487,19 @@ async function configureVotingRoles(interaction, guildId) {
   const cfg = await database.getGuildConfig(guildId).catch(() => null);
   const count = cfg?.voting_roles?.length || 0;
 
-  const { ActionRowBuilder, ButtonBuilder, ButtonStyle, RoleSelectMenuBuilder, EmbedBuilder } = require('discord.js');
+  const {
+    ActionRowBuilder,
+    ButtonBuilder,
+    ButtonStyle,
+    RoleSelectMenuBuilder,
+    EmbedBuilder,
+  } = require('discord.js');
   const embed = new EmbedBuilder()
     .setTitle('👥 Voting Roles')
-    .setDescription('Select roles that are allowed to vote. These roles will also be pinged for announcements.')
-    .setColor(count > 0 ? 0x57F287 : 0x5865f2)
+    .setDescription(
+      'Select roles that are allowed to vote. These roles will also be pinged for announcements.'
+    )
+    .setColor(count > 0 ? 0x57f287 : 0x5865f2)
     .addFields({ name: 'Currently configured', value: count > 0 ? `${count} role(s)` : 'None' });
 
   const roleSelect = new ActionRowBuilder().addComponents(
@@ -439,13 +510,25 @@ async function configureVotingRoles(interaction, guildId) {
   );
 
   const backRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('open_configuration').setLabel('⬅ Back').setStyle(ButtonStyle.Secondary)
+    new ButtonBuilder()
+      .setCustomId('open_configuration')
+      .setLabel('⬅ Back')
+      .setStyle(ButtonStyle.Secondary)
   );
 
   if (interaction.isButton()) {
-    await interaction.update({ content: '⚙️ Configure: Voting Roles', embeds: [embed], components: [roleSelect, backRow] });
+    await interaction.update({
+      content: '⚙️ Configure: Voting Roles',
+      embeds: [embed],
+      components: [roleSelect, backRow],
+    });
   } else {
-    await interaction.reply({ content: '⚙️ Configure: Voting Roles', embeds: [embed], components: [roleSelect, backRow], flags: MessageFlags.Ephemeral });
+    await interaction.reply({
+      content: '⚙️ Configure: Voting Roles',
+      embeds: [embed],
+      components: [roleSelect, backRow],
+      flags: MessageFlags.Ephemeral,
+    });
   }
 }
 
@@ -463,5 +546,5 @@ module.exports = {
   setVoteCapsEnabled,
   resetVoteCapsDefaults,
   openVoteCapsModal,
-  applyVoteCapsFromModal
+  applyVoteCapsFromModal,
 };

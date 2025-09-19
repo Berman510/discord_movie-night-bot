@@ -58,7 +58,12 @@ function createAdminContentEmbed(content, voteCounts, contentType) {
 
   // Format title based on content type
   let displayTitle = content.title;
-  if (contentType === 'tv_show' && content.show_type === 'episode' && content.season_number && content.episode_number) {
+  if (
+    contentType === 'tv_show' &&
+    content.show_type === 'episode' &&
+    content.season_number &&
+    content.episode_number
+  ) {
     displayTitle = `${content.title} - S${content.season_number}E${content.episode_number}`;
     if (content.episode_title) {
       displayTitle += ` - ${content.episode_title}`;
@@ -77,29 +82,31 @@ function createAdminContentEmbed(content, voteCounts, contentType) {
       {
         name: '👤 Recommended by',
         value: `<@${content.recommended_by}>`,
-        inline: true
+        inline: true,
       },
       {
         name: '📺 Platform',
         value: content.where_to_watch || 'Unknown',
-        inline: true
+        inline: true,
       },
       {
         name: '📅 Status',
         value: getStatusDisplay(content.status),
-        inline: true
+        inline: true,
       },
       {
         name: '📊 Votes',
         value: `👍 ${upvotes} | 👎 ${downvotes} | Net: ${netVotes >= 0 ? '+' : ''}${netVotes}`,
-        inline: true
+        inline: true,
       }
     );
 
   // Add content-specific footer
   const uidField = contentType === 'movie' ? content.movie_uid : content.show_uid;
   const idLabel = contentType === 'movie' ? 'Movie ID' : 'TV Show ID';
-  embed.setFooter({ text: `${idLabel}: ${content.message_id} • UID: ${uidField?.substring(0, 8)}...` });
+  embed.setFooter({
+    text: `${idLabel}: ${content.message_id} • UID: ${uidField?.substring(0, 8)}...`,
+  });
   embed.setTimestamp(new Date(content.created_at));
 
   // Add poster if available
@@ -127,7 +134,13 @@ function createAdminTVShowEmbed(tvShow, voteCounts) {
 /**
  * Create unified admin action buttons for any content type
  */
-async function createAdminContentActionButtons(contentId, status, isBanned = false, guildId = null, contentType = null) {
+async function createAdminContentActionButtons(
+  contentId,
+  status,
+  isBanned = false,
+  guildId = null,
+  contentType = null
+) {
   const row = new ActionRowBuilder();
 
   // Auto-detect content type if not provided
@@ -144,15 +157,23 @@ async function createAdminContentActionButtons(contentId, status, isBanned = fal
   if (guildId) {
     try {
       const activeSession = await database.getActiveVotingSession(guildId);
-      console.log(`🔍 Active voting session for guild ${guildId}:`, activeSession ? `Session ${activeSession.id}` : 'None');
+      console.log(
+        `🔍 Active voting session for guild ${guildId}:`,
+        activeSession ? `Session ${activeSession.id}` : 'None'
+      );
 
       if (activeSession) {
         // Check if this content is part of the voting session
-        const content = contentType === 'movie'
-          ? await database.getMovieByMessageId(contentId)
-          : await database.getTVShowByMessageId(contentId);
+        const content =
+          contentType === 'movie'
+            ? await database.getMovieByMessageId(contentId)
+            : await database.getTVShowByMessageId(contentId);
         isInVotingSession = content && content.session_id === activeSession.id;
-        console.log(`🔍 ${label} ${contentId} in voting session:`, isInVotingSession, `(content session_id: ${content?.session_id})`);
+        console.log(
+          `🔍 ${label} ${contentId} in voting session:`,
+          isInVotingSession,
+          `(content session_id: ${content?.session_id})`
+        );
       }
     } catch (error) {
       console.warn('Error checking voting session status:', error.message);
@@ -262,12 +283,12 @@ async function createAdminTVShowActionButtons(tvShowId, status, isBanned = false
  */
 function getStatusColor(status) {
   const colors = {
-    pending: 0x5865f2,    // Blue
-    planned: 0xfee75c,    // Yellow
-    scheduled: 0x57f287,  // Green
-    watched: 0x747f8d,    // Gray
-    skipped: 0x747f8d,    // Gray
-    banned: 0xed4245      // Red
+    pending: 0x5865f2, // Blue
+    planned: 0xfee75c, // Yellow
+    scheduled: 0x57f287, // Green
+    watched: 0x747f8d, // Gray
+    skipped: 0x747f8d, // Gray
+    banned: 0xed4245, // Red
   };
   return colors[status] || 0x5865f2;
 }
@@ -282,7 +303,7 @@ function getStatusDisplay(status) {
     scheduled: '📅 Scheduled',
     watched: '✅ Watched',
     skipped: '⏭️ Skipped',
-    banned: '🚫 Banned'
+    banned: '🚫 Banned',
   };
   return displays[status] || status;
 }
@@ -311,19 +332,21 @@ async function syncAdminChannel(client, guildId) {
 
     // Clear existing movie messages in admin channel (preserve admin control panel)
     const messages = await adminChannel.messages.fetch({ limit: 100 });
-    const botMessages = messages.filter(msg => msg.author.id === client.user.id);
+    const botMessages = messages.filter((msg) => msg.author.id === client.user.id);
 
     for (const [messageId, message] of botMessages) {
       try {
         // Skip admin control panel messages
-        const isControlPanel = message.embeds.length > 0 &&
-                              message.embeds[0].title &&
-                              message.embeds[0].title.includes('Admin Control Panel');
+        const isControlPanel =
+          message.embeds.length > 0 &&
+          message.embeds[0].title &&
+          message.embeds[0].title.includes('Admin Control Panel');
 
         // Skip session success messages (they should auto-delete)
-        const isSessionMessage = message.content &&
-                                 (message.content.includes('Voting session created successfully') ||
-                                  message.content.includes('Session created successfully'));
+        const isSessionMessage =
+          message.content &&
+          (message.content.includes('Voting session created successfully') ||
+            message.content.includes('Session created successfully'));
 
         if (!isControlPanel && !isSessionMessage) {
           await message.delete();
@@ -341,7 +364,9 @@ async function syncAdminChannel(client, guildId) {
       const tvShows = await database.getTVShowsForVotingSession(activeSession.id);
 
       // Combine and sort by creation time
-      allContent = [...movies, ...tvShows].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+      allContent = [...movies, ...tvShows].sort(
+        (a, b) => new Date(a.created_at) - new Date(b.created_at)
+      );
     } else {
       // No active session: do not mirror queue into admin channel
       allContent = [];
@@ -361,7 +386,7 @@ async function syncAdminChannel(client, guildId) {
       }
 
       // Small delay to avoid rate limits
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
     }
 
     // Ensure admin control panel is at the bottom
@@ -376,7 +401,6 @@ async function syncAdminChannel(client, guildId) {
     const logger = require('../utils/logger');
     logger.info(`📋 Synced ${syncedCount} movies to admin channel`);
     return { synced: syncedCount, error: null };
-
   } catch (error) {
     const logger = require('../utils/logger');
     logger.error('Error syncing admin channel:', error);
@@ -401,11 +425,12 @@ async function removeMovieFromAdminChannel(client, guildId, movieId) {
 
     // Find and delete the movie message
     const messages = await adminChannel.messages.fetch({ limit: 100 });
-    const movieMessage = messages.find(msg => 
-      msg.author.id === client.user.id && 
-      msg.embeds.length > 0 && 
-      msg.embeds[0].footer && 
-      msg.embeds[0].footer.text.includes(movieId)
+    const movieMessage = messages.find(
+      (msg) =>
+        msg.author.id === client.user.id &&
+        msg.embeds.length > 0 &&
+        msg.embeds[0].footer &&
+        msg.embeds[0].footer.text.includes(movieId)
     );
 
     if (movieMessage) {
@@ -429,21 +454,23 @@ async function postTieBreakingMovie(adminChannel, movie, winner) {
       .addFields(
         { name: '👤 Recommended by', value: `<@${movie.recommended_by}>`, inline: true },
         { name: '📺 Platform', value: movie.where_to_watch || 'Unknown', inline: true },
-        { name: '📊 Votes', value: `👍 ${winner.upVotes} | 👎 ${winner.downVotes} | Score: ${winner.totalScore}` }
+        {
+          name: '📊 Votes',
+          value: `👍 ${winner.upVotes} | 👎 ${winner.downVotes} | Score: ${winner.totalScore}`,
+        }
       )
       .setTimestamp();
 
-    const row = new ActionRowBuilder()
-      .addComponents(
-        new ButtonBuilder()
-          .setCustomId(`admin_choose_winner:${movie.message_id}`)
-          .setLabel('🏆 Choose Winner')
-          .setStyle(ButtonStyle.Success),
-        new ButtonBuilder()
-          .setCustomId(`admin_details:${movie.message_id}`)
-          .setLabel('📋 Details')
-          .setStyle(ButtonStyle.Secondary)
-      );
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`admin_choose_winner:${movie.message_id}`)
+        .setLabel('🏆 Choose Winner')
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId(`admin_details:${movie.message_id}`)
+        .setLabel('📋 Details')
+        .setStyle(ButtonStyle.Secondary)
+    );
 
     await adminChannel.send({ embeds: [embed], components: [row] });
 
@@ -481,12 +508,18 @@ async function postContentToAdminChannel(client, guildId, content, contentType =
 
     // Create unified embed and buttons
     const embed = createAdminContentEmbed(content, voteCounts, contentType);
-    const components = await createAdminContentActionButtons(content.message_id, content.status, content.is_banned, guildId, contentType);
+    const components = await createAdminContentActionButtons(
+      content.message_id,
+      content.status,
+      content.is_banned,
+      guildId,
+      contentType
+    );
 
     // Post to admin channel
     const adminMessage = await adminChannel.send({
       embeds: [embed],
-      components: components
+      components: components,
     });
 
     // Ensure admin control panel stays at the bottom
@@ -501,7 +534,6 @@ async function postContentToAdminChannel(client, guildId, content, contentType =
     const logger = require('../utils/logger');
     logger.debug(`📋 Posted ${contentType} to admin channel: ${content.title}`);
     return adminMessage;
-
   } catch (error) {
     console.error('Error posting content to admin channel:', error);
     return null;
@@ -526,5 +558,5 @@ module.exports = {
   // Other functions
   syncAdminChannel,
   removeMovieFromAdminChannel,
-  postTieBreakingMovie
+  postTieBreakingMovie,
 };

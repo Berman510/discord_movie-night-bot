@@ -23,7 +23,9 @@ async function checkVotingClosures(client) {
         const now = new Date();
         const votingEndTime = new Date(session.voting_end_time);
 
-        console.log(`⏰ Session "${session.name}": Current time: ${now.toISOString()}, Voting ends: ${votingEndTime.toISOString()}`);
+        console.log(
+          `⏰ Session "${session.name}": Current time: ${now.toISOString()}, Voting ends: ${votingEndTime.toISOString()}`
+        );
 
         // Check if voting should be closed (with 1 minute buffer for processing)
         if (now >= votingEndTime) {
@@ -65,15 +67,15 @@ async function closeVotingForSession(client, session) {
     const movieVotes = [];
     for (const movie of movies) {
       const votes = await database.getVotesByMessageId(movie.message_id);
-      const upVotes = votes.filter(v => v.vote_type === 'up').length;
-      const downVotes = votes.filter(v => v.vote_type === 'down').length;
+      const upVotes = votes.filter((v) => v.vote_type === 'up').length;
+      const downVotes = votes.filter((v) => v.vote_type === 'down').length;
       const totalScore = upVotes - downVotes;
 
       movieVotes.push({
         movie,
         upVotes,
         downVotes,
-        totalScore
+        totalScore,
       });
     }
 
@@ -82,7 +84,7 @@ async function closeVotingForSession(client, session) {
 
     // Check for ties at the top
     const topScore = movieVotes[0].totalScore;
-    const winners = movieVotes.filter(mv => mv.totalScore === topScore);
+    const winners = movieVotes.filter((mv) => mv.totalScore === topScore);
 
     const config = await database.getGuildConfig(session.guild_id);
 
@@ -94,7 +96,6 @@ async function closeVotingForSession(client, session) {
       // Tie - require admin selection
       await handleTieBreaking(client, session, winners, config);
     }
-
   } catch (error) {
     console.error('Error closing voting for session:', error);
   }
@@ -133,15 +134,25 @@ async function selectWinner(client, session, winner, config) {
           // Forum channel - remove ALL voting threads (including the winner recommendation), then post winner announcement
           await forumChannels.clearForumMoviePosts(votingChannel, null);
           // Pass event info if available
-          const eventOptions = session.discord_event_id ? { event: { id: session.discord_event_id, startTime: session.scheduled_date }, wonByVotes: true } : { wonByVotes: true };
-          await forumChannels.postForumWinnerAnnouncement(votingChannel, winner.movie, session.name, eventOptions);
+          const eventOptions = session.discord_event_id
+            ? {
+                event: { id: session.discord_event_id, startTime: session.scheduled_date },
+                wonByVotes: true,
+              }
+            : { wonByVotes: true };
+          await forumChannels.postForumWinnerAnnouncement(
+            votingChannel,
+            winner.movie,
+            session.name,
+            eventOptions
+          );
 
           // Reset pinned post since session is ending
           await forumChannels.ensureRecommendationPost(votingChannel, null);
         } else {
           // Text channel - delete messages and threads
           const messages = await votingChannel.messages.fetch({ limit: 100 });
-          const botMessages = messages.filter(msg => msg.author.id === client.user.id);
+          const botMessages = messages.filter((msg) => msg.author.id === client.user.id);
 
           for (const [messageId, message] of botMessages) {
             try {
@@ -201,14 +212,21 @@ async function selectWinner(client, session, winner, config) {
           .setTitle('🏆 Voting Closed - Winner Selected!')
           .setDescription(winnerDescription)
           .addFields(
-            { name: '📊 Final Results', value: `👍 ${winner.upVotes} votes | 👎 ${winner.downVotes} votes | **Score: ${winner.totalScore}**`, inline: false },
+            {
+              name: '📊 Final Results',
+              value: `👍 ${winner.upVotes} votes | 👎 ${winner.downVotes} votes | **Score: ${winner.totalScore}**`,
+              inline: false,
+            },
             { name: '📅 Session', value: session.name, inline: true },
             { name: '⏰ Voting Ended', value: new Date().toLocaleString(), inline: true }
           )
           .setColor(0x57f287)
           .setTimestamp();
-        winnerEmbed.addFields({ name: '\ud83d\udc51 Selected by', value: 'Won by votes', inline: true });
-
+        winnerEmbed.addFields({
+          name: '\ud83d\udc51 Selected by',
+          value: 'Won by votes',
+          inline: true,
+        });
 
         if (winner.movie.imdb_id) {
           try {
@@ -224,7 +242,7 @@ async function selectWinner(client, session, winner, config) {
 
         await votingChannel.send({
           content: config.notification_role_id ? `<@&${config.notification_role_id}>` : null,
-          embeds: [winnerEmbed]
+          embeds: [winnerEmbed],
         });
       }
     }
@@ -238,13 +256,14 @@ async function selectWinner(client, session, winner, config) {
 
           // Clear all bot messages except control panel
           const messages = await adminChannel.messages.fetch({ limit: 100 });
-          const botMessages = messages.filter(msg => msg.author.id === client.user.id);
+          const botMessages = messages.filter((msg) => msg.author.id === client.user.id);
 
           for (const [messageId, message] of botMessages) {
             try {
-              const isControlPanel = message.embeds.length > 0 &&
-                                    message.embeds[0].title &&
-                                    message.embeds[0].title.includes('Admin Control Panel');
+              const isControlPanel =
+                message.embeds.length > 0 &&
+                message.embeds[0].title &&
+                message.embeds[0].title.includes('Admin Control Panel');
 
               if (!isControlPanel) {
                 await message.delete();
@@ -259,7 +278,11 @@ async function selectWinner(client, session, winner, config) {
             .setTitle('🏆 Winner Selected Automatically')
             .setDescription(`**${winner.movie.title}** was automatically selected as the winner!`)
             .addFields(
-              { name: '📊 Final Score', value: `${winner.totalScore} (${winner.upVotes} 👍 - ${winner.downVotes} 👎)`, inline: false },
+              {
+                name: '📊 Final Score',
+                value: `${winner.totalScore} (${winner.upVotes} 👍 - ${winner.downVotes} 👎)`,
+                inline: false,
+              },
               { name: '👑 Selected by', value: 'Won by votes', inline: true },
               { name: '📅 Session', value: session.name, inline: true },
               { name: '⏰ Selected At', value: new Date().toLocaleString(), inline: true }
@@ -281,7 +304,9 @@ async function selectWinner(client, session, winner, config) {
     // Update Discord event
     if (session.discord_event_id) {
       try {
-        console.log(`📅 Updating Discord event ${session.discord_event_id} with winner: ${winner.movie.title}`);
+        console.log(
+          `📅 Updating Discord event ${session.discord_event_id} with winner: ${winner.movie.title}`
+        );
         const guild = await client.guilds.fetch(session.guild_id);
         const event = await guild.scheduledEvents.fetch(session.discord_event_id);
         if (event) {
@@ -317,14 +342,18 @@ async function selectWinner(client, session, winner, config) {
                     const res = await fetch(imdbData.Poster);
                     if (res.ok) {
                       const len = Number(res.headers.get('content-length') || '0');
-                      if (!len || len < 8000000) { // <8MB safety
+                      if (!len || len < 8000000) {
+                        // <8MB safety
                         const arr = await res.arrayBuffer();
                         posterBuffer = Buffer.from(arr);
                         try {
                           const { composeEventCoverFromPoster } = require('./image-utils');
                           posterBuffer = await composeEventCoverFromPoster(posterBuffer);
                         } catch (composeErr) {
-                          console.warn('Poster composition failed, will upload raw poster:', composeErr.message);
+                          console.warn(
+                            'Poster composition failed, will upload raw poster:',
+                            composeErr.message
+                          );
                         }
                       }
                     }
@@ -341,19 +370,20 @@ async function selectWinner(client, session, winner, config) {
           eventDescription += `
 👤 Selected by: Won by votes`;
 
-
           eventDescription += `📊 Final Score: ${winner.totalScore} (${winner.upVotes} 👍 - ${winner.downVotes} 👎)\n\n`;
           eventDescription += `📅 Join us for movie night!\n\n🔗 SESSION_UID:${session.id}`;
 
           const editPayload = {
             name: `🎬 ${session.name} - ${winner.movie.title}`,
-            description: eventDescription
+            description: eventDescription,
           };
           if (posterBuffer) {
             editPayload.image = posterBuffer;
           }
           await event.edit(editPayload);
-          console.log(`📅 Successfully updated Discord event with winner and IMDB info: ${winner.movie.title}`);
+          console.log(
+            `📅 Successfully updated Discord event with winner and IMDB info: ${winner.movie.title}`
+          );
         } else {
           console.warn(`📅 Discord event not found: ${session.discord_event_id}`);
         }
@@ -392,8 +422,9 @@ async function selectWinner(client, session, winner, config) {
     }
 
     const logger = require('../utils/logger');
-    logger.info(`🏆 Automatically selected winner: ${winner.movie.title} for session ${session.name}`);
-
+    logger.info(
+      `🏆 Automatically selected winner: ${winner.movie.title} for session ${session.name}`
+    );
   } catch (error) {
     console.error('Error selecting winner:', error);
   }
@@ -414,7 +445,13 @@ async function handleTieBreaking(client, session, winners, config) {
             .setTitle('🤝 Voting Closed - Tie Detected!')
             .setDescription(`We have a ${winners.length}-way tie! An admin will select the winner.`)
             .addFields(
-              { name: '🏆 Tied Movies', value: winners.map(w => `**${w.movie.title}** (Score: ${w.totalScore})`).join('\n'), inline: false },
+              {
+                name: '🏆 Tied Movies',
+                value: winners
+                  .map((w) => `**${w.movie.title}** (Score: ${w.totalScore})`)
+                  .join('\n'),
+                inline: false,
+              },
               { name: '📅 Session', value: session.name, inline: true },
               { name: '⏰ Voting Ended', value: new Date().toLocaleString(), inline: true }
             )
@@ -422,15 +459,16 @@ async function handleTieBreaking(client, session, winners, config) {
             .setTimestamp();
           await votingChannel.send({
             content: config.notification_role_id ? `<@&${config.notification_role_id}>` : null,
-            embeds: [tieEmbed]
+            embeds: [tieEmbed],
           });
         } else {
           // Forum channel: update the pinned recommendation post with a tie announcement
           try {
             const forumChannels = require('./forum-channels');
             const statusTitle = '🤝 Voting Closed - Tie Detected';
-            const statusDesc = `We have a ${winners.length}-way tie! An admin will select the winner.\n\n` +
-              winners.map(w => `• **${w.movie.title}** — Score: ${w.totalScore}`).join('\n');
+            const statusDesc =
+              `We have a ${winners.length}-way tie! An admin will select the winner.\n\n` +
+              winners.map((w) => `• **${w.movie.title}** — Score: ${w.totalScore}`).join('\n');
             await forumChannels.setPinnedPostStatusNote(votingChannel, statusTitle, statusDesc);
           } catch (e) {
             const logger = require('../utils/logger');
@@ -446,13 +484,14 @@ async function handleTieBreaking(client, session, winners, config) {
       if (adminChannel) {
         // Clear existing movie posts
         const messages = await adminChannel.messages.fetch({ limit: 100 });
-        const botMessages = messages.filter(msg => msg.author.id === client.user.id);
+        const botMessages = messages.filter((msg) => msg.author.id === client.user.id);
 
         for (const [messageId, message] of botMessages) {
           try {
-            const isControlPanel = message.embeds.length > 0 &&
-                                  message.embeds[0].title &&
-                                  message.embeds[0].title.includes('Admin Control Panel');
+            const isControlPanel =
+              message.embeds.length > 0 &&
+              message.embeds[0].title &&
+              message.embeds[0].title.includes('Admin Control Panel');
 
             if (!isControlPanel) {
               await message.delete();
@@ -470,8 +509,9 @@ async function handleTieBreaking(client, session, winners, config) {
       }
     }
 
-    console.log(`🤝 Tie detected for session ${session.name}: ${winners.length} movies tied with score ${winners[0].totalScore}`);
-
+    console.log(
+      `🤝 Tie detected for session ${session.name}: ${winners.length} movies tied with score ${winners[0].totalScore}`
+    );
   } catch (error) {
     console.error('Error handling tie-breaking:', error);
   }
@@ -504,11 +544,13 @@ function startVotingClosureChecker(client) {
     console.log('⏰ Voting closure checker now running on the minute');
   }, msUntilNextMinute);
 
-  console.log(`⏰ Voting closure checker will align to the minute in ${Math.round(msUntilNextMinute/1000)} seconds`);
+  console.log(
+    `⏰ Voting closure checker will align to the minute in ${Math.round(msUntilNextMinute / 1000)} seconds`
+  );
 }
 
 module.exports = {
   checkVotingClosures,
   closeVotingForSession,
-  startVotingClosureChecker
+  startVotingClosureChecker,
 };

@@ -36,7 +36,10 @@ async function handleButton(interaction) {
       // Voting is role-gated: Admins/Moderators or users with configured Voting Roles
       const allowed = await permissions.checkCanVote(interaction);
       if (!allowed) {
-        await interaction.reply({ content: '❌ You need a Voting role (or Moderator/Admin) to vote.', flags: MessageFlags.Ephemeral });
+        await interaction.reply({
+          content: '❌ You need a Voting role (or Moderator/Admin) to vote.',
+          flags: MessageFlags.Ephemeral,
+        });
         return;
       }
       const { votes } = require('../utils/constants');
@@ -55,8 +58,6 @@ async function handleButton(interaction) {
       await sessions.handleCreateSessionFromMovie(interaction, msgId);
       return;
     }
-
-
 
     // Admin movie action buttons
     if (customId.startsWith('admin_') && !customId.startsWith('admin_ctrl_')) {
@@ -92,7 +93,7 @@ async function handleButton(interaction) {
       await interaction.update({
         content: '❌ Purge cancelled.',
         embeds: [],
-        components: []
+        components: [],
       });
       return;
     }
@@ -115,15 +116,17 @@ async function handleButton(interaction) {
     }
 
     // Session creation button handlers
-    if (customId.startsWith('session_date:') ||
-        customId.startsWith('session_time:') ||
-        customId.startsWith('session_create:') ||
-        customId.startsWith('session_movie_date:') ||
-        customId.startsWith('session_movie_time:') ||
-        customId.startsWith('session_movie_create:') ||
-        customId === 'session_create_final' ||
-        customId === 'session_back_to_timezone' ||
-        customId === 'session_back_to_movie') {
+    if (
+      customId.startsWith('session_date:') ||
+      customId.startsWith('session_time:') ||
+      customId.startsWith('session_create:') ||
+      customId.startsWith('session_movie_date:') ||
+      customId.startsWith('session_movie_time:') ||
+      customId.startsWith('session_movie_create:') ||
+      customId === 'session_create_final' ||
+      customId === 'session_back_to_timezone' ||
+      customId === 'session_back_to_movie'
+    ) {
       await sessions.handleSessionCreationButton(interaction);
       return;
     }
@@ -219,16 +222,17 @@ async function handleButton(interaction) {
     console.warn(`Unknown button interaction: ${customId}`);
     await interaction.reply({
       content: '❌ Unknown button interaction.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
-
   } catch (error) {
     console.error('Error handling button interaction:', error);
     if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({
-        content: '❌ An error occurred while processing the button.',
-        flags: MessageFlags.Ephemeral
-      }).catch(console.error);
+      await interaction
+        .reply({
+          content: '❌ An error occurred while processing the button.',
+          flags: MessageFlags.Ephemeral,
+        })
+        .catch(console.error);
     }
   }
 }
@@ -247,13 +251,17 @@ async function handleVoting(interaction, action, msgId, votes) {
     if (database.isConnected) {
       // Use unified content service
       const contentService = require('../services/content-service');
-      const { content, contentType, isMovie, isTVShow } = await contentService.getContentByMessageId(msgId, interaction.guild.id);
+      const { content, contentType, isMovie, isTVShow } =
+        await contentService.getContentByMessageId(msgId, interaction.guild.id);
 
       if (!content) {
-        console.error(`🚨 VOTING ERROR: Content with message ID ${msgId} not found in database for guild ${interaction.guild.id}`);
+        console.error(
+          `🚨 VOTING ERROR: Content with message ID ${msgId} not found in database for guild ${interaction.guild.id}`
+        );
         await interaction.followUp({
-          content: '❌ This content is not found in the database. Please try refreshing the channel.',
-          ephemeral: true
+          content:
+            '❌ This content is not found in the database. Please try refreshing the channel.',
+          ephemeral: true,
         });
         return;
       }
@@ -284,12 +292,24 @@ async function handleVoting(interaction, action, msgId, votes) {
           if (currentVote !== action) {
             // Read guild config; default to enabled with asymmetric ratios if absent
             const config = await database.getGuildConfig(interaction.guild.id).catch(() => null);
-            const enabled = config && typeof config.vote_cap_enabled !== 'undefined' ? Boolean(Number(config.vote_cap_enabled)) : true;
+            const enabled =
+              config && typeof config.vote_cap_enabled !== 'undefined'
+                ? Boolean(Number(config.vote_cap_enabled))
+                : true;
 
             if (enabled) {
-              const ratioUp = config && config.vote_cap_ratio_up != null ? Number(config.vote_cap_ratio_up) : 1/3;
-              const ratioDown = config && config.vote_cap_ratio_down != null ? Number(config.vote_cap_ratio_down) : 1/5;
-              const minCap = config && config.vote_cap_min != null ? Math.max(1, Number(config.vote_cap_min)) : 1;
+              const ratioUp =
+                config && config.vote_cap_ratio_up != null
+                  ? Number(config.vote_cap_ratio_up)
+                  : 1 / 3;
+              const ratioDown =
+                config && config.vote_cap_ratio_down != null
+                  ? Number(config.vote_cap_ratio_down)
+                  : 1 / 5;
+              const minCap =
+                config && config.vote_cap_min != null
+                  ? Math.max(1, Number(config.vote_cap_min))
+                  : 1;
 
               const totalInSession = await database.countMoviesInSession(contentSessionId);
               const upCap = Math.max(minCap, Math.floor(totalInSession * ratioUp));
@@ -302,8 +322,8 @@ async function handleVoting(interaction, action, msgId, votes) {
               if (used >= cap) {
                 const votesInSession = await database.getUserVotesInSession(userId, movieSessionId);
                 const titles = votesInSession
-                  .filter(v => v.vote_type === type)
-                  .map(v => v.title)
+                  .filter((v) => v.vote_type === type)
+                  .map((v) => v.title)
                   .filter(Boolean);
 
                 const list = titles.length > 0 ? titles.join(' • ').slice(0, 1500) : 'None';
@@ -311,7 +331,7 @@ async function handleVoting(interaction, action, msgId, votes) {
 
                 await interaction.followUp({
                   content: `⚠️ You\'ve reached your ${friendly} limit for this voting session.\n\nSession movies: ${totalInSession}\nAllowed ${friendly}: ${cap}\nYour ${friendly}: ${used}\n\nCurrent ${friendly}: ${list}\n\nTip: Unvote one of the above to free a slot, then try again.`,
-                  ephemeral: true
+                  ephemeral: true,
                 });
                 return;
               }
@@ -319,23 +339,41 @@ async function handleVoting(interaction, action, msgId, votes) {
           }
         }
       } catch (capError) {
-        console.warn('Vote cap check failed, proceeding without cap enforcement:', capError?.message);
+        console.warn(
+          'Vote cap check failed, proceeding without cap enforcement:',
+          capError?.message
+        );
       }
 
       if (currentVote === action) {
         // Remove vote if clicking same button
-        const removeSuccess = await contentService.removeVote(msgId, userId, interaction.guild.id, contentType);
+        const removeSuccess = await contentService.removeVote(
+          msgId,
+          userId,
+          interaction.guild.id,
+          contentType
+        );
         if (!removeSuccess) {
-          console.error(`Failed to remove ${contentTypeLabel} vote for message ${msgId} by user ${userId}`);
+          console.error(
+            `Failed to remove ${contentTypeLabel} vote for message ${msgId} by user ${userId}`
+          );
         }
       } else {
         // Add or change vote
-        const saveSuccess = await contentService.saveVote(msgId, userId, action, interaction.guild.id, contentType);
+        const saveSuccess = await contentService.saveVote(
+          msgId,
+          userId,
+          action,
+          interaction.guild.id,
+          contentType
+        );
         if (!saveSuccess) {
-          console.error(`Failed to save ${contentTypeLabel} vote for message ${msgId} by user ${userId}`);
+          console.error(
+            `Failed to save ${contentTypeLabel} vote for message ${msgId} by user ${userId}`
+          );
           await interaction.followUp({
             content: '❌ Failed to save your vote. Please try again.',
-            ephemeral: true
+            ephemeral: true,
           });
           return;
         }
@@ -348,7 +386,11 @@ async function handleVoting(interaction, action, msgId, votes) {
       const { components, embeds } = require('../utils');
       const imdbData = content && content.imdb_data ? JSON.parse(content.imdb_data) : null;
       const updatedEmbed = embeds.createMovieEmbed(content, imdbData, voteCounts);
-      const updatedComponents = components.createVotingButtons(msgId, voteCounts.up, voteCounts.down);
+      const updatedComponents = components.createVotingButtons(
+        msgId,
+        voteCounts.up,
+        voteCounts.down
+      );
 
       const updateData = { components: updatedComponents };
       if (updatedEmbed) {
@@ -365,7 +407,13 @@ async function handleVoting(interaction, action, msgId, votes) {
           if (thread) {
             // For forum channels, we update the title only for major status changes
             // Vote count updates are shown in the embed to avoid spam messages
-            await forumChannels.updateForumPostTitle(thread, movie.title, movie.status, voteCounts.up, voteCounts.down);
+            await forumChannels.updateForumPostTitle(
+              thread,
+              movie.title,
+              movie.status,
+              voteCounts.up,
+              voteCounts.down
+            );
           }
         } catch (error) {
           console.warn('Error updating forum post after vote:', error.message);
@@ -395,23 +443,26 @@ async function handleVoting(interaction, action, msgId, votes) {
 
       // Update message
       const { components } = require('../utils');
-      const updatedComponents = components.createVotingButtons(msgId, voteState.up.size, voteState.down.size);
+      const updatedComponents = components.createVotingButtons(
+        msgId,
+        voteState.up.size,
+        voteState.down.size
+      );
 
       await interaction.editReply({
-        components: updatedComponents
+        components: updatedComponents,
       });
     }
 
     const logger = require('../utils/logger');
     logger.debug(`Voting: ${action} for message ${msgId} by user ${userId}`);
-
   } catch (error) {
     console.error('Error handling voting:', error);
 
     if (!interaction.replied && !interaction.deferred) {
       await interaction.reply({
         content: '❌ Error processing vote.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
     }
   }
@@ -429,7 +480,7 @@ async function handleStatusChange(interaction, action, msgId) {
     if (!success) {
       await interaction.followUp({
         content: '❌ Failed to update movie status.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -444,11 +495,10 @@ async function handleStatusChange(interaction, action, msgId) {
     if (!movie) {
       await interaction.followUp({
         content: '❌ Movie not found.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
-
 
     // Lazy backfill: if this is a forum thread and DB thread_id is missing, fill it from the interaction channel
     try {
@@ -470,40 +520,42 @@ async function handleStatusChange(interaction, action, msgId) {
     const imdbData = movie.imdb_data ? JSON.parse(movie.imdb_data) : null;
     const updatedEmbed = embeds.createMovieEmbed(movie, imdbData);
     // Remove buttons for non-pending movies (status changed via admin buttons - transitioning to slash commands)
-    const updatedComponents = action === 'pending' ? components.createVotingButtons(msgId, voteCounts.up, voteCounts.down) : [];
+    const updatedComponents =
+      action === 'pending'
+        ? components.createVotingButtons(msgId, voteCounts.up, voteCounts.down)
+        : [];
 
     // Update the message
     await interaction.editReply({
       embeds: [updatedEmbed],
-      components: updatedComponents
+      components: updatedComponents,
     });
 
     // Send confirmation
     const statusLabels = {
       watched: 'marked as watched and discussion closed',
       planned: 'planned for later',
-      skipped: 'skipped'
+      skipped: 'skipped',
     };
 
     await interaction.followUp({
       content: `Movie ${statusLabels[action]}! 🎬`,
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
 
     console.log(`Status change: ${action} for message ${msgId}`);
-
   } catch (error) {
     console.error('Error handling status change:', error);
 
     if (!interaction.replied && !interaction.deferred) {
       await interaction.reply({
         content: '❌ Error updating movie status.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
     } else {
       await interaction.followUp({
         content: '❌ Error updating movie status.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
     }
   }
@@ -548,7 +600,14 @@ async function handleDuplicateConfirm(interaction, customIdParts) {
       if (imdbResults.length > 0) {
         // Show IMDb selection buttons
         const { showImdbSelection } = require('./modals');
-        await showImdbSelection(interaction, movieTitle, movieWhere, imdbResults, suggestions, originalTitle);
+        await showImdbSelection(
+          interaction,
+          movieTitle,
+          movieWhere,
+          imdbResults,
+          suggestions,
+          originalTitle
+        );
       } else if (suggestions.length > 0) {
         // Show spelling suggestions
         const { showSpellingSuggestions } = require('./modals');
@@ -561,16 +620,18 @@ async function handleDuplicateConfirm(interaction, customIdParts) {
     } else {
       await interaction.reply({
         content: '❌ Error parsing movie information.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
     }
   } catch (error) {
     console.error('Error handling duplicate confirmation:', error);
     if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({
-        content: '❌ Error processing duplicate confirmation.',
-        flags: MessageFlags.Ephemeral
-      }).catch(console.error);
+      await interaction
+        .reply({
+          content: '❌ Error processing duplicate confirmation.',
+          flags: MessageFlags.Ephemeral,
+        })
+        .catch(console.error);
     }
   }
 }
@@ -579,15 +640,17 @@ async function handleDuplicateCancel(interaction) {
   try {
     await interaction.update({
       content: '❌ Movie recommendation cancelled.',
-      components: []
+      components: [],
     });
   } catch (error) {
     console.error('Error handling duplicate cancellation:', error);
     if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({
-        content: '❌ Error processing cancellation.',
-        flags: MessageFlags.Ephemeral
-      }).catch(console.error);
+      await interaction
+        .reply({
+          content: '❌ Error processing cancellation.',
+          flags: MessageFlags.Ephemeral,
+        })
+        .catch(console.error);
     }
   }
 }
@@ -615,16 +678,18 @@ async function handleConfigurationButton(interaction, action) {
       default:
         await interaction.reply({
           content: `❌ Unknown configuration action: ${action}`,
-          flags: MessageFlags.Ephemeral
+          flags: MessageFlags.Ephemeral,
         });
     }
   } catch (error) {
     console.error('Error handling configuration button:', error);
     if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({
-        content: '❌ Error processing configuration.',
-        flags: MessageFlags.Ephemeral
-      }).catch(console.error);
+      await interaction
+        .reply({
+          content: '❌ Error processing configuration.',
+          flags: MessageFlags.Ephemeral,
+        })
+        .catch(console.error);
     }
   }
 }
@@ -635,7 +700,7 @@ async function handlePurgeConfirmation(interaction) {
   if (customId === 'cancel_purge') {
     await interaction.update({
       content: '✅ Purge cancelled. No data was deleted.',
-      components: []
+      components: [],
     });
     return;
   }
@@ -645,7 +710,7 @@ async function handlePurgeConfirmation(interaction) {
     try {
       await interaction.update({
         content: '🗑️ **PURGING ALL RECOMMENDATIONS...**\n\nThis may take a moment...',
-        components: []
+        components: [],
       });
 
       const database = require('../database');
@@ -655,7 +720,7 @@ async function handlePurgeConfirmation(interaction) {
       if (!guildConfig || !guildConfig.movie_channel_id) {
         await interaction.followUp({
           content: '❌ Movie channel not configured. Cannot perform purge.',
-          flags: MessageFlags.Ephemeral
+          flags: MessageFlags.Ephemeral,
         });
         return;
       }
@@ -664,7 +729,7 @@ async function handlePurgeConfirmation(interaction) {
       if (!channel) {
         await interaction.followUp({
           content: '❌ Configured movie channel not found.',
-          flags: MessageFlags.Ephemeral
+          flags: MessageFlags.Ephemeral,
         });
         return;
       }
@@ -693,7 +758,7 @@ async function handlePurgeConfirmation(interaction) {
 
       // Clear ALL bot messages from the channel
       const messages = await channel.messages.fetch({ limit: 100 });
-      const botMessages = messages.filter(msg => msg.author.id === botId);
+      const botMessages = messages.filter((msg) => msg.author.id === botId);
 
       for (const [messageId, message] of botMessages) {
         try {
@@ -709,7 +774,7 @@ async function handlePurgeConfirmation(interaction) {
 
       // Delete current queue movies from database (preserve watched movies)
       // Use all guild movies to catch movies from old channels
-      const moviesToDelete = allGuildMovies.filter(movie => movie.status !== 'watched');
+      const moviesToDelete = allGuildMovies.filter((movie) => movie.status !== 'watched');
 
       for (const movie of moviesToDelete) {
         try {
@@ -718,7 +783,9 @@ async function handlePurgeConfirmation(interaction) {
           if (session) {
             // Preserve session for analytics but remove movie association
             await database.updateSessionMovieAssociation(session.id, null);
-            console.log(`📊 Preserved session ${session.id} for analytics (removed movie association)`);
+            console.log(
+              `📊 Preserved session ${session.id} for analytics (removed movie association)`
+            );
           }
 
           // Delete votes
@@ -727,8 +794,9 @@ async function handlePurgeConfirmation(interaction) {
           // Delete movie
           await database.deleteMovie(movie.message_id);
           deletedMovies++;
-          console.log(`🗑️ Deleted movie from database: ${movie.title} (${movie.message_id}) from channel ${movie.channel_id}`);
-
+          console.log(
+            `🗑️ Deleted movie from database: ${movie.title} (${movie.message_id}) from channel ${movie.channel_id}`
+          );
         } catch (error) {
           console.error(`Error deleting movie ${movie.title}:`, error.message);
         }
@@ -744,21 +812,22 @@ async function handlePurgeConfirmation(interaction) {
         `🧵 Deleted ${deletedThreads} discussion threads`,
         `📚 Preserved ${preservedWatched} watched movies in database (viewing history)`,
         `📊 Preserved all session data and attendance records for analytics`,
-        `🍿 Clean channel ready for new recommendations`
+        `🍿 Clean channel ready for new recommendations`,
       ];
 
       await interaction.followUp({
         content: summary.join('\n'),
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
 
-      console.log(`✅ Purge complete: ${deletedMovies} movies, ${deletedMessages} messages, ${deletedThreads} threads, ${preservedWatched} watched preserved`);
-
+      console.log(
+        `✅ Purge complete: ${deletedMovies} movies, ${deletedMessages} messages, ${deletedThreads} threads, ${preservedWatched} watched preserved`
+      );
     } catch (error) {
       console.error('Error during purge:', error);
       await interaction.followUp({
         content: '❌ Error during purge operation. Check console for details.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
     }
   }
@@ -771,8 +840,9 @@ async function handleCreateRecommendation(interaction) {
 
   if (!activeSession) {
     await interaction.reply({
-      content: '❌ **No active voting session**\n\nContent recommendations are only available during active voting sessions. An admin needs to use the "Plan Next Session" button in the admin channel to start a new voting session.',
-      flags: MessageFlags.Ephemeral
+      content:
+        '❌ **No active voting session**\n\nContent recommendations are only available during active voting sessions. An admin needs to use the "Plan Next Session" button in the admin channel to start a new voting session.',
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -799,11 +869,14 @@ async function handleCreateRecommendation(interaction) {
   }
 
   // Show the recommendation modal
-  const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
+  const {
+    ModalBuilder,
+    TextInputBuilder,
+    TextInputStyle,
+    ActionRowBuilder,
+  } = require('discord.js');
 
-  const modal = new ModalBuilder()
-    .setCustomId('mn:modal')
-    .setTitle(modalTitle);
+  const modal = new ModalBuilder().setCustomId('mn:modal').setTitle(modalTitle);
 
   const titleInput = new TextInputBuilder()
     .setCustomId('mn:title')
@@ -849,7 +922,7 @@ async function handleImdbSelection(interaction) {
     await interaction.update({
       content: '⏳ Creating your recommendation...',
       embeds: [],
-      components: []
+      components: [],
     });
 
     const { pendingPayloads } = require('../utils/constants');
@@ -859,7 +932,7 @@ async function handleImdbSelection(interaction) {
     if (!data) {
       await interaction.followUp({
         content: '❌ Selection expired. Please try creating the recommendation again.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -898,7 +971,7 @@ async function handleImdbSelection(interaction) {
         if (mismatchError) {
           await interaction.followUp({
             content: mismatchError,
-            flags: MessageFlags.Ephemeral
+            flags: MessageFlags.Ephemeral,
           });
           return;
         }
@@ -912,27 +985,30 @@ async function handleImdbSelection(interaction) {
 
     // Auto-dismiss the updated ephemeral selector after a short delay
     setTimeout(async () => {
-      try { await interaction.deleteReply(); } catch {}
+      try {
+        await interaction.deleteReply();
+      } catch {}
     }, 3000);
-
   } catch (error) {
     console.error('Error handling IMDb selection:', error);
     if (!interaction.replied && !interaction.deferred) {
       await interaction.reply({
         content: '❌ Error processing movie selection.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
     } else {
       await interaction.followUp({
         content: '❌ Error processing movie selection.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
     }
   }
 }
 
 async function createMovieWithoutImdb(interaction, title, where) {
-  console.log(`🔍 DEBUG: createMovieWithoutImdb (button handler) called with title: ${title}, where: ${where}`);
+  console.log(
+    `🔍 DEBUG: createMovieWithoutImdb (button handler) called with title: ${title}, where: ${where}`
+  );
 
   // Use the new movie creation service instead of old direct creation
   const movieCreation = require('../services/movie-creation');
@@ -941,12 +1017,14 @@ async function createMovieWithoutImdb(interaction, title, where) {
   try {
     // Create movie using the new unified service
     const logger = require('../utils/logger');
-    logger.debug(`🔍 DEBUG: About to call movieCreation.createMovieRecommendation from button handler`);
+    logger.debug(
+      `🔍 DEBUG: About to call movieCreation.createMovieRecommendation from button handler`
+    );
     const result = await movieCreation.createMovieRecommendation(interaction, {
       title,
       where,
       imdbId: null,
-      imdbData: null
+      imdbData: null,
     });
 
     logger.debug(`🔍 DEBUG: movieCreation.createMovieRecommendation result from button handler:`, {
@@ -954,7 +1032,7 @@ async function createMovieWithoutImdb(interaction, title, where) {
       hasThread: !!result.thread,
       movieId: result.movieId,
       messageId: result.message?.id,
-      threadId: result.thread?.id
+      threadId: result.thread?.id,
     });
 
     const { message, thread, movieId } = result;
@@ -972,25 +1050,29 @@ async function createMovieWithoutImdb(interaction, title, where) {
 
     // Success message varies by channel type
     const config = await database.getGuildConfig(interaction.guild.id);
-    const movieChannel = config && config.movie_channel_id ?
-      await interaction.client.channels.fetch(config.movie_channel_id) : null;
+    const movieChannel =
+      config && config.movie_channel_id
+        ? await interaction.client.channels.fetch(config.movie_channel_id)
+        : null;
 
     const successMessage = thread
       ? `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added as a new forum post in ${movieChannel} for voting and discussion.`
       : `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added to the queue in ${movieChannel} for voting.`;
 
     await ephemeralManager.sendEphemeral(interaction, successMessage);
-
   } catch (error) {
     console.error('Error creating movie without IMDb:', error);
     try {
       if (interaction.replied || interaction.deferred) {
-        await ephemeralManager.sendEphemeral(interaction, '❌ Error creating movie recommendation.');
+        await ephemeralManager.sendEphemeral(
+          interaction,
+          '❌ Error creating movie recommendation.'
+        );
       } else {
         await interaction.update({
           content: '❌ Error creating movie recommendation.',
           embeds: [],
-          components: []
+          components: [],
         });
       }
     } catch (responseError) {
@@ -1000,7 +1082,9 @@ async function createMovieWithoutImdb(interaction, title, where) {
 }
 
 async function createMovieWithImdb(interaction, title, where, imdbData) {
-  console.log(`🔍 DEBUG: createMovieWithImdb (button handler) called with title: ${title}, where: ${where}, imdbId: ${imdbData.imdbID}`);
+  console.log(
+    `🔍 DEBUG: createMovieWithImdb (button handler) called with title: ${title}, where: ${where}, imdbId: ${imdbData.imdbID}`
+  );
 
   // Use the new movie creation service instead of old direct creation
   const movieCreation = require('../services/movie-creation');
@@ -1015,21 +1099,26 @@ async function createMovieWithImdb(interaction, title, where, imdbData) {
     const titleToUse = (detailedImdbData && detailedImdbData.Title) || imdbData.Title || title;
 
     // Create movie using the new unified service
-    console.log(`🔍 DEBUG: About to call movieCreation.createMovieRecommendation with IMDb data from button handler`);
+    console.log(
+      `🔍 DEBUG: About to call movieCreation.createMovieRecommendation with IMDb data from button handler`
+    );
     const result = await movieCreation.createMovieRecommendation(interaction, {
       title: titleToUse,
       where,
       imdbId: imdbData.imdbID,
-      imdbData: detailedImdbData || imdbData
+      imdbData: detailedImdbData || imdbData,
     });
 
-    console.log(`🔍 DEBUG: movieCreation.createMovieRecommendation with IMDb result from button handler:`, {
-      hasMessage: !!result.message,
-      hasThread: !!result.thread,
-      movieId: result.movieId,
-      messageId: result.message?.id,
-      threadId: result.thread?.id
-    });
+    console.log(
+      `🔍 DEBUG: movieCreation.createMovieRecommendation with IMDb result from button handler:`,
+      {
+        hasMessage: !!result.message,
+        hasThread: !!result.thread,
+        movieId: result.movieId,
+        messageId: result.message?.id,
+        threadId: result.thread?.id,
+      }
+    );
 
     const { message, thread, movieId } = result;
 
@@ -1043,7 +1132,12 @@ async function createMovieWithImdb(interaction, title, where, imdbData) {
 
       if (content) {
         // Use the unified postContentToAdminChannel function that handles both content types
-        await adminMirror.postContentToAdminChannel(interaction.client, interaction.guild.id, content, contentType);
+        await adminMirror.postContentToAdminChannel(
+          interaction.client,
+          interaction.guild.id,
+          content,
+          contentType
+        );
       }
     } catch (error) {
       console.error('Error posting to admin channel:', error);
@@ -1051,25 +1145,29 @@ async function createMovieWithImdb(interaction, title, where, imdbData) {
 
     // Success message varies by channel type
     const config = await database.getGuildConfig(interaction.guild.id);
-    const movieChannel = config && config.movie_channel_id ?
-      await interaction.client.channels.fetch(config.movie_channel_id) : null;
+    const movieChannel =
+      config && config.movie_channel_id
+        ? await interaction.client.channels.fetch(config.movie_channel_id)
+        : null;
 
     const successMessage = thread
       ? `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added as a new forum post in ${movieChannel} for voting and discussion.`
       : `✅ **Movie recommendation added!**\n\n🍿 **${title}** has been added to the queue in ${movieChannel} for voting.`;
 
     await ephemeralManager.sendEphemeral(interaction, successMessage);
-
   } catch (error) {
     console.error('Error creating movie with IMDb:', error);
     try {
       if (interaction.replied || interaction.deferred) {
-        await ephemeralManager.sendEphemeral(interaction, '❌ Error creating movie recommendation.');
+        await ephemeralManager.sendEphemeral(
+          interaction,
+          '❌ Error creating movie recommendation.'
+        );
       } else {
         await interaction.update({
           content: '❌ Error creating movie recommendation.',
           embeds: [],
-          components: []
+          components: [],
         });
       }
     } catch (responseError) {
@@ -1077,8 +1175,6 @@ async function createMovieWithImdb(interaction, title, where, imdbData) {
     }
   }
 }
-
-
 
 /**
  * Handle admin movie action buttons
@@ -1102,7 +1198,7 @@ async function handleAdminMovieButtons(interaction, customId) {
     if (!canMod) {
       await interaction.reply({
         content: '❌ You need Moderator or Administrator permissions to use this action.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -1110,8 +1206,9 @@ async function handleAdminMovieButtons(interaction, customId) {
     const isAdmin = await permissions.checkMovieAdminPermission(interaction);
     if (!isAdmin) {
       await interaction.reply({
-        content: '❌ You need Administrator permissions or a configured admin role to use this action.',
-        flags: MessageFlags.Ephemeral
+        content:
+          '❌ You need Administrator permissions or a configured admin role to use this action.',
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -1139,14 +1236,20 @@ async function handleAdminMovieButtons(interaction, customId) {
         await handlePickWinner(interaction, guildId, movieId);
         break;
       case 'admin_pick_winner_cancel':
-        await interaction.reply({ content: '❌ Winner selection cancelled.', flags: MessageFlags.Ephemeral });
+        await interaction.reply({
+          content: '❌ Winner selection cancelled.',
+          flags: MessageFlags.Ephemeral,
+        });
         break;
       case 'admin_choose_winner':
       case 'admin_choose_winner_confirm':
         await handleChooseWinner(interaction, guildId, movieId);
         break;
       case 'admin_choose_winner_cancel':
-        await interaction.reply({ content: '❌ Winner selection cancelled.', flags: MessageFlags.Ephemeral });
+        await interaction.reply({
+          content: '❌ Winner selection cancelled.',
+          flags: MessageFlags.Ephemeral,
+        });
         break;
       case 'admin_skip_vote':
         await handleSkipToNext(interaction, guildId, movieId);
@@ -1157,14 +1260,14 @@ async function handleAdminMovieButtons(interaction, customId) {
       default:
         await interaction.reply({
           content: '❌ Unknown admin action.',
-          flags: MessageFlags.Ephemeral
+          flags: MessageFlags.Ephemeral,
         });
     }
   } catch (error) {
     console.error('Error handling admin movie button:', error);
     await interaction.reply({
       content: '❌ An error occurred while processing the admin action.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -1182,7 +1285,7 @@ async function handleScheduleMovie(interaction, guildId, movieId) {
     if (!movie) {
       await interaction.reply({
         content: '❌ Movie not found.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -1221,24 +1324,23 @@ async function handleScheduleMovie(interaction, guildId, movieId) {
       guildId: guildId,
       movieTitle: movie.title,
       scheduledBy: interaction.user.id,
-      movieMessageId: movieId
+      movieMessageId: movieId,
     };
 
     const sessionId = await database.createMovieSession(sessionData);
 
     await interaction.reply({
       content: `✅ **${movie.title}** has been scheduled! Session ID: ${sessionId}`,
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
 
     // Update the admin message
     await updateAdminMessage(interaction, movie);
-
   } catch (error) {
     console.error('Error scheduling movie:', error);
     await interaction.reply({
       content: '❌ Failed to schedule movie.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -1255,7 +1357,7 @@ async function handleBanMovie(interaction, guildId, movieId) {
     if (!movie) {
       await interaction.reply({
         content: '❌ Movie not found.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -1265,7 +1367,7 @@ async function handleBanMovie(interaction, guildId, movieId) {
     if (success) {
       await interaction.reply({
         content: `🚫 **${movie.title}** has been banned and cannot be recommended again.`,
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
 
       // Update the admin message
@@ -1275,15 +1377,14 @@ async function handleBanMovie(interaction, guildId, movieId) {
     } else {
       await interaction.reply({
         content: '❌ Failed to ban movie.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
     }
-
   } catch (error) {
     console.error('Error banning movie:', error);
     await interaction.reply({
       content: '❌ Failed to ban movie.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -1300,7 +1401,7 @@ async function handleUnbanMovie(interaction, guildId, movieId) {
     if (!movie) {
       await interaction.reply({
         content: '❌ Movie not found.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -1310,7 +1411,7 @@ async function handleUnbanMovie(interaction, guildId, movieId) {
     if (success) {
       await interaction.reply({
         content: `✅ **${movie.title}** has been unbanned and can be recommended again.`,
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
 
       // Update the admin message
@@ -1320,15 +1421,14 @@ async function handleUnbanMovie(interaction, guildId, movieId) {
     } else {
       await interaction.reply({
         content: '❌ Failed to unban movie.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
     }
-
   } catch (error) {
     console.error('Error unbanning movie:', error);
     await interaction.reply({
       content: '❌ Failed to unban movie.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -1346,7 +1446,7 @@ async function handleMarkWatched(interaction, guildId, movieId) {
       const movie = await database.getMovieByMessageId(movieId);
       await interaction.reply({
         content: `✅ **${movie.title}** has been marked as watched!`,
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
 
       // Update the admin message
@@ -1355,15 +1455,14 @@ async function handleMarkWatched(interaction, guildId, movieId) {
     } else {
       await interaction.reply({
         content: '❌ Failed to mark movie as watched.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
     }
-
   } catch (error) {
     console.error('Error marking movie as watched:', error);
     await interaction.reply({
       content: '❌ Failed to mark movie as watched.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -1379,7 +1478,7 @@ async function handleMovieDetails(interaction, guildId, movieId) {
     if (!movie) {
       await interaction.reply({
         content: '❌ Movie not found.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -1391,7 +1490,8 @@ async function handleMovieDetails(interaction, guildId, movieId) {
     let imdbData = null;
     if (movie.imdb_data) {
       try {
-        imdbData = typeof movie.imdb_data === 'string' ? JSON.parse(movie.imdb_data) : movie.imdb_data;
+        imdbData =
+          typeof movie.imdb_data === 'string' ? JSON.parse(movie.imdb_data) : movie.imdb_data;
       } catch (error) {
         console.warn('Error parsing IMDb data:', error);
       }
@@ -1406,31 +1506,59 @@ async function handleMovieDetails(interaction, guildId, movieId) {
         { name: '🎭 Status', value: movie.status || 'pending', inline: true },
         { name: '📺 Platform', value: movie.where_to_watch || 'Unknown', inline: true },
         { name: '👤 Recommended by', value: `<@${movie.recommended_by}>`, inline: true },
-        { name: '🗳️ Vote Summary', value: `👍 ${voteCounts.up} | 👎 ${voteCounts.down}`, inline: true },
-        { name: '📅 Added', value: movie.created_at ? new Date(movie.created_at).toLocaleDateString() : 'Unknown', inline: true }
+        {
+          name: '🗳️ Vote Summary',
+          value: `👍 ${voteCounts.up} | 👎 ${voteCounts.down}`,
+          inline: true,
+        },
+        {
+          name: '📅 Added',
+          value: movie.created_at ? new Date(movie.created_at).toLocaleDateString() : 'Unknown',
+          inline: true,
+        }
       );
 
     // Add voter details if there are any votes
     if (voteCounts.voters.up.length > 0) {
-      const upVoters = voteCounts.voters.up.map(userId => `<@${userId}>`).join(', ');
-      embed.addFields({ name: '👍 Upvoted by', value: upVoters.length > 1024 ? upVoters.substring(0, 1021) + '...' : upVoters, inline: false });
+      const upVoters = voteCounts.voters.up.map((userId) => `<@${userId}>`).join(', ');
+      embed.addFields({
+        name: '👍 Upvoted by',
+        value: upVoters.length > 1024 ? upVoters.substring(0, 1021) + '...' : upVoters,
+        inline: false,
+      });
     }
 
     if (voteCounts.voters.down.length > 0) {
-      const downVoters = voteCounts.voters.down.map(userId => `<@${userId}>`).join(', ');
-      embed.addFields({ name: '👎 Downvoted by', value: downVoters.length > 1024 ? downVoters.substring(0, 1021) + '...' : downVoters, inline: false });
+      const downVoters = voteCounts.voters.down.map((userId) => `<@${userId}>`).join(', ');
+      embed.addFields({
+        name: '👎 Downvoted by',
+        value: downVoters.length > 1024 ? downVoters.substring(0, 1021) + '...' : downVoters,
+        inline: false,
+      });
     }
 
     if (movie.description) {
-      embed.addFields({ name: '📝 Description', value: movie.description.substring(0, 1024), inline: false });
+      embed.addFields({
+        name: '📝 Description',
+        value: movie.description.substring(0, 1024),
+        inline: false,
+      });
     }
 
     if (imdbData) {
       if (imdbData.Year) embed.addFields({ name: '📅 Year', value: imdbData.Year, inline: true });
-      if (imdbData.Runtime) embed.addFields({ name: '⏱️ Runtime', value: imdbData.Runtime, inline: true });
-      if (imdbData.Genre) embed.addFields({ name: '🎬 Genre', value: imdbData.Genre, inline: true });
-      if (imdbData.Director) embed.addFields({ name: '🎬 Director', value: imdbData.Director, inline: false });
-      if (imdbData.imdbRating) embed.addFields({ name: '⭐ IMDb Rating', value: `${imdbData.imdbRating}/10`, inline: true });
+      if (imdbData.Runtime)
+        embed.addFields({ name: '⏱️ Runtime', value: imdbData.Runtime, inline: true });
+      if (imdbData.Genre)
+        embed.addFields({ name: '🎬 Genre', value: imdbData.Genre, inline: true });
+      if (imdbData.Director)
+        embed.addFields({ name: '🎬 Director', value: imdbData.Director, inline: false });
+      if (imdbData.imdbRating)
+        embed.addFields({
+          name: '⭐ IMDb Rating',
+          value: `${imdbData.imdbRating}/10`,
+          inline: true,
+        });
     }
 
     if (movie.is_banned) {
@@ -1439,14 +1567,13 @@ async function handleMovieDetails(interaction, guildId, movieId) {
 
     await interaction.reply({
       embeds: [embed],
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
-
   } catch (error) {
     console.error('Error showing movie details:', error);
     await interaction.reply({
       content: '❌ Failed to load movie details.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -1457,51 +1584,57 @@ async function handlePickWinner(interaction, guildId, movieId) {
   const database = require('../database');
   const { EmbedBuilder } = require('discord.js');
 
-    // Confirmation gate: if this is the initial click, show a confirmation UI and exit.
-    try {
-      const isConfirm = interaction.customId && interaction.customId.startsWith('admin_pick_winner_confirm');
-      if (!isConfirm) {
-        const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-        // Try to resolve content title for the confirmation prompt (movies or TV shows)
-        let contentTitle = null;
-        try {
-          // Try movies first
-          const movie = await database.getMovieByMessageId(movieId);
-          if (movie) {
-            contentTitle = movie.title;
-          } else {
-            // Try TV shows
-            const tvShow = await database.getTVShowByMessageId(movieId);
-            if (tvShow) contentTitle = tvShow.title;
-          }
-        } catch (e) {}
-        if (!contentTitle && interaction.message && interaction.message.embeds?.length > 0) {
-          contentTitle = interaction.message.embeds[0].title?.replace(/🎬 |📺 /, '') || 'this content';
+  // Confirmation gate: if this is the initial click, show a confirmation UI and exit.
+  try {
+    const isConfirm =
+      interaction.customId && interaction.customId.startsWith('admin_pick_winner_confirm');
+    if (!isConfirm) {
+      const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+      // Try to resolve content title for the confirmation prompt (movies or TV shows)
+      let contentTitle = null;
+      try {
+        // Try movies first
+        const movie = await database.getMovieByMessageId(movieId);
+        if (movie) {
+          contentTitle = movie.title;
+        } else {
+          // Try TV shows
+          const tvShow = await database.getTVShowByMessageId(movieId);
+          if (tvShow) contentTitle = tvShow.title;
         }
-
-        const row = new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setCustomId(`admin_pick_winner_confirm:${movieId}`)
-            .setLabel('Yes, pick winner')
-            .setStyle(ButtonStyle.Danger),
-          new ButtonBuilder()
-            .setCustomId(`admin_pick_winner_cancel:${movieId}`)
-            .setLabel('Cancel')
-            .setStyle(ButtonStyle.Secondary)
-        );
-
-        await interaction.reply({
-          content: `⚠️ Are you sure you want to pick ${contentTitle || 'this content'} as the winner? This will finalize the session and clear voting posts.`,
-          components: [row],
-          flags: MessageFlags.Ephemeral
-        });
-        // Auto-dismiss confirmation after 30s in case user navigates away
-        setTimeout(async () => { try { await interaction.deleteReply(); } catch (_) {} }, 30000);
-        return;
+      } catch (e) {}
+      if (!contentTitle && interaction.message && interaction.message.embeds?.length > 0) {
+        contentTitle =
+          interaction.message.embeds[0].title?.replace(/🎬 |📺 /, '') || 'this content';
       }
-    } catch (e) {
-      // If confirmation UI fails for any reason, fall back to existing flow
+
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`admin_pick_winner_confirm:${movieId}`)
+          .setLabel('Yes, pick winner')
+          .setStyle(ButtonStyle.Danger),
+        new ButtonBuilder()
+          .setCustomId(`admin_pick_winner_cancel:${movieId}`)
+          .setLabel('Cancel')
+          .setStyle(ButtonStyle.Secondary)
+      );
+
+      await interaction.reply({
+        content: `⚠️ Are you sure you want to pick ${contentTitle || 'this content'} as the winner? This will finalize the session and clear voting posts.`,
+        components: [row],
+        flags: MessageFlags.Ephemeral,
+      });
+      // Auto-dismiss confirmation after 30s in case user navigates away
+      setTimeout(async () => {
+        try {
+          await interaction.deleteReply();
+        } catch (_) {}
+      }, 30000);
+      return;
     }
+  } catch (e) {
+    // If confirmation UI fails for any reason, fall back to existing flow
+  }
 
   try {
     // Defer the interaction immediately to prevent timeout
@@ -1523,11 +1656,15 @@ async function handlePickWinner(interaction, guildId, movieId) {
         if (contentTitle) {
           if (isMovie) {
             const allMovies = await database.getMoviesByGuild(guildId);
-            content = allMovies.find(m => m.title === contentTitle && ['pending', 'planned'].includes(m.status));
+            content = allMovies.find(
+              (m) => m.title === contentTitle && ['pending', 'planned'].includes(m.status)
+            );
             contentType = 'movie';
           } else if (isTVShow) {
             const allTVShows = await database.getTVShowsByGuild(guildId);
-            content = allTVShows.find(s => s.title === contentTitle && ['pending', 'planned'].includes(s.status));
+            content = allTVShows.find(
+              (s) => s.title === contentTitle && ['pending', 'planned'].includes(s.status)
+            );
             contentType = 'tv_show';
           }
         }
@@ -1536,7 +1673,7 @@ async function handlePickWinner(interaction, guildId, movieId) {
 
     if (!content) {
       await interaction.editReply({
-        content: '❌ Content not found. Please try syncing the channels first.'
+        content: '❌ Content not found. Please try syncing the channels first.',
       });
       return;
     }
@@ -1548,10 +1685,10 @@ async function handlePickWinner(interaction, guildId, movieId) {
     const plannedTVShows = await database.getTVShowsByStatus(guildId, 'planned', 50);
 
     const allVotingContent = [
-      ...allMovies.map(m => ({ ...m, contentType: 'movie' })),
-      ...plannedMovies.map(m => ({ ...m, contentType: 'movie' })),
-      ...allTVShows.map(s => ({ ...s, contentType: 'tv_show' })),
-      ...plannedTVShows.map(s => ({ ...s, contentType: 'tv_show' }))
+      ...allMovies.map((m) => ({ ...m, contentType: 'movie' })),
+      ...plannedMovies.map((m) => ({ ...m, contentType: 'movie' })),
+      ...allTVShows.map((s) => ({ ...s, contentType: 'tv_show' })),
+      ...plannedTVShows.map((s) => ({ ...s, contentType: 'tv_show' })),
     ];
 
     // Get vote details for all content
@@ -1564,7 +1701,7 @@ async function handlePickWinner(interaction, guildId, movieId) {
         downVotes: voteCounts.down,
         score: voteCounts.up - voteCounts.down,
         isWinner: votingContent.message_id === movieId,
-        contentType: votingContent.contentType
+        contentType: votingContent.contentType,
       });
     }
 
@@ -1587,7 +1724,10 @@ async function handlePickWinner(interaction, guildId, movieId) {
       let imdbData = null;
       if (content.imdb_data) {
         try {
-          imdbData = typeof content.imdb_data === 'string' ? JSON.parse(content.imdb_data) : content.imdb_data;
+          imdbData =
+            typeof content.imdb_data === 'string'
+              ? JSON.parse(content.imdb_data)
+              : content.imdb_data;
         } catch (error) {
           console.warn('Error parsing IMDb data for event:', error);
         }
@@ -1599,7 +1739,7 @@ async function handlePickWinner(interaction, guildId, movieId) {
         description: `🏆 Winner: ${content.title}\n📺 Platform: ${content.where_to_watch || 'TBD'}\n👤 Recommended by: <@${content.recommended_by}>\n\n${imdbData?.Plot || 'Join us for watch party!'}`,
         scheduledStartTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Default to 1 week from now
         entityType: 3, // External event
-        privacyLevel: 2 // Guild only
+        privacyLevel: 2, // Guild only
       };
 
       await discordEvents.createDiscordEvent(interaction.guild, eventData);
@@ -1622,14 +1762,19 @@ async function handlePickWinner(interaction, guildId, movieId) {
             // Forum channel - remove ALL voting threads (including the winner recommendation), then post winner announcement
             await forumChannels.clearForumMoviePosts(votingChannel, null);
             const sessionName = contentType === 'movie' ? 'Movie Night' : 'TV Show Night';
-            await forumChannels.postForumWinnerAnnouncement(votingChannel, content, sessionName, { event: null, selectedByUserId: interaction.user.id });
+            await forumChannels.postForumWinnerAnnouncement(votingChannel, content, sessionName, {
+              event: null,
+              selectedByUserId: interaction.user.id,
+            });
 
             // Reset pinned post since session is ending
             await forumChannels.ensureRecommendationPost(votingChannel, null);
           } else {
             // Text channel - delete messages and threads
             const messages = await votingChannel.messages.fetch({ limit: 100 });
-            const botMessages = messages.filter(msg => msg.author.id === interaction.client.user.id);
+            const botMessages = messages.filter(
+              (msg) => msg.author.id === interaction.client.user.id
+            );
 
             for (const [messageId, message] of botMessages) {
               try {
@@ -1661,16 +1806,18 @@ async function handlePickWinner(interaction, guildId, movieId) {
         const adminChannel = await interaction.client.channels.fetch(config.admin_channel_id);
         if (adminChannel) {
           const messages = await adminChannel.messages.fetch({ limit: 100 });
-          const botMessages = messages.filter(msg => msg.author.id === interaction.client.user.id);
+          const botMessages = messages.filter(
+            (msg) => msg.author.id === interaction.client.user.id
+          );
 
           for (const [messageId, message] of botMessages) {
             try {
-              const isControlPanel = message.embeds.length > 0 &&
-                                    message.embeds[0].title &&
-                                    message.embeds[0].title.includes('Admin Control Panel');
+              const isControlPanel =
+                message.embeds.length > 0 &&
+                message.embeds[0].title &&
+                message.embeds[0].title.includes('Admin Control Panel');
 
               if (!isControlPanel) {
-
                 await message.delete();
               }
             } catch (error) {
@@ -1692,7 +1839,10 @@ async function handlePickWinner(interaction, guildId, movieId) {
           let imdbData = null;
           if (content.imdb_data) {
             try {
-              imdbData = typeof content.imdb_data === 'string' ? JSON.parse(content.imdb_data) : content.imdb_data;
+              imdbData =
+                typeof content.imdb_data === 'string'
+                  ? JSON.parse(content.imdb_data)
+                  : content.imdb_data;
             } catch (error) {
               console.warn('Error parsing IMDb data:', error);
             }
@@ -1701,7 +1851,9 @@ async function handlePickWinner(interaction, guildId, movieId) {
           if (!imdbData && content.imdb_id) {
             try {
               const imdbSvc = require('../services/imdb');
-              imdbData = await imdbSvc.getMovieDetailsCached(content.imdb_id) || await imdbSvc.getMovieDetails(content.imdb_id);
+              imdbData =
+                (await imdbSvc.getMovieDetailsCached(content.imdb_id)) ||
+                (await imdbSvc.getMovieDetails(content.imdb_id));
             } catch (_) {}
           }
 
@@ -1726,33 +1878,63 @@ async function handlePickWinner(interaction, guildId, movieId) {
             );
 
           if (imdbData) {
-            if (imdbData.Year) winnerEmbed.addFields({ name: '📅 Year', value: imdbData.Year, inline: true });
+            if (imdbData.Year)
+              winnerEmbed.addFields({ name: '📅 Year', value: imdbData.Year, inline: true });
 
-
-            if (imdbData.Runtime) winnerEmbed.addFields({ name: '⏱️ Runtime', value: imdbData.Runtime, inline: true });
-            if (imdbData.Genre) winnerEmbed.addFields({ name: '🎬 Genre', value: imdbData.Genre, inline: true });
-            if (imdbData.imdbRating) winnerEmbed.addFields({ name: '⭐ IMDb Rating', value: `${imdbData.imdbRating}/10`, inline: true });
-            if (imdbData.Plot) winnerEmbed.addFields({ name: '📖 Plot', value: imdbData.Plot.substring(0, 1024), inline: false });
+            if (imdbData.Runtime)
+              winnerEmbed.addFields({ name: '⏱️ Runtime', value: imdbData.Runtime, inline: true });
+            if (imdbData.Genre)
+              winnerEmbed.addFields({ name: '🎬 Genre', value: imdbData.Genre, inline: true });
+            if (imdbData.imdbRating)
+              winnerEmbed.addFields({
+                name: '⭐ IMDb Rating',
+                value: `${imdbData.imdbRating}/10`,
+                inline: true,
+              });
+            if (imdbData.Plot)
+              winnerEmbed.addFields({
+                name: '📖 Plot',
+                value: imdbData.Plot.substring(0, 1024),
+                inline: false,
+              });
           }
 
           // Always include selector and winner votes
-          winnerEmbed.addFields({ name: '👑 Selected by', value: `<@${interaction.user.id}>`, inline: true });
-          const thisMovie = voteBreakdown.find(v => v.isWinner);
+          winnerEmbed.addFields({
+            name: '👑 Selected by',
+            value: `<@${interaction.user.id}>`,
+            inline: true,
+          });
+          const thisMovie = voteBreakdown.find((v) => v.isWinner);
           if (thisMovie) {
-            winnerEmbed.addFields({ name: '📊 Winner Votes', value: `${thisMovie.upVotes} 👍 - ${thisMovie.downVotes} 👎 (Score: ${thisMovie.score})`, inline: false });
+            winnerEmbed.addFields({
+              name: '📊 Winner Votes',
+              value: `${thisMovie.upVotes} 👍 - ${thisMovie.downVotes} 👎 (Score: ${thisMovie.score})`,
+              inline: false,
+            });
           }
 
           // Add vote breakdown
-          const voteBreakdownText = voteBreakdown.map((movie, index) => {
-            const position = index + 1;
-            const trophy = movie.isWinner ? '🏆 ' : `${position}. `;
-            return `${trophy}**${movie.title}** - ${movie.upVotes}👍 ${movie.downVotes}👎 (Score: ${movie.score})`;
-          }).join('\n');
+          const voteBreakdownText = voteBreakdown
+            .map((movie, index) => {
+              const position = index + 1;
+              const trophy = movie.isWinner ? '🏆 ' : `${position}. `;
+              return `${trophy}**${movie.title}** - ${movie.upVotes}👍 ${movie.downVotes}👎 (Score: ${movie.score})`;
+            })
+            .join('\n');
 
-          winnerEmbed.addFields({ name: '📊 Final Vote Results', value: voteBreakdownText, inline: false });
+          winnerEmbed.addFields({
+            name: '📊 Final Vote Results',
+            value: voteBreakdownText,
+            inline: false,
+          });
 
           if (eventCreated) {
-            winnerEmbed.addFields({ name: '📅 Event', value: 'Discord event has been created! Check the server events.', inline: false });
+            winnerEmbed.addFields({
+              name: '📅 Event',
+              value: 'Discord event has been created! Check the server events.',
+              inline: false,
+            });
           }
 
           winnerEmbed.setFooter({ text: 'Thanks to everyone who voted!' });
@@ -1773,7 +1955,7 @@ async function handlePickWinner(interaction, guildId, movieId) {
             // Text channel - send winner announcement
             await votingChannel.send({
               content: notificationContent,
-              embeds: [winnerEmbed]
+              embeds: [winnerEmbed],
             });
           }
         }
@@ -1787,7 +1969,9 @@ async function handlePickWinner(interaction, guildId, movieId) {
     try {
       const activeSession = await database.getActiveVotingSession(guildId);
       if (activeSession && activeSession.discord_event_id) {
-        console.log(`📅 Manual Pick Winner: Updating Discord event ${activeSession.discord_event_id} with winner: ${content.title}`);
+        console.log(
+          `📅 Manual Pick Winner: Updating Discord event ${activeSession.discord_event_id} with winner: ${content.title}`
+        );
         const guild = interaction.guild;
         const event = await guild.scheduledEvents.fetch(activeSession.discord_event_id);
         if (event) {
@@ -1795,8 +1979,8 @@ async function handlePickWinner(interaction, guildId, movieId) {
 
           // Get vote count for this content
           const votes = await database.getVotesByMessageId(content.message_id);
-          const upVotes = votes.filter(v => v.vote_type === 'up').length;
-          const downVotes = votes.filter(v => v.vote_type === 'down').length;
+          const upVotes = votes.filter((v) => v.vote_type === 'up').length;
+          const downVotes = votes.filter((v) => v.vote_type === 'down').length;
           const totalScore = upVotes - downVotes;
 
           // Get content details for event update (cached)
@@ -1805,7 +1989,9 @@ async function handlePickWinner(interaction, guildId, movieId) {
             const imdbSvc = require('../services/imdb');
             imdbData = await imdbSvc.getMovieDetailsCached(content.imdb_id);
             if (!imdbData) {
-              try { imdbData = await imdbSvc.getMovieDetails(content.imdb_id); } catch (_) {}
+              try {
+                imdbData = await imdbSvc.getMovieDetails(content.imdb_id);
+              } catch (_) {}
             }
           }
 
@@ -1829,12 +2015,18 @@ async function handlePickWinner(interaction, guildId, movieId) {
                     const { composeEventCoverFromPoster } = require('../services/image-utils');
                     posterBuffer = await composeEventCoverFromPoster(posterBuffer);
                   } catch (composeErr) {
-                    console.warn('Poster composition failed (manual), will upload raw poster:', composeErr.message);
+                    console.warn(
+                      'Poster composition failed (manual), will upload raw poster:',
+                      composeErr.message
+                    );
                   }
                 }
               }
             } catch (imgErr) {
-              console.warn('Could not fetch poster image for event cover (manual):', imgErr.message);
+              console.warn(
+                'Could not fetch poster image for event cover (manual):',
+                imgErr.message
+              );
             }
           }
           const sessionName = contentType === 'movie' ? 'movie night' : 'TV show night';
@@ -1843,19 +2035,23 @@ async function handlePickWinner(interaction, guildId, movieId) {
           const eventEmoji = contentType === 'movie' ? '🎬' : '📺';
           const editPayload = {
             name: `${eventEmoji} ${activeSession.name} - ${content.title}`,
-            description: updatedDescription
+            description: updatedDescription,
           };
           if (posterBuffer) {
             editPayload.image = posterBuffer;
           }
           await event.edit(editPayload);
 
-          console.log(`📅 Successfully updated Discord event with manual winner: ${content.title} (Score: ${totalScore})`);
+          console.log(
+            `📅 Successfully updated Discord event with manual winner: ${content.title} (Score: ${totalScore})`
+          );
         } else {
           console.warn(`📅 Discord event not found: ${activeSession.discord_event_id}`);
         }
       } else {
-        console.warn('📅 No active session or Discord event ID found for manual winner event update');
+        console.warn(
+          '📅 No active session or Discord event ID found for manual winner event update'
+        );
       }
     } catch (error) {
       console.warn('Error updating Discord event with winner:', error.message);
@@ -1882,9 +2078,13 @@ async function handlePickWinner(interaction, guildId, movieId) {
     }
 
     await interaction.editReply({
-      content: `🏆 **${content.title}** has been selected as the winner! Announcement posted, channels cleared, and event updated.`
+      content: `🏆 **${content.title}** has been selected as the winner! Announcement posted, channels cleared, and event updated.`,
     });
-    setTimeout(async () => { try { await interaction.deleteReply(); } catch (_) {} }, 8000);
+    setTimeout(async () => {
+      try {
+        await interaction.deleteReply();
+      } catch (_) {}
+    }, 8000);
 
     // Refresh admin control panel to expose Cancel/Reschedule until event start
     try {
@@ -1896,18 +2096,19 @@ async function handlePickWinner(interaction, guildId, movieId) {
     }
 
     const logger = require('../utils/logger');
-    logger.info(`🏆 ${contentType === 'movie' ? 'Movie' : 'TV Show'} ${content.title} picked as winner by ${interaction.user.tag}`);
-
+    logger.info(
+      `🏆 ${contentType === 'movie' ? 'Movie' : 'TV Show'} ${content.title} picked as winner by ${interaction.user.tag}`
+    );
   } catch (error) {
     console.error('Error picking winner:', error);
     if (!interaction.replied && !interaction.deferred) {
       await interaction.reply({
         content: '❌ Failed to pick winner.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
     } else {
       await interaction.editReply({
-        content: '❌ Failed to pick winner.'
+        content: '❌ Failed to pick winner.',
       });
     }
   }
@@ -1919,10 +2120,10 @@ async function handlePickWinner(interaction, guildId, movieId) {
 async function handleChooseWinner(interaction, guildId, movieId) {
   const database = require('../database');
 
-
   // Confirmation gate for choose winner: prompt before finalizing
   try {
-    const isConfirm = interaction.customId && interaction.customId.startsWith('admin_choose_winner_confirm');
+    const isConfirm =
+      interaction.customId && interaction.customId.startsWith('admin_choose_winner_confirm');
     if (!isConfirm) {
       const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
       let movieTitle = null;
@@ -1931,7 +2132,8 @@ async function handleChooseWinner(interaction, guildId, movieId) {
         if (m) movieTitle = m.title;
       } catch (e) {}
       if (!movieTitle && interaction.message && interaction.message.embeds?.length > 0) {
-        movieTitle = interaction.message.embeds[0].title?.replace('\ud83c\udfac ', '') || 'this movie';
+        movieTitle =
+          interaction.message.embeds[0].title?.replace('\ud83c\udfac ', '') || 'this movie';
       }
 
       const row = new ActionRowBuilder().addComponents(
@@ -1948,10 +2150,14 @@ async function handleChooseWinner(interaction, guildId, movieId) {
       await interaction.reply({
         content: `\u26a0\ufe0f Confirm selection: choose ${movieTitle || 'this movie'} as the session winner? This will end voting.`,
         components: [row],
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
       // Auto-dismiss confirmation after 30s if no action is taken
-      setTimeout(async () => { try { await interaction.deleteReply(); } catch (_) {} }, 30000);
+      setTimeout(async () => {
+        try {
+          await interaction.deleteReply();
+        } catch (_) {}
+      }, 30000);
       return;
     }
   } catch (e) {
@@ -1964,7 +2170,7 @@ async function handleChooseWinner(interaction, guildId, movieId) {
     if (!activeSession) {
       await interaction.reply({
         content: '❌ No active voting session found.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -1974,7 +2180,7 @@ async function handleChooseWinner(interaction, guildId, movieId) {
     if (!movie) {
       await interaction.reply({
         content: '❌ Movie not found.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -1984,7 +2190,7 @@ async function handleChooseWinner(interaction, guildId, movieId) {
     if (!success) {
       await interaction.reply({
         content: '❌ Failed to finalize voting session.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -2005,31 +2211,41 @@ async function handleChooseWinner(interaction, guildId, movieId) {
 
         // Enrich description with IMDb and channel link
         let imdbData = null;
-        let counts = null; try { counts = await database.getVoteCounts(movie.message_id); } catch {}
+        let counts = null;
+        try {
+          counts = await database.getVoteCounts(movie.message_id);
+        } catch {}
 
         if (movie.imdb_id) {
-          try { imdbData = await imdb.getMovieDetailsCached(movie.imdb_id); } catch {}
+          try {
+            imdbData = await imdb.getMovieDetailsCached(movie.imdb_id);
+          } catch {}
         }
         const parts = [];
         parts.push(`Winner: ${movie.title}`);
         parts.push(`Selected by: <@${interaction.user.id}>`);
-        if (counts) parts.push(`Votes: ${counts.up || 0} 👍 - ${counts.down || 0} 👎 (Score: ${(counts.up || 0) - (counts.down || 0)})`);
+        if (counts)
+          parts.push(
+            `Votes: ${counts.up || 0} 👍 - ${counts.down || 0} 👎 (Score: ${(counts.up || 0) - (counts.down || 0)})`
+          );
 
         if (movie.where_to_watch) parts.push(`Where: ${movie.where_to_watch}`);
         if (imdbData?.Year) parts.push(`Year: ${imdbData.Year}`);
         if (imdbData?.Runtime) parts.push(`Runtime: ${imdbData.Runtime}`);
         if (imdbData?.Genre) parts.push(`Genre: ${imdbData.Genre}`);
-        if (imdbData?.imdbRating && imdbData.imdbRating !== 'N/A') parts.push(`IMDb: ${imdbData.imdbRating}/10`);
+        if (imdbData?.imdbRating && imdbData.imdbRating !== 'N/A')
+          parts.push(`IMDb: ${imdbData.imdbRating}/10`);
         if (imdbData?.Plot && imdbData.Plot !== 'N/A') parts.push(`\nSynopsis: ${imdbData.Plot}`);
         if (config?.movie_channel_id) parts.push(`Discuss: <#${config.movie_channel_id}>`);
-        const description = parts.join('\n') + (activeSession.description ? `\n\n${activeSession.description}` : '');
+        const description =
+          parts.join('\n') + (activeSession.description ? `\n\n${activeSession.description}` : '');
 
         await discordEvents.updateDiscordEvent(
           interaction.guild,
           activeSession.discord_event_id,
           {
             name: updatedName,
-            description
+            description,
           },
           activeSession.scheduled_date || activeSession.scheduledDate || null
         );
@@ -2040,21 +2256,32 @@ async function handleChooseWinner(interaction, guildId, movieId) {
 
     await interaction.reply({
       content: `🏆 **${movie.title}** has been chosen as the winner! The voting session is now complete.`,
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
-    setTimeout(async () => { try { await interaction.deleteReply(); } catch (_) {} }, 8000);
+    setTimeout(async () => {
+      try {
+        await interaction.deleteReply();
+      } catch (_) {}
+    }, 8000);
 
     // Clean up any tie-break messages in admin channel (keep control panel)
     try {
       const config = await database.getGuildConfig(guildId);
       if (config && config.admin_channel_id) {
-        const adminChannel = await interaction.client.channels.fetch(config.admin_channel_id).catch(() => null);
+        const adminChannel = await interaction.client.channels
+          .fetch(config.admin_channel_id)
+          .catch(() => null);
         if (adminChannel) {
           const messages = await adminChannel.messages.fetch({ limit: 100 });
-          const botMessages = messages.filter(msg => msg.author.id === interaction.client.user.id);
+          const botMessages = messages.filter(
+            (msg) => msg.author.id === interaction.client.user.id
+          );
           for (const [messageId, message] of botMessages) {
             try {
-              const isControlPanel = message.embeds.length > 0 && message.embeds[0].title && message.embeds[0].title.includes('Admin Control Panel');
+              const isControlPanel =
+                message.embeds.length > 0 &&
+                message.embeds[0].title &&
+                message.embeds[0].title.includes('Admin Control Panel');
               if (!isControlPanel) {
                 await message.delete();
               }
@@ -2082,13 +2309,23 @@ async function handleChooseWinner(interaction, guildId, movieId) {
     try {
       const config = await database.getGuildConfig(guildId);
       if (config && config.movie_channel_id) {
-        const votingChannel = await interaction.client.channels.fetch(config.movie_channel_id).catch(() => null);
+        const votingChannel = await interaction.client.channels
+          .fetch(config.movie_channel_id)
+          .catch(() => null);
         if (votingChannel) {
           const forumChannels = require('../services/forum-channels');
           if (forumChannels.isForumChannel(votingChannel)) {
             // Forum: remove ALL voting threads (including the winner recommendation), post winner announcement, and reset pinned post
             await forumChannels.clearForumMoviePosts(votingChannel, null);
-            await forumChannels.postForumWinnerAnnouncement(votingChannel, movie, activeSession.name || 'Movie Night', { event: activeSession.discord_event_id || null, selectedByUserId: interaction.user.id });
+            await forumChannels.postForumWinnerAnnouncement(
+              votingChannel,
+              movie,
+              activeSession.name || 'Movie Night',
+              {
+                event: activeSession.discord_event_id || null,
+                selectedByUserId: interaction.user.id,
+              }
+            );
             await forumChannels.ensureRecommendationPost(votingChannel, null);
           } else {
             // Text channel: send a winner announcement embed
@@ -2103,7 +2340,12 @@ async function handleChooseWinner(interaction, guildId, movieId) {
                 }
               } catch (_) {}
             } else if (movie.imdb_data) {
-              try { imdbData = typeof movie.imdb_data === 'string' ? JSON.parse(movie.imdb_data) : movie.imdb_data; } catch (_) {}
+              try {
+                imdbData =
+                  typeof movie.imdb_data === 'string'
+                    ? JSON.parse(movie.imdb_data)
+                    : movie.imdb_data;
+              } catch (_) {}
             }
             const winnerEmbed = new EmbedBuilder()
               .setTitle('🏆 Movie Night Winner Announced!')
@@ -2113,23 +2355,42 @@ async function handleChooseWinner(interaction, guildId, movieId) {
                 { name: '📺 Platform', value: movie.where_to_watch || 'TBD', inline: true },
                 { name: '👤 Recommended by', value: `<@${movie.recommended_by}>`, inline: true }
               );
-            if (imdbData?.Year) winnerEmbed.addFields({ name: '📅 Year', value: imdbData.Year, inline: true });
+            if (imdbData?.Year)
+              winnerEmbed.addFields({ name: '📅 Year', value: imdbData.Year, inline: true });
 
             // Always include who selected and winner's vote counts
-            winnerEmbed.addFields({ name: '👑 Selected by', value: `<@${interaction.user.id}>`, inline: true });
+            winnerEmbed.addFields({
+              name: '👑 Selected by',
+              value: `<@${interaction.user.id}>`,
+              inline: true,
+            });
             try {
               const counts = await database.getVoteCounts(movie.message_id);
               if (counts) {
                 const score = (counts.up || 0) - (counts.down || 0);
-                winnerEmbed.addFields({ name: '📊 Winner Votes', value: `${counts.up || 0} 👍 - ${counts.down || 0} 👎 (Score: ${score})`, inline: false });
+                winnerEmbed.addFields({
+                  name: '📊 Winner Votes',
+                  value: `${counts.up || 0} 👍 - ${counts.down || 0} 👎 (Score: ${score})`,
+                  inline: false,
+                });
               }
             } catch {}
 
-            if (imdbData?.Runtime) winnerEmbed.addFields({ name: '⏱️ Runtime', value: imdbData.Runtime, inline: true });
-            if (imdbData?.Genre) winnerEmbed.addFields({ name: '🎬 Genre', value: imdbData.Genre, inline: true });
+            if (imdbData?.Runtime)
+              winnerEmbed.addFields({ name: '⏱️ Runtime', value: imdbData.Runtime, inline: true });
+            if (imdbData?.Genre)
+              winnerEmbed.addFields({ name: '🎬 Genre', value: imdbData.Genre, inline: true });
 
-            const content = config?.notification_role_id ? `<@&${config.notification_role_id}>` : undefined;
-            await votingChannel.send({ content, embeds: [winnerEmbed], allowedMentions: content ? { parse: ['roles'], roles: [config.notification_role_id] } : undefined });
+            const content = config?.notification_role_id
+              ? `<@&${config.notification_role_id}>`
+              : undefined;
+            await votingChannel.send({
+              content,
+              embeds: [winnerEmbed],
+              allowedMentions: content
+                ? { parse: ['roles'], roles: [config.notification_role_id] }
+                : undefined,
+            });
           }
         }
       }
@@ -2138,12 +2399,11 @@ async function handleChooseWinner(interaction, guildId, movieId) {
     }
 
     console.log(`🏆 Movie ${movie.title} chosen as winner for session ${activeSession.id}`);
-
   } catch (error) {
     console.error('Error choosing winner:', error);
     await interaction.reply({
       content: '❌ Failed to choose winner.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -2160,7 +2420,7 @@ async function handleSkipToNext(interaction, guildId, movieId) {
     if (!movie) {
       await interaction.reply({
         content: '❌ Movie not found.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -2170,14 +2430,14 @@ async function handleSkipToNext(interaction, guildId, movieId) {
     if (!success) {
       await interaction.reply({
         content: '❌ Failed to skip movie to next session.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
 
     await interaction.reply({
       content: `⏭️ **${movie.title}** has been skipped to the next session. Votes have been reset.`,
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
 
     // Remove from admin channel
@@ -2219,12 +2479,11 @@ async function handleSkipToNext(interaction, guildId, movieId) {
     }
 
     logger.info(`⏭️ Movie ${movie.title} skipped to next session`);
-
   } catch (error) {
     console.error('Error skipping movie to next session:', error);
     await interaction.reply({
       content: '❌ Failed to skip movie to next session.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -2247,14 +2506,19 @@ async function updateAdminMessage(interaction, content, contentType = null) {
 
     // Create updated embed and buttons using unified functions
     const embed = adminMirror.createAdminContentEmbed(content, voteCounts, contentType);
-    const components = await adminMirror.createAdminContentActionButtons(content.message_id, content.status, content.is_banned, interaction.guild.id, contentType);
+    const components = await adminMirror.createAdminContentActionButtons(
+      content.message_id,
+      content.status,
+      content.is_banned,
+      interaction.guild.id,
+      contentType
+    );
 
     // Update the message
     await interaction.message.edit({
       embeds: [embed],
-      components: components
+      components: components,
     });
-
   } catch (error) {
     console.error('Error updating admin message:', error);
   }
@@ -2276,14 +2540,14 @@ async function handleAdminControlButtons(interaction, customId) {
     const moderatorAllowed = new Set([
       'admin_ctrl_sync',
       'admin_ctrl_refresh',
-      'admin_ctrl_banned_list'
+      'admin_ctrl_banned_list',
     ]);
     if (moderatorAllowed.has(customId)) {
       allowed = await permissions.checkMovieModeratorPermission(interaction);
       if (!allowed) {
         await interaction.reply({
           content: '❌ You need Moderator or Administrator permissions to use this action.',
-          flags: MessageFlags.Ephemeral
+          flags: MessageFlags.Ephemeral,
         });
         return;
       }
@@ -2293,8 +2557,9 @@ async function handleAdminControlButtons(interaction, customId) {
   // If still not allowed here, this action is admin-only
   if (!allowed) {
     await interaction.reply({
-      content: '❌ You need Administrator permissions or a configured admin role to use this action.',
-      flags: MessageFlags.Ephemeral
+      content:
+        '❌ You need Administrator permissions or a configured admin role to use this action.',
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -2348,14 +2613,14 @@ async function handleAdminControlButtons(interaction, customId) {
       default:
         await interaction.reply({
           content: '❌ Unknown admin control action.',
-          flags: MessageFlags.Ephemeral
+          flags: MessageFlags.Ephemeral,
         });
     }
   } catch (error) {
     console.error('Error handling admin control button:', error);
     await interaction.reply({
       content: '❌ An error occurred while processing the admin control action.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -2373,47 +2638,54 @@ async function handlePopulateForumChannel(interaction) {
 
     if (!config || !config.movie_channel_id) {
       await interaction.editReply({
-        content: '❌ **No voting channel configured**\n\nPlease configure a voting channel first using `/movie-setup`.'
+        content:
+          '❌ **No voting channel configured**\n\nPlease configure a voting channel first using `/movie-setup`.',
       });
       return;
     }
 
-    const channel = await interaction.client.channels.fetch(config.movie_channel_id).catch(() => null);
+    const channel = await interaction.client.channels
+      .fetch(config.movie_channel_id)
+      .catch(() => null);
     if (!channel) {
       await interaction.editReply({
-        content: '❌ **Voting channel not found**\n\nThe configured voting channel may have been deleted.'
+        content:
+          '❌ **Voting channel not found**\n\nThe configured voting channel may have been deleted.',
       });
       return;
     }
 
     if (!channel.isForumChannel()) {
       await interaction.editReply({
-        content: '❌ **Not a forum channel**\n\nThe "Populate Forum" feature is only available when your voting channel is a forum channel. Your current voting channel is a text channel.'
+        content:
+          '❌ **Not a forum channel**\n\nThe "Populate Forum" feature is only available when your voting channel is a forum channel. Your current voting channel is a text channel.',
       });
       return;
     }
 
     const adminControls = require('../services/admin-controls');
-    const result = await adminControls.populateForumChannel(interaction.client, interaction.guild.id);
+    const result = await adminControls.populateForumChannel(
+      interaction.client,
+      interaction.guild.id
+    );
 
     if (result.error) {
       await interaction.editReply({
-        content: `❌ **Failed to populate forum channel**\n\n${result.error}`
+        content: `❌ **Failed to populate forum channel**\n\n${result.error}`,
       });
     } else if (result.populated === 0) {
       await interaction.editReply({
-        content: '📋 **Forum channel is up to date**\n\nNo new forum posts needed to be created.'
+        content: '📋 **Forum channel is up to date**\n\nNo new forum posts needed to be created.',
       });
     } else {
       await interaction.editReply({
-        content: `✅ **Forum channel populated successfully**\n\n📝 Created ${result.populated} forum posts for active movies.`
+        content: `✅ **Forum channel populated successfully**\n\n📝 Created ${result.populated} forum posts for active movies.`,
       });
     }
-
   } catch (error) {
     console.error('Error handling populate forum channel:', error);
     await interaction.editReply({
-      content: '❌ Error populating forum channel.'
+      content: '❌ Error populating forum channel.',
     });
   }
 }
@@ -2430,7 +2702,7 @@ async function handlePlanVotingSession(interaction, contentType = 'movie') {
     console.error('Error planning voting session:', error);
     await interaction.reply({
       content: '❌ An error occurred while planning the voting session.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -2447,7 +2719,7 @@ async function handleDeepPurgeInitiation(interaction) {
   await interaction.reply({
     embeds: [embed],
     components: components,
-    flags: MessageFlags.Ephemeral
+    flags: MessageFlags.Ephemeral,
   });
 }
 
@@ -2463,7 +2735,7 @@ async function handleCancelSession(interaction) {
     if (!activeSession) {
       await interaction.reply({
         content: '❌ No active voting session to cancel.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -2471,32 +2743,32 @@ async function handleCancelSession(interaction) {
     // Show confirmation dialog
     const embed = new EmbedBuilder()
       .setTitle('⚠️ Cancel Voting Session')
-      .setDescription(`Are you sure you want to cancel **${activeSession.name}**?\n\nThis will:\n• Delete the Discord event\n• Clear all movie recommendations\n• Reset the voting channel\n\n**This action cannot be undone.**`)
+      .setDescription(
+        `Are you sure you want to cancel **${activeSession.name}**?\n\nThis will:\n• Delete the Discord event\n• Clear all movie recommendations\n• Reset the voting channel\n\n**This action cannot be undone.**`
+      )
       .setColor(0xed4245);
 
-    const row = new ActionRowBuilder()
-      .addComponents(
-        new ButtonBuilder()
-          .setCustomId(`confirm_cancel_session:${activeSession.id}`)
-          .setLabel('✅ Yes, Cancel Session')
-          .setStyle(ButtonStyle.Danger),
-        new ButtonBuilder()
-          .setCustomId('cancel_cancel_session')
-          .setLabel('❌ No, Keep Session')
-          .setStyle(ButtonStyle.Secondary)
-      );
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`confirm_cancel_session:${activeSession.id}`)
+        .setLabel('✅ Yes, Cancel Session')
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId('cancel_cancel_session')
+        .setLabel('❌ No, Keep Session')
+        .setStyle(ButtonStyle.Secondary)
+    );
 
     await interaction.reply({
       embeds: [embed],
       components: [row],
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
-
   } catch (error) {
     console.error('Error handling cancel session:', error);
     await interaction.reply({
       content: '❌ An error occurred while processing the cancel request.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -2511,12 +2783,15 @@ async function handleRescheduleSession(interaction) {
     // Find a manageable session: active voting session or upcoming decided session
     let session = await database.getActiveVotingSession(interaction.guild.id);
     if (!session) {
-      try { session = await database.getUpcomingDecidedSession(interaction.guild.id); } catch {}
+      try {
+        session = await database.getUpcomingDecidedSession(interaction.guild.id);
+      } catch {}
     }
     if (!session) {
       await interaction.reply({
-        content: '❌ No current session to reschedule. Use "Plan Next Session" to create one first.',
-        flags: MessageFlags.Ephemeral
+        content:
+          '❌ No current session to reschedule. Use "Plan Next Session" to create one first.',
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -2524,12 +2799,11 @@ async function handleRescheduleSession(interaction) {
     // Show the exact same modal as Plan Next Session, prefilled with this session's values
     const votingSessions = require('../services/voting-sessions');
     await votingSessions.showVotingSessionRescheduleModal(interaction, session);
-
   } catch (error) {
     console.error('Error handling reschedule session:', error);
     await interaction.reply({
       content: '❌ An error occurred while processing the reschedule request.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -2554,14 +2828,16 @@ async function handleRemoveSuggestion(interaction, guildId, movieId) {
         if (movieTitle) {
           // Find movie by title in the guild
           const allMovies = await database.getMoviesByGuild(guildId);
-          movie = allMovies.find(m => m.title === movieTitle && ['pending', 'planned'].includes(m.status));
+          movie = allMovies.find(
+            (m) => m.title === movieTitle && ['pending', 'planned'].includes(m.status)
+          );
         }
       }
     }
 
     if (!movie) {
       await interaction.editReply({
-        content: '❌ Movie not found. Please try syncing the channels first.'
+        content: '❌ Movie not found. Please try syncing the channels first.',
       });
       return;
     }
@@ -2574,7 +2850,11 @@ async function handleRemoveSuggestion(interaction, guildId, movieId) {
     if (config && config.movie_channel_id) {
       try {
         const cleanup = require('../services/cleanup');
-        await cleanup.removeMoviePost(interaction.client, config.movie_channel_id, movie.message_id);
+        await cleanup.removeMoviePost(
+          interaction.client,
+          config.movie_channel_id,
+          movie.message_id
+        );
       } catch (error) {
         console.warn('Error removing movie from voting channel:', error.message);
       }
@@ -2588,21 +2868,20 @@ async function handleRemoveSuggestion(interaction, guildId, movieId) {
     }
 
     await interaction.editReply({
-      content: `✅ **${movie.title}** has been completely removed from the queue.`
+      content: `✅ **${movie.title}** has been completely removed from the queue.`,
     });
 
     console.log(`🗑️ Movie ${movie.title} completely removed by ${interaction.user.tag}`);
-
   } catch (error) {
     console.error('Error removing suggestion:', error);
     if (!interaction.replied && !interaction.deferred) {
       await interaction.reply({
         content: '❌ Failed to remove suggestion.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
     } else {
       await interaction.editReply({
-        content: '❌ Failed to remove suggestion.'
+        content: '❌ Failed to remove suggestion.',
       });
     }
   }
@@ -2620,7 +2899,7 @@ async function handleCancelSessionConfirmation(interaction) {
       await interaction.update({
         content: '✅ Session cancellation cancelled.',
         embeds: [],
-        components: []
+        components: [],
       });
       return;
     }
@@ -2636,7 +2915,7 @@ async function handleCancelSessionConfirmation(interaction) {
       await interaction.editReply({
         content: '❌ Session not found.',
         embeds: [],
-        components: []
+        components: [],
       });
       return;
     }
@@ -2663,7 +2942,9 @@ async function handleCancelSessionConfirmation(interaction) {
     await database.markMoviesForNextSession(interaction.guild.id, null);
     await database.markTVShowsForNextSession(interaction.guild.id, null);
     const logger = require('../utils/logger');
-    logger.info('📋 Marked cancelled session content (movies & TV shows) for next session carryover');
+    logger.info(
+      '📋 Marked cancelled session content (movies & TV shows) for next session carryover'
+    );
 
     // Delete the session and all associated data
     await database.deleteVotingSession(sessionId);
@@ -2681,7 +2962,9 @@ async function handleCancelSessionConfirmation(interaction) {
             logger.debug('📦 Clearing forum channel after session cancellation');
 
             // Clear all movie forum posts (movies already marked for carryover above)
-            await forumChannels.clearForumMoviePosts(votingChannel, null, { deleteWinnerAnnouncements: true });
+            await forumChannels.clearForumMoviePosts(votingChannel, null, {
+              deleteWinnerAnnouncements: true,
+            });
 
             // Remove recommendation post since session is cancelled
             await forumChannels.ensureRecommendationPost(votingChannel, null);
@@ -2690,7 +2973,9 @@ async function handleCancelSessionConfirmation(interaction) {
             logger.debug('🗑️ Clearing text channel after session cancellation');
 
             const messages = await votingChannel.messages.fetch({ limit: 100 });
-            const botMessages = messages.filter(msg => msg.author.id === interaction.client.user.id);
+            const botMessages = messages.filter(
+              (msg) => msg.author.id === interaction.client.user.id
+            );
 
             for (const [messageId, message] of botMessages) {
               try {
@@ -2727,13 +3012,16 @@ async function handleCancelSessionConfirmation(interaction) {
         const adminChannel = await interaction.client.channels.fetch(config.admin_channel_id);
         if (adminChannel) {
           const messages = await adminChannel.messages.fetch({ limit: 100 });
-          const botMessages = messages.filter(msg => msg.author.id === interaction.client.user.id);
+          const botMessages = messages.filter(
+            (msg) => msg.author.id === interaction.client.user.id
+          );
 
           for (const [messageId, message] of botMessages) {
             try {
-              const isControlPanel = message.embeds.length > 0 &&
-                                    message.embeds[0].title &&
-                                    message.embeds[0].title.includes('Admin Control Panel');
+              const isControlPanel =
+                message.embeds.length > 0 &&
+                message.embeds[0].title &&
+                message.embeds[0].title.includes('Admin Control Panel');
 
               if (!isControlPanel) {
                 await message.delete();
@@ -2755,7 +3043,7 @@ async function handleCancelSessionConfirmation(interaction) {
     await interaction.editReply({
       content: `✅ **Session cancelled successfully!**\n\n🗑️ **${session.name}** has been cancelled and all associated data has been cleared.`,
       embeds: [],
-      components: []
+      components: [],
     });
 
     logger.info(`❌ Session ${session.name} cancelled by ${interaction.user.tag}`);
@@ -2763,21 +3051,25 @@ async function handleCancelSessionConfirmation(interaction) {
     // Notify dashboard that session was cancelled
     try {
       const wsClient = require('../services/ws-client');
-      wsClient.sendMessage({ type: 'session_cancelled', payload: { guildId: interaction.guild.id, sessionId: session.id } });
-    } catch (_) { /* non-fatal */ }
-
+      wsClient.sendMessage({
+        type: 'session_cancelled',
+        payload: { guildId: interaction.guild.id, sessionId: session.id },
+      });
+    } catch (_) {
+      /* non-fatal */
+    }
   } catch (error) {
     console.error('Error handling cancel session confirmation:', error);
     if (!interaction.replied && !interaction.deferred) {
       await interaction.reply({
         content: '❌ An error occurred while cancelling the session.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
     } else {
       await interaction.editReply({
         content: '❌ An error occurred while cancelling the session.',
         embeds: [],
-        components: []
+        components: [],
       });
     }
   }
@@ -2804,8 +3096,9 @@ async function handleConfigurationAction(interaction, customId) {
         break;
       case 'admin_roles':
         await interaction.reply({
-          content: '🔧 **Admin Roles Configuration**\n\nUse `/movienight-configure admin-roles add` and `/movienight-configure admin-roles remove` commands to manage admin roles.',
-          flags: MessageFlags.Ephemeral
+          content:
+            '🔧 **Admin Roles Configuration**\n\nUse `/movienight-configure admin-roles add` and `/movienight-configure admin-roles remove` commands to manage admin roles.',
+          flags: MessageFlags.Ephemeral,
         });
         break;
       case 'voting_roles':
@@ -2834,14 +3127,14 @@ async function handleConfigurationAction(interaction, customId) {
       default:
         await interaction.reply({
           content: `❌ Unknown configuration action: ${action}`,
-          flags: MessageFlags.Ephemeral
+          flags: MessageFlags.Ephemeral,
         });
     }
   } catch (error) {
     console.error('Error handling configuration action:', error);
     await interaction.reply({
       content: '❌ An error occurred while processing the configuration.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -2857,9 +3150,10 @@ async function handleGuidedSetupButton(interaction, customId) {
 
     case 'setup_skip':
       await interaction.update({
-        content: '⏭️ **Setup skipped**\n\nYou can run `/movie-setup-simple` anytime to configure the bot.',
+        content:
+          '⏭️ **Setup skipped**\n\nYou can run `/movie-setup-simple` anytime to configure the bot.',
         embeds: [],
-        components: []
+        components: [],
       });
       break;
 
@@ -2921,19 +3215,31 @@ async function handleGuidedSetupButton(interaction, customId) {
     case 'setup_skip_admin_roles':
       const database = require('../database');
       const config = await database.getGuildConfig(interaction.guild.id);
-      await guidedSetup.showSetupMenuWithMessage(interaction, config, '⏭️ **Admin roles skipped** - Only Discord Administrators can manage the bot.');
+      await guidedSetup.showSetupMenuWithMessage(
+        interaction,
+        config,
+        '⏭️ **Admin roles skipped** - Only Discord Administrators can manage the bot.'
+      );
       break;
 
     case 'setup_skip_moderator_roles':
       const database3 = require('../database');
       const config3 = await database3.getGuildConfig(interaction.guild.id);
-      await guidedSetup.showSetupMenuWithMessage(interaction, config3, '⏭️ **Moderator roles skipped** - Only admins can moderate movies and sessions.');
+      await guidedSetup.showSetupMenuWithMessage(
+        interaction,
+        config3,
+        '⏭️ **Moderator roles skipped** - Only admins can moderate movies and sessions.'
+      );
       break;
 
     case 'setup_skip_notification_role':
       const database2 = require('../database');
       const config2 = await database2.getGuildConfig(interaction.guild.id);
-      await guidedSetup.showSetupMenuWithMessage(interaction, config2, '⏭️ **Viewer role skipped** - No role will be pinged for movie sessions.');
+      await guidedSetup.showSetupMenuWithMessage(
+        interaction,
+        config2,
+        '⏭️ **Viewer role skipped** - No role will be pinged for movie sessions.'
+      );
       break;
 
     case 'setup_finish':
@@ -2976,8 +3282,9 @@ async function handleDeepPurgeSubmit(interaction) {
   const hasPermission = await permissions.checkMovieAdminPermission(interaction);
   if (!hasPermission) {
     await interaction.reply({
-      content: '❌ You need Administrator permissions or a configured admin role to use this action.',
-      flags: MessageFlags.Ephemeral
+      content:
+        '❌ You need Administrator permissions or a configured admin role to use this action.',
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -2997,7 +3304,7 @@ async function handleDeepPurgeSubmit(interaction) {
   if (!selectedCategories || selectedCategories.length === 0) {
     await interaction.reply({
       content: '❌ No categories selected. Please select categories first.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -3009,12 +3316,11 @@ async function handleDeepPurgeSubmit(interaction) {
 
     // Clean up stored selections
     global.deepPurgeSelections?.delete(interaction.user.id);
-
   } catch (error) {
     console.error('Error handling deep purge submit:', error);
     await interaction.reply({
       content: '❌ An error occurred while preparing the confirmation.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -3029,7 +3335,7 @@ async function handleDeepPurgeCancel(interaction) {
   await interaction.update({
     content: '❌ **Deep Purge Cancelled**\n\nNo data was deleted.',
     embeds: [],
-    components: []
+    components: [],
   });
 }
 
@@ -3044,13 +3350,15 @@ async function completeSetupAndInitialize(interaction) {
     const panelMsg = interaction.message;
     const embed = new EmbedBuilder()
       .setTitle('🎉 Setup Complete!')
-      .setDescription('Your Movie Night Bot is now configured and ready to use!\n\n**Initializing channels...**')
+      .setDescription(
+        'Your Movie Night Bot is now configured and ready to use!\n\n**Initializing channels...**'
+      )
       .setColor(0x57f287);
 
     await interaction.update({
       content: '',
       embeds: [embed],
-      components: []
+      components: [],
     });
 
     // panelMsg refers to the same message; after update completes we can edit it again safely
@@ -3078,35 +3386,37 @@ async function completeSetupAndInitialize(interaction) {
       .setColor(0x57f287)
       .addFields(
         {
-          name: '🎬 What\'s Next?',
-          value: '• Use `/movie-night action:create-session` to create your first movie session\n• Users can recommend movies with the 🍿 button in your voting channel\n• Manage everything from your admin channel\n• Or manage via the Web Dashboard: https://movienight.bermanoc.net (minus voting)',
-          inline: false
+          name: "🎬 What's Next?",
+          value:
+            '• Use `/movie-night action:create-session` to create your first movie session\n• Users can recommend movies with the 🍿 button in your voting channel\n• Manage everything from your admin channel\n• Or manage via the Web Dashboard: https://movienight.bermanoc.net (minus voting)',
+          inline: false,
         },
         {
           name: '📚 Need Help?',
-          value: 'Use `/movie-night action:help` for detailed usage instructions, or visit the Web Dashboard: https://movienight.bermanoc.net',
-          inline: false
+          value:
+            'Use `/movie-night action:help` for detailed usage instructions, or visit the Web Dashboard: https://movienight.bermanoc.net',
+          inline: false,
         }
       );
 
     try {
       await panelMsg.edit({
         embeds: [finalEmbed],
-        components: []
+        components: [],
       });
     } catch (e) {
       // Fallback: if edit fails for any reason, send a single follow-up
       await interaction.followUp({
         embeds: [finalEmbed],
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
     }
-
   } catch (error) {
     console.error('Error completing setup:', error);
     await interaction.followUp({
-      content: '❌ Setup completed but there was an error initializing channels. Please use the Sync Channels button in your admin channel.',
-      flags: MessageFlags.Ephemeral
+      content:
+        '❌ Setup completed but there was an error initializing channels. Please use the Sync Channels button in your admin channel.',
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -3121,7 +3431,8 @@ async function handleAdministrationPanel(interaction) {
   const isAdmin = await permissions.checkMovieAdminPermission(interaction);
 
   if (!isAdmin) {
-    await ephemeralManager.sendEphemeral(interaction,
+    await ephemeralManager.sendEphemeral(
+      interaction,
       '❌ **Access Denied**\n\nYou need administrator permissions to access the administration panel.'
     );
     return;
@@ -3131,46 +3442,49 @@ async function handleAdministrationPanel(interaction) {
 
   const adminEmbed = new EmbedBuilder()
     .setTitle('🔧 Administration Panel')
-    .setDescription('**Administrator-only controls**\n\nThese controls are only available to users with administrator permissions.')
+    .setDescription(
+      '**Administrator-only controls**\n\nThese controls are only available to users with administrator permissions.'
+    )
     .setColor(0xed4245)
     .addFields(
       {
         name: '⚙️ Configuration',
-        value: '• **Configure Bot** - Set up channels, roles, and settings\n• **Deep Purge** - Complete guild data removal with confirmations',
-        inline: false
+        value:
+          '• **Configure Bot** - Set up channels, roles, and settings\n• **Deep Purge** - Complete guild data removal with confirmations',
+        inline: false,
       },
       {
         name: '📊 Advanced Features',
-        value: '• **Guild Statistics** - Detailed analytics and reports\n• **Role Management** - Configure admin and moderator roles',
-        inline: false
+        value:
+          '• **Guild Statistics** - Detailed analytics and reports\n• **Role Management** - Configure admin and moderator roles',
+        inline: false,
       },
       {
         name: '🌐 Web Dashboard',
         value: 'Manage the bot  at https://movienight.bermanoc.net',
-        inline: false
+        inline: false,
       }
     )
     .setFooter({ text: 'These actions require administrator permissions' });
 
-  const adminButtons = new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId('open_configuration')
-        .setLabel('⚙️ Configure Bot')
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId('admin_ctrl_deep_purge')
-        .setLabel('💥 Deep Purge')
-        .setStyle(ButtonStyle.Danger),
-      new ButtonBuilder()
-        .setCustomId('admin_ctrl_stats')
-        .setLabel('📊 Guild Stats')
-        .setStyle(ButtonStyle.Success),
-      new ButtonBuilder()
-        .setCustomId('admin_ctrl_back_to_moderation')
-        .setLabel('🔙 Back to Moderation')
-        .setStyle(ButtonStyle.Secondary)
-    );
+  const adminButtons = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('open_configuration')
+      .setLabel('⚙️ Configure Bot')
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId('admin_ctrl_deep_purge')
+      .setLabel('💥 Deep Purge')
+      .setStyle(ButtonStyle.Danger),
+    new ButtonBuilder()
+      .setCustomId('admin_ctrl_stats')
+      .setLabel('📊 Guild Stats')
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId('admin_ctrl_back_to_moderation')
+      .setLabel('🔙 Back to Moderation')
+      .setStyle(ButtonStyle.Secondary)
+  );
 
   // Throttle duplicate admin panel popups per user for 15s
   const ephemeralManager = require('../utils/ephemeral-manager');
@@ -3185,7 +3499,7 @@ async function handleAdministrationPanel(interaction) {
   await interaction.reply({
     embeds: [adminEmbed],
     components: [adminButtons],
-    flags: MessageFlags.Ephemeral
+    flags: MessageFlags.Ephemeral,
   });
   ephemeralManager.startThrottle('admin_panel', interaction.user.id);
 }
@@ -3199,9 +3513,10 @@ async function handleBackToModerationPanel(interaction) {
   await adminControls.ensureAdminControlPanel(interaction.client, interaction.guild.id);
 
   await interaction.update({
-    content: '✅ **Returned to Moderation Panel**\n\nThe main admin control panel has been refreshed. This message will dismiss automatically.',
+    content:
+      '✅ **Returned to Moderation Panel**\n\nThe main admin control panel has been refreshed. This message will dismiss automatically.',
     embeds: [],
-    components: []
+    components: [],
   });
 
   // Auto-dismiss the ephemeral message after 3 seconds
@@ -3228,7 +3543,7 @@ async function handleSpellingSuggestion(interaction) {
     if (!payload) {
       await interaction.reply({
         content: '❌ This suggestion has expired. Please try recommending the movie again.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -3239,7 +3554,7 @@ async function handleSpellingSuggestion(interaction) {
     if (!suggestedTitle) {
       await interaction.reply({
         content: '❌ Invalid suggestion selected.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -3274,10 +3589,12 @@ async function handleSpellingSuggestion(interaction) {
   } catch (error) {
     console.error('Error handling spelling suggestion:', error);
     if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({
-        content: '❌ Error processing suggestion. Please try again.',
-        flags: MessageFlags.Ephemeral
-      }).catch(console.error);
+      await interaction
+        .reply({
+          content: '❌ Error processing suggestion. Please try again.',
+          flags: MessageFlags.Ephemeral,
+        })
+        .catch(console.error);
     }
   }
 }
@@ -3294,7 +3611,7 @@ async function handleUseOriginalTitle(interaction) {
     if (!payload) {
       await interaction.reply({
         content: '❌ This request has expired. Please try recommending the movie again.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -3313,10 +3630,12 @@ async function handleUseOriginalTitle(interaction) {
   } catch (error) {
     console.error('Error handling use original title:', error);
     if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({
-        content: '❌ Error processing request. Please try again.',
-        flags: MessageFlags.Ephemeral
-      }).catch(console.error);
+      await interaction
+        .reply({
+          content: '❌ Error processing request. Please try again.',
+          flags: MessageFlags.Ephemeral,
+        })
+        .catch(console.error);
     }
   }
 }
@@ -3333,9 +3652,10 @@ async function handleCancelSuggestion(interaction) {
     pendingPayloads.delete(dataKey);
 
     await interaction.update({
-      content: '❌ **Movie recommendation cancelled**\n\nYou can try again anytime using `/movienight recommend-movie`.',
+      content:
+        '❌ **Movie recommendation cancelled**\n\nYou can try again anytime using `/movienight recommend-movie`.',
       embeds: [],
-      components: []
+      components: [],
     });
 
     // Auto-dismiss after 3 seconds
@@ -3349,14 +3669,16 @@ async function handleCancelSuggestion(interaction) {
   } catch (error) {
     console.error('Error handling cancel suggestion:', error);
     if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({
-        content: '❌ Error cancelling request.',
-        flags: MessageFlags.Ephemeral
-      }).catch(console.error);
+      await interaction
+        .reply({
+          content: '❌ Error cancelling request.',
+          flags: MessageFlags.Ephemeral,
+        })
+        .catch(console.error);
     }
   }
 }
 
 module.exports = {
-  handleButton
+  handleButton,
 };
