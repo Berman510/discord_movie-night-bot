@@ -243,7 +243,9 @@ async function handleMovieRecommendationModal(interaction) {
     if (!interaction.deferred && !interaction.replied) {
       try {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-      } catch (e) { /* no-op: defer best-effort */ void 0; }
+      } catch (e) {
+        /* no-op: defer best-effort */ void 0;
+      }
     }
 
     // Search IMDb with intelligent episode matching
@@ -506,7 +508,13 @@ async function showImdbSelection(
 /**
  * Show spelling suggestions when no exact matches are found
  */
-async function showSpellingSuggestions(interaction, title, where, suggestions, _episodeInfo = null) {
+async function showSpellingSuggestions(
+  interaction,
+  title,
+  where,
+  suggestions,
+  _episodeInfo = null
+) {
   const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
   const { pendingPayloads } = require('../utils/constants');
 
@@ -650,7 +658,9 @@ async function createMovieWithoutImdb(interaction, title, where, _episodeInfo = 
       config && config.movie_channel_id
         ? await interaction.client.channels.fetch(config.movie_channel_id)
         : null;
-    const _channelType = movieChannel ? forumChannels.getChannelTypeString(movieChannel) : 'Unknown';
+    const _channelType = movieChannel
+      ? forumChannels.getChannelTypeString(movieChannel)
+      : 'Unknown';
 
     const successMessage = thread
       ? `✅ **Content recommendation added!**\n\n🍿 **${title}** has been added as a new forum post in ${movieChannel} for voting and discussion.`
@@ -676,7 +686,9 @@ async function createMovieWithoutImdb(interaction, title, where, _episodeInfo = 
         } else {
           await interaction.deleteReply();
         }
-      } catch (_) { /* no-op: ephemeral cleanup */ void 0; }
+      } catch (_) {
+        /* no-op: ephemeral cleanup */ void 0;
+      }
     }, 5000);
   } catch (error) {
     const logger = require('../utils/logger');

@@ -584,7 +584,9 @@ async function postForumWinnerAnnouncement(channel, winnerMovie, sessionName, op
     if (winnerMovie.imdb_id) {
       try {
         imdbData = await imdb.getMovieDetails(winnerMovie.imdb_id);
-      } catch (e) { /* no-op: IMDb fetch optional */ void 0; }
+      } catch (e) {
+        /* no-op: IMDb fetch optional */ void 0;
+      }
     }
 
     // Create winner announcement embed
@@ -620,7 +622,9 @@ async function postForumWinnerAnnouncement(channel, winnerMovie, sessionName, op
           inline: false,
         });
       }
-    } catch (e) { /* no-op: vote summary optional */ void 0; }
+    } catch (e) {
+      /* no-op: vote summary optional */ void 0;
+    }
 
     if (imdbData) {
       if (imdbData.Year)
@@ -933,8 +937,6 @@ async function ensureRecommendationPost(channel, activeSession = null) {
       }
     }
 
-
-
     if (!activeSession) {
       // No active session - edit pinned post to show "No Active Session"
       const noSessionEmbed = new EmbedBuilder()
@@ -1015,7 +1017,9 @@ async function ensureRecommendationPost(channel, activeSession = null) {
             try {
               await t.delete('Removing duplicate system post');
               logger.debug(`📋 Deleted duplicate system post: ${t.name}`, guildId);
-            } catch (e) { /* no-op: duplicate cleanup best-effort */ void 0; }
+            } catch (e) {
+              /* no-op: duplicate cleanup best-effort */ void 0;
+            }
           }
         }
       }
@@ -1027,8 +1031,12 @@ async function ensureRecommendationPost(channel, activeSession = null) {
     logger.debug(`📋 Content type determination: content_type=${contentType}`, guildId);
 
     // Use content-type utilities for dynamic content
-    const { title, description, buttonLabel, buttonEmoji: _buttonEmoji } =
-      contentTypes.getRecommendationPostContent(activeSession);
+    const {
+      title,
+      description,
+      buttonLabel,
+      buttonEmoji: _buttonEmoji,
+    } = contentTypes.getRecommendationPostContent(activeSession);
 
     const recommendEmbed = new EmbedBuilder()
       .setTitle(title)
@@ -1078,7 +1086,9 @@ async function ensureRecommendationPost(channel, activeSession = null) {
         }
         try {
           await reuse.pin();
-        } catch (e) { /* no-op: pin best-effort */ void 0; }
+        } catch (e) {
+          /* no-op: pin best-effort */ void 0;
+        }
         pinnedPost = reuse;
         logger.debug('📋 Reused existing system post as recommendation post', guildId);
       } catch (reuseErr) {
@@ -1168,7 +1178,9 @@ async function ensureRecommendationPost(channel, activeSession = null) {
         if (t.name.includes('No Active Voting Session') || t.name.includes('🚫')) {
           try {
             await t.delete('Removing stale no-session post after session start');
-          } catch (e) { /* no-op: cleanup best-effort */ void 0; }
+          } catch (e) {
+            /* no-op: cleanup best-effort */ void 0;
+          }
         }
       }
     } catch (_) {
@@ -1311,7 +1323,9 @@ async function setPinnedPostStatusNote(channel, title, description) {
     if (pinnedPost.archived) {
       try {
         await pinnedPost.setArchived(false);
-      } catch (e) { /* no-op: unarchive best-effort */ void 0; }
+      } catch (e) {
+        /* no-op: unarchive best-effort */ void 0;
+      }
     }
 
     const starter = await pinnedPost.fetchStarterMessage();

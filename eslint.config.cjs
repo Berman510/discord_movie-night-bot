@@ -51,6 +51,4 @@ module.exports = [
       'no-empty': ['warn', { allowEmptyCatch: true }],
     },
   },
-
-
 ];

@@ -119,7 +119,6 @@ async function removeAdminRole(interaction, guildId) {
   }
 }
 
-
 async function viewSettings(interaction, guildId) {
   try {
     const config = await database.getGuildConfig(guildId);

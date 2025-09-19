@@ -217,7 +217,9 @@ async function handleVotingSessionRescheduleModal(interaction) {
   if (!interaction.deferred && !interaction.replied) {
     try {
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-    } catch (e) { /* no-op: already deferred */ void 0; }
+    } catch (e) {
+      /* no-op: already deferred */ void 0;
+    }
   }
 
   try {
@@ -397,13 +399,17 @@ async function handleVotingSessionRescheduleModal(interaction) {
         interaction.client || global.discordClient,
         interaction.guild.id
       );
-    } catch (e) { /* no-op: admin panel best-effort */ void 0; }
+    } catch (e) {
+      /* no-op: admin panel best-effort */ void 0;
+    }
     try {
       await adminMirror.syncAdminChannel(
         interaction.client || global.discordClient,
         interaction.guild.id
       );
-    } catch (e) { /* no-op: admin mirror best-effort */ void 0; }
+    } catch (e) {
+      /* no-op: admin mirror best-effort */ void 0;
+    }
 
     // Success message
     const ts = Math.floor(startDateTime.getTime() / 1000);
@@ -414,13 +420,17 @@ async function handleVotingSessionRescheduleModal(interaction) {
     setTimeout(async () => {
       try {
         await interaction.deleteReply();
-      } catch (e) { /* no-op: ephemeral cleanup */ void 0; }
+      } catch (e) {
+        /* no-op: ephemeral cleanup */ void 0;
+      }
     }, 8000);
   } catch (error) {
     console.error('Error handling reschedule modal:', error);
     try {
       await interaction.editReply({ content: '❌ Failed to reschedule session.' });
-    } catch (e) { /* no-op: edit reply fallback */ void 0; }
+    } catch (e) {
+      /* no-op: edit reply fallback */ void 0;
+    }
   }
 }
 
@@ -698,7 +708,9 @@ async function createVotingSession(interaction, state) {
     setTimeout(async () => {
       try {
         await interaction.deleteReply();
-      } catch (e) { /* no-op: ephemeral cleanup */ void 0; }
+      } catch (e) {
+        /* no-op: ephemeral cleanup */ void 0;
+      }
     }, 8000);
 
     // Initialize logger for this function

@@ -77,7 +77,9 @@ async function handleCleanupSync(interaction, movieChannel) {
     const database = require('../database');
     const activeSession = await database.getActiveVotingSession(interaction.guild.id);
     hasActiveVoting = !!activeSession;
-  } catch (e) { /* no-op: session check optional */ void 0; }
+  } catch (e) {
+    /* no-op: session check optional */ void 0;
+  }
 
   try {
     const channel = movieChannel;
@@ -187,7 +189,9 @@ async function handleCleanupSync(interaction, movieChannel) {
     let recreatedViaHelper = 0;
     try {
       recreatedViaHelper = await recreateMissingMoviePosts(channel, interaction.guild.id);
-    } catch (e) { /* no-op: recreate helper optional */ void 0; }
+    } catch (e) {
+      /* no-op: recreate helper optional */ void 0;
+    }
     cleanedDbCount += recreatedViaHelper;
 
     // Step 6: Check for movies with posts but missing threads
@@ -210,7 +214,9 @@ async function handleCleanupSync(interaction, movieChannel) {
     } else if (forumChannels.isForumChannel(channel)) {
       try {
         await forumChannels.ensureRecommendationPost(channel);
-      } catch (e) { /* no-op: ensure post best-effort */ void 0; }
+      } catch (e) {
+        /* no-op: ensure post best-effort */ void 0;
+      }
     }
 
     const summary = [

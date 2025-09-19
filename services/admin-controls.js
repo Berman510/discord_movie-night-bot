@@ -48,7 +48,9 @@ async function createAdminControlEmbed(guildName, guildId) {
     const { getStatus } = require('../services/ws-client');
     const s = typeof getStatus === 'function' ? getStatus() : null;
     if (s) wsText = `WS: ${s.connected ? 'Connected' : 'Disconnected'}`;
-  } catch (e) { /* no-op: ws status optional */ void 0; }
+  } catch (e) {
+    /* no-op: ws status optional */ void 0;
+  }
 
   embed
     .addFields(
@@ -652,7 +654,9 @@ async function handleSyncChannel(interaction) {
       setTimeout(async () => {
         try {
           await interaction.deleteReply();
-        } catch (e) { /* no-op: ephemeral cleanup */ void 0; }
+        } catch (e) {
+          /* no-op: ephemeral cleanup */ void 0;
+        }
       }, 8000);
     } else if (successParts.length > 0) {
       await interaction.editReply({
@@ -661,7 +665,9 @@ async function handleSyncChannel(interaction) {
       setTimeout(async () => {
         try {
           await interaction.deleteReply();
-        } catch (e) { /* no-op: ephemeral cleanup */ void 0; }
+        } catch (e) {
+          /* no-op: ephemeral cleanup */ void 0;
+        }
       }, 8000);
     } else {
       await interaction.editReply({
@@ -670,7 +676,9 @@ async function handleSyncChannel(interaction) {
       setTimeout(async () => {
         try {
           await interaction.deleteReply();
-        } catch (e) { /* no-op: ephemeral cleanup */ void 0; }
+        } catch (e) {
+          /* no-op: ephemeral cleanup */ void 0;
+        }
       }, 8000);
     }
   } catch (error) {
@@ -681,7 +689,9 @@ async function handleSyncChannel(interaction) {
     setTimeout(async () => {
       try {
         await interaction.deleteReply();
-      } catch (e) { /* no-op: ephemeral cleanup */ void 0; }
+      } catch (e) {
+        /* no-op: ephemeral cleanup */ void 0;
+      }
     }, 8000);
   }
 }
@@ -801,7 +811,9 @@ async function executePurgeQueue(interaction) {
                   await thread.delete();
                   threadsDeleted++;
                 }
-              } catch (e) { /* no-op: thread delete best-effort */ void 0; }
+              } catch (e) {
+                /* no-op: thread delete best-effort */ void 0;
+              }
             } else {
               const threads = await votingChannel.threads.fetchActive();
               for (const [, thread] of threads.threads) {
@@ -862,10 +874,14 @@ async function executePurgeQueue(interaction) {
             ) {
               try {
                 await t.delete('Purge system posts');
-              } catch (e) { /* no-op: purge best-effort */ void 0; }
+              } catch (e) {
+                /* no-op: purge best-effort */ void 0;
+              }
             }
           }
-        } catch (e) { /* no-op: thread iteration */ void 0; }
+        } catch (e) {
+          /* no-op: thread iteration */ void 0;
+        }
         try {
           const activeSession = await database.getActiveVotingSession(interaction.guild.id);
           if (activeSession) {
@@ -876,7 +892,9 @@ async function executePurgeQueue(interaction) {
           } else {
             await require('./forum-channels').createNoActiveSessionPost(votingChannel);
           }
-        } catch (e) { /* no-op: no-session post */ void 0; }
+        } catch (e) {
+          /* no-op: no-session post */ void 0;
+        }
       }
     }
 
