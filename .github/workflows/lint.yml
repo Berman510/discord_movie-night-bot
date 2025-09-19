@@ -28,8 +28,8 @@ jobs:
             npm install
           fi
 
-      - name: Run lint
-        run: npm run lint
+      - name: Run lint (no warnings allowed)
+        run: npm run lint:ci
 
       - name: Check formatting (Prettier)
         run: npm run format:check
