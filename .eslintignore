@@ -1,0 +1,7 @@
+node_modules/
+dist/
+coverage/
+.github/
+PR_BODY_v1.16.0.md
+notes/
+
