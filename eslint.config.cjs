@@ -36,6 +36,7 @@ module.exports = [
     files: ['utils/**/*.js', 'commands/**/*.js', 'handlers/**/*.js'],
     rules: {
       'no-undef': 'error',
+      'no-case-declarations': 'error',
     },
   },
 ];

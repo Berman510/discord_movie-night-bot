@@ -3214,6 +3214,8 @@ async function handleGuidedSetupButton(interaction, customId) {
       break;
 
     case 'setup_skip_admin_roles':
+      {
+
       const database = require('../database');
       const config = await database.getGuildConfig(interaction.guild.id);
       await guidedSetup.showSetupMenuWithMessage(
@@ -3222,8 +3224,12 @@ async function handleGuidedSetupButton(interaction, customId) {
         '⏭️ **Admin roles skipped** - Only Discord Administrators can manage the bot.'
       );
       break;
+      }
+
 
     case 'setup_skip_moderator_roles':
+      {
+
       const database3 = require('../database');
       const config3 = await database3.getGuildConfig(interaction.guild.id);
       await guidedSetup.showSetupMenuWithMessage(
@@ -3232,8 +3238,12 @@ async function handleGuidedSetupButton(interaction, customId) {
         '⏭️ **Moderator roles skipped** - Only admins can moderate movies and sessions.'
       );
       break;
+      }
+
 
     case 'setup_skip_notification_role':
+      {
+
       const database2 = require('../database');
       const config2 = await database2.getGuildConfig(interaction.guild.id);
       await guidedSetup.showSetupMenuWithMessage(
@@ -3242,6 +3252,8 @@ async function handleGuidedSetupButton(interaction, customId) {
         '⏭️ **Viewer role skipped** - No role will be pinged for movie sessions.'
       );
       break;
+      }
+
 
     case 'setup_finish':
       // Complete setup and initialize channels
@@ -3249,10 +3261,14 @@ async function handleGuidedSetupButton(interaction, customId) {
       break;
 
     case 'setup_create_first_session':
+      {
+
       // Redirect to voting session creation
       const votingSessions = require('../services/voting-sessions');
       await votingSessions.startVotingSessionCreation(interaction);
       break;
+      }
+
 
     case 'setup_create_category':
       await guidedSetup.showCategoryCreationGuide(interaction);
