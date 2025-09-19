@@ -23,6 +23,8 @@ const { sessions } = require('../services');
 const { permissions } = require('../services');
 const cleanup = require('../services/cleanup');
 
+const logger = require('../utils/logger');
+
 async function handleButton(interaction) {
   const customId = interaction.customId;
 
@@ -320,7 +322,7 @@ async function handleVoting(interaction, action, msgId, votes) {
               const cap = isUpvote ? upCap : downCap;
 
               if (used >= cap) {
-                const votesInSession = await database.getUserVotesInSession(userId, movieSessionId);
+                const votesInSession = await database.getUserVotesInSession(userId, contentSessionId);
                 const titles = votesInSession
                   .filter((v) => v.vote_type === type)
                   .map((v) => v.title)
@@ -399,18 +401,18 @@ async function handleVoting(interaction, action, msgId, votes) {
 
       await interaction.editReply(updateData);
 
-      // Update forum post if this is a forum channel movie
-      if (movie && movie.channel_type === 'forum' && movie.thread_id) {
+      // Update forum post if this is a forum channel content item
+      if (content && content.channel_type === 'forum' && content.thread_id) {
         try {
           const forumChannels = require('../services/forum-channels');
-          const thread = await interaction.client.channels.fetch(movie.thread_id).catch(() => null);
+          const thread = await interaction.client.channels.fetch(content.thread_id).catch(() => null);
           if (thread) {
             // For forum channels, we update the title only for major status changes
             // Vote count updates are shown in the embed to avoid spam messages
             await forumChannels.updateForumPostTitle(
               thread,
-              movie.title,
-              movie.status,
+              content.title,
+              content.status,
               voteCounts.up,
               voteCounts.down
             );
@@ -454,7 +456,6 @@ async function handleVoting(interaction, action, msgId, votes) {
       });
     }
 
-    const logger = require('../utils/logger');
     logger.debug(`Voting: ${action} for message ${msgId} by user ${userId}`);
   } catch (error) {
     console.error('Error handling voting:', error);

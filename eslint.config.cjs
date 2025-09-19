@@ -33,7 +33,7 @@ module.exports = [
     ignores: ['node_modules/', 'dist/', 'coverage/', '.github/', 'PR_BODY_v1.16.0.md', 'notes/'],
   },
   {
-    files: ['utils/**/*.js', 'commands/**/*.js'],
+    files: ['utils/**/*.js', 'commands/**/*.js', 'handlers/**/*.js'],
     rules: {
       'no-undef': 'error',
     },
