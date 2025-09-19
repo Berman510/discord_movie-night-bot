@@ -393,17 +393,6 @@ async function executeDeepPurge(guildId, categories, reason = null, client = nul
         try {
           const votingChannel = await client.channels.fetch(config.movie_channel_id);
           if (votingChannel) {
-            const messages = await votingChannel.messages.fetch({ limit: 100 });
-            const botMessages = messages.filter((msg) => msg.author.id === client.user.id);
-
-            for (const [messageId, message] of botMessages) {
-              try {
-                await message.delete();
-              } catch (error) {
-                logger.warn(`Failed to delete voting message ${messageId}:`, error.message);
-              }
-            }
-
             const forumChannels = require('./forum-channels');
             if (forumChannels.isForumChannel(votingChannel)) {
               // Use forum-aware clear that handles active+archived and system posts; do NOT preserve winner during a deep purge
@@ -421,7 +410,17 @@ async function executeDeepPurge(guildId, categories, reason = null, client = nul
                 );
               }
             } else {
-              // Clear threads (active and archived) for text channels
+              // Text channel: delete bot messages then clear threads
+              const messages = await votingChannel.messages.fetch({ limit: 100 });
+              const botMessages = messages.filter((msg) => msg.author.id === client.user.id);
+              for (const [messageId, message] of botMessages) {
+                try {
+                  await message.delete();
+                } catch (error) {
+                  logger.warn(`Failed to delete voting message ${messageId}:`, error.message);
+                }
+              }
+              // Clear threads (active and archived)
               const activeThreads = await votingChannel.threads.fetchActive();
               for (const [threadId, thread] of activeThreads.threads) {
                 try {
@@ -438,7 +437,6 @@ async function executeDeepPurge(guildId, categories, reason = null, client = nul
                   logger.warn(`Failed to delete archived thread ${threadId}:`, error.message);
                 }
               }
-
               // Add system post if configuration still exists
               const configAfterPurge = await database.getGuildConfig(guildId);
               if (configAfterPurge) {

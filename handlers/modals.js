@@ -328,7 +328,7 @@ async function handleMovieRecommendationModal(interaction) {
       }
 
       // Handle episode-specific cases
-      if (searchResult.episodeNotFound && searchResult.episodeInfo) {
+      if (searchResult && searchResult.episodeNotFound && searchResult.episodeInfo) {
         const { showName, season, episode } = searchResult.episodeInfo;
         await interaction.reply({
           content: `❌ **Episode not found**\n\n🔍 Could not find **${showName} Season ${season} Episode ${episode}** on IMDb.\n\n💡 **Suggestions:**\n• Check the episode number and season\n• Try searching for just the show name: "${showName}"\n• Use formats like "Show Name S1E1" or "Show Name Episode 101"`,
