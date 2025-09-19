@@ -39,4 +39,11 @@ module.exports = [
       'no-case-declarations': 'error',
     },
   },
+  {
+    files: ['services/sessions.js', 'services/ws-client.js'],
+    rules: {
+      'no-empty': ['error', { allowEmptyCatch: true }],
+    },
+  },
+
 ];
