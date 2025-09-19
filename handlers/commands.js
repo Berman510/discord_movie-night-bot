@@ -3,9 +3,16 @@
  * Handles all slash command processing
  */
 
-const { MessageFlags, EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
+const {
+  MessageFlags,
+  EmbedBuilder,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+  ActionRowBuilder,
+} = require('discord.js');
 const database = require('../database');
-const sessions = require('../services/sessions');
+const _sessions = require('../services/sessions');
 const guidedSetup = require('../services/guided-setup');
 const logger = require('../utils/logger');
 
@@ -14,58 +21,60 @@ async function handleSlashCommand(interaction) {
 
   try {
     switch (commandName) {
-      case 'movienight':
-        await handleMovieNight(interaction);
-        break;
-      
-      case 'movienight-queue':
-        await handleMovieQueue(interaction);
-        break;
-      
-      case 'movienight-configure':
-        await handleMovieConfigure(interaction);
-        break;
-      
-      case 'movienight-setup':
-        await handleMovieSetup(interaction);
+      case 'watchparty':
+        await handleWatchParty(interaction);
         break;
 
-      case 'movienight-watched':
-        await handleMovieWatched(interaction);
+      case 'watchparty-queue':
+        await handleWatchPartyQueue(interaction);
         break;
 
-      case 'movienight-skip':
-        await handleMovieSkip(interaction);
+      case 'watchparty-configure':
+        await handleWatchPartyConfigure(interaction);
         break;
 
-      case 'movienight-plan':
-        await handleMoviePlan(interaction);
+      case 'watchparty-setup':
+        await handleWatchPartySetup(interaction);
         break;
 
-      case 'movienight-debug-config':
+      case 'watchparty-watched':
+        await handleWatchPartyWatched(interaction);
+        break;
+
+      case 'watchparty-skip':
+        await handleWatchPartySkip(interaction);
+        break;
+
+      case 'watchparty-plan':
+        await handleWatchPartyPlan(interaction);
+        break;
+
+      case 'watchparty-debug-config':
         await handleDebugConfig(interaction);
         break;
 
       default:
         await interaction.reply({
           content: `❌ Unknown command: ${commandName}`,
-          flags: MessageFlags.Ephemeral
+          flags: MessageFlags.Ephemeral,
         });
     }
   } catch (error) {
     logger.error(`Error handling command ${commandName}:`, error);
 
     if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({
-        content: '❌ An error occurred while processing the command.',
-        flags: MessageFlags.Ephemeral
-      }).catch(err => logger.error('Failed to send error reply:', err));
+      await interaction
+        .reply({
+          content: '❌ An error occurred while processing the command.',
+          flags: MessageFlags.Ephemeral,
+        })
+        .catch((err) => logger.error('Failed to send error reply:', err));
     }
   }
 }
 
-// Movie recommendation command handler
-async function handleMovieNight(interaction) {
+// Content recommendation command handler
+async function handleWatchParty(interaction) {
   // First check if bot is configured
   const configCheck = require('../utils/config-check');
   const configStatus = await configCheck.checkConfiguration(interaction.guild.id);
@@ -81,22 +90,21 @@ async function handleMovieNight(interaction) {
 
   if (!activeSession) {
     await interaction.reply({
-      content: '❌ **No active voting session**\n\nMovie recommendations are only available during active voting sessions. An admin needs to use the "Plan Next Session" button in the admin channel to start a new voting session.\n\n💡 **Tip:** Use `/movienight-setup` for easy bot configuration.',
-      flags: MessageFlags.Ephemeral
+      content:
+        '❌ **No active voting session**\n\nContent recommendations are only available during active voting sessions. An admin needs to use the "Plan Next Session" button in the admin channel to start a new voting session.\n\n💡 **Tip:** Use `/watchparty-setup` for easy bot configuration.',
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
 
-  // Show the movie recommendation modal
-  const modal = new ModalBuilder()
-    .setCustomId('mn:modal')
-    .setTitle('🎬 Recommend Movie'); // Keep it short and simple
+  // Show the content recommendation modal (movies and TV shows)
+  const modal = new ModalBuilder().setCustomId('mn:modal').setTitle('🎬 Recommend Content'); // Updated to be more inclusive
 
   const titleInput = new TextInputBuilder()
     .setCustomId('mn:title')
-    .setLabel('Movie Title')
+    .setLabel('Movie or TV Show Title')
     .setStyle(TextInputStyle.Short)
-    .setPlaceholder('e.g., The Matrix')
+    .setPlaceholder('e.g., The Matrix, Breaking Bad, The Office')
     .setRequired(true);
 
   const whereInput = new TextInputBuilder()
@@ -114,7 +122,7 @@ async function handleMovieNight(interaction) {
   await interaction.showModal(modal);
 }
 
-async function handleMovieQueue(interaction) {
+async function handleWatchPartyQueue(interaction) {
   try {
     // Check for active voting session
     const activeSession = await database.getActiveVotingSession(interaction.guild.id);
@@ -125,29 +133,34 @@ async function handleMovieQueue(interaction) {
       if (carryoverMovies.length > 0) {
         const embed = new EmbedBuilder()
           .setTitle('📋 Movies Waiting for Next Session')
-          .setDescription(`${carryoverMovies.length} movies are waiting to be carried over to the next voting session`)
+          .setDescription(
+            `${carryoverMovies.length} movies are waiting to be carried over to the next voting session`
+          )
           .setColor(0xffa500);
 
         carryoverMovies.forEach((movie, index) => {
           embed.addFields({
             name: `${index + 1}. ${movie.title}`,
             value: `📺 ${movie.where_to_watch} • 👤 <@${movie.recommended_by}>`,
-            inline: false
+            inline: false,
           });
         });
 
-        embed.setFooter({ text: 'These movies will automatically appear when the next session starts!' });
+        embed.setFooter({
+          text: 'These movies will automatically appear when the next session starts!',
+        });
 
         await interaction.reply({
           embeds: [embed],
-          flags: MessageFlags.Ephemeral
+          flags: MessageFlags.Ephemeral,
         });
         return;
       }
 
       await interaction.reply({
-        content: '📋 **No active voting session**\n\nThere are currently no movies in the queue. An admin needs to use the "Plan Next Session" button in the admin channel to start a new voting session before movies can be recommended.',
-        flags: MessageFlags.Ephemeral
+        content:
+          '📋 **No active voting session**\n\nThere is currently no content in the queue. An admin needs to use the "Plan Next Session" button in the admin channel to start a new voting session before content can be recommended.',
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -156,8 +169,8 @@ async function handleMovieQueue(interaction) {
 
     if (!movies || movies.length === 0) {
       await interaction.reply({
-        content: `📋 **${activeSession.name}** - No movies yet!\n\nUse \`/movienight\` to add some recommendations for this voting session.`,
-        flags: MessageFlags.Ephemeral
+        content: `📋 **${activeSession.name}** - No content yet!\n\nUse \`/watchparty\` to add some recommendations for this voting session.`,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -169,7 +182,9 @@ async function handleMovieQueue(interaction) {
 
     const embed = new EmbedBuilder()
       .setTitle(`🍿 ${activeSession.name}`)
-      .setDescription(`Showing ${movies.length} movie recommendations for this voting session${channelTypeNote}`)
+      .setDescription(
+        `Showing ${movies.length} content recommendations for this voting session${channelTypeNote}`
+      )
       .setColor(0x5865f2);
 
     if (activeSession.scheduled_date) {
@@ -181,9 +196,9 @@ async function handleMovieQueue(interaction) {
           month: 'long',
           day: 'numeric',
           hour: '2-digit',
-          minute: '2-digit'
+          minute: '2-digit',
         }),
-        inline: false
+        inline: false,
       });
     }
 
@@ -191,22 +206,21 @@ async function handleMovieQueue(interaction) {
       embed.addFields({
         name: `${index + 1}. ${movie.title}`,
         value: `📺 ${movie.where_to_watch} • 👤 <@${movie.recommended_by}>`,
-        inline: false
+        inline: false,
       });
     });
 
-    embed.setFooter({ text: 'Vote on movies in the voting channel!' });
+    embed.setFooter({ text: 'Vote on content in the voting channel!' });
 
     await interaction.reply({
       embeds: [embed],
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
-
   } catch (error) {
     logger.error('Error fetching movie queue:', error);
     await interaction.reply({
       content: '❌ Error fetching movie queue.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -217,7 +231,7 @@ async function handleMovieHelp(interaction) {
 
   await interaction.reply({
     embeds: [helpEmbed],
-    flags: MessageFlags.Ephemeral
+    flags: MessageFlags.Ephemeral,
   });
 }
 
@@ -228,8 +242,9 @@ async function handleMovieConfigure(interaction) {
   const hasPermission = await permissions.checkMovieAdminPermission(interaction);
   if (!hasPermission) {
     await interaction.reply({
-      content: '❌ You need Administrator permissions or a configured admin role to use this command.',
-      flags: MessageFlags.Ephemeral
+      content:
+        '❌ You need Administrator permissions or a configured admin role to use this command.',
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -237,7 +252,7 @@ async function handleMovieConfigure(interaction) {
   if (!database.isConnected) {
     await interaction.reply({
       content: '⚠️ Database not available - configuration features require database connection.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -247,7 +262,7 @@ async function handleMovieConfigure(interaction) {
 
   try {
     const { configuration } = require('../services');
-    
+
     switch (action) {
       case 'set-channel':
         await configuration.configureMovieChannel(interaction, guildId);
@@ -282,14 +297,14 @@ async function handleMovieConfigure(interaction) {
       default:
         await interaction.reply({
           content: '❌ Unknown configuration action.',
-          flags: MessageFlags.Ephemeral
+          flags: MessageFlags.Ephemeral,
         });
     }
   } catch (error) {
     console.error('Error handling movie configure:', error);
     await interaction.reply({
       content: '❌ Error processing configuration command.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -308,11 +323,14 @@ async function handleMovieSetup(interaction) {
   // Check if user has permission to configure
   const { PermissionFlagsBits } = require('discord.js');
 
-  if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator) &&
-      !interaction.member.permissions.has(PermissionFlagsBits.ManageGuild)) {
+  if (
+    !interaction.member.permissions.has(PermissionFlagsBits.Administrator) &&
+    !interaction.member.permissions.has(PermissionFlagsBits.ManageGuild)
+  ) {
     await interaction.reply({
-      content: '❌ **Permission denied**\n\nYou need Administrator or Manage Server permissions to configure the bot.',
-      flags: MessageFlags.Ephemeral
+      content:
+        '❌ **Permission denied**\n\nYou need Administrator or Manage Server permissions to configure the bot.',
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -328,7 +346,7 @@ async function handleMovieWatched(interaction) {
   if (!hasPermission) {
     await interaction.reply({
       content: '❌ You need admin permissions to mark movies as watched.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -342,7 +360,7 @@ async function handleMovieWatched(interaction) {
     if (!movie) {
       await interaction.reply({
         content: `❌ Movie "${movieTitle}" not found in the queue.`,
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -352,14 +370,13 @@ async function handleMovieWatched(interaction) {
 
     await interaction.reply({
       content: `✅ **${movie.title}** has been marked as watched!`,
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
-
   } catch (error) {
     console.error('Error marking movie as watched:', error);
     await interaction.reply({
       content: '❌ An error occurred while marking the movie as watched.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -372,7 +389,7 @@ async function handleMovieSkip(interaction) {
   if (!hasPermission) {
     await interaction.reply({
       content: '❌ You need admin permissions to skip movies.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -386,7 +403,7 @@ async function handleMovieSkip(interaction) {
     if (!movie) {
       await interaction.reply({
         content: `❌ Movie "${movieTitle}" not found in the queue.`,
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -396,14 +413,13 @@ async function handleMovieSkip(interaction) {
 
     await interaction.reply({
       content: `⏭️ **${movie.title}** has been skipped.`,
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
-
   } catch (error) {
     console.error('Error skipping movie:', error);
     await interaction.reply({
       content: '❌ An error occurred while skipping the movie.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -416,7 +432,7 @@ async function handleMoviePlan(interaction) {
   if (!hasPermission) {
     await interaction.reply({
       content: '❌ You need admin permissions to plan movies.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -430,7 +446,7 @@ async function handleMoviePlan(interaction) {
     if (!movie) {
       await interaction.reply({
         content: `❌ Movie "${movieTitle}" not found in the queue.`,
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -440,14 +456,13 @@ async function handleMoviePlan(interaction) {
 
     await interaction.reply({
       content: `📌 **${movie.title}** has been planned for later. Use \`/movie-session\` to schedule it!`,
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
-
   } catch (error) {
     console.error('Error planning movie:', error);
     await interaction.reply({
       content: '❌ An error occurred while planning the movie.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -484,14 +499,13 @@ async function handleDebugConfig(interaction) {
 
     await interaction.reply({
       content: `🔍 **Debug Configuration**\n\n${configInfo}`,
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
-
   } catch (error) {
     console.error('Error in debug config:', error);
     await interaction.reply({
       content: `❌ Error getting debug info: ${error.message}`,
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -527,22 +541,37 @@ async function handleDebugSession(interaction) {
 
     await interaction.reply({
       content: `🔍 **Debug Session Information**\n\n${sessionInfo}`,
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
-
   } catch (error) {
     console.error('Error in debug session:', error);
     await interaction.reply({
       content: `❌ Error getting session debug info: ${error.message}`,
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
 
+// Create aliases for renamed functions to maintain compatibility
+const handleWatchPartyConfigure = handleMovieConfigure;
+const handleWatchPartySetup = handleMovieSetup;
+const handleWatchPartyWatched = handleMovieWatched;
+const handleWatchPartySkip = handleMovieSkip;
+const handleWatchPartyPlan = handleMoviePlan;
+
 module.exports = {
   handleSlashCommand,
-  handleMovieNight,
-  handleMovieQueue,
+  // New watch party function names
+  handleWatchParty,
+  handleWatchPartyQueue,
+  handleWatchPartyConfigure,
+  handleWatchPartySetup,
+  handleWatchPartyWatched,
+  handleWatchPartySkip,
+  handleWatchPartyPlan,
+  // Legacy function names for backward compatibility
+  handleMovieNight: handleWatchParty,
+  handleMovieQueue: handleWatchPartyQueue,
   handleMovieHelp,
   handleMovieConfigure,
   handleMovieCleanup,
@@ -551,7 +580,5 @@ module.exports = {
   handleMovieWatched,
   handleMovieSkip,
   handleMoviePlan,
-  handleDebugConfig
+  handleDebugConfig,
 };
-
-

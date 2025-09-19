@@ -8,7 +8,10 @@ const database = require('../database');
 
 async function checkMovieAdminPermission(interaction) {
   // Check if user has Discord Administrator or Manage Guild permission
-  if (interaction.member.permissions.has(PermissionFlagsBits.Administrator) || interaction.member.permissions.has(PermissionFlagsBits.ManageGuild)) {
+  if (
+    interaction.member.permissions.has(PermissionFlagsBits.Administrator) ||
+    interaction.member.permissions.has(PermissionFlagsBits.ManageGuild)
+  ) {
     return true;
   }
 
@@ -17,8 +20,8 @@ async function checkMovieAdminPermission(interaction) {
     try {
       const config = await database.getGuildConfig(interaction.guild.id);
       if (config && config.admin_roles && config.admin_roles.length > 0) {
-        const userRoles = interaction.member.roles.cache.map(role => role.id);
-        return config.admin_roles.some(roleId => userRoles.includes(roleId));
+        const userRoles = interaction.member.roles.cache.map((role) => role.id);
+        return config.admin_roles.some((roleId) => userRoles.includes(roleId));
       }
     } catch (error) {
       console.error('Error checking admin roles:', error.message);
@@ -39,8 +42,8 @@ async function checkMovieModeratorPermission(interaction) {
     try {
       const config = await database.getGuildConfig(interaction.guild.id);
       if (config && config.moderator_roles && config.moderator_roles.length > 0) {
-        const userRoles = interaction.member.roles.cache.map(role => role.id);
-        return config.moderator_roles.some(roleId => userRoles.includes(roleId));
+        const userRoles = interaction.member.roles.cache.map((role) => role.id);
+        return config.moderator_roles.some((roleId) => userRoles.includes(roleId));
       }
     } catch (error) {
       console.error('Error checking moderator roles:', error.message);
@@ -86,28 +89,40 @@ function hasSendMessagesPermission(member) {
   return member.permissions.has(PermissionFlagsBits.SendMessages);
 }
 
-
 async function canMemberVote(guildId, member) {
   try {
     // Admin-like perms: Administrator or Manage Guild
-    if (member?.permissions?.has(PermissionFlagsBits.Administrator) || member?.permissions?.has(PermissionFlagsBits.ManageGuild)) {
+    if (
+      member?.permissions?.has(PermissionFlagsBits.Administrator) ||
+      member?.permissions?.has(PermissionFlagsBits.ManageGuild)
+    ) {
       return true;
     }
     if (!database.isConnected) return false;
     const config = await database.getGuildConfig(guildId);
-    const userRoles = member?.roles?.cache?.map(r => r.id) || [];
+    const userRoles = member?.roles?.cache?.map((r) => r.id) || [];
 
     // Configured admin/moderator roles
-    if (Array.isArray(config?.admin_roles) && config.admin_roles.some(id => userRoles.includes(id))) return true;
-    if (Array.isArray(config?.moderator_roles) && config.moderator_roles.some(id => userRoles.includes(id))) return true;
+    if (
+      Array.isArray(config?.admin_roles) &&
+      config.admin_roles.some((id) => userRoles.includes(id))
+    )
+      return true;
+    if (
+      Array.isArray(config?.moderator_roles) &&
+      config.moderator_roles.some((id) => userRoles.includes(id))
+    )
+      return true;
 
     // Voting Roles
-    const voterRoles = Array.isArray(config?.voting_roles) ? config.voting_roles.map(String).filter(Boolean) : [];
+    const voterRoles = Array.isArray(config?.voting_roles)
+      ? config.voting_roles.map(String).filter(Boolean)
+      : [];
     if (voterRoles.length === 0) {
       // Option B: enforce configuration; without configured Voting Roles, only mods/admins may vote
       return false;
     }
-    return voterRoles.some(id => userRoles.includes(id));
+    return voterRoles.some((id) => userRoles.includes(id));
   } catch (_) {
     return false;
   }
@@ -125,5 +140,5 @@ module.exports = {
   hasCreateThreadsPermission,
   hasSendMessagesPermission,
   checkCanVote,
-  canMemberVote
+  canMemberVote,
 };

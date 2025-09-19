@@ -9,9 +9,15 @@ const { GuildScheduledEventEntityType, GuildScheduledEventPrivacyLevel } = requi
 function buildEventTitle(sessionData) {
   try {
     const raw = String(sessionData?.name || 'Movie Night');
-    const chunks = raw.split(' - ').map(s => s.trim()).filter(Boolean);
+    const chunks = raw
+      .split(' - ')
+      .map((s) => s.trim())
+      .filter(Boolean);
 
-    const isDateLike = (s) => /(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec|\b\d{1,2}:\d{2}\b|\b\d{4}\b|am|pm)/i.test(s);
+    const isDateLike = (s) =>
+      /(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec|\b\d{1,2}:\d{2}\b|\b\d{4}\b|am|pm)/i.test(
+        s
+      );
 
     let keep;
     if (chunks.length === 0) keep = 'Movie Night';
@@ -38,7 +44,10 @@ async function createDiscordEvent(guild, sessionData, scheduledDate) {
     if (sessionData.associatedMovieId) {
       try {
         const database = require('../database');
-        const movie = await database.getMovieById(sessionData.associatedMovieId, sessionData.guildId);
+        const movie = await database.getMovieById(
+          sessionData.associatedMovieId,
+          sessionData.guildId
+        );
 
         if (movie && movie.imdb_id) {
           const imdb = require('./imdb');
@@ -50,7 +59,9 @@ async function createDiscordEvent(guild, sessionData, scheduledDate) {
             if (runtimeMatch) {
               const movieRuntime = parseInt(runtimeMatch[1]);
               durationMinutes = movieRuntime + 30; // Movie runtime + 30 minutes buffer
-              console.log(`📽️ Using movie runtime: ${movieRuntime} min + 30 min buffer = ${durationMinutes} min total`);
+              console.log(
+                `📽️ Using movie runtime: ${movieRuntime} min + 30 min buffer = ${durationMinutes} min total`
+              );
             }
           }
         }
@@ -62,7 +73,8 @@ async function createDiscordEvent(guild, sessionData, scheduledDate) {
     endTime.setMinutes(endTime.getMinutes() + durationMinutes);
 
     // Create enhanced description with voting info and channel link
-    const baseDescription = sessionData.description || "It’s Movie Night! Cast your vote and join us for the screening.";
+    const baseDescription =
+      sessionData.description || 'It’s Movie Night! Cast your vote and join us for the screening.';
     let enhancedDescription = baseDescription;
 
     // Add voting information if available
@@ -106,7 +118,7 @@ async function createDiscordEvent(guild, sessionData, scheduledDate) {
       description: enhancedDescription,
       scheduledStartTime: scheduledDate,
       scheduledEndTime: endTime,
-      privacyLevel: GuildScheduledEventPrivacyLevel.GuildOnly
+      privacyLevel: GuildScheduledEventPrivacyLevel.GuildOnly,
     };
 
     // Use Watch Party Channel if configured, otherwise external event
@@ -119,11 +131,13 @@ async function createDiscordEvent(guild, sessionData, scheduledDate) {
           logger.debug(`📍 Found Watch Party Channel: ${channel.name} (${channel.type})`);
 
           // Use appropriate event type based on channel type
-          if (channel.type === 2) { // Voice channel
+          if (channel.type === 2) {
+            // Voice channel
             eventConfig.entityType = GuildScheduledEventEntityType.Voice;
             eventConfig.channel = config.watch_party_channel_id;
             logger.debug(`📍 Setting voice event in channel: #${channel.name}`);
-          } else if (channel.type === 13) { // Stage channel
+          } else if (channel.type === 13) {
+            // Stage channel
             eventConfig.entityType = GuildScheduledEventEntityType.StageInstance;
             eventConfig.channel = config.watch_party_channel_id;
             console.log(`📍 Setting stage event in channel: #${channel.name}`);
@@ -131,7 +145,7 @@ async function createDiscordEvent(guild, sessionData, scheduledDate) {
             // For text channels or other types, use external event with channel mention
             eventConfig.entityType = GuildScheduledEventEntityType.External;
             eventConfig.entityMetadata = {
-              location: `#${channel.name} - Movie Night Session`
+              location: `#${channel.name} - Movie Night Session`,
             };
             console.log(`📍 Setting external event with location: #${channel.name}`);
           }
@@ -139,18 +153,21 @@ async function createDiscordEvent(guild, sessionData, scheduledDate) {
           throw new Error('Channel not found');
         }
       } catch (error) {
-        console.warn(`📍 Error fetching Watch Party Channel ${config.watch_party_channel_id}:`, error.message);
+        console.warn(
+          `📍 Error fetching Watch Party Channel ${config.watch_party_channel_id}:`,
+          error.message
+        );
         // Fallback to external event
         eventConfig.entityType = GuildScheduledEventEntityType.External;
         eventConfig.entityMetadata = {
-          location: 'Movie Night Session - Check voting channel for details'
+          location: 'Movie Night Session - Check voting channel for details',
         };
         console.log(`📍 Using external event fallback`);
       }
     } else {
       eventConfig.entityType = GuildScheduledEventEntityType.External;
       eventConfig.entityMetadata = {
-        location: 'Movie Night Session - Check voting channel for details'
+        location: 'Movie Night Session - Check voting channel for details',
       };
       console.log(`📍 Using external event (no Watch Party Channel configured)`);
     }
@@ -158,7 +175,9 @@ async function createDiscordEvent(guild, sessionData, scheduledDate) {
     const event = await guild.scheduledEvents.create(eventConfig);
 
     const logger = require('../utils/logger');
-    logger.info(`✅ Created Discord event: ${event.name} (ID: ${event.id}) - Duration: ${durationMinutes} minutes`);
+    logger.info(
+      `✅ Created Discord event: ${event.name} (ID: ${event.id}) - Duration: ${durationMinutes} minutes`
+    );
 
     // Send notification to configured role
     await notifyRole(guild, event, sessionData);
@@ -181,28 +200,38 @@ async function updateDiscordEvent(guild, eventId, sessionData, scheduledDate) {
     const database = require('../database');
     const config = await database.getGuildConfig(guild.id);
 
-    const baseDescription = sessionData.description || 'Join us for movie night voting and viewing!';
+    const baseDescription =
+      sessionData.description || 'Join us for movie night voting and viewing!';
     let enhancedDescription = baseDescription;
 
     // Enrich with IMDb details when available
     try {
       if (sessionData.associatedMovieId) {
-        const movie = await database.getMovieById(sessionData.associatedMovieId, sessionData.guildId);
+        const movie = await database.getMovieById(
+          sessionData.associatedMovieId,
+          sessionData.guildId
+        );
         if (movie && movie.imdb_id) {
           const imdb = require('./imdb');
           const imdbData = await imdb.getMovieDetailsCached(movie.imdb_id);
           if (imdbData) {
             const parts = [];
             if (imdbData.Year && imdbData.Year !== 'N/A') parts.push(`📅 Year: ${imdbData.Year}`);
-            if (imdbData.Runtime && imdbData.Runtime !== 'N/A') parts.push(`⏱️ Runtime: ${imdbData.Runtime}`);
-            if (imdbData.Genre && imdbData.Genre !== 'N/A') parts.push(`🎬 Genre: ${imdbData.Genre}`);
-            if (imdbData.imdbRating && imdbData.imdbRating !== 'N/A') parts.push(`⭐ IMDb: ${imdbData.imdbRating}/10`);
+            if (imdbData.Runtime && imdbData.Runtime !== 'N/A')
+              parts.push(`⏱️ Runtime: ${imdbData.Runtime}`);
+            if (imdbData.Genre && imdbData.Genre !== 'N/A')
+              parts.push(`🎬 Genre: ${imdbData.Genre}`);
+            if (imdbData.imdbRating && imdbData.imdbRating !== 'N/A')
+              parts.push(`⭐ IMDb: ${imdbData.imdbRating}/10`);
             if (parts.length) enhancedDescription += `\n\n${parts.join(' \n')}`;
-            if (imdbData.Plot && imdbData.Plot !== 'N/A') enhancedDescription += `\n\n📖 ${imdbData.Plot}`;
+            if (imdbData.Plot && imdbData.Plot !== 'N/A')
+              enhancedDescription += `\n\n📖 ${imdbData.Plot}`;
           }
         }
       }
-    } catch (_) { /* optional enrichment */ }
+    } catch (_) {
+      /* optional enrichment */
+    }
 
     if (sessionData.votingEndTime) {
       const votingEndTimestamp = Math.floor(sessionData.votingEndTime.getTime() / 1000);
@@ -215,7 +244,10 @@ async function updateDiscordEvent(guild, eventId, sessionData, scheduledDate) {
       enhancedDescription += `\n\n👉 Join the conversation and vote for your favorite movie in <#${config.movie_channel_id}>!`;
     }
 
-    const effectiveStart = scheduledDate || event.scheduledStartAt || (event.scheduledStartTimestamp ? new Date(event.scheduledStartTimestamp) : null);
+    const effectiveStart =
+      scheduledDate ||
+      event.scheduledStartAt ||
+      (event.scheduledStartTimestamp ? new Date(event.scheduledStartTimestamp) : null);
 
     // Ensure end time is after start time to avoid API error. Use default 150 minutes when runtime unknown.
     let durationMinutes = 150;
@@ -225,19 +257,25 @@ async function updateDiscordEvent(guild, eventId, sessionData, scheduledDate) {
         const m = event.description.match(/Runtime:\s*(\d+)\s*min/i);
         if (m) durationMinutes = parseInt(m[1], 10) + 30; // keep 30 min buffer
       }
-    } catch (_) { /* keep default */ }
-    const newEnd = effectiveStart ? new Date(new Date(effectiveStart).getTime() + durationMinutes * 60000) : event.scheduledEndAt;
+    } catch (_) {
+      /* keep default */
+    }
+    const newEnd = effectiveStart
+      ? new Date(new Date(effectiveStart).getTime() + durationMinutes * 60000)
+      : event.scheduledEndAt;
 
     if (effectiveStart) {
       const startTs = Math.floor(new Date(effectiveStart).getTime() / 1000);
       enhancedDescription += `\n🎬 **Session starts:** <t:${startTs}:F> • <t:${startTs}:R>`;
     }
-    const startTimeStr2 = effectiveStart ? new Date(effectiveStart).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'TBD';
+    const _startTimeStr2 = effectiveStart
+      ? new Date(effectiveStart).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+      : 'TBD';
     await event.edit({
       name: buildEventTitle(sessionData),
       description: enhancedDescription,
       scheduledStartTime: effectiveStart || event.scheduledStartAt,
-      scheduledEndTime: newEnd
+      scheduledEndTime: newEnd,
     });
 
     console.log(`✅ Updated Discord event: ${event.name} (ID: ${event.id})`);
@@ -288,17 +326,21 @@ async function notifyRole(guild, event, sessionData) {
       if (movieChannel && movieChannel.type === 0 && movieChannel.send) {
         notificationChannel = movieChannel;
       }
-    // If the configured movie channel is a forum, skip sending the notification message entirely
-    try {
-      const forumChannels = require('./forum-channels');
-      const movieChannelForCheck = guildConfig && guildConfig.movie_channel_id ? guild.channels.cache.get(guildConfig.movie_channel_id) : null;
-      if (movieChannelForCheck && forumChannels.isForumChannel(movieChannelForCheck)) {
-        const logger = require('../utils/logger');
-        logger.debug('📢 Skipping event notification message in forum mode');
-        return;
+      // If the configured movie channel is a forum, skip sending the notification message entirely
+      try {
+        const forumChannels = require('./forum-channels');
+        const movieChannelForCheck =
+          guildConfig && guildConfig.movie_channel_id
+            ? guild.channels.cache.get(guildConfig.movie_channel_id)
+            : null;
+        if (movieChannelForCheck && forumChannels.isForumChannel(movieChannelForCheck)) {
+          const logger = require('../utils/logger');
+          logger.debug('📢 Skipping event notification message in forum mode');
+          return;
+        }
+      } catch (_) {
+        /* no-op */
       }
-    } catch (_) {/* no-op */}
-
     }
 
     // If movie channel is forum or not suitable, try admin channel
@@ -321,19 +363,21 @@ async function notifyRole(guild, event, sessionData) {
 
     // Last resort: find any suitable text channel (avoid general if possible)
     if (!notificationChannel) {
-      notificationChannel = guild.channels.cache.find(channel =>
-        channel.type === 0 && // TEXT channel only
-        channel.send && // Has send method
-        channel.permissionsFor(guild.members.me).has(['SendMessages', 'ViewChannel']) &&
-        !channel.name.toLowerCase().includes('general') // Avoid general channel
+      notificationChannel = guild.channels.cache.find(
+        (channel) =>
+          channel.type === 0 && // TEXT channel only
+          channel.send && // Has send method
+          channel.permissionsFor(guild.members.me).has(['SendMessages', 'ViewChannel']) &&
+          !channel.name.toLowerCase().includes('general') // Avoid general channel
       );
 
       // If no non-general channel found, use general as last resort
       if (!notificationChannel) {
-        notificationChannel = guild.channels.cache.find(channel =>
-          channel.type === 0 && // TEXT channel only
-          channel.send && // Has send method
-          channel.permissionsFor(guild.members.me).has(['SendMessages', 'ViewChannel'])
+        notificationChannel = guild.channels.cache.find(
+          (channel) =>
+            channel.type === 0 && // TEXT channel only
+            channel.send && // Has send method
+            channel.permissionsFor(guild.members.me).has(['SendMessages', 'ViewChannel'])
         );
       }
     }
@@ -359,14 +403,14 @@ async function notifyRole(guild, event, sessionData) {
       embed.addFields({
         name: '📅 When',
         value: `<t:${Math.floor(sessionData.scheduledDate.getTime() / 1000)}:F>`,
-        inline: false
+        inline: false,
       });
     }
 
-    const mentions = notifyRoleIds.map(id => `<@&${id}>`).join(' ');
+    const mentions = notifyRoleIds.map((id) => `<@&${id}>`).join(' ');
     await notificationChannel.send({
       content: `${mentions} 🍿`,
-      embeds: [embed]
+      embeds: [embed],
     });
 
     const logger = require('../utils/logger');
@@ -385,7 +429,6 @@ async function notifyRole(guild, event, sessionData) {
         }
       }, 2000); // 2 second delay to ensure notification is fully sent
     }
-
   } catch (error) {
     console.error('Error notifying role about event:', error);
     // Don't fail event creation if notification fails
@@ -404,7 +447,7 @@ async function syncDiscordEventsWithDatabase(guild) {
 
     // Get all sessions from database
     const sessions = await database.getAllSessions(guild.id);
-    const sessionMap = new Map(sessions.map(s => [s.id, s]));
+    const sessionMap = new Map(sessions.map((s) => [s.id, s]));
 
     let syncedCount = 0;
     let deletedCount = 0;
@@ -419,7 +462,9 @@ async function syncDiscordEventsWithDatabase(guild) {
 
         if (!session) {
           // Session was deleted from database but Discord event still exists
-          logger.info(`🗑️ Deleting orphaned Discord event: ${event.name} (Session ${sessionId} not found)`);
+          logger.info(
+            `🗑️ Deleting orphaned Discord event: ${event.name} (Session ${sessionId} not found)`
+          );
 
           try {
             await event.delete();
@@ -447,15 +492,20 @@ async function syncDiscordEventsWithDatabase(guild) {
         console.log(`🔧 Found event with SESSION_UID:unknown: ${event.name}`);
 
         // Try to find the session by event ID in database
-        const sessionWithEvent = sessions.find(s => s.discord_event_id === eventId);
+        const sessionWithEvent = sessions.find((s) => s.discord_event_id === eventId);
         if (sessionWithEvent) {
-          const fixedDescription = event.description.replace('SESSION_UID:unknown', `SESSION_UID:${sessionWithEvent.id}`);
+          const fixedDescription = event.description.replace(
+            'SESSION_UID:unknown',
+            `SESSION_UID:${sessionWithEvent.id}`
+          );
 
           try {
             await event.edit({
-              description: fixedDescription
+              description: fixedDescription,
             });
-            console.log(`✅ Fixed SESSION_UID for event ${event.name} -> SESSION_UID:${sessionWithEvent.id}`);
+            console.log(
+              `✅ Fixed SESSION_UID for event ${event.name} -> SESSION_UID:${sessionWithEvent.id}`
+            );
             syncedCount++;
           } catch (editError) {
             console.warn(`Failed to fix SESSION_UID for event ${eventId}:`, editError.message);
@@ -464,9 +514,10 @@ async function syncDiscordEventsWithDatabase(guild) {
       }
     }
 
-    logger.info(`✅ Discord event sync complete: ${syncedCount} synced, ${deletedCount} orphaned events deleted`);
+    logger.info(
+      `✅ Discord event sync complete: ${syncedCount} synced, ${deletedCount} orphaned events deleted`
+    );
     return { syncedCount, deletedCount };
-
   } catch (error) {
     console.error('Error syncing Discord events with database:', error);
     return { syncedCount: 0, deletedCount: 0 };
@@ -477,5 +528,5 @@ module.exports = {
   createDiscordEvent,
   updateDiscordEvent,
   deleteDiscordEvent,
-  syncDiscordEventsWithDatabase
+  syncDiscordEventsWithDatabase,
 };

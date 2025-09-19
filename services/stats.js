@@ -32,7 +32,7 @@ async function handleMovieStats(interaction) {
     console.error('Error showing movie stats:', error);
     await interaction.reply({
       content: '❌ Failed to retrieve statistics.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -78,7 +78,7 @@ async function showOverviewStats(interaction) {
     .setTimestamp();
 
   await ephemeralManager.sendEphemeral(interaction, '', {
-    embeds: [embed]
+    embeds: [embed],
   });
 }
 
@@ -88,7 +88,7 @@ async function showTopMovies(interaction) {
   if (!topMovies || topMovies.length === 0) {
     await interaction.reply({
       content: '📊 No movies with votes found yet!',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -103,13 +103,13 @@ async function showTopMovies(interaction) {
     embed.addFields({
       name: `${medal} ${movie.title}`,
       value: `👍 ${movie.upvotes} 👎 ${movie.downvotes} • Score: ${movie.score} • <@${movie.recommended_by}>`,
-      inline: false
+      inline: false,
     });
   });
 
   await interaction.reply({
     embeds: [embed],
-    flags: MessageFlags.Ephemeral
+    flags: MessageFlags.Ephemeral,
   });
 }
 
@@ -120,7 +120,7 @@ async function showUserStats(interaction, user) {
   if (!userStats) {
     await interaction.reply({
       content: `📊 No statistics found for ${targetUser.displayName || targetUser.username}.`,
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -130,14 +130,22 @@ async function showUserStats(interaction, user) {
     .setThumbnail(targetUser.displayAvatarURL())
     .setColor(0x5865f2)
     .addFields(
-      { name: '🍿 Movies Recommended', value: userStats.moviesRecommended.toString(), inline: true },
+      {
+        name: '🍿 Movies Recommended',
+        value: userStats.moviesRecommended.toString(),
+        inline: true,
+      },
       { name: '✅ Movies Watched', value: userStats.moviesWatched.toString(), inline: true },
       { name: '📌 Movies Planned', value: userStats.moviesPlanned.toString(), inline: true },
       { name: '🗳️ Total Votes Cast', value: userStats.totalVotes.toString(), inline: true },
       { name: '👍 Upvotes Given', value: userStats.upvotesGiven.toString(), inline: true },
       { name: '👎 Downvotes Given', value: userStats.downvotesGiven.toString(), inline: true },
       { name: '⬆️ Upvotes Received', value: userStats.upvotesReceived.toString(), inline: true },
-      { name: '⬇️ Downvotes Received', value: userStats.downvotesReceived.toString(), inline: true },
+      {
+        name: '⬇️ Downvotes Received',
+        value: userStats.downvotesReceived.toString(),
+        inline: true,
+      },
       { name: '🎪 Sessions Created', value: userStats.sessionsCreated.toString(), inline: true }
     )
     .setFooter({ text: `Stats for ${interaction.guild.name}` })
@@ -145,7 +153,7 @@ async function showUserStats(interaction, user) {
 
   await interaction.reply({
     embeds: [embed],
-    flags: MessageFlags.Ephemeral
+    flags: MessageFlags.Ephemeral,
   });
 }
 
@@ -155,7 +163,7 @@ async function showMonthlyStats(interaction) {
   if (!monthlyStats || monthlyStats.length === 0) {
     await interaction.reply({
       content: '📊 No monthly statistics available yet!',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -165,17 +173,17 @@ async function showMonthlyStats(interaction) {
     .setDescription('Movie recommendations and activity by month')
     .setColor(0x5865f2);
 
-  monthlyStats.forEach(month => {
+  monthlyStats.forEach((month) => {
     embed.addFields({
       name: `${month.month_name} ${month.year}`,
       value: `🍿 ${month.movies_added} movies • ✅ ${month.movies_watched} watched • 🗳️ ${month.total_votes} votes`,
-      inline: false
+      inline: false,
     });
   });
 
   await interaction.reply({
     embeds: [embed],
-    flags: MessageFlags.Ephemeral
+    flags: MessageFlags.Ephemeral,
   });
 }
 
@@ -184,5 +192,5 @@ module.exports = {
   showOverviewStats,
   showTopMovies,
   showUserStats,
-  showMonthlyStats
+  showMonthlyStats,
 };

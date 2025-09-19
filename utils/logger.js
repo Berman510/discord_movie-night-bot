@@ -7,15 +7,15 @@ const LOG_LEVELS = {
   ERROR: 0,
   WARN: 1,
   INFO: 2,
-  DEBUG: 3
+  DEBUG: 3,
 };
 
 const LOG_COLORS = {
   ERROR: '\x1b[31m', // Red
-  WARN: '\x1b[33m',  // Yellow
-  INFO: '\x1b[36m',  // Cyan
+  WARN: '\x1b[33m', // Yellow
+  INFO: '\x1b[36m', // Cyan
   DEBUG: '\x1b[35m', // Magenta
-  RESET: '\x1b[0m'   // Reset
+  RESET: '\x1b[0m', // Reset
 };
 
 class Logger {

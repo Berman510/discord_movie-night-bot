@@ -12,5 +12,5 @@ module.exports = {
   embeds: embedBuilders,
   components: componentBuilders,
   formatters: formatters,
-  constants: constants
+  constants: constants,
 };

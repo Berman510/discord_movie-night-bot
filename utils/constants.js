@@ -21,14 +21,17 @@ if (!global.sessionCreationState) {
 const PAYLOAD_TTL = 15 * 60 * 1000;
 
 function startPayloadCleanup() {
-  setInterval(() => {
-    const now = Date.now();
-    for (const [key, payload] of pendingPayloads.entries()) {
-      if (now - payload.createdAt > PAYLOAD_TTL) {
-        pendingPayloads.delete(key);
+  setInterval(
+    () => {
+      const now = Date.now();
+      for (const [key, payload] of pendingPayloads.entries()) {
+        if (now - payload.createdAt > PAYLOAD_TTL) {
+          pendingPayloads.delete(key);
+        }
       }
-    }
-  }, 5 * 60 * 1000); // Check every 5 minutes
+    },
+    5 * 60 * 1000
+  ); // Check every 5 minutes
 }
 
 // Bot version from package.json
@@ -39,13 +42,13 @@ const STATUS_EMOJIS = {
   pending: '🍿',
   planned: '📌',
   watched: '✅',
-  skipped: '⏭️'
+  skipped: '⏭️',
 };
 
 // Vote emojis
 const VOTE_EMOJIS = {
   up: '👍',
-  down: '👎'
+  down: '👎',
 };
 
 // Color scheme
@@ -57,7 +60,7 @@ const COLORS = {
   pending: 0x5865f2,
   planned: 0xfee75c,
   watched: 0x57f287,
-  skipped: 0x99aab5
+  skipped: 0x99aab5,
 };
 
 module.exports = {
@@ -69,5 +72,5 @@ module.exports = {
   STATUS_EMOJIS,
   VOTE_EMOJIS,
   COLORS,
-  PAYLOAD_TTL
+  PAYLOAD_TTL,
 };

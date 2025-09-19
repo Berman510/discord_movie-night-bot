@@ -3,7 +3,14 @@
  * Handles all select menu interactions
  */
 
-const { MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
+const {
+  MessageFlags,
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  StringSelectMenuBuilder,
+} = require('discord.js');
 const database = require('../database');
 const { TIMEZONE_OPTIONS } = require('../config/timezones');
 const guidedSetup = require('../services/guided-setup');
@@ -25,7 +32,7 @@ async function handleSelect(interaction) {
       // Create a mock interaction with the selected channel
       const mockInteraction = Object.create(interaction);
       mockInteraction.options = {
-        getChannel: () => channel
+        getChannel: () => channel,
       };
 
       await configuration.configureMovieChannel(mockInteraction, interaction.guild.id);
@@ -40,7 +47,7 @@ async function handleSelect(interaction) {
       // Create a mock interaction with the selected channel
       const mockInteraction = Object.create(interaction);
       mockInteraction.options = {
-        getChannel: () => channel
+        getChannel: () => channel,
       };
 
       await configuration.configureAdminChannel(mockInteraction, interaction.guild.id);
@@ -55,7 +62,7 @@ async function handleSelect(interaction) {
       // Create a mock interaction with the selected channel
       const mockInteraction = Object.create(interaction);
       mockInteraction.options = {
-        getChannel: () => channel
+        getChannel: () => channel,
       };
 
       await configuration.configureWatchPartyChannel(mockInteraction, interaction.guild.id);
@@ -65,15 +72,20 @@ async function handleSelect(interaction) {
       const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
       const roleIds = interaction.values;
       await database.setVotingRoles(interaction.guild.id, roleIds);
-      const names = roleIds.map(id => `<@&${id}>`).join(', ');
+      const names = roleIds.map((id) => `<@&${id}>`).join(', ');
       const back = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('open_configuration').setLabel('⬅ Back').setStyle(ButtonStyle.Secondary)
+        new ButtonBuilder()
+          .setCustomId('open_configuration')
+          .setLabel('⬅ Back')
+          .setStyle(ButtonStyle.Secondary)
       );
-      await interaction.update({ content: `✅ Voting roles set: ${names || 'None'}`, embeds: [], components: [back] });
+      await interaction.update({
+        content: `✅ Voting roles set: ${names || 'None'}`,
+        embeds: [],
+        components: [back],
+      });
       return;
     }
-
-
 
     // Timezone selection for session creation
     if (customId === 'session_timezone_selected') {
@@ -121,16 +133,17 @@ async function handleSelect(interaction) {
     console.warn(`Unknown select menu interaction: ${customId}`);
     await interaction.reply({
       content: '❌ Unknown select menu interaction.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
-
   } catch (error) {
     console.error('Error handling select interaction:', error);
     if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({
-        content: '❌ An error occurred while processing the selection.',
-        flags: MessageFlags.Ephemeral
-      }).catch(console.error);
+      await interaction
+        .reply({
+          content: '❌ An error occurred while processing the selection.',
+          flags: MessageFlags.Ephemeral,
+        })
+        .catch(console.error);
     }
   }
 }
@@ -146,8 +159,9 @@ async function handleDeepPurgeSelection(interaction) {
   const hasPermission = await permissions.checkMovieAdminPermission(interaction);
   if (!hasPermission) {
     await interaction.reply({
-      content: '❌ You need Administrator permissions or a configured admin role to use this action.',
-      flags: MessageFlags.Ephemeral
+      content:
+        '❌ You need Administrator permissions or a configured admin role to use this action.',
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -159,13 +173,12 @@ async function handleDeepPurgeSelection(interaction) {
     const modal = deepPurge.createConfirmationModal(selectedCategories);
 
     await interaction.showModal(modal);
-
   } catch (error) {
     console.error('Error handling deep purge selection:', error);
     if (!interaction.replied && !interaction.deferred) {
       await interaction.reply({
         content: '❌ An error occurred while preparing the deep purge confirmation.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
     }
   }
@@ -182,8 +195,9 @@ async function handleDeepPurgeCategorySelection(interaction) {
   const hasPermission = await permissions.checkMovieAdminPermission(interaction);
   if (!hasPermission) {
     await interaction.reply({
-      content: '❌ You need Administrator permissions or a configured admin role to use this action.',
-      flags: MessageFlags.Ephemeral
+      content:
+        '❌ You need Administrator permissions or a configured admin role to use this action.',
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -201,15 +215,14 @@ async function handleDeepPurgeCategorySelection(interaction) {
 
     await interaction.update({
       embeds: [embed],
-      components: components
+      components: components,
     });
-
   } catch (error) {
     console.error('Error handling deep purge category selection:', error);
     if (!interaction.replied && !interaction.deferred) {
       await interaction.reply({
         content: '❌ An error occurred while updating the selection.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
     }
   }
@@ -217,7 +230,8 @@ async function handleDeepPurgeCategorySelection(interaction) {
 
 async function handleSessionTimezoneSelection(interaction) {
   const selectedTimezone = interaction.values[0];
-  const timezoneName = TIMEZONE_OPTIONS.find(tz => tz.value === selectedTimezone)?.label || selectedTimezone;
+  const timezoneName =
+    TIMEZONE_OPTIONS.find((tz) => tz.value === selectedTimezone)?.label || selectedTimezone;
 
   // Store timezone selection in session state
   if (!global.sessionCreationState) {
@@ -287,7 +301,9 @@ async function showMovieSelection(interaction, state) {
 
     const embed = new EmbedBuilder()
       .setTitle('🎬 Create Movie Night Session')
-      .setDescription('**Step 4:** Choose a movie for your session\n\n*Select a movie to feature in this session, or create a general session*')
+      .setDescription(
+        '**Step 4:** Choose a movie for your session\n\n*Select a movie to feature in this session, or create a general session*'
+      )
       .setColor(0x5865f2)
       .addFields(
         { name: '📅 Selected Date', value: state.dateDisplay, inline: true },
@@ -302,7 +318,7 @@ async function showMovieSelection(interaction, state) {
     movieOptions.push({
       label: '📝 No Specific Movie (General Session)',
       value: 'no_movie',
-      description: 'Create a general movie night session'
+      description: 'Create a general movie night session',
     });
 
     // Add top-voted movie if available
@@ -310,29 +326,33 @@ async function showMovieSelection(interaction, state) {
       movieOptions.push({
         label: `🏆 ${topMovie.title} (Top Voted)`,
         value: `movie_${topMovie.message_id}`,
-        description: `${topMovie.where_to_watch} • ${topMovie.upvotes || 0}👍 ${topMovie.downvotes || 0}👎`
+        description: `${topMovie.where_to_watch} • ${topMovie.upvotes || 0}👍 ${topMovie.downvotes || 0}👎`,
       });
     }
 
     // Add planned movies
-    plannedMovies.forEach(movie => {
-      if (movieOptions.length < 25) { // Discord limit
+    plannedMovies.forEach((movie) => {
+      if (movieOptions.length < 25) {
+        // Discord limit
         movieOptions.push({
           label: `📌 ${movie.title} (Planned)`,
           value: `movie_${movie.message_id}`,
-          description: `${movie.where_to_watch} • Planned for later`
+          description: `${movie.where_to_watch} • Planned for later`,
         });
       }
     });
 
     // Add pending movies (if space)
-    pendingMovies.forEach(movie => {
-      if (movieOptions.length < 25 && !movieOptions.find(opt => opt.value === `movie_${movie.message_id}`)) {
+    pendingMovies.forEach((movie) => {
+      if (
+        movieOptions.length < 25 &&
+        !movieOptions.find((opt) => opt.value === `movie_${movie.message_id}`)
+      ) {
         const score = (movie.upvotes || 0) - (movie.downvotes || 0);
         movieOptions.push({
           label: `🍿 ${movie.title} (Pending)`,
           value: `movie_${movie.message_id}`,
-          description: `${movie.where_to_watch} • Score: ${score > 0 ? '+' : ''}${score}`
+          description: `${movie.where_to_watch} • Score: ${score > 0 ? '+' : ''}${score}`,
         });
       }
     });
@@ -342,23 +362,21 @@ async function showMovieSelection(interaction, state) {
       embed.addFields({
         name: '🎬 Available Movies',
         value: 'No movies found in queue. You can create a general session and add movies later.',
-        inline: false
+        inline: false,
       });
     }
 
-    const movieSelect = new ActionRowBuilder()
-      .addComponents(
-        new StringSelectMenuBuilder()
-          .setCustomId('session_movie_selected')
-          .setPlaceholder('Choose a movie for your session...')
-          .addOptions(movieOptions.slice(0, 25)) // Discord limit
-      );
+    const movieSelect = new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId('session_movie_selected')
+        .setPlaceholder('Choose a movie for your session...')
+        .addOptions(movieOptions.slice(0, 25)) // Discord limit
+    );
 
     await interaction.update({
       embeds: [embed],
-      components: [movieSelect]
+      components: [movieSelect],
     });
-
   } catch (error) {
     console.error('Error showing movie selection:', error);
     // Fallback to session details if movie selection fails
@@ -369,7 +387,9 @@ async function showMovieSelection(interaction, state) {
 async function showSessionDetailsModal(interaction, state) {
   const embed = new EmbedBuilder()
     .setTitle('🎬 Create Movie Night Session')
-    .setDescription('**Step 5:** Enter session details\n\n*Almost done! Just add a name and description for your session.*')
+    .setDescription(
+      '**Step 5:** Enter session details\n\n*Almost done! Just add a name and description for your session.*'
+    )
     .setColor(0x57f287) // Green to show progress
     .addFields(
       { name: '📅 Selected Date', value: state.dateDisplay, inline: true },
@@ -382,32 +402,32 @@ async function showSessionDetailsModal(interaction, state) {
     embed.addFields({
       name: '🎬 Featured Movie',
       value: state.movieDisplay || 'Movie selected',
-      inline: false
+      inline: false,
     });
   }
 
-  const createButton = new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId('session_create_final')
-        .setLabel('📝 Enter Session Details')
-        .setStyle(ButtonStyle.Success)
-        .setEmoji('📝'),
-      new ButtonBuilder()
-        .setCustomId('session_back_to_movie')
-        .setLabel('🔄 Change Movie')
-        .setStyle(ButtonStyle.Secondary)
-    );
+  const createButton = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('session_create_final')
+      .setLabel('📝 Enter Session Details')
+      .setStyle(ButtonStyle.Success)
+      .setEmoji('📝'),
+    new ButtonBuilder()
+      .setCustomId('session_back_to_movie')
+      .setLabel('🔄 Change Movie')
+      .setStyle(ButtonStyle.Secondary)
+  );
 
   await interaction.update({
     embeds: [embed],
-    components: [createButton]
+    components: [createButton],
   });
 }
 
 async function handleConfigTimezoneSelection(interaction) {
   const selectedTimezone = interaction.values[0];
-  const timezoneName = TIMEZONE_OPTIONS.find(tz => tz.value === selectedTimezone)?.label || selectedTimezone;
+  const timezoneName =
+    TIMEZONE_OPTIONS.find((tz) => tz.value === selectedTimezone)?.label || selectedTimezone;
 
   const success = await database.setGuildTimezone(interaction.guild.id, selectedTimezone);
 
@@ -415,13 +435,13 @@ async function handleConfigTimezoneSelection(interaction) {
     await interaction.update({
       content: `🌍 **Timezone Updated!**\n\nDefault timezone set to **${timezoneName}**\n\nThis will be used for movie sessions when users don't specify a timezone.`,
       embeds: [],
-      components: []
+      components: [],
     });
   } else {
     await interaction.update({
       content: '❌ Failed to update timezone. Please try again.',
       embeds: [],
-      components: []
+      components: [],
     });
   }
 }
@@ -432,7 +452,7 @@ async function handleImdbSelection(interaction) {
 
   await interaction.reply({
     content: 'IMDb selection processed.',
-    flags: MessageFlags.Ephemeral
+    flags: MessageFlags.Ephemeral,
   });
 }
 
@@ -478,5 +498,5 @@ async function handleGuidedSetupSelect(interaction, customId) {
 
 module.exports = {
   handleSelect,
-  showMovieSelection
+  showMovieSelection,
 };

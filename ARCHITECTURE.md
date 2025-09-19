@@ -43,6 +43,7 @@ discord_movie-night-bot/
 ## 🏗️ Architecture Principles
 
 ### 1. **Separation of Concerns**
+
 - **Commands**: Define slash command structure and options
 - **Handlers**: Process user interactions (buttons, modals, selects)
 - **Services**: Contain business logic and external API calls
@@ -50,12 +51,14 @@ discord_movie-night-bot/
 - **Config**: Store configuration data
 
 ### 2. **Modular Design**
+
 - Each module has a single responsibility
 - Clear interfaces between modules
 - Easy to test individual components
 - Facilitates parallel development
 
 ### 3. **Centralized State Management**
+
 - Global state managed in `utils/constants.js`
 - Database operations centralized in `database.js`
 - Configuration centralized in `config/`
@@ -63,6 +66,7 @@ discord_movie-night-bot/
 ## 📋 Module Responsibilities
 
 ### **index.js** (Main Entry Point)
+
 - Bot initialization and login
 - Event handling setup
 - Command routing
@@ -70,18 +74,21 @@ discord_movie-night-bot/
 - ~200 lines (down from 2800+)
 
 ### **commands/** (Command Definitions)
+
 - Slash command structure definitions
 - Command options and choices
 - Command registration with Discord API
 - No business logic - just definitions
 
 ### **handlers/** (Interaction Processing)
+
 - Route interactions to appropriate handlers
 - Process button clicks, modal submissions, select menus
 - Handle voting interactions
 - Manage interaction state
 
 ### **services/** (Business Logic)
+
 - Core application logic
 - External API integrations (IMDb, Discord Events)
 - Session management
@@ -89,6 +96,7 @@ discord_movie-night-bot/
 - Timezone handling
 
 ### **utils/** (Shared Utilities)
+
 - Embed creation and formatting
 - UI component builders
 - Text formatting functions
@@ -96,6 +104,7 @@ discord_movie-night-bot/
 - Helper functions
 
 ### **config/** (Configuration)
+
 - Static configuration data
 - Timezone definitions
 - Default settings
@@ -130,6 +139,7 @@ With the modular structure, testing becomes much easier:
 ## 🚀 Development Benefits
 
 ### **Before Refactor**
+
 - ❌ Single 2800+ line file
 - ❌ Difficult to navigate and maintain
 - ❌ Hard to test individual features
@@ -137,6 +147,7 @@ With the modular structure, testing becomes much easier:
 - ❌ Tight coupling between components
 
 ### **After Refactor**
+
 - ✅ Logical separation into focused modules
 - ✅ Easy to find and modify specific functionality
 - ✅ Individual modules can be unit tested

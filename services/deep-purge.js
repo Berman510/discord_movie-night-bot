@@ -3,7 +3,16 @@
  * Comprehensive guild data removal system with confirmations and selective clearing
  */
 
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
+const {
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  StringSelectMenuBuilder,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+} = require('discord.js');
 const database = require('../database');
 
 /**
@@ -24,7 +33,7 @@ function createDeepPurgeSelectionEmbed(guildName) {
 • **Participants** - Session participant records
 • **Attendees** - Session attendance tracking
 • **Configuration** - Guild bot configuration`,
-        inline: false
+        inline: false,
       },
       {
         name: '⚠️ Important Notes',
@@ -32,7 +41,7 @@ function createDeepPurgeSelectionEmbed(guildName) {
 • Banned movies will also be removed
 • All historical data will be lost
 • Bot will need to be reconfigured after purge`,
-        inline: false
+        inline: false,
       }
     )
     .setFooter({ text: 'Select categories below, then confirm to proceed' })
@@ -55,38 +64,38 @@ function createDeepPurgeSelectionMenu(selectedCategories = []) {
         label: 'Movies',
         description: 'All movie recommendations and records',
         value: 'movies',
-        emoji: '🎬'
+        emoji: '🎬',
       },
       {
         label: 'Sessions',
         description: 'All movie sessions and events',
         value: 'sessions',
-        emoji: '🎪'
+        emoji: '🎪',
       },
       {
         label: 'Votes',
         description: 'All voting data',
         value: 'votes',
-        emoji: '🗳️'
+        emoji: '🗳️',
       },
       {
         label: 'Participants',
         description: 'Session participant records',
         value: 'participants',
-        emoji: '👥'
+        emoji: '👥',
       },
       {
         label: 'Attendees',
         description: 'Session attendance tracking',
         value: 'attendees',
-        emoji: '📊'
+        emoji: '📊',
       },
       {
         label: 'Configuration',
         description: 'Guild bot configuration',
         value: 'config',
-        emoji: '⚙️'
-      }
+        emoji: '⚙️',
+      },
     ]);
 
   // Update placeholder to show selected categories
@@ -97,16 +106,15 @@ function createDeepPurgeSelectionMenu(selectedCategories = []) {
       votes: 'Votes',
       participants: 'Participants',
       attendees: 'Attendees',
-      config: 'Configuration'
+      config: 'Configuration',
     };
-    const selectedNames = selectedCategories.map(cat => categoryNames[cat]).join(', ');
+    const selectedNames = selectedCategories.map((cat) => categoryNames[cat]).join(', ');
     selectMenu.setPlaceholder(`Selected: ${selectedNames} (click to change)`);
   }
 
   // Encode selected categories in the button ID for persistence
-  const encodedCategories = selectedCategories && selectedCategories.length > 0
-    ? selectedCategories.join(',')
-    : '';
+  const encodedCategories =
+    selectedCategories && selectedCategories.length > 0 ? selectedCategories.join(',') : '';
 
   const submitButton = new ButtonBuilder()
     .setCustomId(`deep_purge_submit:${encodedCategories}`)
@@ -130,7 +138,9 @@ function createDeepPurgeSelectionMenu(selectedCategories = []) {
 function updateSelectionDisplay(selectedCategories) {
   const embed = new EmbedBuilder()
     .setTitle('💥 Deep Purge - Select Categories')
-    .setDescription('⚠️ **WARNING: This will permanently delete selected data**\n\nSelect the categories you want to remove, then click the submit button.')
+    .setDescription(
+      '⚠️ **WARNING: This will permanently delete selected data**\n\nSelect the categories you want to remove, then click the submit button.'
+    )
     .setColor(0xed4245);
 
   if (selectedCategories && selectedCategories.length > 0) {
@@ -140,7 +150,7 @@ function updateSelectionDisplay(selectedCategories) {
       votes: '🗳️',
       participants: '👥',
       attendees: '📊',
-      config: '⚙️'
+      config: '⚙️',
     };
 
     const categoryNames = {
@@ -149,17 +159,17 @@ function updateSelectionDisplay(selectedCategories) {
       votes: 'Votes',
       participants: 'Participants',
       attendees: 'Attendees',
-      config: 'Configuration'
+      config: 'Configuration',
     };
 
-    const selectedList = selectedCategories.map(cat =>
-      `${categoryEmojis[cat]} **${categoryNames[cat]}**`
-    ).join('\n');
+    const selectedList = selectedCategories
+      .map((cat) => `${categoryEmojis[cat]} **${categoryNames[cat]}**`)
+      .join('\n');
 
     embed.addFields({
       name: `📋 Selected Categories (${selectedCategories.length})`,
       value: selectedList,
-      inline: false
+      inline: false,
     });
 
     embed.setFooter({ text: 'Click "Proceed with Deep Purge" to continue or "Cancel" to abort.' });
@@ -167,7 +177,7 @@ function updateSelectionDisplay(selectedCategories) {
     embed.addFields({
       name: '📋 No Categories Selected',
       value: 'Please select at least one category to purge.',
-      inline: false
+      inline: false,
     });
     embed.setFooter({ text: 'Select categories from the dropdown menu above.' });
   }
@@ -186,14 +196,14 @@ async function createConfirmationEmbed(guildId, guildName, selectedCategories) {
 
   // Get counts for selected categories
   const counts = await getDataCounts(guildId, selectedCategories);
-  
+
   const categoryDescriptions = {
     movies: 'Movie recommendations and records',
     sessions: 'Movie sessions and events',
     votes: 'Voting data',
     participants: 'Session participant records',
     attendees: 'Session attendance records',
-    config: 'Guild bot configuration'
+    config: 'Guild bot configuration',
   };
 
   const summaryLines = [];
@@ -209,7 +219,7 @@ async function createConfirmationEmbed(guildId, guildName, selectedCategories) {
     {
       name: '🗑️ Items to be deleted',
       value: summaryLines.join('\n') + `\n\n**Total: ${totalItems} items**`,
-      inline: false
+      inline: false,
     },
     {
       name: '⚠️ This action will',
@@ -217,7 +227,7 @@ async function createConfirmationEmbed(guildId, guildName, selectedCategories) {
 • **Cannot be undone** - no recovery possible
 • Require **bot reconfiguration** if config is deleted
 • **Remove all history** for selected categories`,
-      inline: false
+      inline: false,
     }
   );
 
@@ -235,7 +245,7 @@ async function getDataCounts(guildId, categories) {
 
   if (!database.isConnected) {
     // Return zero counts if database is not connected
-    categories.forEach(category => {
+    categories.forEach((category) => {
       counts[category] = 0;
     });
     return counts;
@@ -296,7 +306,7 @@ async function getDataCounts(guildId, categories) {
   } catch (error) {
     console.error('Error getting data counts:', error);
     // Return zero counts on error
-    categories.forEach(category => {
+    categories.forEach((category) => {
       if (!(category in counts)) {
         counts[category] = 0;
       }
@@ -342,7 +352,7 @@ function createConfirmationModal(selectedCategories) {
  */
 async function executeDeepPurge(guildId, categories, reason = null, client = null) {
   const options = {};
-  categories.forEach(category => {
+  categories.forEach((category) => {
     options[category] = true;
   });
 
@@ -383,40 +393,50 @@ async function executeDeepPurge(guildId, categories, reason = null, client = nul
         try {
           const votingChannel = await client.channels.fetch(config.movie_channel_id);
           if (votingChannel) {
-            const messages = await votingChannel.messages.fetch({ limit: 100 });
-            const botMessages = messages.filter(msg => msg.author.id === client.user.id);
-
-            for (const [messageId, message] of botMessages) {
-              try {
-                await message.delete();
-              } catch (error) {
-                logger.warn(`Failed to delete voting message ${messageId}:`, error.message);
-              }
-            }
-
             const forumChannels = require('./forum-channels');
             if (forumChannels.isForumChannel(votingChannel)) {
               // Use forum-aware clear that handles active+archived and system posts; do NOT preserve winner during a deep purge
-              await forumChannels.clearForumMoviePosts(votingChannel, null, { deleteWinnerAnnouncements: true });
+              await forumChannels.clearForumMoviePosts(votingChannel, null, {
+                deleteWinnerAnnouncements: true,
+              });
               // Add system post if configuration still exists
               const configAfterPurge = await database.getGuildConfig(guildId);
               if (configAfterPurge) {
                 await forumChannels.ensureRecommendationPost(votingChannel, null);
                 logger.debug('✅ Added No Active Voting Session post in forum after deep purge');
               } else {
-                logger.debug('✅ Forum voting channel cleared, no messages added (configuration cleared)');
+                logger.debug(
+                  '✅ Forum voting channel cleared, no messages added (configuration cleared)'
+                );
               }
             } else {
-              // Clear threads (active and archived) for text channels
+              // Text channel: delete bot messages then clear threads
+              const messages = await votingChannel.messages.fetch({ limit: 100 });
+              const botMessages = messages.filter((msg) => msg.author.id === client.user.id);
+              for (const [messageId, message] of botMessages) {
+                try {
+                  await message.delete();
+                } catch (error) {
+                  logger.warn(`Failed to delete voting message ${messageId}:`, error.message);
+                }
+              }
+              // Clear threads (active and archived)
               const activeThreads = await votingChannel.threads.fetchActive();
               for (const [threadId, thread] of activeThreads.threads) {
-                try { await thread.delete(); } catch (error) { logger.warn(`Failed to delete thread ${threadId}:`, error.message); }
+                try {
+                  await thread.delete();
+                } catch (error) {
+                  logger.warn(`Failed to delete thread ${threadId}:`, error.message);
+                }
               }
               const archivedThreads = await votingChannel.threads.fetchArchived({ limit: 50 });
               for (const [threadId, thread] of archivedThreads.threads) {
-                try { await thread.delete(); } catch (error) { logger.warn(`Failed to delete archived thread ${threadId}:`, error.message); }
+                try {
+                  await thread.delete();
+                } catch (error) {
+                  logger.warn(`Failed to delete archived thread ${threadId}:`, error.message);
+                }
               }
-
               // Add system post if configuration still exists
               const configAfterPurge = await database.getGuildConfig(guildId);
               if (configAfterPurge) {
@@ -424,7 +444,9 @@ async function executeDeepPurge(guildId, categories, reason = null, client = nul
                 await cleanup.ensureQuickActionPinned(votingChannel);
                 logger.debug('✅ Added quick action/no session message after deep purge');
               } else {
-                logger.debug('✅ Voting channel cleared, no messages added (configuration cleared)');
+                logger.debug(
+                  '✅ Voting channel cleared, no messages added (configuration cleared)'
+                );
               }
             }
           }
@@ -439,13 +461,14 @@ async function executeDeepPurge(guildId, categories, reason = null, client = nul
           const adminChannel = await client.channels.fetch(config.admin_channel_id);
           if (adminChannel) {
             const messages = await adminChannel.messages.fetch({ limit: 100 });
-            const botMessages = messages.filter(msg => msg.author.id === client.user.id);
+            const botMessages = messages.filter((msg) => msg.author.id === client.user.id);
 
             for (const [messageId, message] of botMessages) {
               try {
-                const isControlPanel = message.embeds.length > 0 &&
-                                      message.embeds[0].title &&
-                                      message.embeds[0].title.includes('Admin Control Panel');
+                const isControlPanel =
+                  message.embeds.length > 0 &&
+                  message.embeds[0].title &&
+                  message.embeds[0].title.includes('Admin Control Panel');
 
                 if (!isControlPanel) {
                   await message.delete();
@@ -456,8 +479,13 @@ async function executeDeepPurge(guildId, categories, reason = null, client = nul
             }
 
             // Update admin panel - will show setup panel if config was cleared
-            const adminControls = require('./admin-controls');
-            await adminControls.ensureAdminControlPanel(client, guildId);
+            try {
+              const adminControls = require('./admin-controls');
+              await adminControls.ensureAdminControlPanel(client, guildId);
+              logger.debug('✅ Updated admin control panel after deep purge');
+            } catch (error) {
+              logger.warn('Error updating admin control panel after deep purge:', error.message);
+            }
           }
         } catch (error) {
           const logger = require('../utils/logger');
@@ -488,21 +516,19 @@ function createSuccessEmbed(guildName, result, categories) {
     .setTitle('✅ Deep Purge Completed')
     .setDescription(`Successfully purged data for **${guildName}**`)
     .setColor(0x57f287)
-    .addFields(
-      {
-        name: '🗑️ Purge Results',
-        value: `• **Items deleted**: ${result.deleted}
+    .addFields({
+      name: '🗑️ Purge Results',
+      value: `• **Items deleted**: ${result.deleted}
 • **Categories purged**: ${categories.length}
 • **Errors**: ${result.errors.length}`,
-        inline: false
-      }
-    );
+      inline: false,
+    });
 
   if (result.errors.length > 0) {
     embed.addFields({
       name: '⚠️ Errors encountered',
       value: result.errors.slice(0, 3).join('\n') + (result.errors.length > 3 ? '\n...' : ''),
-      inline: false
+      inline: false,
     });
     embed.setColor(0xfee75c); // Yellow for warnings
   }
@@ -511,7 +537,7 @@ function createSuccessEmbed(guildName, result, categories) {
     embed.addFields({
       name: '🔧 Next Steps',
       value: 'Bot configuration was deleted. Use `/movie-configure` to set up the bot again.',
-      inline: false
+      inline: false,
     });
   }
 
@@ -529,5 +555,5 @@ module.exports = {
   createConfirmationModal,
   executeDeepPurge,
   createSuccessEmbed,
-  getDataCounts
+  getDataCounts,
 };

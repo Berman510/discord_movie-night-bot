@@ -16,7 +16,7 @@ const Jimp = require('jimp');
  * @returns {Promise<Buffer>} JPEG buffer suitable for Discord Scheduled Event image
  */
 async function composeEventCoverFromPoster(posterBuffer, width = 1280, height = 720) {
-  const canvas = new Jimp(width, height, 0x000000FF); // opaque black
+  const canvas = new Jimp(width, height, 0x000000ff); // opaque black
   const poster = await Jimp.read(posterBuffer);
 
   // Scale poster to fit within the canvas while preserving aspect ratio
@@ -36,4 +36,3 @@ async function composeEventCoverFromPoster(posterBuffer, width = 1280, height = 
 module.exports = {
   composeEventCoverFromPoster,
 };
-

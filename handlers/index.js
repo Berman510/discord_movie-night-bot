@@ -40,18 +40,17 @@ module.exports = {
         await selectHandlers.handleSelect(interaction);
         return;
       }
-
-
-
     } catch (error) {
       console.error('Error handling interaction:', error);
-      
+
       if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({
-          content: '❌ An error occurred while processing your request.',
-          flags: MessageFlags.Ephemeral
-        }).catch(console.error);
+        await interaction
+          .reply({
+            content: '❌ An error occurred while processing your request.',
+            flags: MessageFlags.Ephemeral,
+          })
+          .catch(console.error);
       }
     }
-  }
+  },
 };

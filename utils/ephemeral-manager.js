@@ -12,9 +12,12 @@ class EphemeralManager {
     this.throttles = new Map();
 
     // Clean up old entries every 10 minutes
-    setInterval(() => {
-      this.cleanupOldEntries();
-    }, 10 * 60 * 1000);
+    setInterval(
+      () => {
+        this.cleanupOldEntries();
+      },
+      10 * 60 * 1000
+    );
   }
 
   /**
@@ -34,13 +37,13 @@ class EphemeralManager {
         response = await interaction.followUp({
           content,
           ...options,
-          flags: MessageFlags.Ephemeral
+          flags: MessageFlags.Ephemeral,
         });
       } else {
         response = await interaction.reply({
           content,
           ...options,
-          flags: MessageFlags.Ephemeral
+          flags: MessageFlags.Ephemeral,
         });
       }
 
@@ -48,7 +51,7 @@ class EphemeralManager {
       this.userEphemeralMessages.set(interaction.user.id, {
         interaction: interaction,
         messageId: response.id,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
 
       const logger = require('./logger');
@@ -68,14 +71,14 @@ class EphemeralManager {
       // Update the interaction
       const response = await interaction.update({
         content,
-        ...options
+        ...options,
       });
 
       // Track this updated message
       this.userEphemeralMessages.set(interaction.user.id, {
         interaction: interaction,
         messageId: interaction.message?.id,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
 
       return response;
@@ -94,7 +97,9 @@ class EphemeralManager {
     if (!previousMessage) return;
 
     const logger = require('./logger');
-    logger.debug(`🧹 Cleaning up ephemeral message tracking for user ${userId}: ${previousMessage.messageId}`);
+    logger.debug(
+      `🧹 Cleaning up ephemeral message tracking for user ${userId}: ${previousMessage.messageId}`
+    );
 
     // Note: We can't actually delete ephemeral messages from different interactions
     // Discord handles ephemeral message cleanup automatically
@@ -114,14 +119,14 @@ class EphemeralManager {
 
   isThrottled(key, userId, windowMs = 15000) {
     const last = this.throttles.get(`${key}:${userId}`);
-    return !!last && (Date.now() - last) < windowMs;
+    return !!last && Date.now() - last < windowMs;
   }
 
   /**
    * Clean up old entries (older than 1 hour)
    */
   cleanupOldEntries() {
-    const oneHourAgo = Date.now() - (60 * 60 * 1000);
+    const oneHourAgo = Date.now() - 60 * 60 * 1000;
 
     for (const [userId, messageData] of this.userEphemeralMessages.entries()) {
       if (messageData.timestamp < oneHourAgo) {
@@ -130,7 +135,7 @@ class EphemeralManager {
     }
 
     // Clean stale throttles (> 10 minutes old)
-    const tenMinAgo = Date.now() - (10 * 60 * 1000);
+    const tenMinAgo = Date.now() - 10 * 60 * 1000;
     for (const [key, ts] of this.throttles.entries()) {
       if (ts < tenMinAgo) this.throttles.delete(key);
     }
@@ -150,7 +155,9 @@ class EphemeralManager {
   getStats() {
     return {
       trackedMessages: this.userEphemeralMessages.size,
-      oldestMessage: Math.min(...Array.from(this.userEphemeralMessages.values()).map(m => m.timestamp))
+      oldestMessage: Math.min(
+        ...Array.from(this.userEphemeralMessages.values()).map((m) => m.timestamp)
+      ),
     };
   }
 }
