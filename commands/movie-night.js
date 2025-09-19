@@ -3,7 +3,7 @@
  * Single command with all functionality for better discoverability
  */
 
-const { TIMEZONE_OPTIONS } = require('../config/timezones');
+const { TIMEZONE_OPTIONS: _TIMEZONE_OPTIONS } = require('../config/timezones');
 
 const commands = [
   {

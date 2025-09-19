@@ -3,7 +3,7 @@
  * Slash command definitions for bot configuration
  */
 
-const { TIMEZONE_OPTIONS } = require('../config/timezones');
+const { TIMEZONE_OPTIONS: _TIMEZONE_OPTIONS } = require('../config/timezones');
 
 const commands = [
   {

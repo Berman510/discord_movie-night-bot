@@ -253,7 +253,7 @@ async function handleVoting(interaction, action, msgId, votes) {
     if (database.isConnected) {
       // Use unified content service
       const contentService = require('../services/content-service');
-      const { content, contentType, isMovie, isTVShow } =
+      const { content, contentType, isMovie: _isMovie, isTVShow: _isTVShow } =
         await contentService.getContentByMessageId(msgId, interaction.guild.id);
 
       if (!content) {
@@ -332,7 +332,7 @@ async function handleVoting(interaction, action, msgId, votes) {
                 const friendly = isUpvote ? `👍 upvotes` : `👎 downvotes`;
 
                 await interaction.followUp({
-                  content: `⚠️ You\'ve reached your ${friendly} limit for this voting session.\n\nSession movies: ${totalInSession}\nAllowed ${friendly}: ${cap}\nYour ${friendly}: ${used}\n\nCurrent ${friendly}: ${list}\n\nTip: Unvote one of the above to free a slot, then try again.`,
+                  content: `⚠️ You've reached your ${friendly} limit for this voting session.\n\nSession movies: ${totalInSession}\nAllowed ${friendly}: ${cap}\nYour ${friendly}: ${used}\n\nCurrent ${friendly}: ${list}\n\nTip: Unvote one of the above to free a slot, then try again.`,
                   ephemeral: true,
                 });
                 return;
@@ -470,7 +470,7 @@ async function handleVoting(interaction, action, msgId, votes) {
 }
 
 async function handleStatusChange(interaction, action, msgId) {
-  const { EmbedBuilder } = require('discord.js');
+  const { EmbedBuilder: _EmbedBuilder } = require('discord.js');
   const database = require('../database');
 
   try {
@@ -565,8 +565,8 @@ async function handleStatusChange(interaction, action, msgId) {
 async function handleDuplicateConfirm(interaction, customIdParts) {
   try {
     // Parse title and where from custom ID: mn:duplicate_confirm:title:where
-    const title = customIdParts;
-    const where = customIdParts; // This will need to be parsed properly
+    const _title = customIdParts;
+    const _where = customIdParts; // This will need to be parsed properly
 
     // Extract title and where from the custom ID
     const fullCustomId = interaction.customId;
@@ -902,7 +902,7 @@ async function handleCreateRecommendation(interaction) {
       .setCustomId('mn:episode')
       .setLabel('Episode Name or Number (Optional)')
       .setStyle(TextInputStyle.Short)
-      .setPlaceholder("e.g., 'Cat\'s in the Bag...', 'S1E2', '102'")
+      .setPlaceholder("e.g., 'Cat's in the Bag...', 'S1E2', '102'")
       .setRequired(false);
 
     const episodeRow = new ActionRowBuilder().addComponents(episodeInput);
@@ -938,7 +938,7 @@ async function handleImdbSelection(interaction) {
       return;
     }
 
-    const { title, where, imdbResults, episodeInfo } = data;
+    const { title, where, imdbResults, episodeInfo: _episodeInfo } = data;
 
     if (indexStr === 'cancel') {
       // User cancelled the submission entirely
@@ -1182,8 +1182,8 @@ async function createMovieWithImdb(interaction, title, where, imdbData) {
  */
 async function handleAdminMovieButtons(interaction, customId) {
   const { permissions } = require('../services');
-  const database = require('../database');
-  const adminMirror = require('../services/admin-mirror');
+  const _database = require('../database');
+  const _adminMirror = require('../services/admin-mirror');
 
   // Parse first so we can gate per-action
   const [action, movieId] = customId.split(':');
@@ -1278,7 +1278,7 @@ async function handleAdminMovieButtons(interaction, customId) {
  */
 async function handleScheduleMovie(interaction, guildId, movieId) {
   const database = require('../database');
-  const sessions = require('../services/sessions');
+  const _sessions = require('../services/sessions');
 
   try {
     // Get movie details
@@ -3565,7 +3565,7 @@ async function handleSpellingSuggestion(interaction) {
       return;
     }
 
-    const { title: originalTitle, where, suggestions, episodeInfo } = payload;
+    const { title: _originalTitle, where, suggestions, episodeInfo: _episodeInfo } = payload;
     const suggestedTitle = suggestions[suggestionIndex];
 
     if (!suggestedTitle) {
@@ -3633,7 +3633,7 @@ async function handleUseOriginalTitle(interaction) {
       return;
     }
 
-    const { title, where, episodeInfo } = payload;
+    const { title, where, episodeInfo: _episodeInfo } = payload;
 
     // Clean up the payload
     pendingPayloads.delete(dataKey);
