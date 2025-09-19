@@ -56,7 +56,7 @@ function initWebSocketClient(logger) {
   const HEARTBEAT_MS = 30000;
   const MIN_RECONNECT_MS = 3000;
   const MAX_RECONNECT_MS = 60000;
-  let isConnected = false;
+  let _isConnected = false;
   let statusInterval = null;
   let lastReported = null;
 
@@ -69,7 +69,7 @@ function initWebSocketClient(logger) {
 
       ws.on('open', () => {
         reconnectAttempts = 0;
-        isConnected = true;
+        _isConnected = true;
         try {
           global.wsStatus = { connected: true, attempts: reconnectAttempts, ts: Date.now() };
         } catch (_) {}
@@ -91,7 +91,7 @@ function initWebSocketClient(logger) {
             const connected = !!(ws && ws.readyState === 1);
             if (lastReported !== connected) {
               lastReported = connected;
-              isConnected = connected;
+              _isConnected = connected;
               try {
                 global.wsStatus = { connected, attempts: reconnectAttempts, ts: Date.now() };
               } catch (_) {}
@@ -182,7 +182,7 @@ function initWebSocketClient(logger) {
             if (!guildId || !title) return;
             const database = require('../database');
             const forumChannels = require('./forum-channels');
-            const { embeds, components } = require('../utils');
+            const { embeds: _embeds, components: _components } = require('../utils');
             const client = global.discordClient;
             try {
               // Mark all instances as banned in DB (and avoid duplicate marker rows)
@@ -1330,7 +1330,7 @@ function initWebSocketClient(logger) {
           clearInterval(heartbeat);
           heartbeat = null;
         }
-        isConnected = false;
+        _isConnected = false;
         try {
           global.wsStatus = { connected: false, attempts: reconnectAttempts, ts: Date.now() };
         } catch (_) {}
@@ -1341,7 +1341,7 @@ function initWebSocketClient(logger) {
 
       ws.on('error', (err) => {
         logger?.warn?.(`WS error: ${err?.message || err}`);
-        isConnected = false;
+        _isConnected = false;
         try {
           global.wsStatus = { connected: false, attempts: reconnectAttempts, ts: Date.now() };
         } catch (_) {}

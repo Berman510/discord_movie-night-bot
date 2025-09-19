@@ -988,7 +988,7 @@ async function handleImdbSelection(interaction) {
     setTimeout(async () => {
       try {
         await interaction.deleteReply();
-      } catch {}
+      } catch (e) { /* no-op: reply may already be deleted */ void 0; }
     }, 3000);
   } catch (error) {
     console.error('Error handling IMDb selection:', error);
@@ -1036,7 +1036,7 @@ async function createMovieWithoutImdb(interaction, title, where) {
       threadId: result.thread?.id,
     });
 
-    const { message, thread, movieId } = result;
+    const { message, thread, movieId: _movieId } = result;
 
     // Post to admin channel if configured (movie creation service handles database save)
     try {
@@ -1121,7 +1121,7 @@ async function createMovieWithImdb(interaction, title, where, imdbData) {
       }
     );
 
-    const { message, thread, movieId } = result;
+    const { message, thread, movieId: _movieId } = result;
 
     // Post to admin channel if configured (movie creation service handles database save)
     try {
@@ -1603,7 +1603,7 @@ async function handlePickWinner(interaction, guildId, movieId) {
           const tvShow = await database.getTVShowByMessageId(movieId);
           if (tvShow) contentTitle = tvShow.title;
         }
-      } catch (e) {}
+      } catch (e) { /* no-op: optional content lookup */ void 0; }
       if (!contentTitle && interaction.message && interaction.message.embeds?.length > 0) {
         contentTitle =
           interaction.message.embeds[0].title?.replace(/🎬 |📺 /, '') || 'this content';
@@ -1629,12 +1629,13 @@ async function handlePickWinner(interaction, guildId, movieId) {
       setTimeout(async () => {
         try {
           await interaction.deleteReply();
-        } catch (_) {}
+        } catch (_) { /* no-op: auto-dismiss best-effort */ void 0; }
       }, 30000);
       return;
     }
   } catch (e) {
     // If confirmation UI fails for any reason, fall back to existing flow
+    void 0;
   }
 
   try {
@@ -1855,7 +1856,7 @@ async function handlePickWinner(interaction, guildId, movieId) {
               imdbData =
                 (await imdbSvc.getMovieDetailsCached(content.imdb_id)) ||
                 (await imdbSvc.getMovieDetails(content.imdb_id));
-            } catch (_) {}
+            } catch (_) { /* no-op: cache/live IMDb fetch may fail */ void 0; }
           }
 
           // Build description with event link if available
@@ -1992,7 +1993,7 @@ async function handlePickWinner(interaction, guildId, movieId) {
             if (!imdbData) {
               try {
                 imdbData = await imdbSvc.getMovieDetails(content.imdb_id);
-              } catch (_) {}
+              } catch (_) { /* no-op: secondary IMDb fetch fallback */ void 0; }
             }
           }
 
@@ -2084,7 +2085,7 @@ async function handlePickWinner(interaction, guildId, movieId) {
     setTimeout(async () => {
       try {
         await interaction.deleteReply();
-      } catch (_) {}
+      } catch (_) { /* no-op: ephemeral dismiss */ void 0; }
     }, 8000);
 
     // Refresh admin control panel to expose Cancel/Reschedule until event start
@@ -2131,7 +2132,7 @@ async function handleChooseWinner(interaction, guildId, movieId) {
       try {
         const m = await database.getMovieByMessageId(movieId);
         if (m) movieTitle = m.title;
-      } catch (e) {}
+      } catch (e) { /* no-op: movie title lookup */ void 0; }
       if (!movieTitle && interaction.message && interaction.message.embeds?.length > 0) {
         movieTitle =
           interaction.message.embeds[0].title?.replace('\ud83c\udfac ', '') || 'this movie';
@@ -2157,7 +2158,7 @@ async function handleChooseWinner(interaction, guildId, movieId) {
       setTimeout(async () => {
         try {
           await interaction.deleteReply();
-        } catch (_) {}
+        } catch (_) { /* no-op: auto-dismiss best-effort */ void 0; }
       }, 30000);
       return;
     }
@@ -2215,12 +2216,12 @@ async function handleChooseWinner(interaction, guildId, movieId) {
         let counts = null;
         try {
           counts = await database.getVoteCounts(movie.message_id);
-        } catch {}
+        } catch (e) { /* no-op: vote counts optional */ void 0; }
 
         if (movie.imdb_id) {
           try {
             imdbData = await imdb.getMovieDetailsCached(movie.imdb_id);
-          } catch {}
+          } catch (e) { /* no-op: IMDb cache lookup optional */ void 0; }
         }
         const parts = [];
         parts.push(`Winner: ${movie.title}`);
@@ -2262,7 +2263,7 @@ async function handleChooseWinner(interaction, guildId, movieId) {
     setTimeout(async () => {
       try {
         await interaction.deleteReply();
-      } catch (_) {}
+      } catch (e) { /* no-op: reply may already be deleted */ void 0; }
     }, 8000);
 
     // Clean up any tie-break messages in admin channel (keep control panel)
@@ -2339,14 +2340,14 @@ async function handleChooseWinner(interaction, guildId, movieId) {
                 if (!imdbData) {
                   imdbData = await imdb.getMovieDetails(movie.imdb_id);
                 }
-              } catch (_) {}
+              } catch (_) { /* no-op: IMDb fetch optional */ void 0; }
             } else if (movie.imdb_data) {
               try {
                 imdbData =
                   typeof movie.imdb_data === 'string'
                     ? JSON.parse(movie.imdb_data)
                     : movie.imdb_data;
-              } catch (_) {}
+              } catch (_) { /* no-op: IMDb data parse optional */ void 0; }
             }
             const winnerEmbed = new EmbedBuilder()
               .setTitle('🏆 Movie Night Winner Announced!')
@@ -2375,7 +2376,7 @@ async function handleChooseWinner(interaction, guildId, movieId) {
                   inline: false,
                 });
               }
-            } catch {}
+            } catch (e) { /* no-op: counts build optional */ void 0; }
 
             if (imdbData?.Runtime)
               winnerEmbed.addFields({ name: '⏱️ Runtime', value: imdbData.Runtime, inline: true });
@@ -2786,7 +2787,7 @@ async function handleRescheduleSession(interaction) {
     if (!session) {
       try {
         session = await database.getUpcomingDecidedSession(interaction.guild.id);
-      } catch {}
+      } catch (e) { /* no-op: no upcoming decided session */ void 0; }
     }
     if (!session) {
       await interaction.reply({

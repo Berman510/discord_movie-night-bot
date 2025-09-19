@@ -54,7 +54,7 @@ async function getContentByMessageId(messageId) {
 function createAdminContentEmbed(content, voteCounts, contentType) {
   // Get content type info for proper emoji and formatting
   const contentTypes = require('../utils/content-types');
-  const { emoji, label } = contentTypes.getContentTypeInfo(contentType);
+  const { emoji, label: _label } = contentTypes.getContentTypeInfo(contentType);
 
   // Format title based on content type
   let displayTitle = content.title;

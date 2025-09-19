@@ -119,23 +119,6 @@ async function removeAdminRole(interaction, guildId) {
   }
 }
 
-async function setNotificationRole(interaction, guildId) {
-  const dashboardUrl = 'https://movienight.bermanoc.net';
-  const msg =
-    'Notification Role is deprecated. The bot now pings your configured Voting Roles for announcements. Please configure Voting Roles in the dashboard.';
-  if (interaction.isButton()) {
-    await interaction.update({
-      content: `ℹ️ ${msg}\n\nDashboard: ${dashboardUrl}`,
-      embeds: [],
-      components: [],
-    });
-  } else {
-    await interaction.reply({
-      content: `ℹ️ ${msg}\n\nDashboard: ${dashboardUrl}`,
-      flags: MessageFlags.Ephemeral,
-    });
-  }
-}
 
 async function viewSettings(interaction, guildId) {
   try {

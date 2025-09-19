@@ -36,23 +36,23 @@ try {
 const {
   Client,
   GatewayIntentBits,
-  REST,
-  Routes,
+  REST: _REST,
+  Routes: _Routes,
   InteractionType,
   MessageFlags,
-  EmbedBuilder,
+  EmbedBuilder: _EmbedBuilder,
 } = require('discord.js');
 const logger = require('./utils/logger');
 const database = require('./database');
-const { commands, registerCommands } = require('./commands');
+const { commands: _commands, registerCommands } = require('./commands');
 const { handleInteraction } = require('./handlers');
 const { handleSlashCommand } = require('./handlers/commands');
-const { embeds } = require('./utils');
+const { embeds: _embeds } = require('./utils');
 const { startPayloadCleanup, BOT_VERSION } = require('./utils/constants');
 const { initWebSocketClient } = require('./services/ws-client');
 
 // Environment variables
-const { DISCORD_TOKEN, CLIENT_ID, GUILD_ID, OMDB_API_KEY } = process.env;
+const { DISCORD_TOKEN, CLIENT_ID, GUILD_ID, OMDB_API_KEY: _OMDB_API_KEY } = process.env;
 
 // Validate required environment variables
 if (!DISCORD_TOKEN) {
@@ -93,7 +93,7 @@ client.once('clientReady', async () => {
     const adminControls = require('./services/admin-controls');
     let panelsCreated = 0;
 
-    for (const [guildId, guild] of client.guilds.cache) {
+    for (const [guildId, _guild] of client.guilds.cache) {
       try {
         const config = await database.getGuildConfig(guildId);
         if (config && config.admin_channel_id) {

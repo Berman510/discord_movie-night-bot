@@ -2342,7 +2342,7 @@ class Database {
         const [movieCount] = await this.pool.execute(
           'SELECT COUNT(*) as count FROM movie_sessions'
         );
-        const [watchCount] = await this.pool.execute(
+        const [_watchCount] = await this.pool.execute(
           'SELECT COUNT(*) as count FROM watch_sessions'
         );
 

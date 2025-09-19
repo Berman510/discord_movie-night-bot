@@ -381,7 +381,7 @@ async function showVotingRolesSetup(interaction) {
  * Handle setup completion
  */
 async function showSetupComplete(interaction) {
-  const config = await database.getGuildConfig(interaction.guild.id);
+  const _config = await database.getGuildConfig(interaction.guild.id);
 
   const embed = new EmbedBuilder()
     .setTitle('🎉 Setup Complete!')
@@ -468,7 +468,7 @@ async function checkChannelForExistingContent(channel) {
 async function showChannelSafetyConfirmation(interaction, channel, channelType) {
   const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 
-  const channelTypeNames = {
+  const _channelTypeNames = {
     voting: 'Voting Channel',
     admin: 'Admin Channel',
     viewing: 'Watch Party Channel',
@@ -580,7 +580,7 @@ async function configureChannelDirectly(interaction, channel, channelType) {
 async function handleRoleSelection(interaction, roleType) {
   const selectedRoles = interaction.values;
 
-  let success = false;
+  let _success = false;
   let message = '';
 
   try {
@@ -589,7 +589,7 @@ async function handleRoleSelection(interaction, roleType) {
         for (const roleId of selectedRoles) {
           await database.addAdminRole(interaction.guild.id, roleId);
         }
-        success = true;
+        _success = true;
         const roleNames = selectedRoles.map((id) => `<@&${id}>`).join(', ');
         message = `✅ **Admin roles set:** ${roleNames}\n\nThese roles can now manage the bot!`;
         break;
@@ -598,7 +598,7 @@ async function handleRoleSelection(interaction, roleType) {
         for (const roleId of selectedRoles) {
           await database.addModeratorRole(interaction.guild.id, roleId);
         }
-        success = true;
+        _success = true;
         const modRoleNames = selectedRoles.map((id) => `<@&${id}>`).join(', ');
         message = `✅ **Moderator roles set:** ${modRoleNames}\n\nThese roles can now moderate movies and sessions!`;
         break;
@@ -607,7 +607,7 @@ async function handleRoleSelection(interaction, roleType) {
         for (const roleId of selectedRoles) {
           await database.addVotingRole(interaction.guild.id, roleId);
         }
-        success = true;
+        _success = true;
         const votingRoleNames = selectedRoles.map((id) => `<@&${id}>`).join(', ');
         message = `✅ **Voting roles set:** ${votingRoleNames}\n\nMembers with these roles can vote and will be pinged for announcements.`;
         break;

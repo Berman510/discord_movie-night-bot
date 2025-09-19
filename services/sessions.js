@@ -40,7 +40,7 @@ const timezone = require('./timezone');
 
 async function handleMovieSession(interaction) {
   const action = interaction.options.getString('action');
-  const guildId = interaction.guild.id;
+  const _guildId = interaction.guild.id;
 
   if (!database.isConnected) {
     await interaction.reply({

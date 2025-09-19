@@ -77,7 +77,7 @@ async function handleCleanupSync(interaction, movieChannel) {
     const database = require('../database');
     const activeSession = await database.getActiveVotingSession(interaction.guild.id);
     hasActiveVoting = !!activeSession;
-  } catch (_) {}
+  } catch (e) { /* no-op: session check optional */ void 0; }
 
   try {
     const channel = movieChannel;
@@ -187,7 +187,7 @@ async function handleCleanupSync(interaction, movieChannel) {
     let recreatedViaHelper = 0;
     try {
       recreatedViaHelper = await recreateMissingMoviePosts(channel, interaction.guild.id);
-    } catch (_) {}
+    } catch (e) { /* no-op: recreate helper optional */ void 0; }
     cleanedDbCount += recreatedViaHelper;
 
     // Step 6: Check for movies with posts but missing threads
@@ -210,7 +210,7 @@ async function handleCleanupSync(interaction, movieChannel) {
     } else if (forumChannels.isForumChannel(channel)) {
       try {
         await forumChannels.ensureRecommendationPost(channel);
-      } catch {}
+      } catch (e) { /* no-op: ensure post best-effort */ void 0; }
     }
 
     const summary = [
@@ -868,7 +868,7 @@ async function recreateMissingThreads(channel, botMessages) {
 
       // Extract movie title from embed
       const embedTitle = message.embeds[0].title;
-      const movieTitle = embedTitle.replace(/^[🎬🍿⭐📌⏭️✅]\s*/, ''); // Remove status emojis
+      const movieTitle = embedTitle.replace(/^(?:🎬|🍿|⭐|📌|⏭️|✅)\s*/u, ''); // Remove status emojis
 
       // Check if this movie has a thread
       if (!existingThreadTitles.has(movieTitle)) {

@@ -25,7 +25,7 @@ function detectContentType(imdbData) {
  * Create a content recommendation (movie or TV show) in the appropriate channel type
  */
 async function createMovieRecommendation(interaction, movieData) {
-  const { title, where, imdbId = null, imdbData = null } = movieData;
+  const { title, where: _where, imdbId: _imdbId = null, imdbData = null } = movieData;
 
   try {
     // Detect content type
@@ -143,10 +143,10 @@ async function createTextMovieRecommendation(interaction, movieData, channel) {
       if (!imdbData) {
         try {
           imdbData = await imdb.getMovieDetails(imdbId);
-        } catch (_) {}
+        } catch (e) { /* no-op: imdb fallback */ void 0; }
       }
     }
-  } catch (_) {}
+  } catch (e) { /* no-op: imdb optional */ void 0; }
 
   // Create movie embed
   const movieEmbedData = {
@@ -242,10 +242,10 @@ async function createForumMovieRecommendation(interaction, movieData, channel) {
       if (!imdbData) {
         try {
           imdbData = await imdb.getMovieDetails(imdbId);
-        } catch (_) {}
+        } catch (e) { /* no-op: imdb fallback */ void 0; }
       }
     }
-  } catch (_) {}
+  } catch (e) { /* no-op: imdb optional */ void 0; }
 
   // Create movie embed
   const movieEmbedData = {
@@ -490,10 +490,10 @@ async function createTextTVShowRecommendation(interaction, showData, channel) {
       if (!imdbData) {
         try {
           imdbData = await imdb.getMovieDetails(imdbId);
-        } catch (_) {}
+        } catch (e) { /* no-op: imdb fallback */ void 0; }
       }
     }
-  } catch (_) {}
+  } catch (e) { /* no-op: imdb optional */ void 0; }
 
   // Create TV show embed (reuse movie embed for now, will enhance later)
   const showEmbedData = {
@@ -589,10 +589,10 @@ async function createForumTVShowRecommendation(interaction, showData, channel) {
       if (!imdbData) {
         try {
           imdbData = await imdb.getMovieDetails(imdbId);
-        } catch (_) {}
+        } catch (e) { /* no-op: imdb fallback */ void 0; }
       }
     }
-  } catch (_) {}
+  } catch (e) { /* no-op: imdb optional */ void 0; }
 
   // Create TV show embed (reuse movie embed for now)
   const showEmbedData = {

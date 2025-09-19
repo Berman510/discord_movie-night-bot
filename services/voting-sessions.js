@@ -4,17 +4,17 @@
  */
 
 const {
-  EmbedBuilder,
+  EmbedBuilder: _EmbedBuilder,
   ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
+  ButtonBuilder: _ButtonBuilder,
+  ButtonStyle: _ButtonStyle,
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
   MessageFlags,
 } = require('discord.js');
 const database = require('../database');
-const ephemeralManager = require('../utils/ephemeral-manager');
+const _ephemeralManager = require('../utils/ephemeral-manager');
 
 /**
  * Start the voting session creation process with date/time selection
@@ -217,7 +217,7 @@ async function handleVotingSessionRescheduleModal(interaction) {
   if (!interaction.deferred && !interaction.replied) {
     try {
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-    } catch {}
+    } catch (e) { /* no-op: already deferred */ void 0; }
   }
 
   try {
@@ -397,13 +397,13 @@ async function handleVotingSessionRescheduleModal(interaction) {
         interaction.client || global.discordClient,
         interaction.guild.id
       );
-    } catch {}
+    } catch (e) { /* no-op: admin panel best-effort */ void 0; }
     try {
       await adminMirror.syncAdminChannel(
         interaction.client || global.discordClient,
         interaction.guild.id
       );
-    } catch {}
+    } catch (e) { /* no-op: admin mirror best-effort */ void 0; }
 
     // Success message
     const ts = Math.floor(startDateTime.getTime() / 1000);
@@ -414,13 +414,13 @@ async function handleVotingSessionRescheduleModal(interaction) {
     setTimeout(async () => {
       try {
         await interaction.deleteReply();
-      } catch (_) {}
+      } catch (e) { /* no-op: ephemeral cleanup */ void 0; }
     }, 8000);
   } catch (error) {
     console.error('Error handling reschedule modal:', error);
     try {
       await interaction.editReply({ content: '❌ Failed to reschedule session.' });
-    } catch {}
+    } catch (e) { /* no-op: edit reply fallback */ void 0; }
   }
 }
 
@@ -698,7 +698,7 @@ async function createVotingSession(interaction, state) {
     setTimeout(async () => {
       try {
         await interaction.deleteReply();
-      } catch (_) {}
+      } catch (e) { /* no-op: ephemeral cleanup */ void 0; }
     }, 8000);
 
     // Initialize logger for this function
@@ -958,7 +958,7 @@ async function createVotingSession(interaction, state) {
                   }
 
                   // Create thread for the content
-                  const thread = await newMessage.startThread({
+                  const _thread = await newMessage.startThread({
                     name: `💬 ${updatedContent.title}`,
                     autoArchiveDuration: 10080, // 7 days
                   });

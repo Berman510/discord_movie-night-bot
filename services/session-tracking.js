@@ -79,7 +79,7 @@ async function handleUserJoinedViewingChannel(guildId, userId, channelId) {
 /**
  * Handle user leaving the viewing channel
  */
-async function handleUserLeftViewingChannel(guildId, userId, channelId) {
+async function handleUserLeftViewingChannel(guildId, userId, _channelId) {
   // Find active sessions for this guild
   const activeSessionsList = await getActiveSessionsForGuild(guildId);
 
@@ -198,7 +198,7 @@ async function checkExistingUsersInChannel(sessionId, guildId, viewingChannelId)
     }
 
     // Add all users currently in the channel
-    for (const [userId, member] of channel.members) {
+    for (const [userId, _member] of channel.members) {
       await addSessionAttendee(sessionId, userId);
       console.log(
         `👥 User ${userId} was already in viewing channel when session ${sessionId} started`
@@ -262,7 +262,7 @@ async function checkForActiveSessionsToMonitor() {
     if (!client) return;
 
     // Check all guilds
-    for (const [guildId, guild] of client.guilds.cache) {
+    for (const [guildId, _guild] of client.guilds.cache) {
       const config = await database.getGuildConfig(guildId);
       if (!config || !config.watch_party_channel_id) continue;
 

@@ -536,7 +536,7 @@ function startVotingClosureChecker(client) {
     checkVotingClosures(client);
 
     // Then check every minute on the minute
-    const intervalId = setInterval(() => {
+    const _intervalId = setInterval(() => {
       console.log('⏰ Running scheduled voting closure check (on the minute)...');
       checkVotingClosures(client);
     }, 60000); // 60 seconds

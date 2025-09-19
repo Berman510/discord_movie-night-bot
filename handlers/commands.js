@@ -12,7 +12,7 @@ const {
   ActionRowBuilder,
 } = require('discord.js');
 const database = require('../database');
-const sessions = require('../services/sessions');
+const _sessions = require('../services/sessions');
 const guidedSetup = require('../services/guided-setup');
 const logger = require('../utils/logger');
 

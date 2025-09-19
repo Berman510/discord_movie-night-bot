@@ -236,7 +236,7 @@ async function updateForumPostContent(thread, movie, newStatus) {
 
     if (newStatus === 'scheduled') {
       // Winner - show winner status instead of voting buttons
-      const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+
       movieComponents = [
         new ActionRowBuilder().addComponents(
           new ButtonBuilder()
@@ -306,7 +306,7 @@ async function getForumMoviePosts(channel, limit = 50) {
     const moviePosts = Array.from(allThreads.values())
       .filter((thread) => {
         // Include movie posts with movie emojis
-        const hasMovieEmoji = thread.name.match(/^[🎬📌🎪✅⏭️]/);
+        const hasMovieEmoji = /^(?:🎬|📌|🎪|✅|⏭️)/u.test(thread.name);
         // Exclude system posts
         const isSystemPost =
           thread.name.includes('Recommend a Movie') ||
@@ -515,7 +515,7 @@ async function clearForumMoviePosts(channel, winnerMovieId = null, options = {})
     const archivedThreads = await channel.threads.fetchArchived({ limit: 50 });
     const allThreads = new Map([...threads.threads, ...archivedThreads.threads]);
 
-    for (const [threadId, thread] of allThreads) {
+    for (const [_threadId, thread] of allThreads) {
       // Delete system posts (No Active Session, Recommend a Movie, Recommend TV Shows) - be specific to avoid content posts
       const hasNoSession =
         thread.name.includes('No Active Voting Session') || thread.name.includes('🚫');
@@ -584,7 +584,7 @@ async function postForumWinnerAnnouncement(channel, winnerMovie, sessionName, op
     if (winnerMovie.imdb_id) {
       try {
         imdbData = await imdb.getMovieDetails(winnerMovie.imdb_id);
-      } catch {}
+      } catch (e) { /* no-op: IMDb fetch optional */ void 0; }
     }
 
     // Create winner announcement embed
@@ -620,7 +620,7 @@ async function postForumWinnerAnnouncement(channel, winnerMovie, sessionName, op
           inline: false,
         });
       }
-    } catch {}
+    } catch (e) { /* no-op: vote summary optional */ void 0; }
 
     if (imdbData) {
       if (imdbData.Year)
@@ -686,7 +686,7 @@ async function postForumWinnerAnnouncement(channel, winnerMovie, sessionName, op
           const archivedThreads = await channel.threads.fetchArchived({ limit: 50 });
           const allThreads = new Map([...threads.threads, ...archivedThreads.threads]);
 
-          for (const [threadId, thread] of allThreads) {
+          for (const [_threadId, thread] of allThreads) {
             if (thread.pinned && thread.id !== announcementPost.id) {
               await thread.setArchived(true);
               logger.debug(`📌 Unpinned thread to make room for winner: ${thread.name}`);
@@ -933,7 +933,7 @@ async function ensureRecommendationPost(channel, activeSession = null) {
       }
     }
 
-    const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+
 
     if (!activeSession) {
       // No active session - edit pinned post to show "No Active Session"
@@ -983,7 +983,7 @@ async function ensureRecommendationPost(channel, activeSession = null) {
               '📋 Cannot pin new post (pin limit reached), unpinning others first',
               guildId
             );
-            const unpinnedCount = await unpinOtherForumPosts(channel, forumPost.id);
+            const _unpinnedCount = await unpinOtherForumPosts(channel, forumPost.id);
             try {
               await forumPost.pin();
               logger.debug('📋 Pinned no session post after unpinning others', guildId);
@@ -1015,7 +1015,7 @@ async function ensureRecommendationPost(channel, activeSession = null) {
             try {
               await t.delete('Removing duplicate system post');
               logger.debug(`📋 Deleted duplicate system post: ${t.name}`, guildId);
-            } catch {}
+            } catch (e) { /* no-op: duplicate cleanup best-effort */ void 0; }
           }
         }
       }
@@ -1027,7 +1027,7 @@ async function ensureRecommendationPost(channel, activeSession = null) {
     logger.debug(`📋 Content type determination: content_type=${contentType}`, guildId);
 
     // Use content-type utilities for dynamic content
-    const { title, description, buttonLabel, buttonEmoji } =
+    const { title, description, buttonLabel, buttonEmoji: _buttonEmoji } =
       contentTypes.getRecommendationPostContent(activeSession);
 
     const recommendEmbed = new EmbedBuilder()
@@ -1078,7 +1078,7 @@ async function ensureRecommendationPost(channel, activeSession = null) {
         }
         try {
           await reuse.pin();
-        } catch {}
+        } catch (e) { /* no-op: pin best-effort */ void 0; }
         pinnedPost = reuse;
         logger.debug('📋 Reused existing system post as recommendation post', guildId);
       } catch (reuseErr) {
@@ -1110,7 +1110,7 @@ async function ensureRecommendationPost(channel, activeSession = null) {
               guildId
             );
             try {
-              const forumPost = await channel.threads.create({
+              const _forumPost = await channel.threads.create({
                 name: title, // Use the correct title, not hardcoded "Recommend Content"
                 message: { embeds: [recommendEmbed], components: [recommendButton] },
               });
@@ -1140,7 +1140,7 @@ async function ensureRecommendationPost(channel, activeSession = null) {
               );
               // Try without pinning as fallback
               try {
-                const forumPost = await channel.threads.create({
+                const _forumPost = await channel.threads.create({
                   name: title,
                   message: { embeds: [recommendEmbed], components: [recommendButton] },
                 });
@@ -1164,11 +1164,11 @@ async function ensureRecommendationPost(channel, activeSession = null) {
       const active = await channel.threads.fetchActive({ cache: false });
       const archived = await channel.threads.fetchArchived({ limit: 50, cache: false });
       const all = new Map([...active.threads, ...archived.threads]);
-      for (const [tid, t] of all) {
+      for (const [_tid, t] of all) {
         if (t.name.includes('No Active Voting Session') || t.name.includes('🚫')) {
           try {
             await t.delete('Removing stale no-session post after session start');
-          } catch {}
+          } catch (e) { /* no-op: cleanup best-effort */ void 0; }
         }
       }
     } catch (_) {
@@ -1210,7 +1210,7 @@ async function createNoActiveSessionPost(channel) {
     const allThreads = new Map([...threads.threads, ...archivedThreads.threads]);
 
     let noSessionPost = null;
-    for (const [threadId, thread] of allThreads) {
+    for (const [_threadId, thread] of allThreads) {
       if (thread.name.includes('No Active Voting Session') || thread.name.includes('🚫')) {
         noSessionPost = thread;
         break;
@@ -1218,7 +1218,7 @@ async function createNoActiveSessionPost(channel) {
     }
 
     // Create the embed
-    const { EmbedBuilder } = require('discord.js');
+
     const noSessionEmbed = new EmbedBuilder()
       .setTitle('🚫 No Active Voting Session')
       .setDescription(
@@ -1311,7 +1311,7 @@ async function setPinnedPostStatusNote(channel, title, description) {
     if (pinnedPost.archived) {
       try {
         await pinnedPost.setArchived(false);
-      } catch {}
+      } catch (e) { /* no-op: unarchive best-effort */ void 0; }
     }
 
     const starter = await pinnedPost.fetchStarterMessage();

@@ -80,8 +80,8 @@ function parseEpisodeInfo(episodeInput) {
 }
 const ephemeralManager = require('../utils/ephemeral-manager');
 const { sessions } = require('../services');
-const { imdb } = require('../services');
-const cleanup = require('../services/cleanup');
+const { imdb: _imdb } = require('../services');
+const _cleanup = require('../services/cleanup');
 
 async function handleModal(interaction) {
   const customId = interaction.customId;
@@ -243,7 +243,7 @@ async function handleMovieRecommendationModal(interaction) {
     if (!interaction.deferred && !interaction.replied) {
       try {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-      } catch {}
+      } catch (e) { /* no-op: defer best-effort */ void 0; }
     }
 
     // Search IMDb with intelligent episode matching
@@ -506,7 +506,7 @@ async function showImdbSelection(
 /**
  * Show spelling suggestions when no exact matches are found
  */
-async function showSpellingSuggestions(interaction, title, where, suggestions, episodeInfo = null) {
+async function showSpellingSuggestions(interaction, title, where, suggestions, _episodeInfo = null) {
   const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
   const { pendingPayloads } = require('../utils/constants');
 
@@ -569,7 +569,7 @@ async function showSpellingSuggestions(interaction, title, where, suggestions, e
   });
 }
 
-async function createMovieWithoutImdb(interaction, title, where, episodeInfo = null) {
+async function createMovieWithoutImdb(interaction, title, where, _episodeInfo = null) {
   const movieCreation = require('../services/movie-creation');
   const database = require('../database');
 
@@ -607,7 +607,7 @@ async function createMovieWithoutImdb(interaction, title, where, episodeInfo = n
       return; // Stop execution, error message already shown by movie creation service
     }
 
-    const { message, thread, movieId } = result;
+    const { message, thread, movieId: _movieId } = result;
 
     // Post to admin channel if configured
     try {
@@ -631,7 +631,7 @@ async function createMovieWithoutImdb(interaction, title, where, episodeInfo = n
     // Ensure recommendation post/action for the movie channel
     // Note: We need to get the actual movie channel, not the interaction channel
     const forumChannels = require('../services/forum-channels');
-    const database = require('../database');
+
     const config = await database.getGuildConfig(interaction.guild.id);
 
     // Note: Forum recommendation posts are managed by session creation and sync operations
@@ -650,7 +650,7 @@ async function createMovieWithoutImdb(interaction, title, where, episodeInfo = n
       config && config.movie_channel_id
         ? await interaction.client.channels.fetch(config.movie_channel_id)
         : null;
-    const channelType = movieChannel ? forumChannels.getChannelTypeString(movieChannel) : 'Unknown';
+    const _channelType = movieChannel ? forumChannels.getChannelTypeString(movieChannel) : 'Unknown';
 
     const successMessage = thread
       ? `✅ **Content recommendation added!**\n\n🍿 **${title}** has been added as a new forum post in ${movieChannel} for voting and discussion.`
@@ -676,7 +676,7 @@ async function createMovieWithoutImdb(interaction, title, where, episodeInfo = n
         } else {
           await interaction.deleteReply();
         }
-      } catch (_) {}
+      } catch (_) { /* no-op: ephemeral cleanup */ void 0; }
     }, 5000);
   } catch (error) {
     const logger = require('../utils/logger');

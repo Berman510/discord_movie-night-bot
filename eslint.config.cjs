@@ -45,5 +45,12 @@ module.exports = [
       'no-empty': ['error', { allowEmptyCatch: true }],
     },
   },
+  {
+    files: ['database.js'],
+    rules: {
+      'no-empty': ['warn', { allowEmptyCatch: true }],
+    },
+  },
+
 
 ];

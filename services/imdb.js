@@ -13,7 +13,7 @@ try {
   console.warn('⚠️ Error details:', error.message);
 }
 
-const { OMDB_API_KEY, IMDB_CACHE_ENABLED, IMDB_CACHE_TTL_DAYS, IMDB_CACHE_MAX_ROWS } = process.env;
+const { OMDB_API_KEY, IMDB_CACHE_ENABLED: _IMDB_CACHE_ENABLED, IMDB_CACHE_TTL_DAYS: _IMDB_CACHE_TTL_DAYS, IMDB_CACHE_MAX_ROWS: _IMDB_CACHE_MAX_ROWS } = process.env;
 
 async function searchMovie(title) {
   if (!OMDB_API_KEY) {

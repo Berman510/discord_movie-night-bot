@@ -48,7 +48,7 @@ async function createAdminControlEmbed(guildName, guildId) {
     const { getStatus } = require('../services/ws-client');
     const s = typeof getStatus === 'function' ? getStatus() : null;
     if (s) wsText = `WS: ${s.connected ? 'Connected' : 'Disconnected'}`;
-  } catch (_) {}
+  } catch (e) { /* no-op: ws status optional */ void 0; }
 
   embed
     .addFields(
@@ -116,7 +116,7 @@ async function tryShowSetupPanelInAdminChannels(client, guildId) {
     }
 
     // Create setup panel embed
-    const guidedSetup = require('./guided-setup');
+    const _guidedSetup = require('./guided-setup');
     const embed = new EmbedBuilder()
       .setTitle('🎬 Movie Night Bot - Setup Required')
       .setDescription(
@@ -305,7 +305,7 @@ async function createAdminControlButtons(guildId = null) {
 /**
  * Check if the voting channel is a forum channel
  */
-async function checkIfVotingChannelIsForum(guildId) {
+async function _checkIfVotingChannelIsForum(guildId) {
   if (!guildId) {
     return false;
   }
@@ -652,7 +652,7 @@ async function handleSyncChannel(interaction) {
       setTimeout(async () => {
         try {
           await interaction.deleteReply();
-        } catch (_) {}
+        } catch (e) { /* no-op: ephemeral cleanup */ void 0; }
       }, 8000);
     } else if (successParts.length > 0) {
       await interaction.editReply({
@@ -661,7 +661,7 @@ async function handleSyncChannel(interaction) {
       setTimeout(async () => {
         try {
           await interaction.deleteReply();
-        } catch (_) {}
+        } catch (e) { /* no-op: ephemeral cleanup */ void 0; }
       }, 8000);
     } else {
       await interaction.editReply({
@@ -670,7 +670,7 @@ async function handleSyncChannel(interaction) {
       setTimeout(async () => {
         try {
           await interaction.deleteReply();
-        } catch (_) {}
+        } catch (e) { /* no-op: ephemeral cleanup */ void 0; }
       }, 8000);
     }
   } catch (error) {
@@ -681,7 +681,7 @@ async function handleSyncChannel(interaction) {
     setTimeout(async () => {
       try {
         await interaction.deleteReply();
-      } catch (_) {}
+      } catch (e) { /* no-op: ephemeral cleanup */ void 0; }
     }, 8000);
   }
 }
@@ -801,7 +801,7 @@ async function executePurgeQueue(interaction) {
                   await thread.delete();
                   threadsDeleted++;
                 }
-              } catch {}
+              } catch (e) { /* no-op: thread delete best-effort */ void 0; }
             } else {
               const threads = await votingChannel.threads.fetchActive();
               for (const [, thread] of threads.threads) {
@@ -862,10 +862,10 @@ async function executePurgeQueue(interaction) {
             ) {
               try {
                 await t.delete('Purge system posts');
-              } catch {}
+              } catch (e) { /* no-op: purge best-effort */ void 0; }
             }
           }
-        } catch {}
+        } catch (e) { /* no-op: thread iteration */ void 0; }
         try {
           const activeSession = await database.getActiveVotingSession(interaction.guild.id);
           if (activeSession) {
@@ -876,7 +876,7 @@ async function executePurgeQueue(interaction) {
           } else {
             await require('./forum-channels').createNoActiveSessionPost(votingChannel);
           }
-        } catch {}
+        } catch (e) { /* no-op: no-session post */ void 0; }
       }
     }
 
@@ -1112,7 +1112,7 @@ async function syncForumMoviePost(forumChannel, movie) {
         movieComponents
       );
 
-      const { thread, message } = result;
+      const { thread, message: _message } = result;
 
       // Update database with new thread ID
 
@@ -1215,7 +1215,7 @@ async function syncForumTVShowPost(forumChannel, tvShow) {
         tvShowComponents
       );
 
-      const { thread, message } = result;
+      const { thread, message: _message } = result;
 
       // Update database with new thread ID for TV show
       await database.pool.execute('UPDATE tv_shows SET thread_id = ? WHERE message_id = ?', [

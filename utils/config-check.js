@@ -97,7 +97,7 @@ async function sendConfigurationError(interaction, configCheck) {
 /**
  * Middleware function to check configuration before command execution
  */
-async function requireConfiguration(interaction, next) {
+async function requireConfiguration(interaction, _next) {
   const configCheck = await checkConfiguration(interaction.guild.id);
 
   if (!configCheck.isConfigured) {
