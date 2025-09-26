@@ -1,5 +1,5 @@
 /**
- * Movie Night Bot — Main Entry Point
+ * Watch Party Bot — Main Entry Point
  * Version: 1.14.1
  *
  * A modular Discord bot for organizing movie nights with voting, sessions, and IMDb integration

@@ -1,4 +1,4 @@
-# Movie Night Bot - Architecture Documentation
+# Watch Party Bot - Architecture Documentation
 
 ## 📁 Project Structure
 
@@ -174,4 +174,4 @@ The modular structure makes it easy to:
 - Environment variables remain the same
 - Deployment process unchanged
 
-This architecture provides a solid foundation for continued development and maintenance of the Movie Night Bot.
+This architecture provides a solid foundation for continued development and maintenance of the Watch Party Bot.
