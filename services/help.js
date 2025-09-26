@@ -4,7 +4,7 @@
  */
 
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
-const { getContentTypeInfo } = require('../utils/content-types');
+// const { getContentTypeInfo } = require('../utils/content-types'); // Reserved for future use
 
 /**
  * Main help command handler
