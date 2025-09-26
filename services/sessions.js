@@ -1423,7 +1423,7 @@ async function handleCustomDateTimeModal(interaction) {
 
       if (!timeMatch) {
         await interaction.reply({
-          content: '❌ Invalid time format. Please use format like "11:30 PM" or "7 AM".',
+          content: '❌ Invalid time format. Use formats like: 11:30 PM, 11PM, 11 PM, or 7 AM.',
           flags: MessageFlags.Ephemeral,
         });
         return;

@@ -64,9 +64,14 @@ function createAdminContentEmbed(content, voteCounts, contentType) {
     content.season_number &&
     content.episode_number
   ) {
-    displayTitle = `${content.title} - S${content.season_number}E${content.episode_number}`;
-    if (content.episode_title) {
-      displayTitle += ` - ${content.episode_title}`;
+    // Format: "Series Name - S14E03 - Episode Title"
+    const seriesName = content.title;
+    const seasonEpisode = `S${content.season_number}E${content.episode_number}`;
+
+    if (content.episode_title && content.episode_title !== seriesName) {
+      displayTitle = `${seriesName} - ${seasonEpisode} - ${content.episode_title}`;
+    } else {
+      displayTitle = `${seriesName} - ${seasonEpisode}`;
     }
   }
 

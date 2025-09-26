@@ -3549,7 +3549,8 @@ async function handleAdministrationPanel(interaction) {
   if (ephemeralManager.isThrottled('admin_panel', interaction.user.id)) {
     await ephemeralManager.sendEphemeral(
       interaction,
-      'ℹ️ Administration panel is already open. Use the buttons there or wait a moment before opening again.'
+      'ℹ️ Administration panel is already open. Use the buttons there or wait a moment before opening again.',
+      { autoExpireSeconds: 10 } // Auto-expire informational message after 10 seconds
     );
     return;
   }

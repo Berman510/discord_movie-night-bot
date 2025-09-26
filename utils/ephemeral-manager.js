@@ -29,6 +29,11 @@ class EphemeralManager {
 
   /**
    * Send an ephemeral message, automatically cleaning up the previous one
+   * @param {Object} interaction - Discord interaction
+   * @param {string} content - Message content
+   * @param {Object} options - Message options
+   * @param {number} options.autoExpireSeconds - Auto-expire after N seconds (default: 20 for no-interaction messages)
+   * @param {boolean} options.hasInteraction - Whether message has interaction buttons (affects auto-expire)
    */
   async sendEphemeral(interaction, content, options = {}) {
     try {
@@ -37,6 +42,11 @@ class EphemeralManager {
       // So we'll just track the latest one and let Discord handle cleanup
 
       const { MessageFlags } = require('discord.js');
+
+      // Determine auto-expire behavior
+      const hasInteraction =
+        options.hasInteraction || (options.components && options.components.length > 0);
+      const autoExpireSeconds = options.autoExpireSeconds || (hasInteraction ? null : 20); // 20s for no-interaction messages
 
       // Send new ephemeral message using flags
       let response;
@@ -52,6 +62,21 @@ class EphemeralManager {
           ...options,
           flags: MessageFlags.Ephemeral,
         });
+      }
+
+      // Set up auto-expiry if specified
+      if (autoExpireSeconds && autoExpireSeconds > 0) {
+        setTimeout(async () => {
+          try {
+            if (interaction.replied || interaction.deferred) {
+              await response.delete();
+            } else {
+              await interaction.deleteReply();
+            }
+          } catch (error) {
+            // Ignore errors - message may have already been deleted or expired
+          }
+        }, autoExpireSeconds * 1000);
       }
 
       // Track this message for future cleanup (mainly for debugging/stats)
@@ -115,6 +140,20 @@ class EphemeralManager {
     // Remove from tracking
     this.userEphemeralMessages.delete(userId);
     logger.debug(`🧹 Removed ephemeral message tracking for user ${userId}`);
+  }
+
+  /**
+   * Auto-expire an ephemeral message after an interaction is completed
+   * Use this for messages with interaction buttons that should disappear after user acts
+   */
+  async expireAfterInteraction(interaction, delaySeconds = 3) {
+    setTimeout(async () => {
+      try {
+        await interaction.deleteReply();
+      } catch (error) {
+        // Ignore errors - message may have already been deleted or expired
+      }
+    }, delaySeconds * 1000);
   }
 
   /**

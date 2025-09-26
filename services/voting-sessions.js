@@ -241,9 +241,10 @@ async function handleVotingSessionRescheduleModal(interaction) {
 
     function parseTimeFlexible(str) {
       const t = str.trim();
-      // Try 12-hour first
-      const re12 = /^(0?[1-9]|1[0-2]):([0-5][0-9])\s*(AM|PM)$/i;
-      let m = t.match(re12);
+
+      // Try 12-hour with minutes first (e.g., "7:30 PM", "11:00 AM")
+      const re12WithMinutes = /^(0?[1-9]|1[0-2]):([0-5][0-9])\s*(AM|PM)$/i;
+      let m = t.match(re12WithMinutes);
       if (m) {
         let hours = parseInt(m[1]);
         const minutes = parseInt(m[2]);
@@ -252,6 +253,19 @@ async function handleVotingSessionRescheduleModal(interaction) {
         if (ampm === 'AM' && hours === 12) hours = 0;
         return { hours, minutes };
       }
+
+      // Try 12-hour without minutes (e.g., "11PM", "11 PM", "7AM", "7 AM")
+      const re12NoMinutes = /^(0?[1-9]|1[0-2])\s*(AM|PM)$/i;
+      m = t.match(re12NoMinutes);
+      if (m) {
+        let hours = parseInt(m[1]);
+        const minutes = 0;
+        const ampm = m[2].toUpperCase();
+        if (ampm === 'PM' && hours !== 12) hours += 12;
+        if (ampm === 'AM' && hours === 12) hours = 0;
+        return { hours, minutes };
+      }
+
       // Try 24-hour HH:MM
       const re24 = /^([01]?\d|2[0-3]):([0-5]\d)$/;
       m = t.match(re24);
@@ -264,7 +278,7 @@ async function handleVotingSessionRescheduleModal(interaction) {
     const parsedStart = parseTimeFlexible(session_time);
     if (!parsedStart) {
       await interaction.editReply({
-        content: '❌ Invalid start time. Use 12h or 24h (e.g., 7:30 PM or 19:30).',
+        content: '❌ Invalid start time. Use formats like: 7:30 PM, 11PM, 11 PM, or 19:30.',
       });
       return;
     }
@@ -274,7 +288,7 @@ async function handleVotingSessionRescheduleModal(interaction) {
       parsedEnd = parseTimeFlexible(voting_end_time);
       if (!parsedEnd) {
         await interaction.editReply({
-          content: '❌ Invalid voting end time. Use 12h or 24h (e.g., 6:30 PM or 18:30).',
+          content: '❌ Invalid voting end time. Use formats like: 6:30 PM, 10PM, 10 PM, or 18:30.',
         });
         return;
       }
@@ -468,9 +482,10 @@ async function handleVotingSessionDateModal(interaction) {
   // Parse time in either 12-hour (h:mm AM/PM) or 24-hour (HH:MM) format
   function parseTimeFlexible(timeStr) {
     const t = timeStr.trim();
-    // 12-hour
-    const re12 = /^(0?[1-9]|1[0-2]):([0-5][0-9])\s*(AM|PM)$/i;
-    let m = t.match(re12);
+
+    // Try 12-hour with minutes first (e.g., "7:30 PM", "11:00 AM")
+    const re12WithMinutes = /^(0?[1-9]|1[0-2]):([0-5][0-9])\s*(AM|PM)$/i;
+    let m = t.match(re12WithMinutes);
     if (m) {
       let hours = parseInt(m[1]);
       const minutes = parseInt(m[2]);
@@ -479,7 +494,20 @@ async function handleVotingSessionDateModal(interaction) {
       if (ampm === 'AM' && hours === 12) hours = 0;
       return { hours, minutes };
     }
-    // 24-hour
+
+    // Try 12-hour without minutes (e.g., "11PM", "11 PM", "7AM", "7 AM")
+    const re12NoMinutes = /^(0?[1-9]|1[0-2])\s*(AM|PM)$/i;
+    m = t.match(re12NoMinutes);
+    if (m) {
+      let hours = parseInt(m[1]);
+      const minutes = 0;
+      const ampm = m[2].toUpperCase();
+      if (ampm === 'PM' && hours !== 12) hours += 12;
+      if (ampm === 'AM' && hours === 12) hours = 0;
+      return { hours, minutes };
+    }
+
+    // Try 24-hour HH:MM
     const re24 = /^([01]?\d|2[0-3]):([0-5]\d)$/;
     m = t.match(re24);
     if (m) return { hours: parseInt(m[1]), minutes: parseInt(m[2]) };
@@ -489,7 +517,7 @@ async function handleVotingSessionDateModal(interaction) {
   const parsedSessionTime = parseTimeFlexible(sessionTime);
   if (!parsedSessionTime) {
     await interaction.reply({
-      content: '❌ Invalid session time format. Use 12h or 24h (e.g., 7:30 PM or 19:30).',
+      content: '❌ Invalid session time format. Use formats like: 7:30 PM, 11PM, 11 PM, or 19:30.',
       flags: MessageFlags.Ephemeral,
     });
     return;
@@ -500,7 +528,8 @@ async function handleVotingSessionDateModal(interaction) {
     parsedVotingEndTime = parseTimeFlexible(votingEndTime);
     if (!parsedVotingEndTime) {
       await interaction.reply({
-        content: '❌ Invalid voting end time format. Use 12h or 24h (e.g., 6:30 PM or 18:30).',
+        content:
+          '❌ Invalid voting end time format. Use formats like: 6:30 PM, 10PM, 10 PM, or 18:30.',
         flags: MessageFlags.Ephemeral,
       });
       return;
@@ -804,6 +833,50 @@ async function createVotingSession(interaction, state) {
             logger.debug(
               `📝 Creating posts for ${carryoverMovies.length} carryover movies and ${carryoverTVShows.length} carryover TV shows`
             );
+
+            // Also create admin channel posts for carryover content
+            const adminMirror = require('./admin-mirror');
+            const config = await database.getGuildConfig(interaction.guild.id);
+
+            if (config?.admin_channel_id) {
+              try {
+                const adminChannel = await interaction.client.channels.fetch(
+                  config.admin_channel_id
+                );
+                if (adminChannel) {
+                  logger.debug(
+                    `📝 Creating admin channel posts for ${allCarryoverContent.length} carryover items`
+                  );
+
+                  for (const content of allCarryoverContent) {
+                    const isTV = content.show_type !== undefined;
+                    const contentType = isTV ? 'tv_show' : 'movie';
+
+                    try {
+                      await adminMirror.postContentToAdminChannel(
+                        adminChannel,
+                        content,
+                        { up: 0, down: 0 }, // Reset vote counts for carryover
+                        contentType
+                      );
+                      logger.debug(
+                        `📝 Created admin post for carryover ${contentType}: ${content.title}`
+                      );
+                    } catch (error) {
+                      logger.warn(
+                        `Failed to create admin post for carryover ${contentType} ${content.title}:`,
+                        error.message
+                      );
+                    }
+                  }
+                }
+              } catch (error) {
+                logger.warn(
+                  'Failed to create admin channel posts for carryover content:',
+                  error.message
+                );
+              }
+            }
 
             for (const content of allCarryoverContent) {
               const isTV = content.show_type !== undefined; // TV shows have show_type field

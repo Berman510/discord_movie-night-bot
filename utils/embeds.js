@@ -26,7 +26,17 @@ function createMovieEmbed(movie, imdbData = null, voteCounts = null, contentType
   if (isTV && imdbData && imdbData.Type === 'episode') {
     // For episodes, show series name and episode info
     if (imdbData.seriesID && imdbData.Season && imdbData.Episode) {
-      displayTitle = `${movie.title} - S${imdbData.Season}E${imdbData.Episode}`;
+      // Format: "Series Name - S14E03 - Episode Title"
+      const seriesName = imdbData.seriesID;
+      const seasonEpisode = `S${imdbData.Season}E${imdbData.Episode}`;
+      const episodeTitle = imdbData.Title || movie.title;
+
+      // Only include episode title if it's different from series name
+      if (episodeTitle && episodeTitle !== seriesName) {
+        displayTitle = `${seriesName} - ${seasonEpisode} - ${episodeTitle}`;
+      } else {
+        displayTitle = `${seriesName} - ${seasonEpisode}`;
+      }
     }
   }
 
