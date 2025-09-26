@@ -13,7 +13,7 @@ A comprehensive Discord bot for organizing movie nights and TV show watch partie
 
 ### 1. Add the Bot to Your Server
 
-[**→ Invite Watch Party Bot**](https://discord.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&scope=bot%20applications.commands&permissions=2147765248)
+[**→ Invite Watch Party Bot**](https://discord.com/oauth2/authorize?client_id=1320169088088748032&scope=bot%20applications.commands&permissions=2147765248)
 
 ### 2. Set Up Your Server
 
@@ -290,7 +290,7 @@ Most actions happen through buttons on bot messages:
 
 **📖 Full Documentation**: [movienight.bermanoc.net/docs](https://movienight.bermanoc.net/docs)
 
-**💬 Discord Support**: Join our support server for help from the community and developers
+**💬 Discord Support**: [Join our support server](https://discord.gg/Tj2TswbZ) for help from the community and developers
 
 **🐛 Bug Reports**: Found a bug? Report it on GitHub Issues
 
@@ -314,7 +314,7 @@ The Watch Party Bot is constantly evolving! Check out our [roadmap](ROADMAP.md) 
 **Need Help?**
 
 - 📖 [Full Documentation](https://movienight.bermanoc.net/docs)
-- 💬 [Discord Support Server](https://discord.gg/movienight-support)
+- 💬 [Discord Support Server](https://discord.gg/Tj2TswbZ)
 - 🐛 [Report Issues](https://github.com/Berman510/discord_movie-night-bot/issues)
 
 **Want to Contribute?**

@@ -11,13 +11,20 @@ class EphemeralManager {
     // Simple throttle map: key `${key}:${userId}` -> lastTimestamp
     this.throttles = new Map();
 
-    // Clean up old entries every 10 minutes
-    setInterval(
-      () => {
-        this.cleanupOldEntries();
-      },
-      10 * 60 * 1000
-    );
+    // Clean up old entries every 10 minutes (skip in tests)
+    this._cleanupInterval = null;
+    if (process.env.NODE_ENV !== 'test') {
+      this._cleanupInterval = setInterval(
+        () => {
+          this.cleanupOldEntries();
+        },
+        10 * 60 * 1000
+      );
+      // Don't keep the process alive solely for this interval
+      if (this._cleanupInterval && typeof this._cleanupInterval.unref === 'function') {
+        this._cleanupInterval.unref();
+      }
+    }
   }
 
   /**
