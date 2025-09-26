@@ -1,12 +1,12 @@
 /*
  * WebSocket client: bot connects out to the dashboard WS server
- * Controlled by MOVIENIGHT_WS_ENABLED, MOVIENIGHT_WS_URL, MOVIENIGHT_WS_TOKEN
+ * Controlled by WATCHPARTY_WS_ENABLED, WATCHPARTY_WS_URL, WATCHPARTY_WS_TOKEN
  */
 
 const pkg = require('../package.json');
 
 function ensureWsInstalledIfNeeded() {
-  if (String(process.env.MOVIENIGHT_WS_ENABLED).toLowerCase() !== 'true') return null;
+  if (String(process.env.WATCHPARTY_WS_ENABLED).toLowerCase() !== 'true') return null;
   try {
     return require('ws');
   } catch (_) {
@@ -34,15 +34,15 @@ function ensureWsInstalledIfNeeded() {
 }
 
 function initWebSocketClient(logger) {
-  if (String(process.env.MOVIENIGHT_WS_ENABLED).toLowerCase() !== 'true') {
-    logger?.debug?.('WS client disabled (MOVIENIGHT_WS_ENABLED != true)');
+  if (String(process.env.WATCHPARTY_WS_ENABLED).toLowerCase() !== 'true') {
+    logger?.debug?.('WS client disabled (WATCHPARTY_WS_ENABLED != true)');
     return { enabled: false };
   }
 
-  const WS_URL = process.env.MOVIENIGHT_WS_URL;
-  const TOKEN = process.env.MOVIENIGHT_WS_TOKEN;
+  const WS_URL = process.env.WATCHPARTY_WS_URL;
+  const TOKEN = process.env.WATCHPARTY_WS_TOKEN;
   if (!WS_URL || !TOKEN) {
-    logger?.warn?.('WS client enabled but MOVIENIGHT_WS_URL or MOVIENIGHT_WS_TOKEN missing');
+    logger?.warn?.('WS client enabled but WATCHPARTY_WS_URL or WATCHPARTY_WS_TOKEN missing');
     return { enabled: false };
   }
 
