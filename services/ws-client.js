@@ -132,6 +132,11 @@ function initWebSocketClient(logger) {
             const adminControls = require('./admin-controls');
             const forumChannels = require('./forum-channels');
             const { ensureQuickActionAtBottom, recreateMissingMoviePosts } = require('./cleanup');
+
+            // Only perform sync operations when explicitly requested by dashboard
+            // This prevents message recreation during bot startup/reconnection
+            logger?.info?.(`[${guildId}] WS sync_guild requested by dashboard`);
+
             try {
               const config = await database.getGuildConfig(guildId);
               try {

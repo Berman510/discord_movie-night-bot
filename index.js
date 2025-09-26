@@ -88,29 +88,11 @@ client.once('clientReady', async () => {
   // Set bot status
   client.user.setActivity('🍿 Movie Night', { type: 3 }); // 3 = WATCHING
 
-  // Initialize admin control panels for all guilds with admin channels
-  try {
-    const adminControls = require('./services/admin-controls');
-    let panelsCreated = 0;
-
-    for (const [guildId, _guild] of client.guilds.cache) {
-      try {
-        const config = await database.getGuildConfig(guildId);
-        if (config && config.admin_channel_id) {
-          const panel = await adminControls.ensureAdminControlPanel(client, guildId);
-          if (panel) panelsCreated++;
-        }
-      } catch (error) {
-        logger.error(`Error initializing admin panel for guild ${guildId}:`, error);
-      }
-    }
-
-    if (panelsCreated > 0) {
-      logger.info(`🔧 Initialized ${panelsCreated} admin control panels`);
-    }
-  } catch (error) {
-    logger.error('Error during admin panel initialization:', error);
-  }
+  // Skip automatic admin panel initialization on startup to prevent message recreation
+  // Admin panels will be created on-demand when users interact with the bot
+  logger.info(
+    '🔧 Skipping automatic admin panel initialization to prevent startup message recreation'
+  );
 
   // Initialize smart session scheduler (replaces old polling system)
   try {

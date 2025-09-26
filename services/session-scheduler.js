@@ -24,8 +24,8 @@ class SessionScheduler {
     // Schedule daily check using setInterval
     this.scheduleDailyCheck();
 
-    // Check for any sessions that should have ended while bot was offline
-    await this.recoverMissedSessions();
+    // Check for any sessions that should have ended while bot was offline (silent mode)
+    await this.recoverMissedSessions(true);
 
     // Schedule all active sessions
     await this.scheduleAllActiveSessions();
@@ -162,8 +162,9 @@ class SessionScheduler {
 
   /**
    * Recover sessions that should have ended while bot was offline
+   * @param {boolean} silentMode - If true, only update database without creating Discord messages
    */
-  async recoverMissedSessions() {
+  async recoverMissedSessions(silentMode = false) {
     try {
       const database = require('../database');
       const activeSessions = await database.getAllActiveVotingSessions();
@@ -176,10 +177,20 @@ class SessionScheduler {
 
           if (votingEndTime <= now) {
             const logger = require('../utils/logger');
-            logger.info(
-              `⏰ Recovering missed session: ${session.name} (should have ended ${votingEndTime})`
-            );
-            await this.closeVotingForSession(session.id);
+            if (silentMode) {
+              logger.info(
+                `⏰ Silently recovering missed session: ${session.name} (should have ended ${votingEndTime})`
+              );
+              // In silent mode, just mark the session as completed without Discord messages
+              await database.updateVotingSessionStatus(session.id, 'completed');
+              await database.markMoviesForNextSession(session.guild_id);
+              await database.markTVShowsForNextSession(session.guild_id);
+            } else {
+              logger.info(
+                `⏰ Recovering missed session: ${session.name} (should have ended ${votingEndTime})`
+              );
+              await this.closeVotingForSession(session.id);
+            }
           }
         }
       }
