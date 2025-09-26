@@ -41,7 +41,7 @@ function createMainHelpEmbed() {
           '• **Smart Recommendations** - IMDb integration with rich details\n' +
           '• **Discord Events** - Automatic event creation with posters\n' +
           '• **Admin Controls** - Comprehensive moderation and management\n' +
-          '• **Dashboard Integration** - Web interface at movienight.bermanoc.net',
+          '• **Dashboard Integration** - Web interface at watchparty.bermanoc.net',
         inline: false,
       },
       {
@@ -57,7 +57,7 @@ function createMainHelpEmbed() {
       {
         name: '🔗 Quick Links',
         value: 
-          '🌐 **[Dashboard](https://movienight.bermanoc.net)**\n' +
+          '🌐 **[Dashboard](https://watchparty.bermanoc.net)**\n' +
           '💬 **[Support Server](https://discord.gg/Tj2TswbZ)**\n' +
           '☕ **[Support Development](https://ko-fi.com/bermanoc)**',
         inline: true,
@@ -251,7 +251,7 @@ function createSetupHelpEmbed() {
       {
         name: '🌐 Dashboard Access',
         value:
-          'Visit **[movienight.bermanoc.net](https://movienight.bermanoc.net)** for:\n' +
+          'Visit **[watchparty.bermanoc.net](https://watchparty.bermanoc.net)** for:\n' +
           '• Web-based configuration\n' +
           '• Real-time voting dashboard\n' +
           '• Advanced role management\n' +
@@ -314,7 +314,7 @@ function createRolesHelpEmbed() {
           '• `/movienight-configure add-admin-role @role`\n' +
           '• `/watchparty-setup` (guided setup)\n\n' +
           '**Via Dashboard:**\n' +
-          '• Visit [movienight.bermanoc.net](https://movienight.bermanoc.net)\n' +
+          '• Visit [watchparty.bermanoc.net](https://watchparty.bermanoc.net)\n' +
           '• Configure all role types with advanced options',
         inline: false,
       }
@@ -414,7 +414,7 @@ function createAdminHelpEmbed() {
       {
         name: '🌐 Dashboard Integration',
         value:
-          'Access [movienight.bermanoc.net](https://movienight.bermanoc.net) for:\n' +
+          'Access [watchparty.bermanoc.net](https://watchparty.bermanoc.net) for:\n' +
           '• Real-time voting dashboard\n' +
           '• Advanced role configuration\n' +
           '• Session planning tools\n' +
@@ -473,7 +473,7 @@ function createTroubleshootingHelpEmbed() {
         name: '🆘 Still Need Help?',
         value:
           '**Support Server:** [discord.gg/Tj2TswbZ](https://discord.gg/Tj2TswbZ)\n' +
-          '**Dashboard:** [movienight.bermanoc.net](https://movienight.bermanoc.net)\n' +
+          '**Dashboard:** [watchparty.bermanoc.net](https://watchparty.bermanoc.net)\n' +
           '**Debug Command:** `/movienight-debug-config` for detailed info\n' +
           '**Support Development:** [ko-fi.com/bermanoc](https://ko-fi.com/bermanoc)',
         inline: false,

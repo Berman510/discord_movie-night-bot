@@ -1,6 +1,29 @@
 # Changelog
 
-All notable changes to **Movie Night Bot** will be documented in this file.
+All notable changes to **Watch Party Bot** will be documented in this file.
+
+## [1.16.2] - 2025-01-26
+
+### 🎨 **Complete Rebranding**
+- **Brand Migration**: Changed all "Movie Night" references to "Watch Party" to avoid trademark conflicts
+- **URL Migration**: Updated all dashboard URLs from movienight.bermanoc.net to watchparty.bermanoc.net
+- **Documentation Updates**: Updated README, help system, and all user-facing text for Watch Party branding
+- **Route53 Redirects**: Added automatic redirects from old movienight URLs to new watchparty URLs
+- **Terraform Infrastructure**: Updated subdomain defaults and added redirect infrastructure
+
+### 🔗 **Infrastructure Changes**
+- **Route53 Redirect Infrastructure**: Automatic HTTPS redirects from movienight.bermanoc.net → watchparty.bermanoc.net
+- **CloudFront Distributions**: Proper HTTPS redirect handling with SSL certificates
+- **S3 Redirect Buckets**: Backend infrastructure for seamless URL transitions
+- **Updated Help System**: All dashboard links now point to watchparty.bermanoc.net
+- **Dashboard Rebranding**: Complete UI text updates from "Movie Night" to "Watch Party"
+
+### 🛠️ **Technical Updates**
+- Updated help system URLs across all sections
+- Updated dashboard branding and page titles
+- Updated README files for both bot and dashboard repositories
+- Maintained backward compatibility through redirect infrastructure
+- Updated Terraform variables for new subdomain defaults
 
 ## [1.16.1] - 2025-01-26
 
@@ -25,7 +48,7 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **Troubleshooting**: Common issues and solutions with step-by-step fixes
 
 ### 🔗 Integrated Links
-- **Dashboard**: https://movienight.bermanoc.net
+- **Dashboard**: https://watchparty.bermanoc.net
 - **Support Server**: https://discord.gg/Tj2TswbZ
 - **Ko-fi Support**: https://ko-fi.com/bermanoc
 
@@ -536,7 +559,7 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 
 
 ### Added
-- Web Dashboard messaging in initial setup, guided setup, and admin panels. Manage the bot (minus voting) at https://movienight.bermanoc.net.
+- Web Dashboard messaging in initial setup, guided setup, and admin panels. Manage the bot (minus voting) at https://watchparty.bermanoc.net.
 
 
 ### Fixed

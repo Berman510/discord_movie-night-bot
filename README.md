@@ -4,10 +4,10 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
 
-A comprehensive Discord bot for organizing movie nights and TV show watch parties in your Discord community. Create voting sessions, get movie recommendations with IMDb data, and coordinate watch parties with Discord Events integration.
+A comprehensive Discord bot for organizing watch parties and TV show viewing sessions in your Discord community. Create voting sessions, get movie and TV show recommendations with IMDb data, and coordinate watch parties with Discord Events integration.
 
-> **🌐 Web Dashboard**: Manage your bot through a beautiful web interface at [movienight.bermanoc.net](https://movienight.bermanoc.net)
-> **📖 Full Documentation**: Complete setup and usage guide at [movienight.bermanoc.net/docs](https://movienight.bermanoc.net/docs)
+> **🌐 Web Dashboard**: Manage your bot through a beautiful web interface at [watchparty.bermanoc.net](https://watchparty.bermanoc.net)
+> **📖 Full Documentation**: Complete setup and usage guide at [watchparty.bermanoc.net/docs](https://watchparty.bermanoc.net/docs)
 
 ## 🚀 Getting Started
 
@@ -24,7 +24,7 @@ Run `/watchparty-setup` to configure:
 - **Watch Party Channel** - Voice/text channel for actual watch parties
 - **Roles** - Who can vote, moderate, and administrate
 
-### 3. Plan Your First Movie Night
+### 3. Plan Your First Watch Party
 
 Use `/watchparty create-session` to schedule:
 
@@ -174,7 +174,7 @@ Most actions happen through buttons on bot messages:
 
 ## 🎯 How to Use the Bot
 
-### Planning a Movie Night
+### Planning a Watch Party
 
 1. **Create a Session**
    - Use `/watchparty create-session` or the admin panel
@@ -221,7 +221,7 @@ Most actions happen through buttons on bot messages:
 
 ## 💡 Pro Tips
 
-### Getting the Most Out of Your Movie Nights
+### Getting the Most Out of Your Watch Parties
 
 **🎬 Recommendation Tips:**
 
@@ -313,7 +313,7 @@ The Watch Party Bot is constantly evolving! Check out our [roadmap](ROADMAP.md) 
 
 **Need Help?**
 
-- 📖 [Full Documentation](https://movienight.bermanoc.net/docs)
+- 📖 [Full Documentation](https://watchparty.bermanoc.net/docs)
 - 💬 [Discord Support Server](https://discord.gg/Tj2TswbZ)
 - 🐛 [Report Issues](https://github.com/Berman510/discord_movie-night-bot/issues)
 
