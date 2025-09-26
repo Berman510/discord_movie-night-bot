@@ -38,6 +38,19 @@ const discordEvents = require('./discord-events');
 const permissions = require('./permissions');
 const timezone = require('./timezone');
 
+// Helper to parse 12-hour time like "9:00 PM"
+function parse12HourTime(str) {
+  const m = str.match(/^\s*(\d{1,2})\s*:\s*(\d{2})\s*(AM|PM)\s*$/i);
+  if (!m) return null;
+  let h = parseInt(m[1], 10);
+  const min = parseInt(m[2], 10);
+  const isPM = /pm/i.test(m[3]);
+  if (h < 1 || h > 12 || min < 0 || min > 59) return null;
+  if (h === 12) h = 0;
+  const hour24 = h + (isPM ? 12 : 0);
+  return { hour: hour24, minute: min };
+}
+
 async function handleMovieSession(interaction) {
   const action = interaction.options.getString('action');
   const _guildId = interaction.guild.id;
@@ -1614,18 +1627,7 @@ async function createMovieSessionFromModal(interaction) {
         interaction.fields.getTextInputValue('reschedule_voting_end_time')?.trim() || '';
     } catch (_) {}
 
-    // Helper to parse 12-hour time like "9:00 PM"
-    function parse12HourTime(str) {
-      const m = str.match(/^\s*(\d{1,2})\s*:\s*(\d{2})\s*(AM|PM)\s*$/i);
-      if (!m) return null;
-      let h = parseInt(m[1], 10);
-      const min = parseInt(m[2], 10);
-      const isPM = /pm/i.test(m[3]);
-      if (h < 1 || h > 12 || min < 0 || min > 59) return null;
-      if (h === 12) h = 0;
-      const hour24 = h + (isPM ? 12 : 0);
-      return { hour: hour24, minute: min };
-    }
+
 
     // Calculate final date/time in the selected timezone
     let scheduledDate = null;
