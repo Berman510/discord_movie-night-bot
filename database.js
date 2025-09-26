@@ -1,5 +1,5 @@
 /**
- * Database module for Movie Night Bot
+ * Database module for Watch Party Bot
  * Handles MySQL connection and all database operations
  * Falls back to JSON file storage if MySQL is not available
  */
@@ -2084,7 +2084,7 @@ class Database {
         }
 
         // Create a simple placeholder session in 'voting' state
-        const name = 'Movie Night - Voting';
+        const name = 'Watch Party - Voting';
         const sessionId = await this.createMovieSession({
           guildId,
           channelId,

@@ -452,11 +452,11 @@ All notable changes to **Watch Party Bot** will be documented in this file.
 ### Notes
 
 - For PebbleHost/beta, set in the bot .env:
-  - `MOVIENIGHT_WS_ENABLED=true`
-  - `MOVIENIGHT_WS_URL=wss://bot-movienight-beta.bermanoc.net/socket`
-  - `MOVIENIGHT_WS_TOKEN=<the WS token from AWS Secrets Manager>`
+  - `WATCHPARTY_WS_ENABLED=true`
+  - `WATCHPARTY_WS_URL=wss://bot-watchparty-beta.bermanoc.net/socket`
+  - `WATCHPARTY_WS_TOKEN=<the WS token from AWS Secrets Manager>`
 - To fetch the token (read-only), run:
-  - `aws secretsmanager get-secret-value --secret-id movienight-dashboard/beta/ws --query SecretString --output text`
+  - `aws secretsmanager get-secret-value --secret-id watchparty-dashboard/beta/ws --query SecretString --output text`
 
 ## [1.14.1-rc2] - 2025-09-10
 

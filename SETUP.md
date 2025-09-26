@@ -76,12 +76,12 @@ DB_NAME=YOUR_DB_NAME
 Use the WebSocket bridge (bot-initiated):
 
 ```
-MOVIENIGHT_WS_ENABLED=true
-MOVIENIGHT_WS_URL=wss://bot-movienight.bermanoc.net/socket
-MOVIENIGHT_WS_TOKEN=YOUR_LONG_RANDOM_TOKEN
+WATCHPARTY_WS_ENABLED=true
+WATCHPARTY_WS_URL=wss://bot-watchparty.bermanoc.net/socket
+WATCHPARTY_WS_TOKEN=YOUR_LONG_RANDOM_TOKEN
 ```
 
-Note: for beta use `wss://bot-movienight-beta.bermanoc.net/socket`.
+Note: for beta use `wss://bot-watchparty-beta.bermanoc.net/socket`.
 
 Webhook support has been removed. The bot now operates WS-only.
 
