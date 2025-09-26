@@ -22,6 +22,7 @@ const database = require('../database');
 const { sessions } = require('../services');
 const { permissions } = require('../services');
 const cleanup = require('../services/cleanup');
+const helpService = require('../services/help');
 
 const logger = require('../utils/logger');
 
@@ -64,6 +65,12 @@ async function handleButton(interaction) {
     // Admin movie action buttons
     if (customId.startsWith('admin_') && !customId.startsWith('admin_ctrl_')) {
       await handleAdminMovieButtons(interaction, customId);
+      return;
+    }
+
+    // Help system buttons
+    if (customId.startsWith('help_')) {
+      await helpService.handleHelpButton(interaction);
       return;
     }
 

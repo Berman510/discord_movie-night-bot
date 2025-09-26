@@ -16,6 +16,43 @@ const {
 const database = require('../database');
 const _ephemeralManager = require('../utils/ephemeral-manager');
 
+// Helper function to parse flexible time formats
+function parseTimeFlexible(str) {
+  const t = str.trim();
+
+  // Try 12-hour with minutes first (e.g., "7:30 PM", "11:00 AM")
+  const re12WithMinutes = /^(0?[1-9]|1[0-2]):([0-5][0-9])\s*(AM|PM)$/i;
+  let m = t.match(re12WithMinutes);
+  if (m) {
+    let hours = parseInt(m[1]);
+    const minutes = parseInt(m[2]);
+    const isPM = m[3].toUpperCase() === 'PM';
+    if (hours === 12) hours = 0;
+    if (isPM) hours += 12;
+    return { hours, minutes };
+  }
+
+  // Try 12-hour without minutes (e.g., "7PM", "11 AM", "7 PM")
+  const re12NoMinutes = /^(0?[1-9]|1[0-2])\s*(AM|PM)$/i;
+  m = t.match(re12NoMinutes);
+  if (m) {
+    let hours = parseInt(m[1]);
+    const isPM = m[2].toUpperCase() === 'PM';
+    if (hours === 12) hours = 0;
+    if (isPM) hours += 12;
+    return { hours, minutes: 0 };
+  }
+
+  // Try 24-hour format (e.g., "19:30", "07:00")
+  const re24 = /^([01]?[0-9]|2[0-3]):([0-5][0-9])$/;
+  m = t.match(re24);
+  if (m) {
+    return { hours: parseInt(m[1]), minutes: parseInt(m[2]) };
+  }
+
+  return null;
+}
+
 /**
  * Start the voting session creation process with date/time selection
  */
@@ -237,42 +274,6 @@ async function handleVotingSessionRescheduleModal(interaction) {
     if (!dateRegex.test(session_date)) {
       await interaction.editReply({ content: '❌ Invalid date format. Use MM/DD/YYYY.' });
       return;
-    }
-
-    function parseTimeFlexible(str) {
-      const t = str.trim();
-
-      // Try 12-hour with minutes first (e.g., "7:30 PM", "11:00 AM")
-      const re12WithMinutes = /^(0?[1-9]|1[0-2]):([0-5][0-9])\s*(AM|PM)$/i;
-      let m = t.match(re12WithMinutes);
-      if (m) {
-        let hours = parseInt(m[1]);
-        const minutes = parseInt(m[2]);
-        const ampm = m[3].toUpperCase();
-        if (ampm === 'PM' && hours !== 12) hours += 12;
-        if (ampm === 'AM' && hours === 12) hours = 0;
-        return { hours, minutes };
-      }
-
-      // Try 12-hour without minutes (e.g., "11PM", "11 PM", "7AM", "7 AM")
-      const re12NoMinutes = /^(0?[1-9]|1[0-2])\s*(AM|PM)$/i;
-      m = t.match(re12NoMinutes);
-      if (m) {
-        let hours = parseInt(m[1]);
-        const minutes = 0;
-        const ampm = m[2].toUpperCase();
-        if (ampm === 'PM' && hours !== 12) hours += 12;
-        if (ampm === 'AM' && hours === 12) hours = 0;
-        return { hours, minutes };
-      }
-
-      // Try 24-hour HH:MM
-      const re24 = /^([01]?\d|2[0-3]):([0-5]\d)$/;
-      m = t.match(re24);
-      if (m) {
-        return { hours: parseInt(m[1]), minutes: parseInt(m[2]) };
-      }
-      return null;
     }
 
     const parsedStart = parseTimeFlexible(session_time);

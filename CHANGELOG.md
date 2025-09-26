@@ -1,6 +1,76 @@
 # Changelog
 
-All notable changes to **Movie Night Bot** will be documented in this file.
+All notable changes to **Watch Party Bot** will be documented in this file.
+
+## [1.16.2] - 2025-01-26
+
+### 🎨 **Complete Rebranding**
+
+- **Brand Migration**: Changed all "Movie Night" references to "Watch Party" to avoid trademark conflicts
+- **URL Migration**: Updated all dashboard URLs from movienight.bermanoc.net to watchparty.bermanoc.net
+- **Documentation Updates**: Updated README, help system, and all user-facing text for Watch Party branding
+- **Route53 Redirects**: Added automatic redirects from old movienight URLs to new watchparty URLs
+- **Terraform Infrastructure**: Updated subdomain defaults and added redirect infrastructure
+
+### 🔗 **Infrastructure Changes**
+
+- **Route53 Redirect Infrastructure**: Automatic HTTPS redirects from movienight.bermanoc.net → watchparty.bermanoc.net
+- **CloudFront Distributions**: Proper HTTPS redirect handling with SSL certificates
+- **S3 Redirect Buckets**: Backend infrastructure for seamless URL transitions
+- **Updated Help System**: All dashboard links now point to watchparty.bermanoc.net
+- **Dashboard Rebranding**: Complete UI text updates from "Movie Night" to "Watch Party"
+
+### 🛠️ **Technical Updates**
+
+- Updated help system URLs across all sections
+- Updated dashboard branding and page titles
+- Updated README files for both bot and dashboard repositories
+- Maintained backward compatibility through redirect infrastructure
+- Updated Terraform variables for new subdomain defaults
+
+## [1.16.1] - 2025-01-26
+
+### ✨ Added
+
+- **Comprehensive Help System**: New `/help` command with interactive navigation
+  - Organized help sections: Commands, Setup, Roles, Sessions, Admin Features, Troubleshooting
+  - Button-based navigation with back functionality
+  - Links to dashboard, support server, and Ko-fi donations
+  - Ephemeral responses for clean user experience
+- **Dashboard Content Type Support**: Full integration with new session types
+  - Content type selector in session planning (Movies Only, TV Shows Only, Mixed)
+  - Content type indicators in current session and recent sessions
+  - Updated terminology from "Movies" to "Content" for inclusivity
+  - Proper WebSocket integration with bot's content type system
+
+### 🎯 Help System Features
+
+- **Commands Guide**: All commands organized by permission level (Admin, Moderator, Viewer)
+- **Setup & Configuration**: Quick setup vs manual configuration guides
+- **Roles & Permissions**: Detailed explanation of Admin, Moderator, Voter, Viewer roles
+- **Sessions & Voting**: How sessions work, content types, carryover system
+- **Admin Features**: Session management, analytics, dashboard integration
+- **Troubleshooting**: Common issues and solutions with step-by-step fixes
+
+### 🔗 Integrated Links
+
+- **Dashboard**: https://watchparty.bermanoc.net
+- **Support Server**: https://discord.gg/Tj2TswbZ
+- **Ko-fi Support**: https://ko-fi.com/bermanoc
+
+### 🎨 Dashboard Improvements
+
+- Content type selection in session planning form
+- Visual content type indicators with emojis
+- Updated stats terminology for better inclusivity
+- Proper integration with bot's session content type system
+
+### 🛠️ Technical Improvements
+
+- Enhanced WebSocket message handling for content types
+- Improved session planning API with content type support
+- Better user experience with organized help navigation
+- Consistent versioning across bot and dashboard (v1.16.1)
 
 ## [1.16.0] - 2025-09-26
 
@@ -15,23 +85,27 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ### 🆕 Added
 
 #### TV Show Integration
+
 - **TV Episode Search**: Search for specific episodes with formats like "Show Name Episode 302" or "Show Name - 302"
 - **Episode Title Display**: Consistent formatting as "Series Name - S14E03 - Episode Title" across all channels
 - **TV Show Sessions**: Dedicated TV show voting sessions with proper content type separation
 - **Mixed Sessions**: Support for sessions containing both movies and TV shows
 
 #### Session Management
+
 - **Session Content Types**: Movie, TV Show, and Mixed session types with proper content filtering
 - **Carryover Content**: Automatic carryover of non-winning content to next session with proper admin channel posts
 - **Session Integrity**: Content type filtering ensures movies don't appear in TV sessions and vice versa
 - **Enhanced Session Creation**: Improved time parsing supporting formats like "11PM", "11 PM" without requiring full "11:00 PM"
 
 #### Admin Experience
+
 - **Voting Synchronization**: Real-time vote count updates between voting and admin channels
 - **Admin Channel Posts**: Carryover content now properly appears in both voting and admin channels for winner selection
 - **Content Type Respect**: Sync operations now respect active session content type, preventing content mix-ups
 
 #### User Experience
+
 - **Ephemeral Message Management**: Auto-expiry system for messages without interactions (20-second default)
 - **Silent Bot Restarts**: Bot restarts no longer create unread messages or recreate channel content
 - **Flexible Time Input**: Support for lazy time formats like "11PM", "7AM" without requiring colons
@@ -40,12 +114,14 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ### 🔧 Fixed
 
 #### Critical Bug Fixes
+
 - **Carryover Admin Posts**: Fixed function parameter mismatch preventing carryover content from appearing in admin channels
 - **Content Type Mix-ups**: Fixed sync operations pulling wrong content types (movies appearing in TV sessions)
 - **Voting Sync Issues**: Fixed vote count synchronization between voting and admin channel posts
 - **Startup Message Recreation**: Eliminated unwanted message recreation during bot restarts
 
 #### Reliability Improvements
+
 - **Session Recovery**: Implemented silent recovery mode to prevent Discord message spam during startup
 - **Content Filtering**: Enhanced content type filtering in sync operations and forum population
 - **Error Handling**: Improved error handling and logging throughout the application
@@ -54,16 +130,19 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ### 🎨 Enhanced
 
 #### Content Display
+
 - **TV Show Titles**: Improved episode title formatting with series context for better identification
 - **Vote Count Display**: Real-time synchronization of vote counts across all channel types
 - **Content Organization**: Better separation and filtering of content types in all operations
 
 #### Admin Operations
+
 - **Sync Channel Integrity**: Sync operations now maintain session type integrity
 - **Forum Channel Support**: Enhanced forum channel population with proper content type filtering
 - **Admin Panel Reliability**: Improved admin control panel management and recreation
 
 #### Technical Improvements
+
 - **Content Type Architecture**: Unified content type handling across movies and TV shows
 - **Database Operations**: Enhanced database queries with proper content type filtering
 - **WebSocket Communication**: Improved dashboard integration with better error handling
@@ -72,16 +151,19 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ### 🔄 Changed
 
 #### Architecture
+
 - **Unified Content Handling**: Movies and TV shows now use consistent patterns and handlers
 - **Session-Centric Design**: All operations now respect and maintain session content type integrity
 - **Content Type Filtering**: All sync and population operations now filter by active session type
 
 #### User Interface
+
 - **Time Input Flexibility**: More forgiving time parsing for better user experience
 - **Ephemeral Message Lifecycle**: Smarter auto-expiry for informational messages
 - **Professional Error Messages**: Improved error messaging and user guidance
 
 #### Technical
+
 - **Silent Operations**: Bot startup and recovery operations no longer create user-visible messages
 - **Content Type Detection**: Enhanced detection and handling of different content types
 - **Database Schema**: Improved content type handling and session management
@@ -118,16 +200,19 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ## [1.15.1] - 2025-09-14
 
 ### Enhanced
+
 - **Time Display Consistency**: Improved time formatting with cleaner on-the-hour display (7 PM instead of 7:00 PM)
 - **Documentation Accuracy**: Fixed date format references to reflect correct MM/DD/YYYY format
 - **User Experience**: More professional and readable time displays across all bot interactions
 
 ### Changed
+
 - Session time buttons now show cleaner format (7 PM, 8 PM, 9 PM)
 - Updated formatTime function to use cleaner display for on-the-hour times
 - Standardized time selection logic for better consistency
 
 ### Technical Improvements
+
 - Code cleanup and optimization phase completion
 - Unified version numbering system with dashboard
 - Enhanced time formatting utilities
@@ -135,11 +220,13 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ## [1.15.0] - 2025-09-14
 
 ### Major Features
+
 - **Dashboard Integration**: Full WebSocket communication with Movie Night Dashboard
 - **Real-time Synchronization**: Automatic sync between bot and dashboard configurations
 - **Enhanced Configuration**: WebSocket handlers for vote caps and guild configuration updates
 
 ### Added
+
 - WebSocket client for dashboard communication with automatic reconnection
 - Handlers for `get_guild_roles`, `get_guild_channels`, `get_member_roles`
 - Configuration update handlers: `update_vote_caps`, `update_guild_config`
@@ -148,57 +235,62 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - Enhanced logging and debugging capabilities for WebSocket operations
 
 ### Fixed
+
 - **Critical**: WebSocket client initialization - properly assign to global.wsClient
 - WebSocket message handling and response sending
 - Dashboard communication reliability and error handling
 - Configuration synchronization between bot and dashboard
 
 ### Changed
+
 - Bot now serves as single source of truth for configuration changes
 - Dashboard becomes read-only for state management with bot as writer
 - Enhanced WebSocket resilience with periodic connection checks
 - Improved error handling and connection diagnostics
 
 ### Technical Improvements
+
 - Comprehensive WebSocket debugging and logging
 - Better separation of concerns in configuration management
 - Enhanced error recovery and connection stability
 - Improved message routing and response handling
 
-
-
-
-
-
 ## [1.14.3] - 2025-09-14
+
 ### Highlights (final)
+
 - Dashboard parity and live updates foundation: bot emits lightweight events after key actions (vote_update, session_created/updated/cancelled, winner_selected) enabling the dashboard’s real-time SSE UI.
 - Configuration via bot only: new WS handlers `update_vote_caps` and `update_guild_config`; emits `caps_updated`/`config_updated` so admin forms refresh automatically. Dashboard becomes read-only for state; bot is the single writer.
 - Discord Event titles are sanitized to remove dates/times; localized times are shown in descriptions via `<t:...>`.
 - IMDb display and sync safety: resilient display of IMDb data in posts/threads and safer Sync operations that do not revive concluded sessions.
 - WebSocket resilience and clearer diagnostics across handlers.
 
-
 ## [1.14.3-rc13] - 2025-09-14
+
 ### Changed
+
 - WS client: add handlers `update_vote_caps` and `update_guild_config` so dashboard delegates configuration changes to the bot.
 - Emits `caps_updated` and `config_updated` events for live dashboard refresh via SSE.
 - Continues the pattern: dashboard is read-only for state; bot is single writer.
 
 ## [1.14.3-rc12] - 2025-09-13
+
 ### Fixed/Changed
+
 - Discord Events: strengthen title sanitization to robustly strip date/time words (days, months, 24h/12h times, 4-digit years). Keeps optional movie title segment only when not date-like; otherwise falls back to base title.
 - Applies to both event creation and update paths via unified buildEventTitle().
 
-
 ## [1.14.3-rc11] - 2025-09-13
+
 ### Fixed/Changed
+
 - Discord Events: event titles are now guaranteed to never include date/time, even if the session name contains them. Times are shown in the description using localized Discord timestamps instead.
 - Event edits use the same title sanitization path as creation.
 
-
 ## [1.14.3-rc7] - 2025-09-13
+
 ### Fixed/Changed
+
 - IMDb display fallback: if imdb_cache is empty, fall back to stored movie.imdb_data or perform a one-time live OMDb fetch for display only. Applies to:
   - Text post embeds and discussion thread details at creation
   - Winner announcements (text and forum)
@@ -206,16 +298,17 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - Sync Channels safety: avoids reviving concluded sessions by only recreating missing movie posts when an active voting session exists, and only re-adding voting buttons when a session is active.
 
 ## [1.14.3-rc6] - 2025-09-13
+
 ### Changed
+
 - IMDb normalization (bot-side): all reads now pull from imdb_cache only; no fallback to movies.imdb_data. Future DB can omit imdb_data entirely.
 - WebSocket resilience: periodic connection checks with change-only logging; auto-reconnect. Admin Control Panel shows WS status.
 - Sync Channels behavior: avoids refreshing Admin Channel mirror to keep admin action buttons usable.
 
-
-
-
 ## [1.14.3-rc3] - 2025-09-12
+
 ### Changed
+
 - Rename “Viewing Channel” to “Watch Party Channel” across UI and DB: `session_viewing_channel_id` -> `watch_party_channel_id`
 - Guided Setup and Config flows updated (buttons, selects, copy)
 - Slash command renames for consistency:
@@ -230,18 +323,23 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - Deprecated/removed redundant commands: `movie-session`, `movie-cleanup`, `movie-stats`, `movie-help`
 
 ### Docs
-- README cleanup: removed ad-hoc TODO and What's New sections; added Quick Start and Role-based Access; updated movienight-* command references
+
+- README cleanup: removed ad-hoc TODO and What's New sections; added Quick Start and Role-based Access; updated movienight-\* command references
 - Added ROADMAP.md to document future ideas/goals that were previously in README
 
 ## [1.14.3-rc2] - 2025-09-12
+
 ### Breaking/Changed
+
 - Database schema: renamed `viewer_roles` -> `voting_roles`; removed `notification_role_id` entirely (clean slate)
 - Removed all migrations and legacy notification role code/handlers
 - Announcements now always use Voting Roles from `voting_roles` (supports multiple roles)
 - Updated Guided Setup, Config UI, and permissions to use `voting_roles`
 
 ## [1.14.3-rc1] - 2025-09-12
+
 ### Changed
+
 - Enforce Voting Roles on votes: Discord button clicks and dashboard WS `vote_movie` now require Voting Roles or Moderator/Admin
 - Behavior when no Voting Roles configured: only Admins/Moderators can vote (strict enforcement)
 - "Manage Server" permission counts as implicit Admin for permission checks
@@ -249,96 +347,110 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - Announcements now ping Voting Roles (supports multiple roles); legacy `notification_role_id` is still read as a fallback but is deprecated
 - Bot Configuration menu and Guided Setup copy updated to "Voting Roles"; the in-bot "Notification Role" action now points you to the dashboard to configure Voting Roles
 
-
-
 ## [1.14.2-rc1] - 2025-09-11
+
 ### Added
+
 - Migration 30: Backfill missing active voting session records for guilds that have pending movies but no session, and link those movies to the new session.
 
 ### Notes
+
 - Addresses dashboards showing movies but no active session/reschedule controls for legacy servers.
 - Safe and idempotent: runs once, skips if an active session already exists or no channel can be determined.
 - After updating, restart the bot or run `npm run migrate` to apply.
 
-
 ## [1.14.1] - 2025-09-11
+
 ### Highlights (final)
+
 - WebSocket-only integration complete; legacy webhooks removed. Dashboard→bot actions over WS now include voting, ban/unban, remove, pick winner, sync channels, and refresh panel.
 - Winner selection: dashboard “Pick Winner” triggers session finalization; forum threads update and winner announcement posts when applicable.
 - Reschedule polish: session name auto-syncs to new date/time; pinned “Recommend a Movie” post updates accordingly.
 - Reliability: improved WS reconnect logs with codes/reasons and backoff timing; numerous logging and permission polish items.
 
-
-
-
 ## [1.14.1-rc12] - 2025-09-11
+
 ### Fixed
+
 - Ban behavior: prevent duplicate “system/admin” rows when banning movies that already exist; only create marker rows if none exist.
 - Discord cleanup on ban: archive forum threads and delete/disable text messages for banned movies.
 
 ### Improved
+
 - WebSocket resiliency: clearer close/reconnect logging with codes/reasons and backoff timing.
 
-
 ## [1.14.1-rc11] - 2025-09-11
+
 ### Changed
+
 - Webhook removal: fully removed legacy webhook server and dashboard webhook client usage; WS-only operation.
 - Logging sweep (incremental): add [guild_id] context to forum post creation, movie creation debug, and session viewing join/leave + monitoring messages.
 
-
 ## [1.14.1-rc10] - 2025-09-11
+
 ### Changed
+
 - WS voting (forum): also updates the forum starter message embed and voting buttons so counts reflect immediately (previously only the thread title changed).
 - Permissions: Moderators can now use Remove and Skip actions in the admin movie controls; admin remains required for ban/unban/pick-winner/watched.
 - Admin mirror: stop posting banned movies during Sync; banned management will live in a dedicated list/UI.
 - Webhook server: removed startup; bot runs WS-only without logging the disabled webhook server.
 
-
 ## [1.14.1-rc9] - 2025-09-11
+
 ### Changed
+
 - Logging: add `[guild_id]` context to WebSocket handlers and related warnings/errors:
   - vote_movie (cap checks, message updates, errors)
   - movie_status_changed updates
   - sync_guild / refresh_admin_panel
   - plan_session / reschedule_session / cancel_session
 
-
 ## [1.14.1-rc5] - 2025-09-10
+
 ### Changed
+
 - Permissions: Moderators can now use the “Details” button in the moderation/admin channel. Admin remains required for mutating actions (ban/unban, schedule, remove, pick winner, etc.).
 
 ## [1.14.1-rc6] - 2025-09-10
+
 ### Fixed
+
 - Startup: fixed a missing closing brace in initializeTables() that caused a parse error near runMigrations on some Node builds.
 
-
 ## [1.14.1-rc7] - 2025-09-10
+
 ## [1.14.1-rc8] - 2025-09-11
+
 ### Changed
+
 - Permissions: Moderators can now use Sync Channels and Refresh Panel buttons in the Admin Control Panel. Other actions remain admin-only.
 
-
 ### Added
+
 - WebSocket voting: new `vote_movie` handler processes dashboard votes (up/down/clear), enforces per-session vote caps, updates Discord message/embed/buttons, and logs diagnostics.
 
-
-
 ## [1.14.1-rc4] - 2025-09-10
+
 ### Added
+
 - Database: viewer_roles JSON column on guild_config
   - Ensured in base schema, initializeTables, and Migration 29 (idempotent)
   - Parsed and exposed via getGuildConfig()
 
 ### Notes
+
 - No behavior change yet; dashboard will begin gating the Voting section by viewer roles in addition to moderators/admins.
 
 ## [1.14.1-rc3] - 2025-09-10
+
 ### Added
+
 - WebSocket: dashboard→bot admin actions now supported over WS
   - `sync_guild` syncs Admin Panel and voting posts (forum-aware) like the webhook path
   - `refresh_admin_panel` re-renders the Admin Control Panel in the configured admin channel
 
 ### Notes
+
 - For PebbleHost/beta, set in the bot .env:
   - `MOVIENIGHT_WS_ENABLED=true`
   - `MOVIENIGHT_WS_URL=wss://bot-movienight-beta.bermanoc.net/socket`
@@ -349,20 +461,23 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ## [1.14.1-rc2] - 2025-09-10
 
 ## [1.14.3-rc4] - 2025-09-12
+
 ### Fixed
+
 - Sync Channel: Do not mirror queue to Admin Channel when no active session (keeps only the Admin Control Panel)
 - Sync Channel: Do not recreate Voting Channel movie posts when no active session (forum: cleaned; text: show "no active session" notice only)
 
 ### Added
+
 - WebSocket: dashboard→bot session controls over WS
   - `plan_session` creates a new voting session (Discord event + DB + scheduler)
   - `reschedule_session` updates existing session/event and reschedules voting end
 - Webhook server: support `MOVIENIGHT_WEBHOOK_PORT` to bind PebbleHost-assigned fixed port (still optional; WS is preferred)
 
-
-
 ## [1.14.1] - 2025-09-10
+
 ### Added
+
 - Asymmetric per-session vote caps to keep voting decisive and reduce "vote for everything":
   - Upvotes: max(1, floor(n/3)) where n = movies in the session
   - Downvotes: max(1, floor(n/5))
@@ -372,29 +487,28 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - Cross-guild IMDb cache table (imdb_cache) with TTL refresh and hard-limit + LRU eviction; reduces OMDb usage. New env: IMDB_CACHE_ENABLED, IMDB_CACHE_TTL_DAYS, IMDB_CACHE_MAX_ROWS. Excluded from deep purge.
 
 ### Notes
+
 - Caps are enforced only for movies associated to an active voting session (session_id present).
 - Caps are configurable per guild via Admin → Configure Bot → Vote Caps. Defaults: up 1/3, down 1/5, min 1.
 - Memory-only mode defaults to open voting (no caps). Database-backed mode enforces caps.
-
 
 - WebSocket handlers: dashboard→bot actions now supported directly over WS
   - `ban_movie`, `unban_movie` execute immediately via DB helpers
   - `movie_status_changed` refreshes the corresponding Discord post/thread (embed + buttons) just like the webhook path
 - Dashboard prefers WS automatically when connected; webhook is used as a fallback only
 
-
 ### Fixed
+
 - Over-limit warning for vote caps now uses an ephemeral user message; no longer edits the public movie post.
 
 - Recreated/synced/carryover movie posts now include IMDb details immediately (text and forum channels), rather than only after the first button press.
 
 - IMDb calls are now avoided for carryover/sync flows; we use cached imdb_data in DB and only fetch once if missing.
 
-
-
-
 ## [1.14.0] - 2025-09-10
+
 ### Highlights
+
 - Reschedule flow now uses the exact same modal as Plan Next Session with all fields pre-filled; updates Discord event, admin panel, and voting posts.
 - Voting Ends (Date + Time) is optional. If omitted, voting ends 1 hour before the session start. Inputs accept 12-hour or 24-hour formats (e.g., 7:30 PM or 19:30) with validation.
 - Ephemeral UX polish: success toasts auto-dismiss (~8s); confirmation prompts auto-expire (~30s); cancel flow success fixed to auto-close.
@@ -404,128 +518,156 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - Discord.js v14 compatibility and modal/timing improvements; consistent timezone handling during reschedule.
 
 ### Fixes and improvements
+
 - Forum/text parity and robust sync across cancel, reschedule, winner, and purge flows.
 - Modal handling: early defers and editReply to prevent timeouts; respect Discord’s 45-character modal title limit.
 - Purge Current Queue: forum-safe operations; reuse existing system post; cleaner ephemeral updates.
 - Timezone and event updates: removed "UTC" suffix from titles; update scheduledEndTime safely when start changes.
 - Creation/reschedule validation, improved placeholders, and clearer field guidance.
 
-
 ## [1.13.0-rc129] - 2025-09-09
+
 ### Fixed
+
 - Database: Migration 26 adds UNIQUE(movie_sessions.guild_id, id) and retries composite foreign keys to resolve errno 150 warnings on MariaDB.
 - Build: refreshed package-lock.json to align with package.json versioning.
 
 ## [1.13.0-rc128] - 2025-09-09
+
 ### Changed
+
 - Winner selection flows (Pick Winner, Choose Winner) now require an explicit confirmation step to prevent accidental session closure.
 - Winner announcements and Discord Event updates now include which admin selected the winner (mentions the user).
 
 ## [1.13.0-rc127] - 2025-09-09
+
 ### Added
+
 - Dashboard integration via secured webhook actions. New actions handled at `POST /hooks/dashboard`:
   - `sync_guild` – sync admin panel and voting channel (forum-aware) for a guild
   - `refresh_admin_panel` – re-render Admin Control Panel in the configured admin channel
   - `movie_status_changed` – refresh the corresponding Discord post/thread when dashboard updates a movie’s status
 
 ### Notes
+
 - Enable with `MOVIENIGHT_WEBHOOK_ENABLED=true`. Configure `MOVIENIGHT_WEBHOOK_TOKEN` and `MOVIENIGHT_WEBHOOK_PORTS`/`PORT` on the bot host.
 
 ## [1.13.0-rc126] - 2025-09-09
+
 ### Added
+
 - Deps: add `jimp` for event cover image composition (16:9 poster banners) when updating Discord Scheduled Events after winner selection.
 
 ### Changed
+
 - Event description builder now prefers stored `poster_url` and falls back to legacy `imdb_poster` field.
 
-
 ## [1.13.0-rc124] - 2025-09-09
+
 ## [1.13.0-rc125] - 2025-09-09
+
 ### Changed
+
 - Reschedule: prefill event description with the existing base description only (no auto-added vote/channel/time text), preventing duplicate info when editing.
 - Reschedule: best-effort cleanup of the ephemeral date/time panel after successful update.
 
 ### Added
+
 - Webhook server (optional): built-in minimal HTTP server gated by env. Start by setting `MOVIENIGHT_WEBHOOK_ENABLED=true`. Pick port from `MOVIENIGHT_WEBHOOK_PORTS` or `PORT`. Endpoints: `GET /health`, `GET /info`, `POST /hooks/dashboard` (Bearer token via `MOVIENIGHT_WEBHOOK_TOKEN`).
 
-
 ### Added
+
 - Database: added movies.poster_url column; migration backfills from stored imdb_data when available. New saves populate poster_url automatically; IMDB updates will also set poster_url.
 
 ### Changed
+
 - Reschedule UX: no longer prompts for timezone or movie selection; it retains the session’s existing timezone and jumps straight to details after picking date/time. Movie association remains unchanged.
 - Plan Next Voting Session modal: date format switched to MM/DD/YYYY (slashes) to match preference.
 
 ### Notes
+
 - Event cover resizing relies on the jimp dependency; the code gracefully falls back to the raw poster if jimp is not installed on the host.
 
-
 ## [1.13.0-rc123] - 2025-09-09
+
 ### Fixed
+
 - Reschedule session: export handler and start flow via existing creation UI; implement reschedule completion to update the existing session (name/description/time/timezone) and edit the Discord Scheduled Event instead of creating a new one. Movie post is updated accordingly.
 - Removed call to missing `showDateSelection()`; now uses `showSessionCreationModal()` for date selection.
 - More robust timezone handling during reschedule.
 
-
 ## [1.13.0-rc122] - 2025-09-09
+
 ### Changed
+
 - Event cover image is now a composed 16:9 banner using Jimp: portrait posters are centered on a 1280x720 canvas with side letterboxing so they don’t appear zoom-cropped in Discord’s banner view.
 
 ### Notes
+
 - Still memory-only; no tmp files. If composition or fetch fails, we fall back gracefully (description keeps the poster URL).
 
-
-
 ## [1.13.0-rc118] - 2025-09-09
+
 ## [1.13.0-rc119] - 2025-09-09
+
 ## [1.13.0-rc121] - 2025-09-09
+
 ### Added
+
 - Event cover image: when a winner is chosen (manual or automatic), the bot now downloads the IMDb poster and uploads it to the Discord Scheduled Event as the cover image. Discord hosts the image; no persistent hosting is required.
 
 ### Notes
+
 - Safe fallbacks: if image fetch fails or is too large, we skip setting the cover image and keep the description link.
 
-
 ## [1.13.0-rc120] - 2025-09-09
+
 ### Fixed
+
 - Forum cleanup after winner/cancel: canceling a session after a winner is chosen now clears the original recommendation thread and any winner announcement threads. `clearForumMoviePosts()` now supports an option to remove winner announcements and is used by Cancel Session and Deep Purge.
 - Winner flows (manual + automatic): forum mode now removes ALL movie threads (including the winner’s original) before posting the dedicated winner announcement, then resets the pinned system post to "No Active Voting Session".
 - Logger TDZ: initialized logger at the top of `postForumWinnerAnnouncement()` to avoid "Cannot access 'logger' before initialization" in some code paths.
 
 ### Changed
+
 - Discord Events: when a winner is chosen (manual or automatic), the event description now includes the IMDb poster URL when available.
 
-
 ### Added
-- Web Dashboard messaging in initial setup, guided setup, and admin panels. Manage the bot (minus voting) at https://movienight.bermanoc.net.
 
+- Web Dashboard messaging in initial setup, guided setup, and admin panels. Manage the bot (minus voting) at https://watchparty.bermanoc.net.
 
 ### Fixed
+
 - Forum cleanup no longer deletes movie records; threads are removed and DB thread refs are cleared so movies carry over properly after cancel/winner.
 - Admin Control Panel: add channel permission checks; skip and log [Missing Access] instead of erroring; startup only counts panels that were actually created/updated.
 - Events: add session start time using Discord timestamp markdown (<t:…:F>/<t:…:R>) to the event description on update.
 
 ## [1.13.0-rc117] - 2025-09-09
+
 ### Fixed
+
 - Admin panel: refresh Admin Control Panel immediately after winner selection (both paths) so Cancel/Reschedule are present until event start.
 - Deep Purge: forum-aware clearing now removes winner announcement threads too (do not preserve winner during deep purge); also delete archived threads in text channels.
 - Event details: enriched event update after winner with IMDb rating and synopsis in the description.
 
-
 ## [1.13.0-rc116] - 2025-09-09
+
 ### Changed
+
 - README: Added “Next Up (1.13.x Short-Term)” TODOs covering Cancel/Reschedule persistence, ephemeral success auto-expire, guild_id logging sweep, deep purge parity, event polish, admin panel dedupe, and configuration permission docs.
 
-
 ## [1.13.0-rc115] - 2025-09-09
+
 ### Fixed
+
 - Event update after winner: pass the session scheduled date to avoid "@ Invalid Date" in event titles; add safe fallback to use existing event start time if none provided.
 - Admin panel timing: refresh the Admin Control Panel immediately after session creation so Cancel/Reschedule buttons are available before the first recommendation.
 - Timezone: prefer `default_timezone` from guild config (fallback to `timezone`, then UTC) when creating sessions to avoid scheduling drift.
 
-
 ## [1.13.0-rc114] - 2025-09-09
+
 ### Fixed
+
 - Forum winner announcement: corrected allowedMentions to avoid Discord API error (roles list only), restoring winner thread posting and role pings.
 - IMDb title usage: recommendation posts now use the canonical IMDb Title when a match is selected (instead of the user-typed text).
 - Discord Events: event titles now include the start time (e.g., "@ 7:30 PM"); event updates enrich descriptions with IMDb details (Year, Runtime, Genre, Rating, Plot when available).
@@ -533,135 +675,163 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - Deep Purge (forum-aware): after clearing threads, re-create the correct system post in forum mode (No Active Voting Session) instead of text quick action.
 
 ### Notes
+
 - Follow-ups queued: ensure Cancel/Reschedule buttons remain available until event starts across all winner flows; optional ephemeral auto-expire/edit for success toasts; expand guild_id coverage in logs.
 
 ## [1.13.0-rc96] - 2025-09-08
+
 ### Fixed
+
 - Fully removed the top-level try/catch wrapper around runMigrations() to prevent parser issues on certain Node.js builds. All migration statements remain individually guarded; functionality unchanged.
 
 ## [1.13.0-rc97] - 2025-09-08
+
 ### Fixed
+
 - Moved generateMovieUID implementation into constructor to avoid any parser confusion with class method shorthand on certain Node builds.
 
 ## [1.13.0-rc98] - 2025-09-08
+
 ### Fixed
+
 - Fixed a missing closing brace in Migration 19 (fk_votes_movie catch block) that caused parser to exit class context on some Node builds.
 
 ## [1.13.0-rc99] - 2025-09-08
+
 ### Added
+
 - Migration 21: Automated cleanup of orphaned rows (participants/attendees/movies-session links and session winner/associated references) followed by re-attempting composite FK creation. Fully idempotent and safe; does not remove valid data.
 
 ## [1.13.0-rc100] - 2025-09-08
+
 ### Fixed
+
 - Migration 22: Normalize column definitions (types/collations) for guild_id/message_id/session_id to satisfy MySQL FK requirements and retry FK creation. Includes diagnostics logging of actual column definitions at runtime.
 
 ## [1.13.0-rc101] - 2025-09-08
+
 ### Added
+
 - Improve Migration 22 diagnostics: pretty-print column definitions; add MySQL version and SHOW CREATE TABLE outputs for movies and movie_sessions to pinpoint FK mismatch cause on hosts.
 
 ## [1.13.0-rc102] - 2025-09-08
+
 ### Added
+
 - Migration 23: Add simple single-column FKs and guild-enforcing triggers as a robust fallback on MariaDB hosts. Triggers prevent cross-guild references on insert/update while keeping data intact. Idempotent creation guarded via information_schema.
 
 ## [1.13.0-rc103] - 2025-09-08
+
 ### Fixed
+
 - Migration 23 triggers: remove DECLARE usage and use subqueries in IF conditions to satisfy MariaDB trigger syntax rules (DECLARE must be first). This resolves syntax errors and ensures guild-scope enforcement works.
 
 ## [1.13.0-rc104] - 2025-09-08
+
 ### Fixed
+
 - Migration 24: Ensure movie_sessions.id is AUTO_INCREMENT and has a PRIMARY KEY on hosts where this was missing, preventing "Field 'id' doesn't have a default value" when creating sessions.
 
-
 ## [1.13.0-rc105] - 2025-09-08
+
 ### Fixed
+
 - Forum tie-break: detect forum channels and skip channel.send during tie announcement to avoid `votingChannel.send is not a function` crash; admins still receive tie-break options in admin channel
 - Ephemeral IMDb selection: replace deferUpdate with update+auto-dismiss so the selection popup clears after choosing a movie
 - Forum post duplication: remove redundant follow-up details post; initial forum starter embed now contains full info + buttons
 - Event notification noise (forum mode): skip "New Movie Night Event!" message when voting channel is a forum
 - System post cleanup: remove lingering "No Active Voting Session" thread once a new session begins
 
-
 ## [1.13.0-rc106] - 2025-09-08
+
 ### Fixed
+
 - Tie-break admin UI: add missing admin-mirror.postTieBreakingMovie to render tied movies with a "Choose Winner" button (admin_choose_winner:<message_id>)
 
-
-
-
 ## [1.13.0-rc107] - 2025-09-08
+
 ### Fixed
+
 - IMDb selection buttons: truncate long labels to <= 80 chars to satisfy Discord builder validation
 - Tie-break cleanup: after choosing a winner, remove tie-break candidate messages in admin channel (keep control panel)
 - Sync-after-winner: avoid double-reply error by syncing admin mirror directly instead of using interaction-bound sync handler
 
-
-
-
-
 ## [1.13.0-rc108] - 2025-09-09
+
 ### Added
+
 - IMDb selection: added explicit Cancel button to abort a recommendation after seeing results
 - Forum: tie announcement now appears on the pinned "Recommend a Movie" post and gets cleared after winner selection
 
 ### Changed
+
 - Movie embeds now show vote percentage alongside up/down and score
 - Admin panel: Cancel/Reschedule buttons remain available after winner selection until the event starts
 - Admin mirror: suppress "Mark Watched" button until the scheduled event start time
 
 ### Fixed
+
 - Choosing winner via tie-break now clears forum posts, posts a winner announcement, and resets the pinned post to "No Active Session"
 
-
 ## [1.13.0-rc109] - 2025-09-09
+
 ### Fixed
+
 - Resolve syntax error in forum-channels helper (extra closing braces) causing Sync Channels to fail with "Unexpected token '}'" on voting channel sync
 
-
 ## [1.13.0-rc110] - 2025-09-09
+
 ### Fixed
+
 - Forum sync: Add missing closing brace in services/forum-channels.js (createNoActiveSessionPost) that caused "Unexpected end of input (/home/container/services/forum-channels.js:980)" when clicking Sync Channels in the admin panel.
-
-
-
-
-
 
 ## [1.13.0-rc111] - 2025-09-09
 
 ## [1.13.0-rc112] - 2025-09-09
 
 ## [1.13.0-rc113] - 2025-09-09
+
 ### Improved
+
 - Winner flow (forum): clear ALL voting posts including the winner’s original recommendation thread, then post a dedicated winner announcement thread and the No Active Voting Session pin.
 - Winner announcement (forum + text): include IMDb details (Year, Runtime, Genre, Rating where available) and mention the configured notification role if set.
 - Discord Event update: include IMDb details and a link back to the configured voting channel in the event description.
 - Admin tie-break posts: remove Message ID and UID from footer to reduce clutter.
 
 ### Fixed
+
 - Recommendation modal: prevent Discord modal timeout (“Something went wrong. Try again”) by deferring the reply before IMDb network calls and using followUp when deferred. Also adjusted success/error paths in createMovieWithoutImdb to respect deferred interactions.
 
 ### Fixed
+
 - IMDb selection: limit the per-row button count to Discord’s 5-component maximum by showing up to 3 results plus “None of these” and “Cancel”. Fixes Invalid Form Body error (data.components[0].components must be 1–5) when submitting recommendations.
 
 ## [1.13.0-rc95] - 2025-09-08
+
 ### Fixed
+
 - Resolve startup crash on some Node runtimes by flattening Migration 19/20 structure (removed outer try/catch wrappers). All statements still guarded individually with warnings; functional behavior unchanged.
 
-
 ## [1.13.0-rc94] - 2025-09-08
+
 ### Added
+
 - Event descriptions now end with a clear CTA linking to the configured voting channel: "Join the conversation and vote for your favorite movie!"
 - Start-of-voting ping: when a voting session is created, the configured notification role is pinged in the voting channel
 - Standalone migration script: `npm run migrate` to apply DB migrations without starting the bot
 
 ### Changed
+
 - Removed `SESSION_UID` from Discord event descriptions (we store `discord_event_id` in DB and sync via that)
 
 ### Fixed
+
 - Addressed a syntax issue in the migration block that could cause startup failure on some Node runtimes
 
 ## [1.13.0-rc93] - 2025-09-08
+
 ### Fixed
+
 - 🧱 Migration 20: Align session_participants/session_attendees charsets to utf8mb4 (required for composite foreign keys on varchar columns)
 - 🔁 Re-apply supporting indexes and add composite FKs that were missed previously:
   - session_participants(guild_id, session_id) → movie_sessions(guild_id, id) ON DELETE CASCADE
@@ -670,10 +840,13 @@ All notable changes to **Movie Night Bot** will be documented in this file.
   - movie_sessions(guild_id, winner_message_id/associated_movie_id) → movies(guild_id, message_id) ON DELETE SET NULL
 
 ### Notes
+
 - Live DB verification shows zero cross-guild mismatches; this migration ensures MySQL can successfully create the intended composite FKs.
 
 ## [1.13.0-rc92] - 2025-09-08
+
 ### Fixed
+
 - 🧰 Migration 19 data backfill: auto-correct legacy cross-guild mismatches so composite FKs can be created cleanly
   - Align session_participants/session_attendees.guild_id to their movie_session.guild_id
   - Null movies.session_id when it points to a session in another guild
@@ -681,10 +854,13 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - 🗂️ Added helpful indexes on movie_sessions for (guild_id, winner_message_id) and (guild_id, associated_movie_id)
 
 ### Notes
+
 - This addresses “Foreign key constraint is incorrectly formed” warnings seen during rc91 deployment.
 
 ## [1.13.0-rc91] - 2025-09-08
+
 ### Changed
+
 - 🛡️ Database hardening: Enforce guild-scoped uniqueness and composite foreign keys across core tables (movies, votes, movie_sessions, session_participants, session_attendees)
 - 🗳️ Votes: UNIQUE(message_id, user_id) → UNIQUE(guild_id, message_id, user_id); composite FK votes(guild_id, message_id) → movies(guild_id, message_id)
 - 🎬 Sessions: Composite FKs for participants/attendees → movie_sessions(guild_id, id); movies(guild_id, session_id) → movie_sessions(guild_id, id); session winner/associated → movies(guild_id, message_id)
@@ -692,23 +868,30 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - 🔁 Migrations: Added Migration 19 with idempotent guards; legacy single-column FKs dropped when present
 
 ### Notes
+
 - All operations are now strictly guild-scoped to prevent any cross-guild data contamination.
 
 ## [1.13.0-rc90] - 2025-09-08
+
 ### Fixed
+
 - **🧷 Single-creation logic**: When no pinned system post is found, create the "No Active Voting Session" thread once, then try to pin and remove duplicates, avoiding multiple creations during the same operation
 - **🧹 System post dedupe**: After creating the system post, scan and delete other system posts (Recommend/No Session) in one pass
 - **📌 Safer pin retry**: If pin limit is hit, unpin others (keeping the new thread) and retry; otherwise proceed without pin
 
 ## [1.13.0-rc89] - 2025-09-08
+
 ### Changed
+
 - **🧹 Forum Session End Cleanup**: Always remove forum system posts (Recommend/No Session) when a winner is chosen, then re-create the proper "No Active Voting Session" post
 - **🏆 Winner Announcement**: Forum winner announcement now supports optional event info (event ID, start time)
 - **🧭 Manual Winner Flow**: Posts "No Active Voting Session" in forum channels (previously only text channels)
 - **🤖 Auto Closure Flow**: Same forum behavior applied to automatic winner selection
 
 ## [1.13.0-rc88] - 2025-09-08
+
 ### Fixed
+
 - **🔧 Aggressive Discord API Bug Workaround**: Added aggressive unpinning approach to handle Discord's pinned status reporting bug
 - **📌 Universal Unpin Strategy**: Modified unpinOtherForumPosts to attempt unpinning ALL threads when pin limits are reported
 - **🛡️ Fallback Creation**: Added fallback logic to create posts without pinning when Discord API is inconsistent
@@ -716,7 +899,9 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **📋 API Inconsistency Handling**: Addresses cases where Discord reports pin limits but all threads show pinned: false
 
 ## [1.13.0-rc87] - 2025-09-08
+
 ### Fixed
+
 - **⏱️ Session Creation Timing**: Added delay and retry logic during voting session creation to handle Discord API consistency issues
 - **🔄 Retry Mechanism**: Added 3-attempt retry with progressive delays for forum channel setup during session creation
 - **🔍 Hidden Pin Detection**: Added logic to detect and handle cases where Discord reports pin limits but pinned status isn't visible
@@ -724,7 +909,9 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **📋 Improved Reliability**: Reduced likelihood of duplicate recommendation posts during rapid session creation operations
 
 ## [1.13.0-rc86] - 2025-09-08
+
 ### Fixed
+
 - **🔧 Discord.js Thread Pinned Status Bug**: Fixed issue where thread.pinned was returning undefined instead of boolean values
 - **🔄 Force Thread Refresh**: Added force refresh when fetching threads to get accurate pinned status from Discord API
 - **🧹 Duplicate System Post Cleanup**: Added logic to detect and clean up multiple recommendation/no session posts
@@ -732,14 +919,18 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **🗑️ Automatic Cleanup**: Function now automatically removes duplicate system posts before creating new ones
 
 ## [1.13.0-rc85] - 2025-09-08
+
 ### Fixed
+
 - **🔍 Enhanced Debugging**: Added detailed logging for pinned post detection and thread enumeration in forum channels
 - **📌 Improved Unpinning Logic**: Enhanced unpinOtherForumPosts function with better error handling and logging
 - **🛡️ Error Recovery**: Added try-catch blocks around retry operations to prevent cascading failures
 - **📋 Thread Analysis**: Added comprehensive logging to diagnose why pinned posts aren't being detected properly
 
 ## [1.13.0-rc84] - 2025-09-08
+
 ### Fixed
+
 - **📋 Forum Channel Pin Management**: Fixed issue where starting new voting sessions in forum channels failed due to Discord pin limits
 - **🔧 Recommendation Post Replacement**: Properly replace "No Active Voting Session" posts with "Recommend a Movie" posts instead of creating duplicates
 - **📌 Automatic Pin Cleanup**: Added automatic unpinning of old posts when pin limits are reached
@@ -747,14 +938,18 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **🔄 Fallback Logic**: Added robust fallback logic that unpins and recreates posts when editing fails
 
 ## [1.13.0-rc83] - 2025-09-08
+
 ### Fixed
+
 - **🔧 Forum Channel Sync**: Fixed "Missing catch or finally after try" error in sync channels operation for forum channels
 - **📋 Syntax Error**: Corrected malformed try-catch block in ensureRecommendationPost function that was causing sync failures
 
 ## [1.13.0-rc82] - 2025-09-07
+
 ### 🎯 Major Release: Forum Channels, Safety Features & Professional Logging
 
 ### Added
+
 - **📋 Forum Channel Support**: Full support for Discord forum channels as voting channels
 - **🔒 Deep Purge Safety**: Submit button prevents accidental data deletion operations
 - **📊 Professional Logging**: Configurable log levels (ERROR/WARN/INFO/DEBUG) with colored output
@@ -770,6 +965,7 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **📝 Thread Discussions**: First message in threads contains synopsis, cast, awards, and viewing info
 
 ### Enhanced
+
 - **📋 Forum Integration**: Movies post as forum threads with voting buttons and discussion
 - **🔒 Safety Improvements**: Two-step confirmation for dangerous operations with explicit submit buttons
 - **📊 Environment Logging**: LOG_LEVEL, DEBUG_LOGGING, LOG_COLORS environment variables
@@ -780,6 +976,7 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **🔧 Configuration Labels**: "set-voting-channel" instead of generic "set-channel"
 
 ### Fixed
+
 - **🎬 IMDb Data Display**: Movie information now shows immediately on creation (not after first vote)
 - **📋 Forum Channel Selection**: Forum channels now appear in guided setup channel selector
 - **🔧 Discord.js Compatibility**: Fixed deprecated fetchPinned() → fetchPins() and isForumChannel() issues
@@ -963,6 +1160,7 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **🛡️ Clean Syntax**: Final resolution of "Missing catch or finally after try" error with proper bracket structure
 
 ### Technical
+
 - **� Forum Channel Architecture**: Complete forum post creation, voting, and discussion system
 - **🔒 Safety Architecture**: Two-step confirmation system with global state management
 - **📊 Logging Infrastructure**: Professional logging utility with environment-based configuration
@@ -973,15 +1171,18 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **🔧 Discord.js Updates**: Compatibility improvements for newer Discord.js versions
 
 ### Environment Variables
+
 - **LOG_LEVEL**: Set logging verbosity (ERROR/WARN/INFO/DEBUG, default: INFO)
 - **DEBUG_LOGGING**: Force debug mode regardless of LOG_LEVEL (true/false, default: false)
 - **LOG_COLORS**: Enable colored console output (true/false, default: true)
 - **GUILD_ID**: Now optional - only needed for instant development command testing
 
 ## [1.12.1] - 2025-09-07
+
 ### 🎉 Major Release: Enhanced Administration & Automatic Voting System
 
 ### Added
+
 - **🔧 Admin Control Panel**: Comprehensive admin interface with session management, movie controls, and system operations
 - **⏰ Automatic Voting Closure**: Sessions automatically close at scheduled voting end times with winner selection
 - **🏆 Intelligent Winner Selection**: Automatic winner selection with tie-breaking interface for admins
@@ -994,6 +1195,7 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **🔗 Event Links**: Clickable Discord event links in winner announcements and session messages
 
 ### Enhanced
+
 - **🎯 User Experience**: 12-hour time format (7:30 PM) and US date format (MM/DD/YYYY) for better usability
 - **📋 Movie Queue Display**: Enhanced `/movie-queue` with carryover movie visibility and session context
 - **🔧 Admin Movie Management**: Pick Winner, Skip to Next, Remove, Ban Movie, and Details buttons for each movie
@@ -1002,6 +1204,7 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **⚡ Performance**: Optimized database queries with carryover movie filtering and better indexing
 
 ### Fixed
+
 - **🔧 Critical Fixes**: Discord event ID storage, timezone handling, and automatic voting closure
 - **🔄 Sync Channel Issues**: Proper carryover movie isolation preventing interference with sync operations
 - **⚠️ Deprecation Warnings**: Replaced deprecated `ephemeral: true` with `flags: MessageFlags.Ephemeral`
@@ -1009,6 +1212,7 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **🗄️ Database Integrity**: Enhanced migrations, proper column creation, and data consistency
 
 ### Technical
+
 - **🗄️ Database Enhancements**: 6 new migrations (10-16) with timezone, admin channels, voting end times, and carryover flags
 - **🔧 New Database Functions**: 15+ new functions for session management, carryover handling, and admin operations
 - **⏰ Voting Closure System**: Complete automatic voting system with minute-aligned timing and comprehensive logging
@@ -1017,202 +1221,246 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **🔄 State Management**: Sophisticated movie state handling with session transitions and carryover preservation
 
 ### Migration Notes
+
 - **Database**: Automatic migrations handle all schema updates
 - **Configuration**: New timezone and admin channel settings available
 - **Compatibility**: Fully backward compatible with existing data
 - **Features**: All new features are opt-in through admin configuration
 
 ## [1.11.29] - 2025-09-06
+
 ### Added
+
 - **Guild ID Normalization**: Added `guild_id` columns to `votes`, `session_participants`, and `session_attendees` tables
 - **Enhanced User Statistics**: Comprehensive user analytics including votes given/received, movies planned, and session creation counts
 - **Database Migration 11**: Automatic population of existing data via parent table joins with proper indexing
 
 ### Enhanced
+
 - **Query Performance**: New indexes on guild_id columns for faster multi-guild operations
 - **Statistics Display**: More detailed user statistics with better organization and additional metrics
 - **Database Management**: Direct guild filtering capabilities for easier database maintenance and debugging
 
 ### Removed
+
 - **Dead Code Cleanup**: Removed unused `user_stats` table definition and all references (manual table drop required)
 - **Schema Optimization**: Eliminated redundant table that was never used in favor of dynamic calculations
 
 ### Technical
+
 - **Backward Compatibility**: Updated database methods with optional guild_id parameters and fallback lookups
 - **Data Integrity**: Enhanced guild context for all records with explicit foreign key relationships
 - **Code Quality**: Removed dead code references and improved method signatures
 
 ## [1.11.28] - 2025-09-06
+
 ### Fixed
+
 - **CRITICAL:** Fixed purge operation incorrectly deleting session data and attendance records
 - **Session Preservation:** Purge now properly preserves all session data for analytics as intended
 - **Data Integrity:** Fixed unintended deletion of session_attendees and session_participants
 - **Analytics Protection:** Session data now preserved even when associated movies are purged
 
 ### Added
+
 - **updateSessionMovieAssociation:** New database function to update session-movie associations
 - **Session Data Protection:** Enhanced purge logic to preserve session analytics while removing movie associations
 - **Better Logging:** Added logging for session preservation during purge operations
 
 ### Enhanced
+
 - **Purge Behavior:** Purge now matches its description - preserves session data for analytics
 - **Data Separation:** Better separation between movie data and session analytics data
 - **Historical Preservation:** Session attendance and participation data preserved for long-term analytics
 - **User Experience:** Purge summary now correctly shows session data preservation
 
 ### Technical
+
 - **Database Operations:** Enhanced session management with movie association updates
 - **Cascade Prevention:** Prevents unintended cascade deletion of session data during purge
 - **Analytics Integrity:** Maintains session analytics data integrity during cleanup operations
 - **Data Relationships:** Better handling of movie-session relationships during purge
 
 ## [1.11.27] - 2025-09-06
+
 ### Fixed
+
 - **Database Schema:** Added 'active' status to movie_sessions ENUM to fix status update errors
 - **Session Status Updates:** Fixed "Data truncated for column 'status'" error when updating sessions
 - **ENUM Compatibility:** Enhanced session status ENUM to include all required status values
 
 ### Added
+
 - **Migration 10:** Database migration to add 'active' status to movie_sessions status ENUM
 - **Status Support:** Full support for session status progression: planning → active → completed
 - **Error Prevention:** Prevents database truncation errors during session status updates
 
 ### Enhanced
+
 - **Session Lifecycle:** Complete session status lifecycle support with proper database schema
 - **Status Management:** Proper ENUM values for all session states and transitions
 - **Database Integrity:** Enhanced database schema to support all session tracking features
 
 ### Technical
+
 - **ENUM Update:** Modified movie_sessions status column to include 'active' status
 - **Migration System:** Added Migration 10 for session status ENUM enhancement
 - **Schema Validation:** Better database schema validation for session status values
 
 ## [1.11.26] - 2025-09-06
+
 ### Fixed
+
 - **CRITICAL BUG:** Fixed variable name conflict causing session monitoring to never start
 - **Session Status Updates:** Fixed sessions remaining in "planning" status instead of becoming "active"
 - **Automatic Status Change:** Sessions now automatically change from "planning" to "active" when events start
 - **Monitoring Initialization:** Fixed periodic check function that was preventing session monitoring
 
 ### Enhanced
+
 - **Variable Naming:** Fixed activeSessions array vs Map confusion in periodic checks
 - **Status Management:** Automatic session status updates when Discord events become active
 - **Logging:** Added comprehensive logging for session monitoring and status changes
 - **Error Prevention:** Better variable naming to prevent type confusion
 
 ### Technical
+
 - **Array vs Map Fix:** Fixed .has() method being called on array instead of Map
 - **Session Lifecycle:** Proper session status progression from planning → active → completed
 - **Monitoring Logic:** Enhanced session monitoring startup and management
 - **Database Updates:** Automatic session status updates during periodic checks
 
 ## [1.11.25] - 2025-09-06
+
 ### Fixed
+
 - **Session Tracking:** Fixed session attendance tracking not starting automatically when events become active
 - **Existing User Detection:** Added detection of users already in viewing channel when session starts
 - **Automatic Monitoring:** Added periodic checks to start monitoring for active sessions
 - **Real-time Attendance:** Session tracking now properly records attendance during active events
 
 ### Added
+
 - **checkExistingUsersInChannel:** Function to detect users already in viewing channel at session start
 - **checkForActiveSessionsToMonitor:** Periodic check for sessions that should be monitored
 - **Global Client Access:** Made Discord client globally available for session tracking operations
 - **Automatic Session Start:** Sessions now automatically begin monitoring when they become active
 
 ### Enhanced
+
 - **Session Monitoring:** Improved session monitoring to handle users present before session start
 - **Real-time Tracking:** Better real-time attendance tracking during active sessions
 - **Database Updates:** Proper population of session_attendees and session_participants tables
 - **Event Integration:** Better integration between Discord events and session tracking
 
 ### Technical
+
 - **Client Reference:** Added global Discord client reference for session tracking access
 - **Periodic Monitoring:** Added 60-second interval checks for active sessions
 - **Error Handling:** Enhanced error handling for session monitoring operations
 - **Database Integration:** Improved database updates during session tracking
 
 ## [1.11.24] - 2025-09-06
+
 ### Fixed
+
 - **IMDb Data Recreation:** Fixed missing IMDb information in recreated movie posts
 - **JSON Parsing:** Enhanced JSON parsing to handle double-encoded IMDb data
 - **Data Integrity:** Improved IMDb data preservation during movie post recreation
 - **Error Handling:** Better error handling for malformed IMDb data during recreation
 
 ### Enhanced
+
 - **Recreation Robustness:** More reliable IMDb data parsing with fallback handling
 - **Logging:** Added success/failure logging for IMDb data parsing during recreation
 - **Data Validation:** Better validation of IMDb data before embed creation
 - **Double-Encoding Support:** Handles both single and double-encoded JSON data
 
 ### Technical
+
 - **JSON Handling:** Enhanced JSON parsing logic to handle various encoding scenarios
 - **Error Recovery:** Graceful fallback when IMDb data parsing fails
 - **Data Preservation:** Better preservation of movie metadata during recreation
 - **Debugging:** Improved logging for troubleshooting IMDb data issues
 
 ## [1.11.23] - 2025-09-06
+
 ### Changed
+
 - **Removed Admin Buttons:** Eliminated Watched/Plan Later/Skip buttons from all movie posts
 - **Voting Only Interface:** Movie posts now only show Vote Up and Vote Down buttons
 - **Slash Command Transition:** Admin functions moved to dedicated slash commands (/movie-watched, /movie-skip, /movie-plan)
 - **Cleaner UI:** Simplified movie post interface focuses on community voting
 
 ### Enhanced
+
 - **Consistent Button Interface:** All movie posts (new and recreated) have same button layout
 - **Admin Workflow:** Clean separation between voting (buttons) and admin actions (slash commands)
 - **Status Updates:** Movies with changed status (watched/skipped/planned) have no buttons
 - **User Experience:** Simplified interface reduces button clutter on movie posts
 
 ### Technical
+
 - **Button Creation:** Updated all movie post creation to use createVotingButtons instead of createStatusButtons
 - **Status Handling:** Status changes remove buttons entirely for completed movies
 - **Interface Consistency:** Unified button interface across all movie post creation paths
 
 ## [1.11.22] - 2025-09-06
+
 ### Fixed
+
 - **Database Save Error:** Fixed "Bind parameters must not contain undefined" error during movie recreation
 - **Thread Cleanup Logic:** Enhanced thread cleanup to be smarter about what constitutes orphaned threads
 - **Missing Thread Recreation:** Added detection and recreation of missing discussion threads for existing posts
 - **Movie Record Creation:** Fixed saveMovie function call to use proper parameter object format
 
 ### Added
+
 - **recreateMissingThreads:** New function to detect and recreate missing discussion threads
 - **Intelligent Thread Cleanup:** Thread cleanup now checks movie database and post existence before deletion
 - **Thread-Post Synchronization:** Ensures all movie posts have corresponding discussion threads
 
 ### Enhanced
+
 - **Thread Management:** Better logic for determining when threads should be preserved vs deleted
 - **Database Operations:** Improved parameter handling for movie record creation during recreation
 - **Sync Completeness:** Comprehensive sync now handles both missing posts AND missing threads
 - **Error Prevention:** Better validation to prevent database constraint errors
 
 ### Technical
+
 - **Parameter Validation:** Fixed saveMovie calls to use proper object parameter format
 - **Thread Detection:** Enhanced thread cleanup logic to check movie existence in database
 - **Post-Thread Mapping:** Better correlation between movie posts and discussion threads
 - **Cleanup Intelligence:** Smarter cleanup that preserves relevant threads while removing orphaned ones
 
 ## [1.11.21] - 2025-09-06
+
 ### Fixed
+
 - **Thread Cleanup Order:** Fixed thread cleanup to run BEFORE recreation instead of after
 - **Database Foreign Key Error:** Fixed foreign key constraint error when updating message IDs
 - **Vote Preservation:** Enhanced vote transfer system for recreated posts
 - **Thread Recreation:** Recreated posts now properly keep their discussion threads
 
 ### Enhanced
+
 - **Movie Record Management:** Improved database record handling during recreation
 - **Vote Transfer:** Better vote preservation when recreating movie posts
 - **Error Handling:** Enhanced error handling for database operations during recreation
 - **Logging:** Added detailed logging for vote transfer and record updates
 
 ### Technical
+
 - **Database Operations:** Changed from UPDATE to CREATE/DELETE approach for message ID changes
 - **Vote System:** Enhanced vote transfer to handle foreign key constraints properly
 - **Thread Management:** Corrected sync process order to prevent thread deletion after creation
 - **Record Integrity:** Better handling of database record transitions during recreation
 
 ## [1.11.20] - 2025-09-06
+
 ### Added
+
 - **Admin Slash Commands:** New admin-only commands for movie management
   - `/movie-watched <title>` - Mark a movie as watched
   - `/movie-skip <title>` - Skip a movie
@@ -1221,309 +1469,388 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **Autocomplete Support:** Movie title autocomplete for admin commands
 
 ### Fixed
+
 - **Thread Cleanup Order:** Fixed orphaned thread cleanup to run before recreation
 - **Thread Recreation:** Recreated movie posts now properly get discussion threads
 - **Sync Process:** Improved sync order to prevent deletion of newly created threads
 
 ### Enhanced
+
 - **Admin Workflow:** Clean slash command interface for movie status management
 - **Permission Security:** Admin commands properly validate user permissions
 - **User Experience:** Autocomplete makes it easy to select movies by title
 
 ### Technical
+
 - **Command Registration:** Added new admin commands to command registration system
 - **Handler Integration:** Integrated admin commands with existing permission system
 - **Error Handling:** Comprehensive error handling for admin command operations
 
 ## [1.11.19] - 2025-09-06
+
 ### Fixed
+
 - **Movie Recreation Data:** Fixed field mapping to use correct database schema (where_to_watch, recommended_by)
 - **Thread Recreation:** Fixed thread creation for recreated movie posts - now always creates discussion threads
 - **IMDb Data Restoration:** Added IMDb data parsing for recreated posts to restore full movie information
 - **Debug Logging:** Enhanced logging to track movie data during recreation process
 
 ### Enhanced
+
 - **Thread Creation:** Recreated movie posts now automatically get discussion threads
 - **Data Integrity:** Better handling of database field mapping during post recreation
 - **Error Handling:** Improved error handling for thread creation during recreation
 - **Button Simplification:** Recreated posts use voting buttons only (admin buttons require permission checks)
 
 ### Technical
+
 - **Field Mapping:** Corrected platform→where_to_watch and addedBy→recommended_by mapping
 - **IMDb Integration:** Added JSON parsing for stored IMDb data during recreation
 - **Thread Logic:** Fixed thread creation logic to always create threads for movie posts
 - **Debug Enhancement:** Added detailed logging for troubleshooting recreation issues
 
 ## [1.11.18] - 2025-09-06
+
 ### Fixed
+
 - **Movie Recreation Error:** Fixed CombinedPropertyError when recreating movie posts during sync
 - **Field Mapping:** Corrected field mapping between database schema and embed creation function
 - **Undefined Values:** Added safety checks for undefined/null values in movie data
 
 ### Enhanced
+
 - **Error Handling:** Better handling of missing or incomplete movie data during recreation
 - **Data Validation:** Added fallback values for required fields to prevent embed creation errors
 - **Sync Reliability:** Improved reliability of movie post recreation during sync operations
 
 ### Technical
+
 - **Field Mapping Fix:** Changed platform→where_to_watch and addedBy→recommended_by mapping
 - **Safety Checks:** Added null/undefined checks for all movie fields during recreation
 - **Embed Creation:** Enhanced robustness of movie embed creation with fallback values
 
 ## [1.11.17] - 2025-09-06
+
 ### Fixed
+
 - **Purge Database Cleanup:** Fixed purge not deleting movies from database when channel was switched
 - **Cross-Channel Cleanup:** Purge now cleans up movies from all channels in guild, not just current channel
 - **Debug Logging:** Added detailed logging to track purge operations and identify issues
 
 ### Added
+
 - **getAllMovies:** New database function to get all movies for a guild regardless of channel
 - **Enhanced Purge Logic:** Purge now handles movies that may be in different channels due to channel switches
 - **Better Debugging:** Detailed console output for purge operations to track what's being deleted
 
 ### Technical
+
 - **Channel Migration Support:** Purge operations now work correctly after channel configuration changes
 - **Database Query Enhancement:** Added guild-wide movie queries for comprehensive cleanup
 - **Logging Improvements:** Better tracking of purge operations for troubleshooting
 
 ## [1.11.16] - 2025-09-06
+
 ### Fixed
+
 - **Critical Sync Logic:** Fixed sync deleting movies instead of recreating missing posts
 - **Thread Cleanup Permissions:** Added permission checks for ManageThreads before attempting deletion
 - **Thread Detection:** Improved orphaned thread detection by checking for parent message existence
 - **Sync Behavior:** Sync now properly recreates missing movie posts instead of treating them as orphaned
 
 ### Enhanced
+
 - **Permission Validation:** Bot checks for ManageThreads permission before attempting thread operations
 - **Error Handling:** Better error handling for thread operations with clear permission warnings
 - **Thread Cleanup:** More robust thread cleanup that handles permission errors gracefully
 
 ### Technical
+
 - **Logic Correction:** Changed "orphaned database entries" logic to "missing post recreation"
 - **Permission Checks:** Added runtime permission validation for thread management operations
 - **Error Recovery:** Improved error handling for thread fetch and deletion operations
 
 ## [1.11.15] - 2025-09-06
+
 ### Fixed
+
 - **Purge Error:** Fixed "preservedScheduled is not defined" error during purge operations
 - **Sync Completeness:** Sync now properly recreates missing movie posts from database
 - **Missing Posts:** Movies in database without Discord messages are now recreated during sync
 
 ### Added
+
 - **recreateMissingMoviePosts:** Function to recreate Discord posts for movies that exist in database
 - **recreateMoviePost:** Comprehensive movie post recreation with proper embeds, buttons, and threads
 - **Post Recovery:** Sync operations now recover missing movie posts with full functionality
 
 ### Enhanced
+
 - **Sync Reporting:** Added count of recreated posts to sync summary
 - **Thread Recreation:** Missing movie posts get their discussion threads recreated
 - **Button Restoration:** Recreated posts have proper voting or session management buttons
 
 ### Technical
+
 - **Database Sync:** Improved synchronization between database records and Discord messages
 - **Message ID Updates:** Recreated posts get proper message ID updates in database
 - **Error Handling:** Better error handling for post recreation operations
 
 ## [1.11.14] - 2025-09-06
+
 ### Fixed
+
 - **Critical Startup Error:** Fixed "Identifier 'cleanup' has already been declared" syntax error
 - **Duplicate Requires:** Moved cleanup service require to top of handler files to prevent redeclaration
 - **Module Organization:** Consolidated require statements for better code organization
 
 ### Technical
+
 - **Import Management:** Proper module import organization in button and modal handlers
 - **Code Quality:** Eliminated duplicate const declarations that caused startup crashes
 
 ## [1.11.13] - 2025-09-06
+
 ### Major Improvements
+
 - **Cleanup Commands Work Anywhere:** No longer restricted to movie channel - can be run from any channel
 - **Automatic Thread Cleanup:** Removes orphaned discussion threads during sync and purge operations
 - **Enhanced Purge Behavior:** Completely clears movie channel while preserving watched movies in database
 - **Channel Configuration Required:** Cleanup commands now require proper movie channel configuration
 
 ### Added
+
 - **cleanupOrphanedThreads:** Intelligent cleanup of threads that no longer have corresponding movie posts
 - **cleanupAllThreads:** Complete thread removal for purge operations
 - **Movie Voting Channel Validation:** Ensures cleanup operations target the correct configured channel
 
 ### Enhanced
+
 - **Purge Operations:** Now completely clear the movie channel including all threads and messages
 - **Database Preservation:** Watched movies and session analytics preserved during purge for historical data
 - **Better Error Handling:** Clear error messages when movie channel is not configured or found
 
 ### Fixed
+
 - **Thread Accumulation:** Prevents orphaned threads from cluttering the movie channel
 - **Channel Restrictions:** Cleanup commands no longer require being run in the movie channel
 - **Purge Completeness:** Purge now truly clears the channel instead of selective deletion
 
 ### Technical
+
 - **Function Parameters:** Updated cleanup functions to accept movie channel parameter
 - **Thread Management:** Comprehensive thread lifecycle management during cleanup operations
 - **Configuration Validation:** Robust checking of guild configuration before cleanup operations
 
 ## [1.11.12] - 2025-09-06
+
 ### Enhanced
+
 - **Shorter Guide Messages:** Replaced verbose help embeds with concise quick action messages
 - **Guide Message Cleanup:** Automatically removes duplicate guide/action messages to prevent clutter
 - **Improved UX:** Quick action message mentions `/movie-help` for full commands while keeping interface clean
 
 ### Added
+
 - **createQuickActionEmbed:** New concise embed for bottom-of-channel quick actions
 - **cleanupOldGuideMessages:** Function to remove duplicate guide messages before posting new ones
 - **ensureQuickActionAtBottom:** Comprehensive function that cleans up and posts single action message
 
 ### Fixed
+
 - **Duplicate Guide Messages:** Purge operations no longer leave multiple guide messages
 - **Message Clutter:** Only one guide/action message exists at bottom of channel at any time
 - **Verbose Interface:** Replaced detailed help with simple "Ready to recommend?" message
 
 ### Technical
+
 - **Message Management:** Improved tracking and cleanup of bot-generated guide messages
 - **Function Consolidation:** Replaced multiple postQuickGuide functions with centralized cleanup approach
 - **Better UX Flow:** Users can still access full help via `/movie-help` command when needed
 
 ## [1.11.11] - 2025-09-06
+
 ### Fixed
+
 - **Session Cancellation:** Fixed "ReferenceError: restoreMoviePost is not defined" error during session cancellation
 - **Movie Post Restoration:** Added missing restoreMoviePost function to properly restore movie posts after session cancellation
 - **Duplicate Functions:** Removed duplicate updateMoviePostForSession function that was causing confusion
 
 ### Added
+
 - **Movie Post Restoration:** Proper restoration of movie posts to voting state when sessions are cancelled
 - **Vote Button Restoration:** Movie posts now properly restore voting buttons and status after session cancellation
 
 ### Technical
+
 - **Function Organization:** Cleaned up duplicate function definitions in sessions service
 - **Error Handling:** Improved error handling for movie post restoration operations
 
 ## [1.11.10] - 2025-09-06
+
 ### Fixed
+
 - **Critical Syntax Error:** Fixed missing catch/finally block in discord-events.js causing bot startup crash
 - **Extra Brace:** Removed duplicate closing brace that broke try-catch structure
 - **Bot Startup:** Resolved "SyntaxError: Missing catch or finally after try" preventing bot from starting
 
 ### Technical
+
 - **Code Structure:** Fixed malformed try-catch block in Discord event sync function
 - **Startup Stability:** Bot now starts successfully without syntax errors
 
 ## [1.11.9] - 2025-09-06
+
 ### Documentation
+
 - **CHANGELOG Update:** Added comprehensive release notes for versions 1.11.0 through 1.11.8
 - **Release History:** Complete documentation of all features, fixes, and technical improvements
 - **Version Tracking:** Proper categorization of changes (Added, Fixed, Enhanced, Technical)
 
 ### Technical
+
 - **Documentation Maintenance:** Established proper changelog maintenance workflow
 - **Release Notes:** Detailed documentation for all major features and bug fixes
 
 ## [1.11.8] - 2025-09-06
+
 ### Fixed
+
 - **Foreign Key Constraints:** Fixed "Cannot delete or update a parent row: foreign key constraint fails" error
 - **Database Integrity:** Enhanced updateMovieMessageId to properly update votes table references
 - **SESSION_UID Unknown:** Added automatic fixing of Discord events showing "SESSION_UID:unknown"
 - **Event Sync:** Enhanced bidirectional sync between Discord events and database sessions
 
 ### Added
+
 - **Database Cleanup:** Added cleanupOrphanedData function for automatic maintenance
 - **Orphaned Data Removal:** Automatically removes orphaned votes, participants, and attendees
 - **Cleanup Reporting:** Detailed statistics for database maintenance operations
 
 ### Technical
+
 - **Data Integrity:** Prevents database constraint violations during message recreation
 - **Event Repair:** Intelligent Discord event description fixing during sync operations
 - **Maintenance Automation:** Prevents database bloat from deleted movies and sessions
 
 ## [1.11.7] - 2025-09-06
+
 ### Fixed
+
 - **Session ID Display:** Fixed SESSION_UID:unknown in Discord events by properly setting session IDs
 - **Purge Functionality:** Fixed purge operations breaking scheduled movie session management
 - **Button Restoration:** Added automatic session management button restoration after purge
 
 ### Added
+
 - **Session Management Buttons:** Created createSessionManagementButtons utility for consistency
 - **Purge Preservation:** Scheduled movies maintain full functionality through purge operations
 
 ### Technical
+
 - **Session Data Flow:** Proper session ID propagation from database to Discord events
 - **Button Management:** Consistent session management button creation across operations
 
 ## [1.11.6] - 2025-09-06
+
 ### Fixed
+
 - **Permission Errors:** Fixed session cancel/reschedule permission errors (checkMovieAdminPermission undefined)
 - **Module Imports:** Removed incorrect require statements in session management functions
 - **Session Management:** Proper permission checking for all session operations
 
 ### Added
+
 - **Voice Tracking Debug:** Added debug logging to voice state tracking for troubleshooting
 - **Configuration Diagnostics:** Enhanced troubleshooting for viewing channel setup issues
 
 ### Technical
+
 - **Permission System:** Cleaned up permission module usage in session handlers
 - **Debug Logging:** Improved diagnostics for session monitoring configuration
 
 ## [1.11.5] - 2025-09-06
+
 ### Enhanced
+
 - **Command Registration:** Clear logging for development vs production command registration modes
 - **Development Mode:** GUILD_ID present - registers to specific guilds for instant updates
 - **Production Mode:** No GUILD_ID - registers globally for all servers (1 hour propagation)
 - **Deployment Flexibility:** Better support for public bot distribution
 
 ### Technical
+
 - **Registration Modes:** Automatic detection of development vs production deployment
 - **Guild Management:** Improved filtering and error handling for guild IDs
 - **Public Bot Ready:** Optimized for public distribution while maintaining dev flexibility
 
 ## [1.11.4] - 2025-09-06
+
 ### Added
+
 - **Viewing Channel Config:** Added 'set-viewing-channel' option to /movie-configure command
 - **Session Monitoring Setup:** Voice/text channel configuration for session attendance tracking
 - **Settings Display:** Enhanced view-settings to show configured viewing channel
 - **Complete Interface:** Full configuration interface for session participant tracking
 
 ### Technical
+
 - **Channel Validation:** Support for both voice and text channels for different viewing setups
 - **Configuration Integration:** Seamless integration with existing guild configuration system
 
 ## [1.11.3] - 2025-09-06
+
 ### Fixed
+
 - **Session Description Error:** Fixed session description generation error (interaction is not defined)
 - **Parameter Passing:** Proper parameter passing to generateSessionDescription function
 - **Console Errors:** Session creation with pre-selected movies now works without errors
 
 ### Technical
+
 - **Function Signatures:** Corrected function parameter requirements for session generation
 - **Error Handling:** Improved error handling in session creation workflow
 
 ## [1.11.2] - 2025-09-06
+
 ### Fixed
+
 - **Create Session Button:** Fixed "Create Session from Movie" button functionality
 - **Function References:** Replaced undefined createMovieSession with proper showSessionCreationModal
 - **Movie Pre-selection:** Enhanced movie pre-selection in session creation workflow
 
 ### Added
+
 - **Session State Management:** Proper session state initialization with pre-selected movies
 - **Workflow Integration:** Seamless integration from movie recommendations to session creation
 
 ### Technical
+
 - **Function Mapping:** Corrected function calls in session creation from movie posts
 - **State Persistence:** Improved session creation state management
 
 ## [1.11.1] - 2025-09-06
+
 ### Added
+
 - **Multi-Guild Commands:** Support for multiple guild IDs in GUILD_ID environment variable
 - **Development Flexibility:** Commands register instantly in multiple test/development servers
 - **Comma-Separated IDs:** Use GUILD_ID=guild1,guild2,guild3 for multiple instant registrations
 
 ### Enhanced
+
 - **Testing Efficiency:** Eliminates 1-hour wait for global command registration during development
 - **Backwards Compatibility:** Maintains compatibility with single guild ID configuration
 
 ### Technical
+
 - **Command Registration:** Enhanced command registration logic for multiple guilds
 - **Development Workflow:** Improved development and testing experience
 
 ## [1.11.0] - 2025-09-06
+
 ### Added
+
 - **Enhanced Session Participant Tracking:** Real-time voice channel monitoring for session attendance
 - **Automatic Attendance Detection:** Bot automatically detects when users join/leave viewing channels
 - **Session Attendees Table:** New database table for actual attendance vs registered participants
@@ -1531,198 +1858,253 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **Attendance Analytics:** Duration tracking and attendance rate calculations
 
 ### Enhanced
+
 - **Database Structure:** Added session_attendees table and session_viewing_channel_id configuration
 - **Guild Configuration:** Added viewing channel configuration for session monitoring
 - **Session Tracking Service:** Comprehensive service for real-time participant monitoring
 
 ### Technical
+
 - **Voice Channel Integration:** Automatic detection during scheduled movie session times
 - **Database Migrations:** Added migrations for new attendance tracking tables and columns
 - **Event Handling:** Voice state change event handler for real-time monitoring
 
 ## [1.10.25] - 2025-09-06
+
 ### Fixed
+
 - **Startup Crash:** Fixed "Cannot find module ./votes" error after removing unused votes.js handler
 - **Module Imports:** Removed import of deleted votes.js handler from handlers/index.js
 - **Interaction Routing:** Removed voting interaction routing since voting is handled in buttons.js
 
 ### Technical
+
 - **Code Cleanup:** Voting functionality remains fully functional through button handlers
 - **Module Organization:** Consolidated all voting logic in buttons.js handler
 
 ## [1.10.24] - 2025-09-06
+
 ### Added
+
 - **Comprehensive TODOs:** Added detailed future feature planning for enhanced functionality
 - **Session Tracking TODOs:** Documented automatic participant tracking during session times
 - **Voting Analytics TODOs:** Documented voting pattern analysis and user preference tracking
 - **Configuration TODOs:** Documented session viewing channel configuration features
 
 ### Technical
+
 - **Future Planning:** Enhanced session participant tracking with real-time monitoring
 - **Analytics Framework:** Voting button clicks already tracked, ready for analytics features
 - **Channel Monitoring:** Framework for automatic attendance tracking in viewing channels
 
 ## [1.10.23] - 2025-09-06
+
 ### Fixed
+
 - **Interaction Timeout Errors:** Fixed "Unknown interaction" errors in modal submissions
 - **Configuration Buttons:** Implemented all configuration button handlers instead of placeholders
 - **Session Participants:** Added session participants tracking with database table
 
 ### Enhanced
+
 - **Session Management:** Users can now join sessions and be tracked in participant list
 - **Session Listings:** Enhanced to show participant counts and organizer information
 - **Error Handling:** Improved interaction timeout handling throughout all handlers
 
 ### Technical
+
 - **Database Schema:** Added session_participants table with proper foreign key constraints
 - **Participant Functions:** Added addSessionParticipant() and getSessionParticipants() functions
 - **Code Quality:** Removed unused votes.js handler, consolidated voting logic
 
 ## [1.10.22] - 2025-09-06
+
 ### Documentation
+
 - **Comprehensive Changelog:** Updated with all versions from 1.10.9 to 1.10.21
 - **README Updates:** Added "Recent Major Updates" section highlighting key improvements
 - **Version Documentation:** Updated README version to reflect current functionality
 - **Release Notes:** Detailed documentation of voting fixes, duplicate detection, and session management
 
 ## [1.10.21] - 2025-09-06
+
 ### Fixed
+
 - **Button Persistence:** Fixed buttons disappearing after status changes (Watched, Skip, Plan Later)
 - **Vote Count Preservation:** Fixed voting to preserve all buttons and embed data after voting
 - **IMDb Data Preservation:** Status changes now maintain vote counts and IMDb information in embeds
 - **Duplicate Movie Detection:** Added detection with status and watch date information
 
 ### Enhanced
+
 - **Status Button Logic:** Improved button display for different movie statuses
 - **Database Functions:** Added `findMovieByTitle()` for duplicate detection
 - **User Experience:** Warns users before adding duplicate movies with current status info
 
 ## [1.10.20] - 2025-09-06
+
 ### Fixed
+
 - **Critical Voting Bug:** Fixed voting buttons having null message IDs causing foreign key constraint errors
 - **Message Creation Flow:** Changed to create message first, then add buttons with correct message ID
 - **Database Voting:** Resolved "Cannot add or update a child row" errors in voting system
 
 ### Technical
+
 - **Button Custom IDs:** Fixed buttons to reference actual Discord message IDs instead of null
 - **Movie Creation:** Updated both IMDb and non-IMDb movie creation flows
 
 ## [1.10.19] - 2025-09-06
+
 ### Fixed
+
 - **Function Name Standardization:** Removed duplicate `createVoteButtons`, standardized on `createVotingButtons`
 - **Component Deduplication:** Fixed `createStatusButtons` to use consistent vote button logic
 - **Function Exports:** Cleaned up component exports to remove unused functions
 
 ### Technical
+
 - **Vote Button Logic:** Eliminated duplicate vote button creation code across components
 - **Consistent Labeling:** All vote buttons now show current vote counts in format "Vote Up (5)"
 
 ## [1.10.18] - 2025-09-06
+
 ### Fixed
+
 - **Missing Functions:** Added missing `createVotingButtons` function and permissions import
 - **Session Management:** Fixed session cancel/reschedule permission checking
 - **Foreign Key Constraints:** Added debugging logs for movie database save operations
 
 ### Enhanced
+
 - **Error Handling:** Improved debugging for database operations
 - **Function Organization:** Better component function exports and imports
 
 ## [1.10.17] - 2025-09-06
+
 ### Fixed
+
 - **Function Name Cleanup:** Comprehensive cleanup of duplicate and mismatched function names
 - **Database Functions:** Removed duplicate functions (`updateSessionDiscordEvent`, `updateMovieStatus`, `getMovieSessionById`)
 - **Function Call Consistency:** Fixed all function name mismatches in sessions service
 - **Modularization Issues:** Resolved function call inconsistencies from previous refactoring
 
 ### Technical
+
 - **Database Standardization:** Consistent function naming across all modules
 - **Function Deduplication:** Removed conflicting duplicate function definitions
 
 ## [1.10.16] - 2025-09-06
+
 ### Fixed
+
 - **Session Management:** Fixed session creation, cancellation, and rescheduling functionality
 - **Discord Events:** Restored Discord event creation and management for movie sessions
 - **Database Integration:** Fixed session-related database operations and queries
 - **Button Interactions:** Resolved session management button functionality
 
 ### Enhanced
+
 - **Event Scheduling:** Improved Discord event creation with proper timezone handling
 - **Session Workflow:** Complete session creation flow from planned movies to scheduled events
 
 ## [1.10.15] - 2025-09-06
+
 ### Fixed
+
 - **Database Connection:** Fixed MySQL connection and initialization issues
 - **Migration System:** Resolved database migration and table creation problems
 - **Service Dependencies:** Fixed circular dependency issues between services
 - **Error Handling:** Improved database error handling and connection management
 
 ### Technical
+
 - **Database Architecture:** Streamlined database service initialization
 - **Connection Management:** Better MySQL connection handling and error recovery
 
 ## [1.10.14] - 2025-09-06
+
 ### Fixed
+
 - **Modular Architecture:** Completed transition to modular service-based architecture
 - **Handler Organization:** Organized all interaction handlers into dedicated modules
 - **Service Integration:** Fixed service imports and dependencies across modules
 - **Code Structure:** Clean separation of concerns between handlers, services, and utilities
 
 ### Enhanced
+
 - **Maintainability:** Improved code organization for easier maintenance and debugging
 - **Scalability:** Better structure for adding new features and functionality
 
 ## [1.10.13] - 2025-09-06
+
 ### Fixed
+
 - **Command Registration:** Fixed slash command registration and handling
 - **Interaction Routing:** Resolved interaction handler routing issues
 - **Service Integration:** Fixed service module imports and dependencies
 
 ### Technical
+
 - **Command System:** Improved slash command processing and error handling
 - **Module Structure:** Better organization of command handlers and services
 
 ## [1.10.12] - 2025-09-06
+
 ### Fixed
+
 - **Module Imports:** Fixed import paths and module dependencies
 - **Service Architecture:** Resolved service integration issues
 - **Handler Organization:** Fixed interaction handler routing and processing
 
 ### Enhanced
+
 - **Code Organization:** Improved modular structure for better maintainability
 - **Error Handling:** Better error handling across all modules
 
 ## [1.10.11] - 2025-09-06
+
 ### Fixed
+
 - **Database Integration:** Fixed database service integration and method calls
 - **Service Dependencies:** Resolved service import and dependency issues
 - **Module Structure:** Fixed modular architecture implementation
 
 ### Technical
+
 - **Service Layer:** Improved service layer organization and functionality
 - **Database Operations:** Better database operation handling and error management
 
 ## [1.10.10] - 2025-09-06
+
 ### Fixed
+
 - **Modular Refactoring:** Initial modular architecture implementation
 - **Service Separation:** Separated business logic into dedicated service modules
 - **Handler Organization:** Organized interaction handlers by type
 
 ### Enhanced
+
 - **Code Structure:** Improved code organization for better maintainability
 - **Service Architecture:** Clean separation between handlers, services, and utilities
 
 ## [1.10.9] - 2025-09-06
+
 ### Fixed
+
 - **Database Methods:** Fixed database method calls and service integration
 - **Error Handling:** Improved error handling for database operations
 - **Service Integration:** Fixed service module imports and dependencies
 
 ### Technical
+
 - **Method Consistency:** Standardized database method naming and usage
 - **Service Layer:** Better service layer organization and error handling
 
 ## [1.10.8] - 2025-09-05
+
 ### Fixed
+
 - **IMDb Service Method:** Fixed `imdb.searchMovies is not a function` error by using correct `searchMovie` method
 - **Database Method:** Fixed `database.addMovie is not a function` error by using correct `saveMovie` method
 - **Movie Creation:** Fixed movie recommendation workflow to use proper database and service methods
@@ -1730,6 +2112,7 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **Error Handling:** Improved error handling for movie creation and IMDb integration
 
 ### Technical
+
 - **Method Names:** Updated all handlers to use correct database method `saveMovie` instead of `addMovie`
 - **IMDb Integration:** Fixed IMDb service calls to use `searchMovie` and handle `Search` array properly
 - **Result Validation:** Added proper validation for IMDb search results structure
@@ -1738,7 +2121,9 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ---
 
 ## [1.10.7] - 2025-09-05
+
 ### Fixed
+
 - **Sync Data Loss:** Fixed sync function removing IMDb data from movie recommendations
 - **Recommend Button Error:** Fixed "Unknown button interaction" error for create_recommendation button
 - **IMDb Selection Missing:** Added missing IMDb selection handlers for movie recommendation workflow
@@ -1746,18 +2131,21 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **Button Functionality:** Restored complete movie recommendation workflow from guide button
 
 ### Enhanced
+
 - **Conservative Sync:** Sync only updates components when needed, preserves embed content
 - **Complete Workflow:** Full movie recommendation flow: button → modal → IMDb search → selection → post
 - **IMDb Integration:** Proper handling of IMDb movie selection with poster and rating preservation
 - **Error Handling:** Enhanced error handling throughout movie creation process
 
 ### Added
+
 - **Create Recommendation Handler:** Added missing button handler for guide recommendation button
 - **IMDb Selection Handler:** Complete IMDb movie selection and creation workflow
 - **Movie Creation Functions:** Both IMDb and non-IMDb movie creation paths
 - **Data Validation:** Proper validation and error handling for movie recommendation process
 
 ### Technical
+
 - **Button Handlers:** Added handleCreateRecommendation and handleImdbSelection functions
 - **Data Preservation:** Modified syncMessageWithDatabase to preserve existing embeds
 - **Workflow Completion:** Complete end-to-end movie recommendation functionality
@@ -1766,13 +2154,16 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ---
 
 ## [1.10.6] - 2025-09-05
+
 ### Fixed
+
 - **Configuration Service Error:** Fixed `Cannot read properties of undefined (reading 'checkMovieAdminPermission')`
 - **Missing Configuration Module:** Created missing configuration service with all admin functions
 - **Import Errors:** Fixed service import paths in cleanup and command handlers
 - **Movie Configuration Commands:** Restored full functionality for `/movie-configure` command
 
 ### Added
+
 - **Configuration Service:** Complete configuration service module with all admin functions
 - **Channel Configuration:** `configureMovieChannel` function for setting movie channels
 - **Role Management:** `addAdminRole` and `removeAdminRole` functions for admin role management
@@ -1781,6 +2172,7 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **Configuration Reset:** `resetConfiguration` function for clearing all settings
 
 ### Technical
+
 - **Service Module:** Created `services/configuration.js` with all configuration functions
 - **Service Index:** Added configuration service to services index exports
 - **Import Fixes:** Fixed cleanup service permission import path
@@ -1789,12 +2181,15 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ---
 
 ## [1.10.5] - 2025-09-05
+
 ### Fixed
+
 - **Deprecation Warning:** Fixed Discord.js v14 deprecation warning for 'ready' event
 - **Event Handler:** Updated to use 'clientReady' event instead of deprecated 'ready' event
 - **Future Compatibility:** Ensures compatibility with Discord.js v15 when released
 
 ### Technical
+
 - **Event Migration:** Changed from `client.once('ready')` to `client.once('clientReady')`
 - **Clean Startup:** Eliminated deprecation warning during bot initialization
 - **Forward Compatibility:** Prepared for Discord.js v15 breaking changes
@@ -1802,7 +2197,9 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ---
 
 ## [1.10.4] - 2025-09-05
+
 ### Fixed
+
 - **Command Registration Error:** Fixed `Cannot read properties of undefined (reading 'put')` error
 - **Discord Intents Error:** Removed privileged MessageContent intent that was causing startup failure
 - **REST API Setup:** Properly initialized REST client for command registration
@@ -1810,6 +2207,7 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **Startup Reliability:** Enhanced error handling and parameter passing for command registration
 
 ### Technical
+
 - **REST Client:** Added proper REST client initialization in command registration module
 - **Intent Optimization:** Removed unnecessary MessageContent intent (bot uses slash commands only)
 - **Parameter Passing:** Fixed registerCommands function to receive token, clientId, and guildId
@@ -1818,7 +2216,9 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ---
 
 ## [1.10.3] - 2025-09-05
+
 ### Added
+
 - **Enhanced Cleanup Command:** Added sync/purge options with admin-only access control
 - **Purge Functionality:** Complete channel reset while preserving scheduled movies with active events
 - **Admin Permission Control:** Cleanup commands now restricted to server admins and configured admin roles
@@ -1826,6 +2226,7 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **Selective Preservation:** Purge protects scheduled movies with active Discord events
 
 ### Enhanced
+
 - **Cleanup Options:** `/movie-cleanup sync` for synchronization, `/movie-cleanup purge` for complete reset
 - **Smart Preservation:** Purge automatically detects and preserves movies with active Discord events
 - **Complete Cleanup:** Purge removes movies, votes, sessions, Discord messages, and threads
@@ -1833,6 +2234,7 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **Permission Validation:** Enhanced security with admin role checking for cleanup operations
 
 ### Fixed
+
 - **Status Command Accuracy:** Fixed scheduled event counting to show only active Discord events
 - **Movie-Night Command:** Restored modal functionality instead of parameter requirements
 - **Event Count Verification:** Status now accurately reflects actual Discord events, not database entries
@@ -1840,6 +2242,7 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **Modal Processing:** Complete movie recommendation flow from modal to post creation
 
 ### Technical
+
 - **Database Methods:** Added deleteMovieSession, deleteVotesByMessageId, deleteMovie for cleanup
 - **Event Verification:** Real-time Discord event existence checking for accurate statistics
 - **Purge Logic:** Intelligent separation of movies to delete vs preserve based on event status
@@ -1848,7 +2251,9 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ---
 
 ## [1.10.2] - 2025-09-05
+
 ### Added
+
 - **Complete Sync System:** Bidirectional synchronization between Discord events and database
 - **Session UID Tracking:** Embedded session UIDs in Discord event descriptions for tracking
 - **Discord Event Sync:** Automatic detection and cleanup of orphaned Discord events
@@ -1857,6 +2262,7 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **Enhanced Database Methods:** getAllSessions, getMovieBySessionId, updateSessionEventId, transferVotes
 
 ### Enhanced
+
 - **Cleanup System:** Now includes Discord event synchronization and orphan cleanup
 - **Movie Recreation:** Recreates movies at bottom with full IMDb data and preserved votes
 - **Guide Interface:** Proper recommendation button instead of admin configuration buttons
@@ -1864,6 +2270,7 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **Data Integrity:** Complete consistency between Discord messages, events, and database
 
 ### Fixed
+
 - **Missing IMDb Data:** Movies now properly restore posters and details during cleanup
 - **Lost Vote Counts:** Vote preservation during message recreation (e.g., "3 👍 0 👎" maintained)
 - **Wrong Guide Buttons:** Fixed guide showing admin config instead of recommendation button
@@ -1871,6 +2278,7 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **Status Sync:** Movies automatically return to "planned" when associated events are deleted
 
 ### Technical
+
 - **Session UID Format:** `SESSION_UID:123` embedded in Discord event descriptions
 - **Bidirectional Sync:** Discord events ↔ Database sessions with automatic reconciliation
 - **Vote Transfer:** Database-level vote migration during message ID changes
@@ -1879,7 +2287,9 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ---
 
 ## [1.10.1] - 2025-09-05
+
 ### Added
+
 - **Enhanced Cleanup System:** Comprehensive database sync during cleanup operations
 - **Orphaned Message Removal:** Automatically deletes Discord messages for movies removed from database
 - **Database Sync:** Syncs message status with database state during cleanup
@@ -1887,6 +2297,7 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **Missing Database Method:** Added `getMoviesByChannel()` for channel-specific movie queries
 
 ### Enhanced
+
 - **Comprehensive Cleanup:** `/movie-cleanup` now performs full database synchronization
 - **Orphan Detection:** Identifies and removes messages without corresponding database entries
 - **Status Synchronization:** Ensures Discord message status matches database status
@@ -1894,6 +2305,7 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **Database Integrity:** Maintains consistency between Discord and database states
 
 ### Fixed
+
 - **Button Interaction Failures:** Resolved "This interaction failed" errors for Plan Later and voting
 - **Status Change Handlers:** Implemented proper interaction responses for all status buttons
 - **Vote Processing:** Fixed voting button interactions with database integration
@@ -1902,7 +2314,9 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ---
 
 ## [1.10.0] - 2025-09-05
+
 ### Added
+
 - **Session Management Buttons:** Reschedule and Cancel buttons on scheduled movie posts
 - **Reschedule Functionality:** Complete reschedule flow using same Date→Time→Timezone workflow
 - **Cancel Session Feature:** Cancel sessions with confirmation dialog and automatic cleanup
@@ -1910,12 +2324,14 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **Permission Controls:** Only session creators and admins can reschedule/cancel sessions
 
 ### Enhanced
+
 - **Session Control:** Full lifecycle management from creation to cancellation
 - **Movie Status Sync:** Automatic status updates when sessions are cancelled or rescheduled
 - **Discord Event Management:** Automatic Discord event deletion when sessions are cancelled
 - **User Experience:** Clear confirmation dialogs and status updates throughout process
 
 ### Fixed
+
 - **Date/Time Display:** Fixed session info showing event END time instead of START time
 - **Timezone Display:** Now uses Discord timestamps for accurate timezone display across all users
 - **Session Information:** Consistent date/time formatting using `<t:timestamp:F>` format
@@ -1923,19 +2339,23 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ---
 
 ## [1.9.12] - 2025-09-05
+
 ### Added
+
 - **Role Notifications:** Configure notification role to be pinged when Discord events are created
 - **Event Links in Movie Posts:** Movie posts now show clickable Discord event links instead of "Planned for later"
 - **Notification Configuration:** `/movie-configure set-notification-role @role` to set up event notifications
 - **Smart Channel Selection:** Notifications sent to movie channel, session channel, or suitable fallback
 
 ### Enhanced
+
 - **Movie Post Integration:** Scheduled movies now display direct links to Discord events
 - **Role Management:** Complete role notification system with database storage and configuration
 - **User Experience:** Clear visual connection between movie recommendations and scheduled events
 - **Event Visibility:** Role members automatically notified when new movie nights are scheduled
 
 ### Fixed
+
 - **Movie Post Updates:** Fixed issue where scheduled movies still showed "Planned for later"
 - **Event Integration:** Movie posts now properly reflect scheduled status with event links
 - **Status Consistency:** Visual status now matches actual scheduling state
@@ -1943,19 +2363,23 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ---
 
 ## [1.9.11] - 2025-09-05
+
 ### Added
+
 - **Auto Movie Post Updates:** Automatically updates movie recommendation posts when scheduled for sessions
 - **Movie Status Tracking:** New 'scheduled' status for movies that are assigned to sessions
 - **Thread Integration:** Posts session details in movie recommendation threads
 - **Visual Status Updates:** Movie posts change color and remove voting buttons when scheduled
 
 ### Enhanced
+
 - **Complete Workflow Integration:** Session creation now updates the original movie recommendation
 - **Status Synchronization:** Movie database status automatically updated to 'scheduled'
 - **User Experience:** Clear visual indication when movies are scheduled vs. still pending
 - **Thread Communication:** Session information automatically posted in movie discussion threads
 
 ### Fixed
+
 - **Post Management:** Removes voting buttons from scheduled movies to prevent confusion
 - **Status Consistency:** Database and UI status now stay synchronized
 - **Information Flow:** Users can easily see which movies are scheduled and when
@@ -1964,17 +2388,21 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ---
 
 ## [1.9.10] - 2025-09-05
+
 ### Added
+
 - **Smart Event Duration:** Discord events now use movie runtime + 30 minutes buffer for accurate end times
 - **Runtime Integration:** Automatically calculates event duration based on selected movie's IMDb runtime data
 - **Intelligent Fallback:** Uses 2.5 hour default duration when movie runtime is unavailable
 
 ### Enhanced
+
 - **Discord Event Creation:** Fixed required end time issue with smart runtime-based duration calculation
 - **Event Accuracy:** Events now reflect actual movie length plus conversation/setup time
 - **User Experience:** More accurate event scheduling based on actual movie duration
 
 ### Fixed
+
 - **Discord Events:** Resolved "An end time is required for external events" error
 - **Event Duration:** Replaced arbitrary 3-hour duration with intelligent runtime-based calculation
 - **IMDb Integration:** Enhanced runtime parsing from IMDb data for event scheduling
@@ -1982,7 +2410,9 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ---
 
 ## [1.9.9] - 2025-09-05
+
 ### Fixed
+
 - **Session Creation Reliability:** Resolved all database errors preventing session creation
 - **Database Charset Issues:** Removed emojis from templates to prevent charset encoding errors
 - **IMDb Integration:** Fixed import errors and added graceful error handling for missing data
@@ -1990,6 +2420,7 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **Template Compatibility:** Smart templating now works reliably without database conflicts
 
 ### Enhanced
+
 - **Error Handling:** Improved error handling for IMDb data fetching and database operations
 - **Database Migrations:** Automatic schema updates with proper charset handling
 - **Template Reliability:** Rich session descriptions without problematic characters
@@ -1998,19 +2429,23 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ---
 
 ## [1.9.8] - 2025-09-05
+
 ### Added
+
 - **Smart Session Templating:** Auto-generated session names and descriptions based on selections
 - **Rich Movie Descriptions:** Pre-filled descriptions with IMDb synopsis, genre, runtime, and rating
 - **Database Migrations:** Automatic schema updates to ensure all columns exist
 - **Editable Templates:** Users can modify auto-generated content before saving
 
 ### Fixed
+
 - **Database Schema Issues:** Fixed "upvotes/downvotes" column errors with proper JOIN queries
 - **Timezone Column Error:** Added migration to ensure timezone column exists in movie_sessions table
 - **Vote Calculations:** Updated all vote-related queries to use proper votes table relationships
 - **Session Creation:** Resolved "Failed to create movie session" errors
 
 ### Enhanced
+
 - **Session Names:** Auto-generated format: "Watch Party - Movie Title - Saturday, 11PM Eastern"
 - **Session Descriptions:** Rich content with movie synopsis, genre, runtime, IMDb rating, and session details
 - **User Experience:** Pre-filled but editable templates save time while allowing customization
@@ -2019,7 +2454,9 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ---
 
 ## [1.9.7] - 2025-09-05
+
 ### Added
+
 - **Movie Selection Step:** Added movie selection as Step 4 in session creation workflow
 - **Smart Movie Categorization:** Movies grouped by Top Voted, Planned, Pending, and No Movie options
 - **Movie Information Display:** Shows vote scores, platforms, and movie status in selection dropdown
@@ -2027,12 +2464,14 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **Navigation Controls:** Back buttons to change movie selection during session creation
 
 ### Enhanced
+
 - **Complete Session Workflow:** Date → Time → Timezone → Movie → Details (5-step process)
 - **Movie Integration:** Sessions automatically associate with selected movies in database
 - **User Experience:** Clear categorization and information display for movie selection
 - **Flexible Options:** Can create general sessions or movie-specific sessions
 
 ### Fixed
+
 - **Missing Imports:** Added required Discord.js imports for enhanced select menu functionality
 - **State Management:** Improved session creation state handling for movie selection
 - **Database Integration:** Proper movie association with session creation
@@ -2040,7 +2479,9 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ---
 
 ## [1.9.6] - 2025-09-05
+
 ### Enhanced
+
 - **Session Creation UX:** Completely redesigned workflow with intuitive Date → Time → Timezone → Details flow
 - **Better Date Selection:** Added all weekdays (Monday-Sunday), custom date input (MM/DD/YYYY), and clearer options
 - **Improved Time Selection:** Extended time options (6 PM - 11 PM prime time, afternoon options), 12-hour format with AM/PM
@@ -2048,12 +2489,14 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **Custom Input Support:** Modal inputs for custom dates and times with proper validation
 
 ### Fixed
+
 - **Session Creation Flow:** Replaced confusing quick-select approach with logical step-by-step process
 - **Time Format:** Changed from 24-hour to user-friendly 12-hour format with AM/PM
 - **Date Range:** Expanded from limited quick options to full week coverage plus custom dates
 - **User Feedback:** Added proper validation and error messages for custom inputs
 
 ### Technical
+
 - **Modal Handling:** Added comprehensive modal processing for custom date/time inputs
 - **State Management:** Improved session creation state tracking across multiple steps
 - **Database Integration:** Added Discord event integration and proper session creation workflow
@@ -2061,7 +2504,9 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ---
 
 ## [1.9.5] - 2025-09-05
+
 ### Added
+
 - **Complete Functionality:** Implemented all remaining placeholder commands
 - **Movie Recommendations:** Full /movie-night command with database integration
 - **Movie Queue:** Complete /movie-queue with vote scores and user display
@@ -2070,12 +2515,14 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **Database Methods:** Added all missing database operations for sessions and statistics
 
 ### Fixed
+
 - **Command Parameter Clarity:** Improved descriptions for session-id and movie-title parameters
 - **Session Workflow:** Clear guidance on when to use which parameters
 - **Permission Checking:** Proper organizer and admin permission validation
 - **Error Handling:** Comprehensive error handling throughout all commands
 
 ### Enhanced
+
 - **User Experience:** Clear feedback and guidance for all command interactions
 - **Data Integrity:** Proper database relationships and data validation
 - **Performance:** Optimized database queries for statistics and session management
@@ -2083,19 +2530,23 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ---
 
 ## [1.9.4] - 2025-09-05
+
 ### Changed
+
 - **Timezone Approach:** Pivoted from server-wide timezone config to per-session timezone selection
 - **Session Creation UX:** Enhanced workflow with timezone selection as first step
 - **Configuration Simplification:** Removed timezone from `/movie-configure` command
 - **User Experience:** No server setup required - users select timezone when creating sessions
 
 ### Added
+
 - **Progressive Session Creation:** Step-by-step workflow with visual progress indication
 - **Flexible Timezone Selection:** Different sessions can use different timezones
 - **Better Visual Feedback:** Clear indication of selected timezone throughout process
 - **Change Timezone Option:** Users can modify timezone selection during session creation
 
 ### Removed
+
 - **Server Timezone Configuration:** No longer needed with per-session approach
 - **Database Timezone Dependency:** Simplified architecture without timezone storage
 - **Complex Configuration:** Streamlined setup process for better user experience
@@ -2103,7 +2554,9 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ---
 
 ## [1.9.3] - 2025-09-05
+
 ### Fixed
+
 - **Configuration Commands:** Implemented real configuration functionality for all settings
 - **Timezone Setting:** Users can now actually set server timezone through `/movie-configure`
 - **Channel Configuration:** Movie channel can be set and managed properly
@@ -2111,6 +2564,7 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **Settings Viewing:** Complete configuration overview with current settings display
 
 ### Added
+
 - **Full Configuration System:** All configuration actions now functional instead of placeholders
 - **Timezone Integration:** Proper timezone handling for session creation and display
 - **Admin Permission System:** Role-based admin permissions with database storage
@@ -2119,7 +2573,9 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ---
 
 ## [1.9.2] - 2025-09-05
+
 ### Fixed
+
 - **Cleanup Functionality:** Implemented real cleanup command to update old movie messages to current format
 - **Create Session Buttons:** Planned movies now get Create Session buttons through cleanup process
 - **Discord.js Compatibility:** Fixed all deprecation warnings by updating ephemeral to flags syntax
@@ -2127,13 +2583,16 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **Admin Permissions:** Improved permission checking and error handling for cleanup command
 
 ### Added
+
 - **Message Format Helpers:** Functions to detect current format and update old messages
 - **Better Error Handling:** Comprehensive error handling and user feedback for cleanup process
 
 ---
 
 ## [1.9.1] - 2025-09-05
+
 ### Fixed
+
 - **Session Command UX:** Improved parameter descriptions for `/movie-session` command clarity
 - **Discord.js Compatibility:** Fixed deprecation warning by updating `ready` event to `clientReady`
 - **Command Registration:** Fixed missing Routes import causing command registration failures
@@ -2142,7 +2601,9 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ---
 
 ## [1.9.0] - 2025-09-05
+
 ### Added
+
 - **Thread Recovery:** Cleanup feature now creates missing discussion threads for movies up for vote
 - **Interactive Session Creation:** Modal-based session creation with intuitive date/time selection
 - **Smart Date Selection:** Quick buttons for "Tonight", "Tomorrow", "This Friday", "This Weekend"
@@ -2156,6 +2617,7 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **Movie-Session Association:** Sessions can be linked to specific planned movies
 
 ### Changed
+
 - **Major Code Refactoring:** Split monolithic 2800+ line index.js into modular architecture
 - **Modular Structure:** Organized code into commands/, handlers/, services/, utils/, and config/ directories
 - **Improved Maintainability:** Each module has single responsibility and clear interfaces
@@ -2170,13 +2632,16 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ---
 
 ## [1.8.1] - 2025-09-04
+
 ### Added
+
 - **JSON File Storage Option:** Alternative to MySQL for simple persistent storage
 - **Automatic Fallback:** Bot automatically uses JSON storage if no database configured
 - **Flexible Storage:** Three modes - MySQL, JSON file, or memory-only
 - **Generalized Documentation:** Updated README for various hosting providers and database options
 
 ### Changed
+
 - **Enhanced Storage Flexibility:** Multiple persistence options for different use cases
 - **Improved Setup Documentation:** Clear comparison of storage options and their trade-offs
 - **Better Fallback Handling:** Graceful degradation from MySQL → JSON → Memory-only
@@ -2184,20 +2649,25 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ---
 
 ## [1.7.1] - 2025-09-04
+
 ### Added
+
 - **Comprehensive Help Command:** `/movie-help` shows all commands, current status, and admin information
 - **Real-Time Status Display:** Shows current queue, recent activity, and active sessions
 - **Permission-Aware Help:** Different information shown based on user's admin status
 - **System Status Monitoring:** Displays database, API, and configuration status
 
 ### Changed
+
 - Enhanced user experience with centralized help and status information
 - Improved discoverability of all bot features and current server state
 
 ---
 
 ## [1.7.0] - 2025-09-04
+
 ### Added
+
 - **Guild Configuration System:** `/movie-configure` command for server-specific settings
 - **Channel Restrictions:** Configure specific channels where movie commands can be used
 - **Custom Admin Roles:** Add/remove roles that can use admin commands beyond Discord Administrators
@@ -2205,11 +2675,13 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **Configuration Management:** View, modify, and reset server-specific bot settings
 
 ### Changed
+
 - **Improved Safety:** Cleanup commands now restricted to configured channels and authorized users
 - **Better Permission System:** Supports both Discord Administrator permissions and custom admin roles
 - **Enhanced Database Schema:** Added guild configuration storage for persistent settings
 
 ### Security
+
 - **Channel Isolation:** Prevents accidental cleanup in wrong channels
 - **Role-Based Access:** Granular control over who can use administrative features
 - **Configuration Protection:** Only Discord Administrators can modify bot configuration
@@ -2217,13 +2689,16 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ---
 
 ## [1.6.0] - 2025-09-04
+
 ### Added
+
 - **Channel Cleanup System:** `/movie-cleanup` command to update old bot messages to current format
 - **Automatic Message Modernization:** Updates old movie posts with new button layouts and database integration
 - **Guide Message Cleanup:** Removes duplicate guide messages, keeping only the most recent
 - **Admin-Only Access:** Cleanup command requires Administrator permissions for safety
 
 ### Changed
+
 - Enhanced channel maintenance with retroactive format updates
 - Improved consistency across all bot messages regardless of when they were posted
 - Better handling of legacy messages from previous bot versions
@@ -2231,11 +2706,14 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ---
 
 ## [1.5.2] - 2025-09-04
+
 ### Added
+
 - **Automatic Thread Closure:** When a movie is marked as "Watched", its discussion thread is automatically archived
 - **Complete Voting Closure:** Watched movies have all buttons removed - no more voting or status changes possible
 
 ### Changed
+
 - Enhanced "Watched" status behavior to properly close discussions and voting
 - Improved status management with clear finality for watched movies
 - Better user feedback indicating when discussions are closed
@@ -2243,13 +2721,16 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ---
 
 ## [1.5.1] - 2025-09-04
+
 ### Added
+
 - **Persistent Recommendation Button:** Only the most recent movie post includes a quick guide and recommendation button
 - **Smart Guide Management:** Previous guide messages are automatically deleted when new movies are posted
 - **Always-Available Interface:** Users can always create new recommendations from the latest bot message
 - **Quick Command Reference:** Embedded guide shows available commands and features
 
 ### Changed
+
 - Enhanced user experience with persistent access to bot features without spam
 - Improved discoverability of commands and functionality
 - Intelligent cleanup prevents multiple guide messages in the same channel
@@ -2257,7 +2738,9 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 ---
 
 ## [1.5.0] - 2025-09-04
+
 ### Added
+
 - **Movie Session Management:** `/movie-session` command for organizing movie night events
 - **Event Creation:** Create named movie sessions with optional dates/times
 - **Session Tracking:** List active movie sessions and their details
@@ -2265,13 +2748,16 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **Event Integration:** Sessions integrate with existing voting and queue systems
 
 ### Changed
+
 - Enhanced command structure with sub-options for better organization
 - Improved database schema to support movie session tracking
 
 ---
 
 ## [1.4.0] - 2025-09-04
+
 ### Added
+
 - **MySQL Database Integration:** Full persistent storage for movies, votes, and statistics
 - **Movie Status Management:** Mark movies as "Watched ✅", "Planned 📌", or "Skipped ⏭️"
 - **Enhanced Queue System:** `/movie-queue` command to view pending and planned movies
@@ -2280,81 +2766,104 @@ All notable changes to **Movie Night Bot** will be documented in this file.
 - **Smart Status Tracking:** Movies show visual status indicators and updated colors
 
 ### Changed
+
 - Vote buttons now include status management options for better organization
 - Database operations with graceful fallback to memory-only mode if database unavailable
 - Enhanced embed styling with status-based colors and footers
 
 ### Fixed
+
 - Updated `ready` event to `clientReady` to resolve discord.js deprecation warning
 
 ---
 
 ## [1.3.4] - 2025-09-04
+
 ### Fixed
+
 - Updated `ready` event to `clientReady` to resolve discord.js deprecation warning and ensure compatibility with future versions.
 
 ---
 
 ## [1.3.3] - 2025-09-04
+
 ### Added
+
 - **Forum/Media channel support:** Bot now creates a **post** with embed + vote buttons and seeds details automatically if used in a Forum/Media channel.
 - **Preflight permission checks:** Bot checks channel permissions before posting and responds with an ephemeral message listing any missing ones.
 
 ### Changed
+
 - Improved logging for posting failures with clearer messages.
 - Always seeds a starter message in discussion threads, even when IMDb lookup fails.
 
 ### Fixed
+
 - `Missing Permissions (50013)` errors now produce a clear, user-facing explanation instead of a generic failure.
 
 ---
 
 ## [1.3.2] - 2025-09-03
+
 ### Fixed
+
 - **Unknown interaction (10062)** on slow/mobile vote clicks by acknowledging first (`deferUpdate`) before editing the message.
 - **Empty discussion threads**: a starter message is now always posted even if IMDb lookup is unavailable.
 
 ---
 
 ## [1.3.1] - 2025-09-03
+
 ### Fixed
+
 - **Selection expired** bug: selector payload key no longer includes colons, so parsing is stable.
 
 ---
 
 ## [1.3.0] - 2025-09-03
+
 ### Added
+
 - IMDb selector now uses a **short in-memory payload key** to keep `customId` small and reliable.
 - **Deduplicates OMDb results** by `imdbID` and caps options at Discord’s limit (25) to prevent duplicate-value errors.
 
 ### Changed
+
 - **Silent voting:** removed ephemeral "Your vote is in" replies. Buttons update counts with no extra messages.
 - Modal remains **Title + Where to stream** only; rating pulled from OMDb.
 - Thread seed message tightened to synopsis + compact details (Rated/Runtime/Genre/Director/Cast).
 
 ### Fixed
+
 - `Invalid Form Body … SELECT_COMPONENT_OPTION_VALUE_DUPLICATED` when OMDb returned duplicate IDs.
 
 ---
 
 ## [1.2.0] - 2025-09-03
+
 ### Changed
+
 - Removed manual **film rating** question from the modal; rating is now pulled from OMDb and shown in the embed.
 
 ---
 
 ## [1.1.0] - 2025-09-03
+
 ### Added
+
 - Rich startup logging (version, mode, client ID, OMDb status).
 - Version read from `package.json` and displayed at boot.
 
 ### Changed
+
 - `/movie-night` registers as **guild-scoped** when `GUILD_ID` is set; otherwise **global**.
 
 ---
 
 ## [1.0.0] - 2025-09-03
+
 ### Added
+
 - Initial public-ready bot:
   - `/movie-night` command posts **Create recommendation** button.
   - Modal to collect **Title**, **Rating**, **Where to stream**.
