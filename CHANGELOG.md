@@ -2,6 +2,45 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.16.1] - 2025-01-26
+
+### ✨ Added
+- **Comprehensive Help System**: New `/help` command with interactive navigation
+  - Organized help sections: Commands, Setup, Roles, Sessions, Admin Features, Troubleshooting
+  - Button-based navigation with back functionality
+  - Links to dashboard, support server, and Ko-fi donations
+  - Ephemeral responses for clean user experience
+- **Dashboard Content Type Support**: Full integration with new session types
+  - Content type selector in session planning (Movies Only, TV Shows Only, Mixed)
+  - Content type indicators in current session and recent sessions
+  - Updated terminology from "Movies" to "Content" for inclusivity
+  - Proper WebSocket integration with bot's content type system
+
+### 🎯 Help System Features
+- **Commands Guide**: All commands organized by permission level (Admin, Moderator, Viewer)
+- **Setup & Configuration**: Quick setup vs manual configuration guides
+- **Roles & Permissions**: Detailed explanation of Admin, Moderator, Voter, Viewer roles
+- **Sessions & Voting**: How sessions work, content types, carryover system
+- **Admin Features**: Session management, analytics, dashboard integration
+- **Troubleshooting**: Common issues and solutions with step-by-step fixes
+
+### 🔗 Integrated Links
+- **Dashboard**: https://movienight.bermanoc.net
+- **Support Server**: https://discord.gg/Tj2TswbZ
+- **Ko-fi Support**: https://ko-fi.com/bermanoc
+
+### 🎨 Dashboard Improvements
+- Content type selection in session planning form
+- Visual content type indicators with emojis
+- Updated stats terminology for better inclusivity
+- Proper integration with bot's session content type system
+
+### 🛠️ Technical Improvements
+- Enhanced WebSocket message handling for content types
+- Improved session planning API with content type support
+- Better user experience with organized help navigation
+- Consistent versioning across bot and dashboard (v1.16.1)
+
 ## [1.16.0] - 2025-09-26
 
 ### 🎬 Major Features: Watch Party & Session Workflow

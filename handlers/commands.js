@@ -14,6 +14,7 @@ const {
 const database = require('../database');
 const _sessions = require('../services/sessions');
 const guidedSetup = require('../services/guided-setup');
+const helpService = require('../services/help');
 const logger = require('../utils/logger');
 
 async function handleSlashCommand(interaction) {
@@ -51,6 +52,10 @@ async function handleSlashCommand(interaction) {
 
       case 'watchparty-debug-config':
         await handleDebugConfig(interaction);
+        break;
+
+      case 'help':
+        await handleHelp(interaction);
         break;
 
       default:
@@ -552,6 +557,13 @@ async function handleDebugSession(interaction) {
   }
 }
 
+/**
+ * Handle help command
+ */
+async function handleHelp(interaction) {
+  await helpService.handleHelp(interaction);
+}
+
 // Create aliases for renamed functions to maintain compatibility
 const handleWatchPartyConfigure = handleMovieConfigure;
 const handleWatchPartySetup = handleMovieSetup;
@@ -581,4 +593,5 @@ module.exports = {
   handleMovieSkip,
   handleMoviePlan,
   handleDebugConfig,
+  handleHelp,
 };
