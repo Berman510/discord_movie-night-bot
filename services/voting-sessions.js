@@ -276,8 +276,6 @@ async function handleVotingSessionRescheduleModal(interaction) {
       return;
     }
 
-
-
     const parsedStart = parseTimeFlexible(session_time);
     if (!parsedStart) {
       await interaction.editReply({

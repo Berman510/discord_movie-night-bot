@@ -1627,8 +1627,6 @@ async function createMovieSessionFromModal(interaction) {
         interaction.fields.getTextInputValue('reschedule_voting_end_time')?.trim() || '';
     } catch (_) {}
 
-
-
     // Calculate final date/time in the selected timezone
     let scheduledDate = null;
     if (state.selectedDate && state.selectedTime) {
