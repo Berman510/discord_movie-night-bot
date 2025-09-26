@@ -408,6 +408,19 @@ async function handleVoting(interaction, action, msgId, votes) {
 
       await interaction.editReply(updateData);
 
+      // Also update the corresponding admin channel post if it exists
+      try {
+        await updateAdminChannelPost(
+          interaction.client,
+          interaction.guild.id,
+          content,
+          voteCounts,
+          contentType
+        );
+      } catch (error) {
+        console.warn('Error updating admin channel post after vote:', error.message);
+      }
+
       // Update forum post if this is a forum channel content item
       if (content && content.channel_type === 'forum' && content.thread_id) {
         try {
@@ -3721,6 +3734,61 @@ async function handleCancelSuggestion(interaction) {
         })
         .catch(console.error);
     }
+  }
+}
+
+/**
+ * Update the corresponding admin channel post with new vote counts
+ */
+async function updateAdminChannelPost(client, guildId, content, voteCounts, contentType) {
+  try {
+    const database = require('../database');
+    const config = await database.getGuildConfig(guildId);
+    if (!config || !config.admin_channel_id) {
+      return; // No admin channel configured
+    }
+
+    const adminChannel = await client.channels.fetch(config.admin_channel_id);
+    if (!adminChannel) {
+      return; // Admin channel not found
+    }
+
+    // Find the admin channel message for this content
+    // We'll search recent messages for one that matches this content
+    const messages = await adminChannel.messages.fetch({ limit: 100 });
+    const adminMessage = messages.find(
+      (msg) =>
+        msg.author.id === client.user.id &&
+        msg.embeds.length > 0 &&
+        msg.embeds[0].title &&
+        msg.embeds[0].title.includes(content.title)
+    );
+
+    if (!adminMessage) {
+      return; // Admin message not found
+    }
+
+    // Create updated admin embed with new vote counts
+    const adminMirror = require('../services/admin-mirror');
+    const updatedEmbed = adminMirror.createAdminContentEmbed(content, voteCounts, contentType);
+    const updatedComponents = await adminMirror.createAdminContentActionButtons(
+      content.message_id,
+      content.status,
+      content.is_banned,
+      guildId,
+      contentType
+    );
+
+    // Update the admin channel message
+    await adminMessage.edit({
+      embeds: [updatedEmbed],
+      components: updatedComponents,
+    });
+
+    console.log(`📋 Updated admin channel post for: ${content.title}`);
+  } catch (error) {
+    console.error('Error updating admin channel post:', error);
+    throw error;
   }
 }
 
