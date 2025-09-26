@@ -19,23 +19,24 @@ const commands = [
           { name: 'close-voting', value: 'close' },
           { name: 'pick-winner', value: 'winner' },
           { name: 'add-movie', value: 'add-movie' },
-          { name: 'join', value: 'join' }
-        ]
+          { name: 'join', value: 'join' },
+        ],
       },
       {
         name: 'session-id',
-        description: '🔢 Session ID from /movie-session list (ONLY for: join, add-movie, close, winner)',
+        description:
+          '🔢 Session ID from /movie-session list (ONLY for: join, add-movie, close, winner)',
         type: 4, // INTEGER
-        required: false
+        required: false,
       },
       {
         name: 'movie-title',
         description: '🎬 Movie title (ONLY for: add-movie action) - leave empty for create/list',
         type: 3, // STRING
-        required: false
-      }
-    ]
-  }
+        required: false,
+      },
+    ],
+  },
 ];
 
 module.exports = commands;

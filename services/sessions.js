@@ -29,7 +29,7 @@ const {
   TextInputBuilder,
   TextInputStyle,
   StringSelectMenuBuilder,
-  MessageFlags
+  MessageFlags,
 } = require('discord.js');
 
 const database = require('../database');
@@ -40,12 +40,12 @@ const timezone = require('./timezone');
 
 async function handleMovieSession(interaction) {
   const action = interaction.options.getString('action');
-  const guildId = interaction.guild.id;
+  const _guildId = interaction.guild.id;
 
   if (!database.isConnected) {
     await interaction.reply({
       content: '⚠️ Database not available - session features require database connection.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -72,7 +72,7 @@ async function handleMovieSession(interaction) {
     default:
       await interaction.reply({
         content: '❌ Unknown action. Use create, list, close, winner, add-movie, or join.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
   }
 }
@@ -81,94 +81,95 @@ async function showSessionCreationModal(interaction) {
   // New improved workflow: Date → Time → Timezone → Details
   const embed = new EmbedBuilder()
     .setTitle('🎬 Create Movie Night Session')
-    .setDescription('**Step 1:** Choose your date first\n\n*Pick when you want to have your movie night*')
+    .setDescription(
+      '**Step 1:** Choose your date first\n\n*Pick when you want to have your movie night*'
+    )
     .setColor(0x5865f2)
     .addFields({
       name: '📅 Current Selection',
       value: 'No date selected yet',
-      inline: false
+      inline: false,
     });
 
   // Quick date options
-  const quickDateButtons = new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId('session_date:today')
-        .setLabel('Today')
-        .setStyle(ButtonStyle.Primary)
-        .setEmoji('📅'),
-      new ButtonBuilder()
-        .setCustomId('session_date:tomorrow')
-        .setLabel('Tomorrow')
-        .setStyle(ButtonStyle.Primary)
-        .setEmoji('📅'),
-      new ButtonBuilder()
-        .setCustomId('session_date:custom')
-        .setLabel('Pick Specific Date')
-        .setStyle(ButtonStyle.Secondary)
-        .setEmoji('🗓️')
-    );
+  const quickDateButtons = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('session_date:today')
+      .setLabel('Today')
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji('📅'),
+    new ButtonBuilder()
+      .setCustomId('session_date:tomorrow')
+      .setLabel('Tomorrow')
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji('📅'),
+    new ButtonBuilder()
+      .setCustomId('session_date:custom')
+      .setLabel('Pick Specific Date')
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji('🗓️')
+  );
 
   // This week options
-  const thisWeekButtons = new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId('session_date:monday')
-        .setLabel('Monday')
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId('session_date:tuesday')
-        .setLabel('Tuesday')
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId('session_date:wednesday')
-        .setLabel('Wednesday')
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId('session_date:thursday')
-        .setLabel('Thursday')
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId('session_date:friday')
-        .setLabel('Friday')
-        .setStyle(ButtonStyle.Secondary)
-    );
+  const thisWeekButtons = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('session_date:monday')
+      .setLabel('Monday')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('session_date:tuesday')
+      .setLabel('Tuesday')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('session_date:wednesday')
+      .setLabel('Wednesday')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('session_date:thursday')
+      .setLabel('Thursday')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('session_date:friday')
+      .setLabel('Friday')
+      .setStyle(ButtonStyle.Secondary)
+  );
 
   // Weekend options
-  const weekendButtons = new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId('session_date:saturday')
-        .setLabel('Saturday')
-        .setStyle(ButtonStyle.Secondary)
-        .setEmoji('🎉'),
-      new ButtonBuilder()
-        .setCustomId('session_date:sunday')
-        .setLabel('Sunday')
-        .setStyle(ButtonStyle.Secondary)
-        .setEmoji('🏖️'),
-      new ButtonBuilder()
-        .setCustomId('session_date:no_date')
-        .setLabel('No Specific Date')
-        .setStyle(ButtonStyle.Success)
-        .setEmoji('📝')
-    );
+  const weekendButtons = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('session_date:saturday')
+      .setLabel('Saturday')
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji('🎉'),
+    new ButtonBuilder()
+      .setCustomId('session_date:sunday')
+      .setLabel('Sunday')
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji('🏖️'),
+    new ButtonBuilder()
+      .setCustomId('session_date:no_date')
+      .setLabel('No Specific Date')
+      .setStyle(ButtonStyle.Success)
+      .setEmoji('📝')
+  );
 
   await interaction.reply({
     embeds: [embed],
     components: [quickDateButtons, thisWeekButtons, weekendButtons],
-    flags: MessageFlags.Ephemeral
+    flags: MessageFlags.Ephemeral,
   });
 
   let msg = null;
-  try { msg = await interaction.fetchReply(); } catch (_) {}
+  try {
+    msg = await interaction.fetchReply();
+  } catch (_) {}
 
   try {
     if (!global.sessionCreationState) global.sessionCreationState = new Map();
     const prev = global.sessionCreationState.get(interaction.user.id) || {};
     global.sessionCreationState.set(interaction.user.id, {
       ...prev,
-      rootMessageId: msg?.id
+      rootMessageId: msg?.id,
     });
   } catch (_) {}
 }
@@ -180,12 +181,14 @@ async function listMovieSessions(interaction) {
     if (!sessions || sessions.length === 0) {
       const embed = new EmbedBuilder()
         .setTitle('🎬 Movie Sessions')
-        .setDescription('No active movie sessions found.\n\nUse `/movie-session action:create` to create your first session!')
+        .setDescription(
+          'No active movie sessions found.\n\nUse `/movie-session action:create` to create your first session!'
+        )
         .setColor(0x5865f2);
 
       await interaction.reply({
         embeds: [embed],
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -195,18 +198,20 @@ async function listMovieSessions(interaction) {
       .setDescription(`Found ${sessions.length} active session${sessions.length === 1 ? '' : 's'}:`)
       .setColor(0x5865f2);
 
-    for (const session of sessions.slice(0, 10)) { // Limit to 10 sessions
+    for (const session of sessions.slice(0, 10)) {
+      // Limit to 10 sessions
       const scheduledText = session.scheduled_date
         ? `📅 ${timezone.formatDateWithTimezone(new Date(session.scheduled_date), session.timezone || 'UTC')}`
         : '📅 No specific date';
 
-      const statusEmoji = {
-        'planning': '📝',
-        'voting': '🗳️',
-        'decided': '✅',
-        'completed': '🎉',
-        'cancelled': '❌'
-      }[session.status] || '📝';
+      const statusEmoji =
+        {
+          planning: '📝',
+          voting: '🗳️',
+          decided: '✅',
+          completed: '🎉',
+          cancelled: '❌',
+        }[session.status] || '📝';
 
       let movieInfo = '';
       if (session.associated_movie_id) {
@@ -218,31 +223,31 @@ async function listMovieSessions(interaction) {
 
       // Get session participants
       const participants = await database.getSessionParticipants(session.id);
-      const participantInfo = participants.length > 0
-        ? `\n👥 Participants: ${participants.length} joined`
-        : `\n👥 No participants yet`;
+      const participantInfo =
+        participants.length > 0
+          ? `\n👥 Participants: ${participants.length} joined`
+          : `\n👥 No participants yet`;
 
       embed.addFields({
         name: `${statusEmoji} Session #${session.id}: ${session.name}`,
         value: `${scheduledText}\n👤 Organizer: <@${session.created_by}>\n📍 <#${session.channel_id}>${movieInfo}${participantInfo}`,
-        inline: false
+        inline: false,
       });
     }
 
     embed.setFooter({
-      text: `Use /movie-session action:join session-id:[ID] to join a session`
+      text: `Use /movie-session action:join session-id:[ID] to join a session`,
     });
 
     await interaction.reply({
       embeds: [embed],
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
-
   } catch (error) {
     console.error('Error listing sessions:', error);
     await interaction.reply({
       content: '❌ Failed to retrieve sessions.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -252,8 +257,9 @@ async function closeSessionVoting(interaction) {
 
   if (!sessionId) {
     await interaction.reply({
-      content: '❌ Please provide a session ID. Use `/movie-session action:list` to see available sessions.',
-      flags: MessageFlags.Ephemeral
+      content:
+        '❌ Please provide a session ID. Use `/movie-session action:list` to see available sessions.',
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -263,7 +269,7 @@ async function closeSessionVoting(interaction) {
     if (!session || session.guild_id !== interaction.guild.id) {
       await interaction.reply({
         content: '❌ Session not found or not in this server.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -275,7 +281,7 @@ async function closeSessionVoting(interaction) {
     if (!isOrganizer && !isAdmin) {
       await interaction.reply({
         content: '❌ Only the session organizer or admins can close voting.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -284,19 +290,19 @@ async function closeSessionVoting(interaction) {
     if (success) {
       await interaction.reply({
         content: `✅ **Voting closed for session "${session.name}"**\n\nUse \`/movie-session action:winner session-id:${sessionId}\` to pick the winning movie.`,
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
     } else {
       await interaction.reply({
         content: '❌ Failed to close voting.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
     }
   } catch (error) {
     console.error('Error closing session voting:', error);
     await interaction.reply({
       content: '❌ Failed to close voting.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -306,8 +312,9 @@ async function pickSessionWinner(interaction) {
 
   if (!sessionId) {
     await interaction.reply({
-      content: '❌ Please provide a session ID. Use `/movie-session action:list` to see available sessions.',
-      flags: MessageFlags.Ephemeral
+      content:
+        '❌ Please provide a session ID. Use `/movie-session action:list` to see available sessions.',
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -317,7 +324,7 @@ async function pickSessionWinner(interaction) {
     if (!session || session.guild_id !== interaction.guild.id) {
       await interaction.reply({
         content: '❌ Session not found or not in this server.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -329,7 +336,7 @@ async function pickSessionWinner(interaction) {
     if (!isOrganizer && !isAdmin) {
       await interaction.reply({
         content: '❌ Only the session organizer or admins can pick the winner.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -339,7 +346,7 @@ async function pickSessionWinner(interaction) {
     if (!topMovie) {
       await interaction.reply({
         content: '❌ No movies found in the voting queue. Add some movie recommendations first!',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -351,19 +358,19 @@ async function pickSessionWinner(interaction) {
 
       await interaction.reply({
         content: `🎉 **Winner selected for "${session.name}"!**\n\n🏆 **${topMovie.title}**\n📺 ${topMovie.where_to_watch}\n👤 Recommended by <@${topMovie.recommended_by}>`,
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
     } else {
       await interaction.reply({
         content: '❌ Failed to set session winner.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
     }
   } catch (error) {
     console.error('Error picking session winner:', error);
     await interaction.reply({
       content: '❌ Failed to pick winner.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -374,8 +381,9 @@ async function addMovieToSession(interaction) {
 
   if (!sessionId || !movieTitle) {
     await interaction.reply({
-      content: '❌ Please provide both session ID and movie title.\n\nExample: `/movie-session action:add-movie session-id:123 movie-title:The Matrix`',
-      flags: MessageFlags.Ephemeral
+      content:
+        '❌ Please provide both session ID and movie title.\n\nExample: `/movie-session action:add-movie session-id:123 movie-title:The Matrix`',
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -385,7 +393,7 @@ async function addMovieToSession(interaction) {
     if (!session || session.guild_id !== interaction.guild.id) {
       await interaction.reply({
         content: '❌ Session not found or not in this server.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -395,7 +403,7 @@ async function addMovieToSession(interaction) {
     if (!movie) {
       await interaction.reply({
         content: `❌ Movie "${movieTitle}" not found in current recommendations.\n\nUse \`/movie-night\` to add it first, or check the exact title with \`/movie-queue\`.`,
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -405,19 +413,19 @@ async function addMovieToSession(interaction) {
     if (success) {
       await interaction.reply({
         content: `✅ **Added "${movie.title}" to session "${session.name}"**\n\nThis movie is now featured in the session!`,
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
     } else {
       await interaction.reply({
         content: '❌ Failed to add movie to session.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
     }
   } catch (error) {
     console.error('Error adding movie to session:', error);
     await interaction.reply({
       content: '❌ Failed to add movie to session.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -427,8 +435,9 @@ async function joinSession(interaction) {
 
   if (!sessionId) {
     await interaction.reply({
-      content: '❌ Please provide a session ID. Use `/movie-session action:list` to see available sessions.',
-      flags: MessageFlags.Ephemeral
+      content:
+        '❌ Please provide a session ID. Use `/movie-session action:list` to see available sessions.',
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -438,7 +447,7 @@ async function joinSession(interaction) {
     if (!session || session.guild_id !== interaction.guild.id) {
       await interaction.reply({
         content: '❌ Session not found or not in this server.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -471,18 +480,17 @@ async function joinSession(interaction) {
 
     await interaction.reply({
       embeds: [embed],
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
 
     if (participantAdded) {
       console.log(`✅ Added user ${interaction.user.id} to session ${session.id}`);
     }
-
   } catch (error) {
     console.error('Error joining session:', error);
     await interaction.reply({
       content: '❌ Failed to join session.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -494,7 +502,7 @@ async function handleCreateSessionFromMovie(interaction, messageId) {
   if (!movie) {
     await interaction.reply({
       content: '❌ Movie not found.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -515,7 +523,7 @@ async function handleCreateSessionFromMovie(interaction, messageId) {
     selectedTime: null,
     selectedTimezone: null,
     sessionName: null,
-    sessionDescription: null
+    sessionDescription: null,
   };
 
   global.sessionCreationState.set(interaction.user.id, state);
@@ -555,14 +563,14 @@ async function handleSessionCreationButton(interaction) {
     } else {
       await interaction.reply({
         content: '❌ Unknown session creation action.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
     }
   } catch (error) {
     console.error('Error handling session creation button:', error);
     await interaction.reply({
       content: '❌ Error processing session creation.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -600,7 +608,8 @@ async function handleDateSelection(interaction, customId, state) {
       state.dateDisplay = 'No specific date';
       global.sessionCreationState.set(interaction.user.id, state);
       // If rescheduling, skip timezone selection and proceed to details
-      const isReschedule = global.sessionRescheduleState && global.sessionRescheduleState.has(interaction.user.id);
+      const isReschedule =
+        global.sessionRescheduleState && global.sessionRescheduleState.has(interaction.user.id);
       if (isReschedule) {
         if (!state.selectedTimezone) state.selectedTimezone = state.timezone || 'UTC';
         if (!state.timezoneName) state.timezoneName = state.selectedTimezone;
@@ -629,58 +638,56 @@ async function showTimeSelection(interaction, state) {
     );
 
   // Common time options
-  const timeButtons1 = new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId('session_time:6pm')
-        .setLabel('6:00 PM')
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId('session_time:7pm')
-        .setLabel('7:00 PM')
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId('session_time:8pm')
-        .setLabel('8:00 PM')
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId('session_time:9pm')
-        .setLabel('9:00 PM')
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId('session_time:10pm')
-        .setLabel('10:00 PM')
-        .setStyle(ButtonStyle.Primary)
-    );
+  const timeButtons1 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('session_time:6pm')
+      .setLabel('6:00 PM')
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId('session_time:7pm')
+      .setLabel('7:00 PM')
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId('session_time:8pm')
+      .setLabel('8:00 PM')
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId('session_time:9pm')
+      .setLabel('9:00 PM')
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId('session_time:10pm')
+      .setLabel('10:00 PM')
+      .setStyle(ButtonStyle.Primary)
+  );
 
-  const timeButtons2 = new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId('session_time:11pm')
-        .setLabel('11:00 PM')
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId('session_time:12pm')
-        .setLabel('12:00 PM')
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId('session_time:1pm')
-        .setLabel('1:00 PM')
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId('session_time:2pm')
-        .setLabel('2:00 PM')
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId('session_time:custom')
-        .setLabel('Custom Time')
-        .setStyle(ButtonStyle.Secondary)
-        .setEmoji('⏰')
-    );
+  const timeButtons2 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('session_time:11pm')
+      .setLabel('11:00 PM')
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId('session_time:12pm')
+      .setLabel('12:00 PM')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('session_time:1pm')
+      .setLabel('1:00 PM')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('session_time:2pm')
+      .setLabel('2:00 PM')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('session_time:custom')
+      .setLabel('Custom Time')
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji('⏰')
+  );
 
   await interaction.update({
     embeds: [embed],
-    components: [timeButtons1, timeButtons2]
+    components: [timeButtons1, timeButtons2],
   });
 }
 
@@ -711,7 +718,8 @@ async function handleTimeSelection(interaction, customId, state) {
   global.sessionCreationState.set(interaction.user.id, state);
 
   // If this is a reschedule flow, skip timezone selection and go straight to details
-  const isReschedule = global.sessionRescheduleState && global.sessionRescheduleState.has(interaction.user.id);
+  const isReschedule =
+    global.sessionRescheduleState && global.sessionRescheduleState.has(interaction.user.id);
   if (isReschedule) {
     if (!state.selectedTimezone) state.selectedTimezone = state.timezone || 'UTC';
     if (!state.timezoneName) state.timezoneName = state.selectedTimezone;
@@ -724,7 +732,9 @@ async function handleTimeSelection(interaction, customId, state) {
 async function showTimezoneSelection(interaction, state) {
   const embed = new EmbedBuilder()
     .setTitle('🎬 Create Movie Night Session')
-    .setDescription('**Step 3:** Choose your timezone\n\n*This ensures everyone sees the correct time for your session*')
+    .setDescription(
+      '**Step 3:** Choose your timezone\n\n*This ensures everyone sees the correct time for your session*'
+    )
     .setColor(0x5865f2)
     .addFields(
       { name: '📅 Selected Date', value: state.dateDisplay, inline: true },
@@ -736,10 +746,10 @@ async function showTimezoneSelection(interaction, state) {
     .setCustomId('session_timezone_selected')
     .setPlaceholder('Choose your timezone...')
     .addOptions(
-      TIMEZONE_OPTIONS.map(tz => ({
+      TIMEZONE_OPTIONS.map((tz) => ({
         label: tz.label,
         value: tz.value,
-        emoji: tz.emoji
+        emoji: tz.emoji,
       }))
     );
 
@@ -747,7 +757,7 @@ async function showTimezoneSelection(interaction, state) {
 
   await interaction.update({
     embeds: [embed],
-    components: [row]
+    components: [row],
   });
 }
 
@@ -822,7 +832,8 @@ async function showSessionDetailsModal(interaction, state) {
   // For reschedule, pre-fill ONLY the original base description (no auto-added voting/channel/time text)
   let templatedDescription;
   try {
-    const isReschedule = global.sessionRescheduleState && global.sessionRescheduleState.has(interaction.user.id);
+    const isReschedule =
+      global.sessionRescheduleState && global.sessionRescheduleState.has(interaction.user.id);
     if (isReschedule) {
       const resState = global.sessionRescheduleState.get(interaction.user.id);
       templatedDescription = (resState?.originalSession?.description || '').trim();
@@ -858,8 +869,11 @@ async function showSessionDetailsModal(interaction, state) {
   // If rescheduling an active voting session, allow updating the voting end time too
   let votingRow = null;
   try {
-    const isReschedule = global.sessionRescheduleState && global.sessionRescheduleState.has(interaction.user.id);
-    const original = isReschedule ? global.sessionRescheduleState.get(interaction.user.id)?.originalSession : null;
+    const isReschedule =
+      global.sessionRescheduleState && global.sessionRescheduleState.has(interaction.user.id);
+    const original = isReschedule
+      ? global.sessionRescheduleState.get(interaction.user.id)?.originalSession
+      : null;
     if (isReschedule && original && String(original.status).toLowerCase() === 'voting') {
       const votingEndInput = new TextInputBuilder()
         .setCustomId('reschedule_voting_end_time')
@@ -895,7 +909,6 @@ function generateSessionName(state) {
   } else if (state.dateDisplay) {
     name += ` - ${state.dateDisplay}`;
   }
-
 
   return name;
 }
@@ -949,7 +962,8 @@ async function generateSessionDescription(state, interaction) {
     description += '\n';
   }
 
-  description += '\nJoin us for an awesome movie night! Feel free to bring snacks and get ready for a great time!';
+  description +=
+    '\nJoin us for an awesome movie night! Feel free to bring snacks and get ready for a great time!';
 
   return description;
 }
@@ -966,14 +980,14 @@ async function handleSessionManagement(interaction) {
     } else {
       await interaction.reply({
         content: '❌ Unknown session management action.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
     }
   } catch (error) {
     console.error('Error handling session management:', error);
     await interaction.reply({
       content: '❌ Error processing session management.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -984,7 +998,7 @@ async function handleSessionReschedule(interaction, sessionId, movieMessageId) {
   if (!session) {
     await interaction.reply({
       content: '❌ Session not found.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -995,7 +1009,7 @@ async function handleSessionReschedule(interaction, sessionId, movieMessageId) {
   if (!isCreator && !isAdmin) {
     await interaction.reply({
       content: '❌ Only the session creator or admins can reschedule sessions.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -1008,7 +1022,7 @@ async function handleSessionReschedule(interaction, sessionId, movieMessageId) {
   global.sessionRescheduleState.set(interaction.user.id, {
     sessionId,
     movieMessageId,
-    originalSession: session
+    originalSession: session,
   });
 
   // Pre-seed creation state to skip movie/timezone selection during reschedule
@@ -1036,10 +1050,9 @@ async function handleSessionReschedule(interaction, sessionId, movieMessageId) {
     timezoneName: effectiveTz,
     sessionName: session.name || null,
     sessionDescription: session.description || null,
-    isReschedule: true
+    isReschedule: true,
   };
   global.sessionCreationState.set(interaction.user.id, preset);
-
 
   // Start the reschedule flow using the same creation UI
   await showSessionCreationModal(interaction);
@@ -1051,7 +1064,7 @@ async function handleSessionCancel(interaction, sessionId, movieMessageId) {
   if (!session) {
     await interaction.reply({
       content: '❌ Session not found.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -1062,7 +1075,7 @@ async function handleSessionCancel(interaction, sessionId, movieMessageId) {
   if (!isCreator && !isAdmin) {
     await interaction.reply({
       content: '❌ Only the session creator or admins can cancel sessions.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -1081,26 +1094,25 @@ async function handleSessionCancel(interaction, sessionId, movieMessageId) {
     confirmEmbed.addFields({
       name: '📅 Scheduled',
       value: `<t:${Math.floor(new Date(session.scheduled_date).getTime() / 1000)}:F>`,
-      inline: false
+      inline: false,
     });
   }
 
-  const confirmButtons = new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId(`confirm_cancel:${sessionId}:${movieMessageId}`)
-        .setLabel('✅ Yes, Cancel Session')
-        .setStyle(ButtonStyle.Danger),
-      new ButtonBuilder()
-        .setCustomId('cancel_cancel')
-        .setLabel('❌ No, Keep Session')
-        .setStyle(ButtonStyle.Secondary)
-    );
+  const confirmButtons = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`confirm_cancel:${sessionId}:${movieMessageId}`)
+      .setLabel('✅ Yes, Cancel Session')
+      .setStyle(ButtonStyle.Danger),
+    new ButtonBuilder()
+      .setCustomId('cancel_cancel')
+      .setLabel('❌ No, Keep Session')
+      .setStyle(ButtonStyle.Secondary)
+  );
 
   await interaction.reply({
     embeds: [confirmEmbed],
     components: [confirmButtons],
-    flags: MessageFlags.Ephemeral
+    flags: MessageFlags.Ephemeral,
   });
 }
 
@@ -1111,9 +1123,13 @@ async function handleCancelConfirmation(interaction) {
     // Respond with a fresh ephemeral reply so we can auto-dismiss reliably
     await interaction.reply({
       content: '✅ Session cancellation cancelled.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
-    setTimeout(async () => { try { await interaction.deleteReply(); } catch (_) {} }, 8000);
+    setTimeout(async () => {
+      try {
+        await interaction.deleteReply();
+      } catch (_) {}
+    }, 8000);
     return;
   }
 
@@ -1127,21 +1143,33 @@ async function handleCancelConfirmation(interaction) {
       await interaction.update({
         content: '❌ Session not found.',
         embeds: [],
-        components: []
+        components: [],
       });
       return;
     }
 
     // Delete Discord event if it exists
+    console.log(`🔍 Session discord_event_id: ${session.discord_event_id}`);
     if (session.discord_event_id) {
       try {
-        await discordEvents.deleteDiscordEvent(interaction.guild, session.discord_event_id);
-        console.log(`✅ Deleted Discord event ${session.discord_event_id}`);
+        console.log(`🗑️ Attempting to delete Discord event: ${session.discord_event_id}`);
+        const deleted = await discordEvents.deleteDiscordEvent(
+          interaction.guild,
+          session.discord_event_id
+        );
+        if (deleted) {
+          console.log(`✅ Successfully deleted Discord event ${session.discord_event_id}`);
+        } else {
+          console.warn(
+            `❌ Failed to delete Discord event ${session.discord_event_id} (returned false)`
+          );
+        }
       } catch (error) {
         console.warn('Failed to delete Discord event:', error.message);
       }
+    } else {
+      console.warn('❌ No discord_event_id found in session - event will not be deleted');
     }
-
 
     // Disassociate all movies from this session (clear session_id)
     try {
@@ -1164,19 +1192,22 @@ async function handleCancelConfirmation(interaction) {
     // Respond with a fresh ephemeral reply so we can auto-dismiss reliably
     await interaction.reply({
       content: `✅ **Session Cancelled**\n\nSession "${session.name}" has been cancelled and the movie has been returned to "Planned for later" status.`,
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
     // Auto-dismiss the ephemeral success after 8 seconds
-    setTimeout(async () => { try { await interaction.deleteReply(); } catch (_) {} }, 8000);
+    setTimeout(async () => {
+      try {
+        await interaction.deleteReply();
+      } catch (_) {}
+    }, 8000);
 
     console.log(`✅ Cancelled session ${sessionId} and restored movie ${movieMessageId}`);
-
   } catch (error) {
     console.error('Error cancelling session:', error);
     await interaction.update({
       content: '❌ Error cancelling session.',
       embeds: [],
-      components: []
+      components: [],
     });
   }
 }
@@ -1205,12 +1236,17 @@ async function restoreMoviePost(interaction, movieMessageId) {
 
     // Create voting buttons (restore to normal movie post state)
     const { components } = require('../utils');
-    const movieComponents = components.createStatusButtons(movieMessageId, movie.status, voteCounts.up, voteCounts.down);
+    const movieComponents = components.createStatusButtons(
+      movieMessageId,
+      movie.status,
+      voteCounts.up,
+      voteCounts.down
+    );
 
     // Update the message to restore voting buttons
     await movieMessage.edit({
       embeds: movieMessage.embeds, // Keep existing embeds
-      components: movieComponents
+      components: movieComponents,
     });
 
     console.log(`🔄 Restored movie post ${movieMessageId} to voting state`);
@@ -1219,9 +1255,14 @@ async function restoreMoviePost(interaction, movieMessageId) {
   }
 }
 
-
-
-async function updateMoviePostForSession(interaction, movieMessageId, sessionId, sessionName, scheduledDate, discordEventId) {
+async function updateMoviePostForSession(
+  interaction,
+  movieMessageId,
+  sessionId,
+  sessionName,
+  scheduledDate,
+  discordEventId
+) {
   try {
     console.log(`🎬 Updating movie post ${movieMessageId} for session ${sessionId}`);
 
@@ -1263,7 +1304,7 @@ async function updateMoviePostForSession(interaction, movieMessageId, sessionId,
       .setThumbnail(currentEmbed.thumbnail?.url || null);
 
     // Copy existing fields and update status
-    currentEmbed.fields.forEach(field => {
+    currentEmbed.fields.forEach((field) => {
       if (field.name === '📊 Status') {
         let statusValue = `🗓️ **Scheduled for Session**\n📝 Session: ${sessionName}\n🆔 Session ID: ${sessionId}`;
 
@@ -1275,7 +1316,7 @@ async function updateMoviePostForSession(interaction, movieMessageId, sessionId,
         updatedEmbed.addFields({
           name: '📊 Status',
           value: statusValue,
-          inline: true
+          inline: true,
         });
       } else if (field.name === '🗓️ Session Info') {
         // Skip - we'll add updated session info
@@ -1283,7 +1324,7 @@ async function updateMoviePostForSession(interaction, movieMessageId, sessionId,
         updatedEmbed.addFields({
           name: field.name,
           value: field.value,
-          inline: field.inline || false
+          inline: field.inline || false,
         });
       }
     });
@@ -1295,30 +1336,29 @@ async function updateMoviePostForSession(interaction, movieMessageId, sessionId,
       updatedEmbed.addFields({
         name: '🗓️ Session Info',
         value: `📅 **When:** <t:${timestamp}:F>\n🎪 **Session:** ${sessionName}`,
-        inline: false
+        inline: false,
       });
     }
 
     updatedEmbed.setFooter({ text: `Scheduled for movie session • Session ID: ${sessionId}` });
 
     // Add session management buttons
-    const sessionButtons = new ActionRowBuilder()
-      .addComponents(
-        new ButtonBuilder()
-          .setCustomId(`session_reschedule:${sessionId}:${movieMessageId}`)
-          .setLabel('📅 Reschedule')
-          .setStyle(ButtonStyle.Secondary)
-          .setEmoji('🔄'),
-        new ButtonBuilder()
-          .setCustomId(`session_cancel:${sessionId}:${movieMessageId}`)
-          .setLabel('❌ Cancel Event')
-          .setStyle(ButtonStyle.Danger)
-      );
+    const sessionButtons = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`session_reschedule:${sessionId}:${movieMessageId}`)
+        .setLabel('📅 Reschedule')
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('🔄'),
+      new ButtonBuilder()
+        .setCustomId(`session_cancel:${sessionId}:${movieMessageId}`)
+        .setLabel('❌ Cancel Event')
+        .setStyle(ButtonStyle.Danger)
+    );
 
     // Update the message with session management buttons
     await message.edit({
       embeds: [updatedEmbed],
-      components: [sessionButtons]
+      components: [sessionButtons],
     });
 
     // Update the thread if it exists
@@ -1339,7 +1379,7 @@ async function updateMoviePostForSession(interaction, movieMessageId, sessionId,
           sessionEmbed.addFields({
             name: '📅 When',
             value: `<t:${timestamp}:F>`,
-            inline: false
+            inline: false,
           });
         }
 
@@ -1348,7 +1388,6 @@ async function updateMoviePostForSession(interaction, movieMessageId, sessionId,
     }
 
     console.log(`✅ Updated movie post ${movieMessageId} for session ${sessionId}`);
-
   } catch (error) {
     console.error('Error updating movie post for session:', error);
     // Don't fail the session creation if post update fails
@@ -1368,7 +1407,7 @@ async function handleCustomDateTimeModal(interaction) {
       if (isNaN(parsedDate.getTime())) {
         await interaction.reply({
           content: '❌ Invalid date format. Please use MM/DD/YYYY format (e.g., 12/25/2024).',
-          flags: MessageFlags.Ephemeral
+          flags: MessageFlags.Ephemeral,
         });
         return;
       }
@@ -1378,15 +1417,14 @@ async function handleCustomDateTimeModal(interaction) {
       global.sessionCreationState.set(userId, state);
 
       await showTimeSelection(interaction, state);
-
     } else if (customId === 'session_custom_time_modal') {
       const timeStr = interaction.fields.getTextInputValue('custom_time');
       const timeMatch = timeStr.match(/^(\d{1,2}):?(\d{0,2})\s*(am|pm)?$/i);
 
       if (!timeMatch) {
         await interaction.reply({
-          content: '❌ Invalid time format. Please use format like "11:30 PM" or "7 AM".',
-          flags: MessageFlags.Ephemeral
+          content: '❌ Invalid time format. Use formats like: 11:30 PM, 11PM, 11 PM, or 7 AM.',
+          flags: MessageFlags.Ephemeral,
         });
         return;
       }
@@ -1404,7 +1442,8 @@ async function handleCustomDateTimeModal(interaction) {
 
       // If this is a reschedule flow, we cannot open another modal directly from a modal submit.
       // Instead, present a final review panel with a button to open the details modal next.
-      const isReschedule = global.sessionRescheduleState && global.sessionRescheduleState.has(userId);
+      const isReschedule =
+        global.sessionRescheduleState && global.sessionRescheduleState.has(userId);
       if (isReschedule) {
         try {
           if (!state.selectedTimezone) {
@@ -1416,12 +1455,19 @@ async function handleCustomDateTimeModal(interaction) {
               try {
                 const cfg = await db.getGuildConfig(interaction.guild.id);
                 tz = cfg?.default_timezone || cfg?.timezone || 'America/Los_Angeles';
-              } catch (_) { tz = 'America/Los_Angeles'; }
+              } catch (_) {
+                tz = 'America/Los_Angeles';
+              }
             }
             state.selectedTimezone = tz;
           }
 
-          const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+          const {
+            EmbedBuilder,
+            ActionRowBuilder,
+            ButtonBuilder,
+            ButtonStyle,
+          } = require('discord.js');
           const summary = new EmbedBuilder()
             .setTitle('📋 Review Session Timing')
             .setDescription('Confirm your date and time, then continue to details.')
@@ -1436,10 +1482,19 @@ async function handleCustomDateTimeModal(interaction) {
               .setLabel('Continue to Details')
               .setStyle(ButtonStyle.Primary)
           );
-          await interaction.reply({ embeds: [summary], components: [row], flags: MessageFlags.Ephemeral });
+          await interaction.reply({
+            embeds: [summary],
+            components: [row],
+            flags: MessageFlags.Ephemeral,
+          });
         } catch (__) {
           // Fallback: just acknowledge
-          await interaction.reply({ content: '✅ Time saved. Press Continue to proceed.', flags: MessageFlags.Ephemeral }).catch(() => {});
+          await interaction
+            .reply({
+              content: '✅ Time saved. Press Continue to proceed.',
+              flags: MessageFlags.Ephemeral,
+            })
+            .catch(() => {});
         }
       } else {
         await showTimezoneSelection(interaction, state);
@@ -1449,7 +1504,7 @@ async function handleCustomDateTimeModal(interaction) {
     console.error('Error handling custom date/time modal:', error);
     await interaction.reply({
       content: '❌ Error processing custom date/time.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -1486,7 +1541,7 @@ function createDateInTimezone(baseDate, hour, minute, timezone) {
     'Europe/London': 'Europe/London',
     'Europe/Paris': 'Europe/Paris',
     'Asia/Tokyo': 'Asia/Tokyo',
-    'UTC': 'UTC'
+    UTC: 'UTC',
   };
 
   const tzIdentifier = timezoneMap[timezone] || 'UTC';
@@ -1508,7 +1563,6 @@ function createDateInTimezone(baseDate, hour, minute, timezone) {
 
     console.log(`🌍 Created date: ${dateStr} in ${tzIdentifier} -> UTC: ${utcDate.toISOString()}`);
     return utcDate;
-
   } catch (error) {
     console.error('Error creating date in timezone:', error);
     // Fallback to simple date creation
@@ -1523,8 +1577,9 @@ async function createMovieSessionFromModal(interaction) {
     // Get session state
     if (!global.sessionCreationState) {
       await interaction.reply({
-        content: '❌ Session creation state not found. Please start over with `/movie-session action:create`.',
-        flags: MessageFlags.Ephemeral
+        content:
+          '❌ Session creation state not found. Please start over with `/movie-session action:create`.',
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -1534,15 +1589,18 @@ async function createMovieSessionFromModal(interaction) {
 
     if (!state) {
       await interaction.reply({
-        content: '❌ Session creation state not found. Please start over with `/movie-session action:create`.',
-        flags: MessageFlags.Ephemeral
+        content:
+          '❌ Session creation state not found. Please start over with `/movie-session action:create`.',
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
 
     // Defer immediately to avoid interaction timeout while we perform updates
     if (!interaction.deferred && !interaction.replied) {
-      try { await interaction.deferReply({ flags: MessageFlags.Ephemeral }); } catch (_) {}
+      try {
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+      } catch (_) {}
     }
 
     // Get modal inputs
@@ -1552,7 +1610,8 @@ async function createMovieSessionFromModal(interaction) {
     // Optional: voting end time (only present in reschedule flow for active voting)
     let votingEndInput = '';
     try {
-      votingEndInput = interaction.fields.getTextInputValue('reschedule_voting_end_time')?.trim() || '';
+      votingEndInput =
+        interaction.fields.getTextInputValue('reschedule_voting_end_time')?.trim() || '';
     } catch (_) {}
 
     // Helper to parse 12-hour time like "9:00 PM"
@@ -1576,7 +1635,12 @@ async function createMovieSessionFromModal(interaction) {
       try {
         const resState = global.sessionRescheduleState?.get(userId);
         const cfg = await database.getGuildConfig(interaction.guild.id);
-        tz = tz || resState?.originalSession?.timezone || cfg?.default_timezone || cfg?.timezone || 'America/Los_Angeles';
+        tz =
+          tz ||
+          resState?.originalSession?.timezone ||
+          cfg?.default_timezone ||
+          cfg?.timezone ||
+          'America/Los_Angeles';
       } catch (_) {
         tz = tz || 'America/Los_Angeles';
       }
@@ -1601,14 +1665,26 @@ async function createMovieSessionFromModal(interaction) {
       if (votingEndInput) {
         const parsed = parse12HourTime(votingEndInput);
         if (parsed) {
-          const baseDate = (state.selectedDate || (resState.originalSession?.scheduled_date ? new Date(resState.originalSession.scheduled_date) : null)) || null;
+          const baseDate =
+            state.selectedDate ||
+            (resState.originalSession?.scheduled_date
+              ? new Date(resState.originalSession.scheduled_date)
+              : null) ||
+            null;
           if (baseDate) {
             // Ensure we use the same effective timezone as scheduledDate
             let tzEff = state.selectedTimezone;
             try {
               const cfg = await database.getGuildConfig(interaction.guild.id);
-              tzEff = tzEff || resState?.originalSession?.timezone || cfg?.default_timezone || cfg?.timezone || 'America/Los_Angeles';
-            } catch (_) { tzEff = tzEff || 'America/Los_Angeles'; }
+              tzEff =
+                tzEff ||
+                resState?.originalSession?.timezone ||
+                cfg?.default_timezone ||
+                cfg?.timezone ||
+                'America/Los_Angeles';
+            } catch (_) {
+              tzEff = tzEff || 'America/Los_Angeles';
+            }
             newVotingEndUtc = createDateInTimezone(baseDate, parsed.hour, parsed.minute, tzEff);
           }
         }
@@ -1618,13 +1694,15 @@ async function createMovieSessionFromModal(interaction) {
         description: sessionDescription,
         scheduledDate: scheduledDate,
         timezone: tz,
-        votingEndTime: newVotingEndUtc || undefined
+        votingEndTime: newVotingEndUtc || undefined,
       });
       if (newVotingEndUtc) {
         try {
           const sessionScheduler = require('./session-scheduler');
           await sessionScheduler.rescheduleSession(sessionId, newVotingEndUtc);
-        } catch (e) { console.warn('Could not reschedule session scheduler:', e.message); }
+        } catch (e) {
+          console.warn('Could not reschedule session scheduler:', e.message);
+        }
       }
 
       // Update or create Discord scheduled event
@@ -1647,9 +1725,14 @@ async function createMovieSessionFromModal(interaction) {
           scheduledDate: scheduledDate,
           timezone: tz,
           status: resState.originalSession?.status || 'planning',
-          associatedMovieId: resState.originalSession?.associated_movie_id || state.selectedMovie || null
+          associatedMovieId:
+            resState.originalSession?.associated_movie_id || state.selectedMovie || null,
         };
-        const newEventId = await discordEvents.createDiscordEvent(interaction.guild, sessionData, scheduledDate);
+        const newEventId = await discordEvents.createDiscordEvent(
+          interaction.guild,
+          sessionData,
+          scheduledDate
+        );
         if (newEventId) {
           await database.updateSessionDiscordEvent(sessionId, newEventId);
           discordEventId = newEventId;
@@ -1657,22 +1740,40 @@ async function createMovieSessionFromModal(interaction) {
       }
 
       // Update the movie post if known
-      const movieMessageId = resState.movieMessageId || resState.originalSession?.associated_movie_id || state.selectedMovie || null;
+      const movieMessageId =
+        resState.movieMessageId ||
+        resState.originalSession?.associated_movie_id ||
+        state.selectedMovie ||
+        null;
       if (movieMessageId) {
-        await updateMoviePostForSession(interaction, movieMessageId, sessionId, sessionName, scheduledDate, discordEventId || null);
+        await updateMoviePostForSession(
+          interaction,
+          movieMessageId,
+          sessionId,
+          sessionName,
+          scheduledDate,
+          discordEventId || null
+        );
       }
 
       // Also refresh the recommendation post / quick action message to reflect new times
       try {
         const config = await database.getGuildConfig(interaction.guild.id);
         if (config && config.movie_channel_id) {
-          const channel = await interaction.client.channels.fetch(config.movie_channel_id).catch(() => null);
+          const channel = await interaction.client.channels
+            .fetch(config.movie_channel_id)
+            .catch(() => null);
           if (channel) {
             try {
               const forum = require('./forum-channels');
               // Heuristic: detect forum channels via available properties (discord.js v14)
-              if (channel.isThreadOnly?.() || (channel.type && String(channel.type).toLowerCase().includes('forum'))) {
-                const activeSession = await database.getActiveVotingSession(interaction.guild.id).catch(() => null);
+              if (
+                channel.isThreadOnly?.() ||
+                (channel.type && String(channel.type).toLowerCase().includes('forum'))
+              ) {
+                const activeSession = await database
+                  .getActiveVotingSession(interaction.guild.id)
+                  .catch(() => null);
                 if (activeSession) await forum.ensureRecommendationPost(channel, activeSession);
               } else {
                 const cleanup = require('./cleanup');
@@ -1707,7 +1808,9 @@ async function createMovieSessionFromModal(interaction) {
           await interaction.reply({ content: msg, flags: MessageFlags.Ephemeral });
         }
       } catch (_) {
-        try { await interaction.followUp({ content: msg, flags: MessageFlags.Ephemeral }); } catch {}
+        try {
+          await interaction.followUp({ content: msg, flags: MessageFlags.Ephemeral });
+        } catch {}
       }
 
       // Best-effort: close the original ephemeral panel if we created one
@@ -1715,14 +1818,22 @@ async function createMovieSessionFromModal(interaction) {
         if (state.rootMessageId && interaction.webhook && interaction.webhook.deleteMessage) {
           await interaction.webhook.deleteMessage(state.rootMessageId).catch(async () => {
             // Fallback: edit message to remove components
-            await interaction.webhook.editMessage(state.rootMessageId, { content: '✅ Rescheduled.', components: [], embeds: [] }).catch(() => {});
+            await interaction.webhook
+              .editMessage(state.rootMessageId, {
+                content: '✅ Rescheduled.',
+                components: [],
+                embeds: [],
+              })
+              .catch(() => {});
           });
         }
       } catch (_) {}
 
       // Clean state
       global.sessionCreationState.delete(userId);
-      try { global.sessionRescheduleState.delete(userId); } catch {}
+      try {
+        global.sessionRescheduleState.delete(userId);
+      } catch {}
       return;
     }
 
@@ -1736,7 +1847,7 @@ async function createMovieSessionFromModal(interaction) {
       scheduledDate: scheduledDate,
       timezone: tz,
       status: 'planning',
-      associatedMovieId: state.selectedMovie || null
+      associatedMovieId: state.selectedMovie || null,
     };
 
     const sessionId = await database.createMovieSession(sessionData);
@@ -1744,7 +1855,7 @@ async function createMovieSessionFromModal(interaction) {
     if (!sessionId) {
       await interaction.reply({
         content: '❌ Failed to create movie session.',
-        flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -1755,7 +1866,11 @@ async function createMovieSessionFromModal(interaction) {
     // Create Discord scheduled event if date is set
     let discordEventId = null;
     if (scheduledDate) {
-      discordEventId = await discordEvents.createDiscordEvent(interaction.guild, sessionData, scheduledDate);
+      discordEventId = await discordEvents.createDiscordEvent(
+        interaction.guild,
+        sessionData,
+        scheduledDate
+      );
       if (discordEventId) {
         await database.updateSessionDiscordEvent(sessionId, discordEventId);
       }
@@ -1772,7 +1887,11 @@ async function createMovieSessionFromModal(interaction) {
         { name: '🌍 Timezone', value: state.timezoneName, inline: true },
         { name: '📍 Channel', value: `<#${interaction.channel.id}>`, inline: true },
         { name: '🆔 Session ID', value: sessionId.toString(), inline: true },
-        { name: '🎪 Discord Event', value: discordEventId ? '✅ Created' : '❌ Not created', inline: true }
+        {
+          name: '🎪 Discord Event',
+          value: discordEventId ? '✅ Created' : '❌ Not created',
+          inline: true,
+        }
       )
       .setFooter({ text: `Use /movie-session action:list to see all sessions` })
       .setTimestamp();
@@ -1782,27 +1901,41 @@ async function createMovieSessionFromModal(interaction) {
     }
 
     await interaction.editReply({
-      embeds: [embed]
+      embeds: [embed],
     });
 
     // Update the movie post if a movie was selected
     if (state.selectedMovie && state.selectedMovie !== 'no_movie') {
-      await updateMoviePostForSession(interaction, state.selectedMovie, sessionId, sessionName, scheduledDate, discordEventId);
+      await updateMoviePostForSession(
+        interaction,
+        state.selectedMovie,
+        sessionId,
+        sessionName,
+        scheduledDate,
+        discordEventId
+      );
     }
 
     // Clean up session state
     global.sessionCreationState.delete(userId);
-
   } catch (error) {
     console.error('Error creating session from modal:', error);
     try {
       if (interaction.deferred || interaction.replied) {
         await interaction.editReply({ content: '❌ Failed to create movie session.' });
       } else {
-        await interaction.reply({ content: '❌ Failed to create movie session.', flags: MessageFlags.Ephemeral });
+        await interaction.reply({
+          content: '❌ Failed to create movie session.',
+          flags: MessageFlags.Ephemeral,
+        });
       }
     } catch (_) {
-      try { await interaction.followUp({ content: '❌ Failed to create movie session.', flags: MessageFlags.Ephemeral }); } catch {}
+      try {
+        await interaction.followUp({
+          content: '❌ Failed to create movie session.',
+          flags: MessageFlags.Ephemeral,
+        });
+      } catch {}
     }
   }
 }
@@ -1817,10 +1950,10 @@ async function showTimezoneSelector(interaction) {
     .setCustomId('session_timezone_selected')
     .setPlaceholder('Choose your timezone...')
     .addOptions(
-      TIMEZONE_OPTIONS.map(tz => ({
+      TIMEZONE_OPTIONS.map((tz) => ({
         label: tz.label,
         value: tz.value,
-        emoji: tz.emoji
+        emoji: tz.emoji,
       }))
     );
 
@@ -1828,7 +1961,7 @@ async function showTimezoneSelector(interaction) {
 
   await interaction.update({
     embeds: [embed],
-    components: [row]
+    components: [row],
   });
 }
 
@@ -1848,5 +1981,5 @@ module.exports = {
   handleSessionCancel,
   handleCancelConfirmation,
   createMovieSessionFromModal,
-  showTimezoneSelector
+  showTimezoneSelector,
 };

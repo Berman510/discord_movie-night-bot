@@ -6,10 +6,10 @@
 function formatVoteCount(upVotes, downVotes) {
   const total = upVotes + downVotes;
   if (total === 0) return 'No votes yet';
-  
+
   const score = upVotes - downVotes;
   const percentage = Math.round((upVotes / total) * 100);
-  
+
   return `${score > 0 ? '+' : ''}${score} (${upVotes}👍 ${downVotes}👎) • ${percentage}% positive`;
 }
 
@@ -18,18 +18,18 @@ function formatMovieStatus(status) {
     pending: '🍿 Up for Vote',
     planned: '📌 Planned for Later',
     watched: '✅ Watched',
-    skipped: '⏭️ Skipped'
+    skipped: '⏭️ Skipped',
   };
-  
+
   return statusMap[status] || status;
 }
 
 function formatDuration(minutes) {
   if (!minutes || minutes === 'N/A') return 'Unknown';
-  
+
   const hours = Math.floor(minutes / 60);
   const mins = minutes % 60;
-  
+
   if (hours === 0) return `${mins}m`;
   if (mins === 0) return `${hours}h`;
   return `${hours}h ${mins}m`;
@@ -61,12 +61,12 @@ function formatRelativeTime(date) {
   const diffMins = Math.floor(diffMs / (1000 * 60));
   const diffHours = Math.floor(diffMins / 60);
   const diffDays = Math.floor(diffHours / 24);
-  
+
   if (diffMins < 1) return 'Just now';
   if (diffMins < 60) return `${diffMins}m ago`;
   if (diffHours < 24) return `${diffHours}h ago`;
   if (diffDays < 7) return `${diffDays}d ago`;
-  
+
   return new Date(date).toLocaleDateString();
 }
 
@@ -105,5 +105,5 @@ module.exports = {
   formatChannelMention,
   formatRoleMention,
   capitalizeFirst,
-  pluralize
+  pluralize,
 };

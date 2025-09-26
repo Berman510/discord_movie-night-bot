@@ -3,7 +3,17 @@
  * Handles movie recommendations in Discord Forum channels
  */
 
-const { ChannelType, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const {
+  ChannelType,
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+} = require('discord.js');
+const contentTypes = require('../utils/content-types');
+
+// Simple debounce mechanism to prevent multiple rapid calls
+const ensureRecommendationPostDebounce = new Map();
 
 /**
  * Check if a channel is a forum channel
@@ -39,33 +49,57 @@ async function createForumMoviePost(channel, movieData, components) {
       channelType: channel.type,
       movieTitle: movieData.title,
       hasEmbed: !!movieData.embed,
-      componentsLength: components.length
+      componentsLength: components.length,
     });
 
-    { const logger = require('../utils/logger'); logger.info(`📋 Creating forum post for movie: ${movieData.title} in channel: ${channel.name}`, channel.guild?.id); }
+    {
+      const logger = require('../utils/logger');
+      logger.info(
+        `📋 Creating forum post for movie: ${movieData.title} in channel: ${channel.name}`,
+        channel.guild?.id
+      );
+    }
 
-    // Create forum post with movie as the topic
+    // Create forum post with appropriate emoji based on content type
     console.log(`🔍 DEBUG: About to call channel.threads.create`);
+
+    // Determine content type from embed or movieData
+    const isTV =
+      movieData.contentType === 'tv_show' ||
+      (movieData.embed &&
+        movieData.embed.data &&
+        movieData.embed.data.description &&
+        movieData.embed.data.description.includes('📺'));
+    const emoji = isTV ? '📺' : '🎬';
+
     const forumPost = await channel.threads.create({
-      name: `🎬 ${movieData.title}`,
+      name: `${emoji} ${movieData.title}`,
       message: {
         embeds: [movieData.embed],
-        components: components
+        components: components,
       },
       appliedTags: await getMovieStatusTags(channel, 'pending'),
-      reason: `Movie recommendation: ${movieData.title}`
+      reason: `${isTV ? 'TV show' : 'Movie'} recommendation: ${movieData.title}`,
     });
 
-    { const logger = require('../utils/logger'); logger.info(`✅ Created forum post: ${forumPost.name} (ID: ${forumPost.id}) in channel: ${channel.name}`, channel.guild?.id); }
+    {
+      const logger = require('../utils/logger');
+      logger.info(
+        `✅ Created forum post: ${forumPost.name} (ID: ${forumPost.id}) in channel: ${channel.name}`,
+        channel.guild?.id
+      );
+    }
 
-    const message = forumPost.lastMessage || await forumPost.fetchStarterMessage();
-    { const logger = require('../utils/logger'); logger.debug(`🔍 DEBUG: Got starter message: ${message?.id}`, channel.guild?.id); }
+    const message = forumPost.lastMessage || (await forumPost.fetchStarterMessage());
+    {
+      const logger = require('../utils/logger');
+      logger.debug(`🔍 DEBUG: Got starter message: ${message?.id}`, channel.guild?.id);
+    }
 
     return {
       thread: forumPost,
-      message: message
+      message: message,
     };
-
   } catch (error) {
     console.error('Error creating forum movie post:', error);
     throw error;
@@ -81,7 +115,9 @@ async function updateForumPostTitle(thread, movieTitle, status, upVotes = 0, dow
     // For forum channels, we'll update the embed content instead of the title
     // to avoid the annoying "changed the post title" messages
     const logger = require('../utils/logger');
-    logger.debug(`📝 Skipping forum post title update for: ${movieTitle} (votes: +${upVotes}/-${downVotes}) to avoid spam messages`);
+    logger.debug(
+      `📝 Skipping forum post title update for: ${movieTitle} (votes: +${upVotes}/-${downVotes}) to avoid spam messages`
+    );
 
     // Only update title for major status changes (like when movie is selected as winner)
     const shouldUpdateTitle = ['scheduled', 'watched', 'banned'].includes(status);
@@ -96,7 +132,6 @@ async function updateForumPostTitle(thread, movieTitle, status, upVotes = 0, dow
         logger.debug(`📝 Updated forum post title for status change: ${newName}`);
       }
     }
-
   } catch (error) {
     const logger = require('../utils/logger');
     logger.warn('Error updating forum post title:', error.message);
@@ -106,16 +141,16 @@ async function updateForumPostTitle(thread, movieTitle, status, upVotes = 0, dow
 /**
  * Get status emoji for forum post titles
  */
-function getStatusEmoji(status) {
+function getStatusEmoji(status, isTV = false) {
   const statusEmojis = {
-    'pending': '🎬',
-    'planned': '📌',
-    'scheduled': '🎪',
-    'watched': '✅',
-    'skipped': '⏭️',
-    'banned': '🚫'
+    pending: isTV ? '📺' : '🎬',
+    planned: '📌',
+    scheduled: '🎪',
+    watched: '✅',
+    skipped: '⏭️',
+    banned: '🚫',
   };
-  return statusEmojis[status] || '🎬';
+  return statusEmojis[status] || (isTV ? '📺' : '🎬');
 }
 
 /**
@@ -126,8 +161,8 @@ async function getMovieStatusTags(channel, status) {
     if (!channel.availableTags) return [];
 
     // Look for existing status tag
-    const statusTag = channel.availableTags.find(tag =>
-      tag.name.toLowerCase() === status.toLowerCase()
+    const statusTag = channel.availableTags.find(
+      (tag) => tag.name.toLowerCase() === status.toLowerCase()
     );
 
     if (statusTag) {
@@ -137,7 +172,6 @@ async function getMovieStatusTags(channel, status) {
     // If no matching tag found, return empty array
     // In the future, we could create tags automatically if the bot has permissions
     return [];
-
   } catch (error) {
     console.warn('Error getting forum tags:', error.message);
     return [];
@@ -156,14 +190,14 @@ async function updateForumPostTags(thread, status) {
 
     // Only update if tags have changed
     const currentTagIds = thread.appliedTags || [];
-    const tagsChanged = newTags.length !== currentTagIds.length ||
-                       !newTags.every(tagId => currentTagIds.includes(tagId));
+    const tagsChanged =
+      newTags.length !== currentTagIds.length ||
+      !newTags.every((tagId) => currentTagIds.includes(tagId));
 
     if (tagsChanged) {
       await thread.setAppliedTags(newTags);
       console.log(`🏷️ Updated forum post tags for status: ${status}`);
     }
-
   } catch (error) {
     console.warn('Error updating forum post tags:', error.message);
   }
@@ -187,7 +221,8 @@ async function updateForumPostContent(thread, movie, newStatus) {
     let imdbData = null;
     try {
       if (movie.imdb_data) {
-        let parsed = typeof movie.imdb_data === 'string' ? JSON.parse(movie.imdb_data) : movie.imdb_data;
+        let parsed =
+          typeof movie.imdb_data === 'string' ? JSON.parse(movie.imdb_data) : movie.imdb_data;
         if (typeof parsed === 'string') parsed = JSON.parse(parsed);
         imdbData = parsed;
       }
@@ -201,16 +236,15 @@ async function updateForumPostContent(thread, movie, newStatus) {
 
     if (newStatus === 'scheduled') {
       // Winner - show winner status instead of voting buttons
-      const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+
       movieComponents = [
-        new ActionRowBuilder()
-          .addComponents(
-            new ButtonBuilder()
-              .setCustomId('winner_selected')
-              .setLabel('🏆 Selected as Winner!')
-              .setStyle(ButtonStyle.Success)
-              .setDisabled(true)
-          )
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId('winner_selected')
+            .setLabel('🏆 Selected as Winner!')
+            .setStyle(ButtonStyle.Success)
+            .setDisabled(true)
+        ),
       ];
     } else if (['watched', 'skipped', 'banned'].includes(newStatus)) {
       // Completed movies - no buttons
@@ -223,11 +257,10 @@ async function updateForumPostContent(thread, movie, newStatus) {
     // Update the starter message
     await starterMessage.edit({
       embeds: [movieEmbed],
-      components: movieComponents
+      components: movieComponents,
     });
 
     console.log(`📝 Updated forum post content for ${movie.title} (status: ${newStatus})`);
-
   } catch (error) {
     console.warn('Error updating forum post content:', error.message);
   }
@@ -243,7 +276,6 @@ async function archiveForumPost(thread, reason = 'Movie completed') {
     await thread.setArchived(true, reason);
     const logger = require('../utils/logger');
     logger.debug(`📦 Archived forum post: ${thread.name}`);
-
   } catch (error) {
     const logger = require('../utils/logger');
     logger.warn('Error archiving forum post:', error.message);
@@ -265,27 +297,32 @@ async function getForumMoviePosts(channel, limit = 50) {
 
     const allThreads = new Map([...threads.threads, ...archivedThreads.threads]);
 
-    logger.debug(`📋 Found ${threads.threads.size} active threads, ${archivedThreads.threads.size} archived threads`, guildId);
+    logger.debug(
+      `📋 Found ${threads.threads.size} active threads, ${archivedThreads.threads.size} archived threads`,
+      guildId
+    );
 
     // Filter for actual movie posts (exclude system posts)
     const moviePosts = Array.from(allThreads.values())
-      .filter(thread => {
+      .filter((thread) => {
         // Include movie posts with movie emojis
-        const hasMovieEmoji = thread.name.match(/^[🎬📌🎪✅⏭️]/);
+        const hasMovieEmoji = /^(?:🎬|📌|🎪|✅|⏭️)/u.test(thread.name);
         // Exclude system posts
-        const isSystemPost = thread.name.includes('Recommend a Movie') ||
-                           thread.name.includes('🍿') ||
-                           thread.name.includes('No Active Voting Session') ||
-                           thread.name.includes('🚫');
+        const isSystemPost =
+          thread.name.includes('Recommend a Movie') ||
+          thread.name.includes('🍿') ||
+          thread.name.includes('No Active Voting Session') ||
+          thread.name.includes('🚫');
         return hasMovieEmoji && !isSystemPost;
       })
       .slice(0, limit);
 
     logger.debug(`📋 Found ${moviePosts.length} movie posts to process`, guildId);
-    moviePosts.forEach(post => logger.debug(`📋 Movie post: ${post.name} (archived: ${post.archived})`, guildId));
+    moviePosts.forEach((post) =>
+      logger.debug(`📋 Movie post: ${post.name} (archived: ${post.archived})`, guildId)
+    );
 
     return moviePosts;
-
   } catch (error) {
     console.error('Error getting forum movie posts:', error);
     return [];
@@ -307,9 +344,11 @@ async function cleanupForumPosts(channel, olderThanDays = 30) {
 
     for (const thread of moviePosts) {
       // Archive old completed movies
-      if (thread.createdAt < cutoffDate &&
-          (thread.name.includes('✅') || thread.name.includes('⏭️')) &&
-          !thread.archived) {
+      if (
+        thread.createdAt < cutoffDate &&
+        (thread.name.includes('✅') || thread.name.includes('⏭️')) &&
+        !thread.archived
+      ) {
         await archiveForumPost(thread, 'Automatic cleanup of old completed movie');
         archivedCount++;
       }
@@ -317,7 +356,6 @@ async function cleanupForumPosts(channel, olderThanDays = 30) {
 
     console.log(`🧹 Archived ${archivedCount} old forum posts`);
     return archivedCount;
-
   } catch (error) {
     console.error('Error cleaning up forum posts:', error);
     return 0;
@@ -325,7 +363,7 @@ async function cleanupForumPosts(channel, olderThanDays = 30) {
 }
 
 /**
- * Clear all movie forum posts when session ends - DATABASE-DRIVEN SAFE DELETION
+ * Clear all movie and TV show forum posts when session ends - DATABASE-DRIVEN SAFE DELETION
  * Only deletes threads/messages that are tracked in our database
  */
 async function clearForumMoviePosts(channel, winnerMovieId = null, options = {}) {
@@ -335,19 +373,30 @@ async function clearForumMoviePosts(channel, winnerMovieId = null, options = {})
     const logger = require('../utils/logger');
     const database = require('../database');
     const guildId = channel.guild?.id;
-    logger.debug(`🧹 Clearing forum movie posts in channel: ${channel.name} (DATABASE-DRIVEN)`, guildId);
+    logger.debug(
+      `🧹 Clearing forum content posts in channel: ${channel.name} (DATABASE-DRIVEN)`,
+      guildId
+    );
 
     const { deleteWinnerAnnouncements = false } = options;
 
     // Get all movies from database for this guild and channel
     const allMovies = await database.getMoviesByGuild(guildId);
-    const channelMovies = allMovies.filter(movie =>
-      movie.channel_id === channel.id &&
-      movie.channel_type === 'forum' &&
-      movie.thread_id // Only process movies with thread IDs
+    const channelMovies = allMovies.filter(
+      (movie) =>
+        movie.channel_id === channel.id && movie.channel_type === 'forum' && movie.thread_id // Only process movies with thread IDs
     );
 
-    logger.debug(`📋 Found ${channelMovies.length} database-tracked forum movies to process`, guildId);
+    // Get all TV shows from database for this guild and channel
+    const allTVShows = await database.getTVShowsByGuild(guildId);
+    const channelTVShows = allTVShows.filter(
+      (show) => show.channel_id === channel.id && show.channel_type === 'forum' && show.thread_id // Only process TV shows with thread IDs
+    );
+
+    logger.debug(
+      `📋 Found ${channelMovies.length} database-tracked forum movies and ${channelTVShows.length} TV shows to process`,
+      guildId
+    );
 
     let deletedCount = 0;
     let skippedCount = 0;
@@ -372,13 +421,21 @@ async function clearForumMoviePosts(channel, winnerMovieId = null, options = {})
             deletedCount++;
             logger.info(`🗑️ Deleted forum thread: ${movie.title} (${movie.thread_id})`, guildId);
           } else {
-            logger.debug(`📋 Thread not found or not in this channel: ${movie.title} (${movie.thread_id})`, guildId);
+            logger.debug(
+              `📋 Thread not found or not in this channel: ${movie.title} (${movie.thread_id})`,
+              guildId
+            );
           }
         } catch (threadError) {
-          if (threadError.code === 10003) { // Unknown Channel
+          if (threadError.code === 10003) {
+            // Unknown Channel
             logger.debug(`📋 Thread already deleted: ${movie.title} (${movie.thread_id})`, guildId);
           } else {
-            logger.warn(`Error deleting thread ${movie.title} (${movie.thread_id}):`, threadError.message, guildId);
+            logger.warn(
+              `Error deleting thread ${movie.title} (${movie.thread_id}):`,
+              threadError.message,
+              guildId
+            );
           }
         }
 
@@ -388,27 +445,102 @@ async function clearForumMoviePosts(channel, winnerMovieId = null, options = {})
           await database.updateMovieThreadId(movie.message_id, null);
           logger.debug(`🗄️ Cleared thread reference for movie: ${movie.title}`, guildId);
         } catch (dbErr) {
-          logger.warn(`Error clearing thread reference for ${movie.title}:`, dbErr.message, guildId);
+          logger.warn(
+            `Error clearing thread reference for ${movie.title}:`,
+            dbErr.message,
+            guildId
+          );
         }
-
       } catch (error) {
         logger.warn(`Error processing movie ${movie.title}:`, error.message, guildId);
       }
     }
 
+    // Process each TV show
+    for (const tvShow of channelTVShows) {
+      try {
+        // Try to fetch and delete the thread
+        try {
+          const thread = await channel.client.channels.fetch(tvShow.thread_id);
+          if (thread && thread.parentId === channel.id) {
+            await thread.delete('TV show cleanup - session ended');
+            deletedCount++;
+            logger.info(`🗑️ Deleted forum thread: ${tvShow.title} (${tvShow.thread_id})`, guildId);
+          } else {
+            logger.debug(
+              `📋 Thread not found or not in this channel: ${tvShow.title} (${tvShow.thread_id})`,
+              guildId
+            );
+          }
+        } catch (threadError) {
+          if (threadError.code === 10003) {
+            // Unknown Channel
+            logger.debug(
+              `📋 Thread already deleted: ${tvShow.title} (${tvShow.thread_id})`,
+              guildId
+            );
+          } else {
+            logger.warn(
+              `Error deleting thread ${tvShow.title} (${tvShow.thread_id}):`,
+              threadError.message,
+              guildId
+            );
+          }
+        }
+
+        // Clear thread reference for TV show
+        try {
+          await database.updateTVShowThreadId(tvShow.message_id, null);
+          logger.debug(`🗄️ Cleared thread reference for TV show: ${tvShow.title}`, guildId);
+        } catch (dbErr) {
+          logger.warn(
+            `Error clearing thread reference for ${tvShow.title}:`,
+            dbErr.message,
+            guildId
+          );
+        }
+      } catch (error) {
+        logger.warn(`Error processing TV show ${tvShow.title}:`, error.message, guildId);
+      }
+    }
+
     // ALSO DELETE SYSTEM POSTS regardless of winner - we will re-create the appropriate one after
-    logger.debug(`🧹 Deleting system posts (Recommend/No Session${deleteWinnerAnnouncements ? '/Winner' : ''})`, guildId);
+    logger.debug(
+      `🧹 Deleting system posts (Recommend/No Session${deleteWinnerAnnouncements ? '/Winner' : ''})`,
+      guildId
+    );
 
     // Get all threads to find system posts
     const threads = await channel.threads.fetchActive();
     const archivedThreads = await channel.threads.fetchArchived({ limit: 50 });
     const allThreads = new Map([...threads.threads, ...archivedThreads.threads]);
 
-    for (const [threadId, thread] of allThreads) {
-      // Delete system posts (No Active Session, Recommend a Movie)
-      const isSystemPost = thread.name.includes('No Active Voting Session') || thread.name.includes('🚫') ||
-                           thread.name.includes('Recommend a Movie') || thread.name.includes('🍿');
+    for (const [_threadId, thread] of allThreads) {
+      // Delete system posts (No Active Session, Recommend a Movie, Recommend TV Shows) - be specific to avoid content posts
+      const hasNoSession =
+        thread.name.includes('No Active Voting Session') || thread.name.includes('🚫');
+      const hasRecommendMovie =
+        thread.name.includes('Recommend a Movie') || thread.name.includes('Recommend Movies');
+      const hasRecommendTV = thread.name.includes('Recommend TV Shows');
+      const hasRecommendContent = thread.name.includes('Recommend Content');
+      const isSystemPost =
+        hasNoSession || hasRecommendMovie || hasRecommendTV || hasRecommendContent;
       const isWinnerAnnouncement = thread.name.startsWith('🏆 Winner:');
+
+      logger.debug(`🔍 Thread: "${thread.name}"`, guildId);
+      logger.debug(
+        `   - hasNoSession: ${hasNoSession}, hasRecommendMovie: ${hasRecommendMovie}`,
+        guildId
+      );
+      logger.debug(
+        `   - hasRecommendTV: ${hasRecommendTV}, hasRecommendContent: ${hasRecommendContent}`,
+        guildId
+      );
+      logger.debug(
+        `   - isSystemPost: ${isSystemPost}, isWinnerAnnouncement: ${isWinnerAnnouncement}`,
+        guildId
+      );
+
       if (isSystemPost || (deleteWinnerAnnouncements && isWinnerAnnouncement)) {
         try {
           await thread.delete('System post cleanup - session ended');
@@ -420,9 +552,11 @@ async function clearForumMoviePosts(channel, winnerMovieId = null, options = {})
       }
     }
 
-    logger.info(`🧹 Forum cleanup complete: ${deletedCount} deleted, ${skippedCount} kept (winner/system)`, guildId);
+    logger.info(
+      `🧹 Forum cleanup complete: ${deletedCount} deleted, ${skippedCount} kept (winner/system)`,
+      guildId
+    );
     return { archived: 0, deleted: deletedCount };
-
   } catch (error) {
     const logger = require('../utils/logger');
     logger.error('Error clearing forum movie posts:', error.message, channel.guild?.id);
@@ -448,7 +582,11 @@ async function postForumWinnerAnnouncement(channel, winnerMovie, sessionName, op
     // Enrich with IMDb data if available
     let imdbData = null;
     if (winnerMovie.imdb_id) {
-      try { imdbData = await imdb.getMovieDetails(winnerMovie.imdb_id); } catch {}
+      try {
+        imdbData = await imdb.getMovieDetails(winnerMovie.imdb_id);
+      } catch (e) {
+        /* no-op: IMDb fetch optional */ void 0;
+      }
     }
 
     // Create winner announcement embed
@@ -467,23 +605,40 @@ async function postForumWinnerAnnouncement(channel, winnerMovie, sessionName, op
     const { selectedByUserId, wonByVotes } = options || {};
     try {
       if (selectedByUserId) {
-        winnerEmbed.addFields({ name: '👑 Selected by', value: `<@${selectedByUserId}>`, inline: true });
+        winnerEmbed.addFields({
+          name: '👑 Selected by',
+          value: `<@${selectedByUserId}>`,
+          inline: true,
+        });
       } else if (wonByVotes) {
         winnerEmbed.addFields({ name: '👑 Selected by', value: 'Won by votes', inline: true });
       }
       const counts = await database.getVoteCounts(winnerMovie.message_id);
       if (counts) {
         const score = (counts.up || 0) - (counts.down || 0);
-        winnerEmbed.addFields({ name: '📊 Votes', value: `${counts.up || 0} 👍 - ${counts.down || 0} 👎 (Score: ${score})`, inline: false });
+        winnerEmbed.addFields({
+          name: '📊 Votes',
+          value: `${counts.up || 0} 👍 - ${counts.down || 0} 👎 (Score: ${score})`,
+          inline: false,
+        });
       }
-    } catch {}
-
+    } catch (e) {
+      /* no-op: vote summary optional */ void 0;
+    }
 
     if (imdbData) {
-      if (imdbData.Year) winnerEmbed.addFields({ name: '📅 Year', value: imdbData.Year, inline: true });
-      if (imdbData.Runtime) winnerEmbed.addFields({ name: '⏱️ Runtime', value: imdbData.Runtime, inline: true });
-      if (imdbData.Genre) winnerEmbed.addFields({ name: '🎬 Genre', value: imdbData.Genre, inline: true });
-      if (imdbData.imdbRating) winnerEmbed.addFields({ name: '⭐ IMDb', value: `${imdbData.imdbRating}/10`, inline: true });
+      if (imdbData.Year)
+        winnerEmbed.addFields({ name: '📅 Year', value: imdbData.Year, inline: true });
+      if (imdbData.Runtime)
+        winnerEmbed.addFields({ name: '⏱️ Runtime', value: imdbData.Runtime, inline: true });
+      if (imdbData.Genre)
+        winnerEmbed.addFields({ name: '🎬 Genre', value: imdbData.Genre, inline: true });
+      if (imdbData.imdbRating)
+        winnerEmbed.addFields({
+          name: '⭐ IMDb',
+          value: `${imdbData.imdbRating}/10`,
+          inline: true,
+        });
       if (imdbData.Poster && imdbData.Poster !== 'N/A') winnerEmbed.setThumbnail(imdbData.Poster);
     }
 
@@ -492,11 +647,19 @@ async function postForumWinnerAnnouncement(channel, winnerMovie, sessionName, op
       const event = options.event; // { id, name, startTime }
       const ts = event.startTime ? Math.floor(new Date(event.startTime).getTime() / 1000) : null;
       if (ts) {
-        winnerEmbed.addFields({ name: '🗓️ Event Time', value: `<t:${ts}:F> (<t:${ts}:R>)`, inline: false });
+        winnerEmbed.addFields({
+          name: '🗓️ Event Time',
+          value: `<t:${ts}:F> (<t:${ts}:R>)`,
+          inline: false,
+        });
       }
       if (event.id) {
         // No direct links to events, but include the ID for reference
-        winnerEmbed.addFields({ name: '📣 Discord Event', value: `Event ID: ${event.id}`, inline: false });
+        winnerEmbed.addFields({
+          name: '📣 Discord Event',
+          value: `Event ID: ${event.id}`,
+          inline: false,
+        });
       }
     }
 
@@ -509,9 +672,9 @@ async function postForumWinnerAnnouncement(channel, winnerMovie, sessionName, op
       message: {
         content,
         embeds: [winnerEmbed],
-        allowedMentions: content ? { roles: [config.notification_role_id] } : undefined
+        allowedMentions: content ? { roles: [config.notification_role_id] } : undefined,
       },
-      reason: `Winner announcement for ${sessionName}`
+      reason: `Winner announcement for ${sessionName}`,
     });
 
     // Try to pin the announcement
@@ -527,7 +690,7 @@ async function postForumWinnerAnnouncement(channel, winnerMovie, sessionName, op
           const archivedThreads = await channel.threads.fetchArchived({ limit: 50 });
           const allThreads = new Map([...threads.threads, ...archivedThreads.threads]);
 
-          for (const [threadId, thread] of allThreads) {
+          for (const [_threadId, thread] of allThreads) {
             if (thread.pinned && thread.id !== announcementPost.id) {
               await thread.setArchived(true);
               logger.debug(`📌 Unpinned thread to make room for winner: ${thread.name}`);
@@ -548,7 +711,6 @@ async function postForumWinnerAnnouncement(channel, winnerMovie, sessionName, op
 
     logger.info(`🏆 Posted winner announcement in forum: ${winnerMovie.title}`);
     return announcementPost;
-
   } catch (error) {
     const logger = require('../utils/logger');
     logger.error('Error posting forum winner announcement:', error);
@@ -569,7 +731,10 @@ async function unpinOtherForumPosts(channel, keepPinnedId = null) {
     const archivedThreads = await channel.threads.fetchArchived({ limit: 50, cache: false });
     const allThreads = new Map([...threads.threads, ...archivedThreads.threads]);
 
-    logger.debug(`📌 Checking ${allThreads.size} threads for unpinning (keep: ${keepPinnedId})`, guildId);
+    logger.debug(
+      `📌 Checking ${allThreads.size} threads for unpinning (keep: ${keepPinnedId})`,
+      guildId
+    );
 
     let unpinnedCount = 0;
 
@@ -583,7 +748,10 @@ async function unpinOtherForumPosts(channel, keepPinnedId = null) {
         const freshThread = await channel.client.channels.fetch(threadId, { force: true });
         const isPinned = freshThread.pinned || false;
 
-        logger.debug(`📌 Thread ${thread.name} (${threadId}) - pinned: ${isPinned}, archived: ${thread.archived}`, guildId);
+        logger.debug(
+          `📌 Thread ${thread.name} (${threadId}) - pinned: ${isPinned}, archived: ${thread.archived}`,
+          guildId
+        );
 
         // Try to unpin regardless of reported status if we're hitting pin limits
         try {
@@ -602,7 +770,10 @@ async function unpinOtherForumPosts(channel, keepPinnedId = null) {
           if (unpinError.code === 50083) {
             logger.debug(`📌 Thread not pinned (expected): ${thread.name}`, guildId);
           } else {
-            logger.debug(`📌 Unpin attempt failed for ${thread.name}: ${unpinError.message}`, guildId);
+            logger.debug(
+              `📌 Unpin attempt failed for ${thread.name}: ${unpinError.message}`,
+              guildId
+            );
           }
         }
       } catch (fetchError) {
@@ -628,12 +799,41 @@ async function ensureRecommendationPost(channel, activeSession = null) {
 
     const logger = require('../utils/logger');
     const guildId = channel.guild?.id;
+
+    // Simple debounce mechanism to prevent multiple rapid calls
+    const debounceKey = `${guildId}-${channel.id}`;
+    const now = Date.now();
+    const lastCall = ensureRecommendationPostDebounce.get(debounceKey);
+
+    if (lastCall && now - lastCall < 3000) {
+      // 3 second debounce
+      logger.debug(`📋 Skipping recommendation post update (debounced): ${channel.name}`, guildId);
+      return;
+    }
+
+    ensureRecommendationPostDebounce.set(debounceKey, now);
+
+    // Clean up old debounce entries (older than 10 minutes)
+    for (const [key, timestamp] of ensureRecommendationPostDebounce.entries()) {
+      if (now - timestamp > 600000) {
+        // 10 minutes
+        ensureRecommendationPostDebounce.delete(key);
+      }
+    }
+
     logger.debug(`📋 Ensuring recommendation post in forum channel: ${channel.name}`, guildId);
-    logger.debug(`📋 Active session provided:`, activeSession ? {
-      id: activeSession.id,
-      name: activeSession.name,
-      status: activeSession.status
-    } : 'null', guildId);
+    logger.debug(
+      `📋 Active session provided:`,
+      activeSession
+        ? {
+            id: activeSession.id,
+            name: activeSession.name,
+            status: activeSession.status,
+            content_type: activeSession.content_type,
+          }
+        : 'null',
+      guildId
+    );
 
     // BETTER APPROACH: Use channel.threads.fetchActive with force refresh and check each thread individually
     logger.debug(`📋 Fetching threads to find pinned posts...`, guildId);
@@ -643,7 +843,10 @@ async function ensureRecommendationPost(channel, activeSession = null) {
     const archivedThreads = await channel.threads.fetchArchived({ limit: 50, cache: false });
     const allThreads = new Map([...threads.threads, ...archivedThreads.threads]);
 
-    logger.debug(`📋 Found ${threads.threads.size} active threads, ${archivedThreads.threads.size} archived threads`, guildId);
+    logger.debug(
+      `📋 Found ${threads.threads.size} active threads, ${archivedThreads.threads.size} archived threads`,
+      guildId
+    );
 
     let pinnedPost = null;
     let systemPosts = [];
@@ -655,11 +858,21 @@ async function ensureRecommendationPost(channel, activeSession = null) {
         const freshThread = await channel.client.channels.fetch(threadId, { force: true });
         const isPinned = freshThread.pinned || false;
 
-        logger.debug(`📋 Thread: ${thread.name} (${thread.id}) - pinned: ${isPinned}, archived: ${thread.archived}`, guildId);
+        logger.debug(
+          `📋 Thread: ${thread.name} (${thread.id}) - pinned: ${isPinned}, archived: ${thread.archived}`,
+          guildId
+        );
 
-        // Track system posts (recommendation and no session posts)
-        if (thread.name.includes('Recommend a Movie') || thread.name.includes('🍿') ||
-            thread.name.includes('No Active Voting Session') || thread.name.includes('🚫')) {
+        // Track system posts (recommendation and no session posts) - be specific to avoid catching content posts
+        const isRecommendPost =
+          thread.name.includes('Recommend a Movie') ||
+          thread.name.includes('Recommend Movies') ||
+          thread.name.includes('Recommend TV Shows') ||
+          thread.name.includes('Recommend Content');
+        const isNoSessionPost = thread.name.includes('No Active Voting Session');
+        const isSystemPost = isRecommendPost || isNoSessionPost || thread.name.includes('🚫');
+
+        if (isSystemPost) {
           systemPosts.push({ thread: freshThread, isPinned });
         }
 
@@ -672,7 +885,10 @@ async function ensureRecommendationPost(channel, activeSession = null) {
       }
     }
 
-    logger.debug(`📋 Found ${systemPosts.length} system posts, pinned post: ${pinnedPost ? pinnedPost.name : 'none'}`, guildId);
+    logger.debug(
+      `📋 Found ${systemPosts.length} system posts, pinned post: ${pinnedPost ? pinnedPost.name : 'none'}`,
+      guildId
+    );
 
     // Clean up duplicate system posts first
     if (systemPosts.length > 1) {
@@ -686,7 +902,10 @@ async function ensureRecommendationPost(channel, activeSession = null) {
           await systemThread.delete('Cleaning up duplicate system posts');
           logger.debug(`📋 Deleted duplicate system post: ${systemThread.name}`, guildId);
         } catch (deleteError) {
-          logger.warn(`📋 Error deleting system post ${systemThread.name}: ${deleteError.message}`, guildId);
+          logger.warn(
+            `📋 Error deleting system post ${systemThread.name}: ${deleteError.message}`,
+            guildId
+          );
         }
       }
       pinnedPost = null; // Force creation of new post
@@ -695,27 +914,36 @@ async function ensureRecommendationPost(channel, activeSession = null) {
     // Special handling for when no pinned post is detected but Discord says pin limit reached
     // This can happen during rapid operations when Discord's API is inconsistent
     if (!pinnedPost && systemPosts.length > 0) {
-      logger.debug(`📋 No pinned post detected but ${systemPosts.length} system posts exist - checking for hidden pins`, guildId);
+      logger.debug(
+        `📋 No pinned post detected but ${systemPosts.length} system posts exist - checking for hidden pins`,
+        guildId
+      );
 
       // Try to unpin all system posts just in case one is actually pinned but not detected
       for (const { thread: systemThread } of systemPosts) {
         try {
           await systemThread.unpin();
-          logger.debug(`📋 Attempted to unpin potentially hidden pinned post: ${systemThread.name}`, guildId);
+          logger.debug(
+            `📋 Attempted to unpin potentially hidden pinned post: ${systemThread.name}`,
+            guildId
+          );
         } catch (unpinError) {
           // Ignore errors - the post might not actually be pinned
-          logger.debug(`📋 Unpin attempt failed (expected if not pinned): ${systemThread.name}`, guildId);
+          logger.debug(
+            `📋 Unpin attempt failed (expected if not pinned): ${systemThread.name}`,
+            guildId
+          );
         }
       }
     }
-
-    const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 
     if (!activeSession) {
       // No active session - edit pinned post to show "No Active Session"
       const noSessionEmbed = new EmbedBuilder()
         .setTitle('🚫 No Active Voting Session')
-        .setDescription('There is currently no active voting session.\n\n🎬 **To start a new session:**\n• Use the admin controls to create a new voting session\n• Movies can be recommended once a session is active\n\n📋 **Current Status:** No active session')
+        .setDescription(
+          'There is currently no active voting session.\n\n🎬 **To start a new session:**\n• Use the admin controls to create a new voting session\n• Movies can be recommended once a session is active\n\n📋 **Current Status:** No active session'
+        )
         .setColor(0x95a5a6)
         .setFooter({ text: 'Check back later for new voting sessions!' });
 
@@ -746,20 +974,26 @@ async function ensureRecommendationPost(channel, activeSession = null) {
         // Create new post once, then handle pin/cleanup without recreating
         const forumPost = await channel.threads.create({
           name: '🚫 No Active Voting Session',
-          message: { embeds: [noSessionEmbed] }
+          message: { embeds: [noSessionEmbed] },
         });
         try {
           await forumPost.pin();
           logger.debug('📋 Created and pinned new no session post', guildId);
         } catch (pinError) {
           if (pinError.code === 30047) {
-            logger.warn('📋 Cannot pin new post (pin limit reached), unpinning others first', guildId);
-            const unpinnedCount = await unpinOtherForumPosts(channel, forumPost.id);
+            logger.warn(
+              '📋 Cannot pin new post (pin limit reached), unpinning others first',
+              guildId
+            );
+            const _unpinnedCount = await unpinOtherForumPosts(channel, forumPost.id);
             try {
               await forumPost.pin();
               logger.debug('📋 Pinned no session post after unpinning others', guildId);
             } catch (retryPinError) {
-              logger.warn(`📋 Still cannot pin no session post: ${retryPinError.message} - proceeding without pin`, guildId);
+              logger.warn(
+                `📋 Still cannot pin no session post: ${retryPinError.message} - proceeding without pin`,
+                guildId
+              );
             }
           } else {
             logger.warn(`📋 Error pinning no session post: ${pinError.message}`, guildId);
@@ -772,28 +1006,50 @@ async function ensureRecommendationPost(channel, activeSession = null) {
         const all = new Map([...active.threads, ...archived.threads]);
         for (const [tid, t] of all) {
           if (tid === forumPost.id) continue;
-          if (t.name.includes('No Active Voting Session') || t.name.includes('🚫') || t.name.includes('Recommend a Movie') || t.name.includes('🍿')) {
-            try { await t.delete('Removing duplicate system post'); logger.debug(`📋 Deleted duplicate system post: ${t.name}`, guildId); } catch {}
+          if (
+            t.name.includes('No Active Voting Session') ||
+            t.name.includes('🚫') ||
+            t.name.includes('Recommend a Movie') ||
+            t.name.includes('Recommend Movies') ||
+            t.name.includes('Recommend TV Shows') ||
+            t.name.includes('Recommend Content')
+          ) {
+            try {
+              await t.delete('Removing duplicate system post');
+              logger.debug(`📋 Deleted duplicate system post: ${t.name}`, guildId);
+            } catch (e) {
+              /* no-op: duplicate cleanup best-effort */ void 0;
+            }
           }
         }
       }
       return;
     }
 
-    // Active session - edit pinned post to show recommendation
+    // Active session - edit pinned post to show recommendation with content-specific messaging
+    const contentType = activeSession.content_type || 'movie';
+    logger.debug(`📋 Content type determination: content_type=${contentType}`, guildId);
+
+    // Use content-type utilities for dynamic content
+    const {
+      title,
+      description,
+      buttonLabel,
+      buttonEmoji: _buttonEmoji,
+    } = contentTypes.getRecommendationPostContent(activeSession);
+
     const recommendEmbed = new EmbedBuilder()
-      .setTitle('🍿 Recommend a Movie')
-      .setDescription(`**Current Session:** ${activeSession.name}\n\n🎬 Click the button below to recommend a movie!\n\n📝 Each movie gets its own thread for voting and discussion.\n\n🗳️ Voting ends: <t:${Math.floor(new Date(activeSession.voting_end_time).getTime() / 1000)}:R>`)
+      .setTitle(title)
+      .setDescription(description)
       .setColor(0x5865f2)
       .setFooter({ text: `Session ID: ${activeSession.id}` });
 
-    const recommendButton = new ActionRowBuilder()
-      .addComponents(
-        new ButtonBuilder()
-          .setCustomId('create_recommendation')
-          .setLabel('🎬 Recommend a Movie')
-          .setStyle(ButtonStyle.Primary)
-      );
+    const recommendButton = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('create_recommendation')
+        .setLabel(buttonLabel)
+        .setStyle(ButtonStyle.Primary)
+    );
 
     if (pinnedPost) {
       // Edit existing pinned post
@@ -823,12 +1079,16 @@ async function ensureRecommendationPost(channel, activeSession = null) {
       try {
         const reuse = systemPosts[0].thread;
         if (reuse.archived) await reuse.setArchived(false);
-        await reuse.setName('🍿 Recommend a Movie');
+        await reuse.setName(title);
         const starterMessage = await reuse.fetchStarterMessage();
         if (starterMessage) {
           await starterMessage.edit({ embeds: [recommendEmbed], components: [recommendButton] });
         }
-        try { await reuse.pin(); } catch {}
+        try {
+          await reuse.pin();
+        } catch (e) {
+          /* no-op: pin best-effort */ void 0;
+        }
         pinnedPost = reuse;
         logger.debug('📋 Reused existing system post as recommendation post', guildId);
       } catch (reuseErr) {
@@ -840,48 +1100,66 @@ async function ensureRecommendationPost(channel, activeSession = null) {
       // Create new pinned post
       try {
         const forumPost = await channel.threads.create({
-          name: '🍿 Recommend a Movie',
-          message: { embeds: [recommendEmbed], components: [recommendButton] }
+          name: title,
+          message: { embeds: [recommendEmbed], components: [recommendButton] },
         });
         await forumPost.pin();
         logger.debug('📋 Created new recommendation post', guildId);
       } catch (createError) {
         if (createError.code === 30047) {
-          logger.warn('📋 Cannot pin new post (pin limit reached), unpinning others first', guildId);
+          logger.warn(
+            '📋 Cannot pin new post (pin limit reached), unpinning others first',
+            guildId
+          );
           const unpinnedCount = await unpinOtherForumPosts(channel);
 
           // If we still can't unpin anything, try creating without pinning
           if (unpinnedCount === 0) {
-            logger.warn('📋 No threads were unpinned - creating recommendation post without pinning', guildId);
+            logger.warn(
+              '📋 No threads were unpinned - creating recommendation post without pinning',
+              guildId
+            );
             try {
-              const forumPost = await channel.threads.create({
-                name: '🍿 Recommend a Movie',
-                message: { embeds: [recommendEmbed], components: [recommendButton] }
+              const _forumPost = await channel.threads.create({
+                name: title, // Use the correct title, not hardcoded "Recommend Content"
+                message: { embeds: [recommendEmbed], components: [recommendButton] },
               });
-              logger.debug('📋 Created recommendation post without pinning due to Discord API issue', guildId);
+              logger.debug(
+                '📋 Created recommendation post without pinning due to Discord API issue',
+                guildId
+              );
             } catch (noPinError) {
-              logger.error(`📋 Cannot create recommendation post even without pinning: ${noPinError.message}`, guildId);
+              logger.error(
+                `📋 Cannot create recommendation post even without pinning: ${noPinError.message}`,
+                guildId
+              );
             }
           } else {
             // Try again after unpinning
             try {
               const forumPost = await channel.threads.create({
-                name: '🍿 Recommend a Movie',
-                message: { embeds: [recommendEmbed], components: [recommendButton] }
+                name: title, // Use the correct title, not hardcoded "Recommend Content"
+                message: { embeds: [recommendEmbed], components: [recommendButton] },
               });
               await forumPost.pin();
               logger.debug('📋 Created new recommendation post after unpinning others', guildId);
             } catch (retryError) {
-              logger.error(`📋 Still cannot create recommendation post after unpinning: ${retryError.message}`, guildId);
+              logger.error(
+                `📋 Still cannot create recommendation post after unpinning: ${retryError.message}`,
+                guildId
+              );
               // Try without pinning as fallback
               try {
-                const forumPost = await channel.threads.create({
-                  name: '🍿 Recommend a Movie',
-                  message: { embeds: [recommendEmbed], components: [recommendButton] }
+                const _forumPost = await channel.threads.create({
+                  name: title,
+                  message: { embeds: [recommendEmbed], components: [recommendButton] },
                 });
                 logger.debug('📋 Created recommendation post without pinning as fallback', guildId);
               } catch (fallbackError) {
-                logger.error(`📋 Complete failure to create recommendation post: ${fallbackError.message}`, guildId);
+                logger.error(
+                  `📋 Complete failure to create recommendation post: ${fallbackError.message}`,
+                  guildId
+                );
               }
             }
           }
@@ -896,26 +1174,38 @@ async function ensureRecommendationPost(channel, activeSession = null) {
       const active = await channel.threads.fetchActive({ cache: false });
       const archived = await channel.threads.fetchArchived({ limit: 50, cache: false });
       const all = new Map([...active.threads, ...archived.threads]);
-      for (const [tid, t] of all) {
+      for (const [_tid, t] of all) {
         if (t.name.includes('No Active Voting Session') || t.name.includes('🚫')) {
-          try { await t.delete('Removing stale no-session post after session start'); } catch {}
+          try {
+            await t.delete('Removing stale no-session post after session start');
+          } catch (e) {
+            /* no-op: cleanup best-effort */ void 0;
+          }
         }
       }
-    } catch (_) {/* ignore cleanup errors */}
-
-
+    } catch (_) {
+      /* ignore cleanup errors */
+    }
   } catch (error) {
     const logger = require('../utils/logger');
-    logger.error(`[${error.constructor.name}] Error ensuring recommendation post:`, error.message, channel.guild?.id);
-    logger.error('Error details:', JSON.stringify({
-      channelName: channel?.name,
-      channelId: channel?.id,
-      channelType: channel?.type,
-      activeSession: activeSession?.id,
-      errorMessage: error.message,
-      errorCode: error.code,
-      errorStack: error.stack?.split('\n')[0]
-    }), channel.guild?.id);
+    logger.error(
+      `[${error.constructor.name}] Error ensuring recommendation post:`,
+      error.message,
+      channel.guild?.id
+    );
+    logger.error(
+      'Error details:',
+      JSON.stringify({
+        channelName: channel?.name,
+        channelId: channel?.id,
+        channelType: channel?.type,
+        activeSession: activeSession?.id,
+        errorMessage: error.message,
+        errorCode: error.code,
+        errorStack: error.stack?.split('\n')[0],
+      }),
+      channel.guild?.id
+    );
   }
 }
 
@@ -932,7 +1222,7 @@ async function createNoActiveSessionPost(channel) {
     const allThreads = new Map([...threads.threads, ...archivedThreads.threads]);
 
     let noSessionPost = null;
-    for (const [threadId, thread] of allThreads) {
+    for (const [_threadId, thread] of allThreads) {
       if (thread.name.includes('No Active Voting Session') || thread.name.includes('🚫')) {
         noSessionPost = thread;
         break;
@@ -940,16 +1230,26 @@ async function createNoActiveSessionPost(channel) {
     }
 
     // Create the embed
-    const { EmbedBuilder } = require('discord.js');
+
     const noSessionEmbed = new EmbedBuilder()
       .setTitle('🚫 No Active Voting Session')
-      .setDescription('**There is currently no active voting session.**\n\nAn admin needs to use the "Plan Next Session" button in the admin channel to start a new voting session.\n\n💡 **Tip:** Movie recommendations are only available during active voting sessions.')
+      .setDescription(
+        '**There is currently no active voting session.**\n\nAn admin needs to use the "Plan Next Session" button in the admin channel to start a new voting session.\n\n💡 **Tip:** Movie recommendations are only available during active voting sessions.'
+      )
       .setColor(0xed4245)
       .addFields(
-        { name: '🎬 Want to recommend a movie?', value: 'Wait for an admin to start the next voting session!', inline: false },
-        { name: '⚙️ Admin?', value: 'Use the admin channel to plan and start the next session.', inline: false }
+        {
+          name: '🎬 Want to recommend content?',
+          value: 'Wait for an admin to start the next voting session!',
+          inline: false,
+        },
+        {
+          name: '⚙️ Admin?',
+          value: 'Use the admin channel to plan and start the next session.',
+          inline: false,
+        }
       )
-      .setFooter({ text: 'Movie recommendations will be available when a session starts' });
+      .setFooter({ text: 'Content recommendations will be available when a session starts' });
 
     if (noSessionPost) {
       // Update existing post
@@ -960,7 +1260,7 @@ async function createNoActiveSessionPost(channel) {
       const starterMessage = await noSessionPost.fetchStarterMessage();
       if (starterMessage) {
         await starterMessage.edit({
-          embeds: [noSessionEmbed]
+          embeds: [noSessionEmbed],
         });
 
         // Pin the post to keep it visible
@@ -975,9 +1275,9 @@ async function createNoActiveSessionPost(channel) {
       const forumPost = await channel.threads.create({
         name: '🚫 No Active Voting Session',
         message: {
-          embeds: [noSessionEmbed]
+          embeds: [noSessionEmbed],
         },
-        reason: 'No active voting session notification'
+        reason: 'No active voting session notification',
       });
 
       // Pin the post to keep it visible
@@ -985,12 +1285,10 @@ async function createNoActiveSessionPost(channel) {
 
       logger.info(`📋 Created no active session post: ${forumPost.name} (ID: ${forumPost.id})`);
     }
-
   } catch (error) {
     const logger = require('../utils/logger');
     logger.error('Error creating no active session post:', error);
   }
-
 }
 
 /**
@@ -1008,13 +1306,26 @@ async function setPinnedPostStatusNote(channel, title, description) {
     let pinnedPost = null;
     for (const [, t] of all) {
       const fresh = await channel.client.channels.fetch(t.id).catch(() => null);
-      if (fresh && fresh.pinned) { pinnedPost = fresh; break; }
-      if (t.name.includes('Recommend a Movie') || t.name.includes('🍿')) pinnedPost = fresh || t;
+      if (fresh && fresh.pinned) {
+        pinnedPost = fresh;
+        break;
+      }
+      if (
+        t.name.includes('Recommend Content') ||
+        t.name.includes('Recommend a Movie') ||
+        t.name.includes('Recommend Movies') ||
+        t.name.includes('Recommend TV Shows')
+      )
+        pinnedPost = fresh || t;
     }
     if (!pinnedPost) return false;
 
     if (pinnedPost.archived) {
-      try { await pinnedPost.setArchived(false); } catch {}
+      try {
+        await pinnedPost.setArchived(false);
+      } catch (e) {
+        /* no-op: unarchive best-effort */ void 0;
+      }
     }
 
     const starter = await pinnedPost.fetchStarterMessage();
@@ -1035,7 +1346,6 @@ async function setPinnedPostStatusNote(channel, title, description) {
   }
 }
 
-
 module.exports = {
   isForumChannel,
   isTextChannel,
@@ -1052,5 +1362,6 @@ module.exports = {
   getMovieStatusTags,
   ensureRecommendationPost,
   unpinOtherForumPosts,
-  setPinnedPostStatusNote
+  setPinnedPostStatusNote,
+  createNoActiveSessionPost,
 };

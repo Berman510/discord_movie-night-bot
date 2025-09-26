@@ -11,14 +11,29 @@ class EphemeralManager {
     // Simple throttle map: key `${key}:${userId}` -> lastTimestamp
     this.throttles = new Map();
 
-    // Clean up old entries every 10 minutes
-    setInterval(() => {
-      this.cleanupOldEntries();
-    }, 10 * 60 * 1000);
+    // Clean up old entries every 10 minutes (skip in tests)
+    this._cleanupInterval = null;
+    if (process.env.NODE_ENV !== 'test') {
+      this._cleanupInterval = setInterval(
+        () => {
+          this.cleanupOldEntries();
+        },
+        10 * 60 * 1000
+      );
+      // Don't keep the process alive solely for this interval
+      if (this._cleanupInterval && typeof this._cleanupInterval.unref === 'function') {
+        this._cleanupInterval.unref();
+      }
+    }
   }
 
   /**
    * Send an ephemeral message, automatically cleaning up the previous one
+   * @param {Object} interaction - Discord interaction
+   * @param {string} content - Message content
+   * @param {Object} options - Message options
+   * @param {number} options.autoExpireSeconds - Auto-expire after N seconds (default: 20 for no-interaction messages)
+   * @param {boolean} options.hasInteraction - Whether message has interaction buttons (affects auto-expire)
    */
   async sendEphemeral(interaction, content, options = {}) {
     try {
@@ -28,27 +43,47 @@ class EphemeralManager {
 
       const { MessageFlags } = require('discord.js');
 
+      // Determine auto-expire behavior
+      const hasInteraction =
+        options.hasInteraction || (options.components && options.components.length > 0);
+      const autoExpireSeconds = options.autoExpireSeconds || (hasInteraction ? null : 20); // 20s for no-interaction messages
+
       // Send new ephemeral message using flags
       let response;
       if (interaction.replied || interaction.deferred) {
         response = await interaction.followUp({
           content,
           ...options,
-          flags: MessageFlags.Ephemeral
+          flags: MessageFlags.Ephemeral,
         });
       } else {
         response = await interaction.reply({
           content,
           ...options,
-          flags: MessageFlags.Ephemeral
+          flags: MessageFlags.Ephemeral,
         });
+      }
+
+      // Set up auto-expiry if specified
+      if (autoExpireSeconds && autoExpireSeconds > 0) {
+        setTimeout(async () => {
+          try {
+            if (interaction.replied || interaction.deferred) {
+              await response.delete();
+            } else {
+              await interaction.deleteReply();
+            }
+          } catch (error) {
+            // Ignore errors - message may have already been deleted or expired
+          }
+        }, autoExpireSeconds * 1000);
       }
 
       // Track this message for future cleanup (mainly for debugging/stats)
       this.userEphemeralMessages.set(interaction.user.id, {
         interaction: interaction,
         messageId: response.id,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
 
       const logger = require('./logger');
@@ -68,14 +103,14 @@ class EphemeralManager {
       // Update the interaction
       const response = await interaction.update({
         content,
-        ...options
+        ...options,
       });
 
       // Track this updated message
       this.userEphemeralMessages.set(interaction.user.id, {
         interaction: interaction,
         messageId: interaction.message?.id,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
 
       return response;
@@ -94,7 +129,9 @@ class EphemeralManager {
     if (!previousMessage) return;
 
     const logger = require('./logger');
-    logger.debug(`🧹 Cleaning up ephemeral message tracking for user ${userId}: ${previousMessage.messageId}`);
+    logger.debug(
+      `🧹 Cleaning up ephemeral message tracking for user ${userId}: ${previousMessage.messageId}`
+    );
 
     // Note: We can't actually delete ephemeral messages from different interactions
     // Discord handles ephemeral message cleanup automatically
@@ -106,6 +143,20 @@ class EphemeralManager {
   }
 
   /**
+   * Auto-expire an ephemeral message after an interaction is completed
+   * Use this for messages with interaction buttons that should disappear after user acts
+   */
+  async expireAfterInteraction(interaction, delaySeconds = 3) {
+    setTimeout(async () => {
+      try {
+        await interaction.deleteReply();
+      } catch (error) {
+        // Ignore errors - message may have already been deleted or expired
+      }
+    }, delaySeconds * 1000);
+  }
+
+  /**
    * Throttle helpers for ephemeral panels
    */
   startThrottle(key, userId) {
@@ -114,14 +165,14 @@ class EphemeralManager {
 
   isThrottled(key, userId, windowMs = 15000) {
     const last = this.throttles.get(`${key}:${userId}`);
-    return !!last && (Date.now() - last) < windowMs;
+    return !!last && Date.now() - last < windowMs;
   }
 
   /**
    * Clean up old entries (older than 1 hour)
    */
   cleanupOldEntries() {
-    const oneHourAgo = Date.now() - (60 * 60 * 1000);
+    const oneHourAgo = Date.now() - 60 * 60 * 1000;
 
     for (const [userId, messageData] of this.userEphemeralMessages.entries()) {
       if (messageData.timestamp < oneHourAgo) {
@@ -130,7 +181,7 @@ class EphemeralManager {
     }
 
     // Clean stale throttles (> 10 minutes old)
-    const tenMinAgo = Date.now() - (10 * 60 * 1000);
+    const tenMinAgo = Date.now() - 10 * 60 * 1000;
     for (const [key, ts] of this.throttles.entries()) {
       if (ts < tenMinAgo) this.throttles.delete(key);
     }
@@ -150,7 +201,9 @@ class EphemeralManager {
   getStats() {
     return {
       trackedMessages: this.userEphemeralMessages.size,
-      oldestMessage: Math.min(...Array.from(this.userEphemeralMessages.values()).map(m => m.timestamp))
+      oldestMessage: Math.min(
+        ...Array.from(this.userEphemeralMessages.values()).map((m) => m.timestamp)
+      ),
     };
   }
 }

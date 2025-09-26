@@ -22,5 +22,5 @@ module.exports = {
   cleanup: cleanupService,
   stats: statsService,
   configuration: configurationService,
-  sessionTracking: sessionTrackingService
+  sessionTracking: sessionTrackingService,
 };

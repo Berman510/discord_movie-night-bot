@@ -11,7 +11,7 @@ async function handleMovieCleanup(interaction) {
   if (!database.isConnected) {
     await interaction.reply({
       content: '⚠️ Database not available - configuration features require database connection.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -21,8 +21,9 @@ async function handleMovieCleanup(interaction) {
   const hasPermission = await permissions.checkMovieAdminPermission(interaction);
   if (!hasPermission) {
     await interaction.reply({
-      content: '❌ You need Administrator permissions or a configured admin role to use this command.',
-      flags: MessageFlags.Ephemeral
+      content:
+        '❌ You need Administrator permissions or a configured admin role to use this command.',
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -32,8 +33,9 @@ async function handleMovieCleanup(interaction) {
 
   if (!config || !config.movie_channel_id) {
     await interaction.reply({
-      content: '❌ **Movie channel not configured!**\n\nPlease use `/movie-configure action:set-channel` to set up the movie channel first.',
-      flags: MessageFlags.Ephemeral
+      content:
+        '❌ **Movie channel not configured!**\n\nPlease use `/movie-configure action:set-channel` to set up the movie channel first.',
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -42,8 +44,9 @@ async function handleMovieCleanup(interaction) {
   const movieChannel = interaction.guild.channels.cache.get(config.movie_channel_id);
   if (!movieChannel) {
     await interaction.reply({
-      content: '❌ **Configured movie channel not found!**\n\nThe configured channel may have been deleted. Please reconfigure with `/movie-configure action:set-channel`.',
-      flags: MessageFlags.Ephemeral
+      content:
+        '❌ **Configured movie channel not found!**\n\nThe configured channel may have been deleted. Please reconfigure with `/movie-configure action:set-channel`.',
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -57,7 +60,7 @@ async function handleMovieCleanup(interaction) {
   } else {
     await interaction.reply({
       content: '❌ Invalid cleanup action. Use "sync" or "purge".',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -65,7 +68,7 @@ async function handleMovieCleanup(interaction) {
 async function handleCleanupSync(interaction, movieChannel) {
   await interaction.reply({
     content: `🧹 Starting comprehensive sync of <#${movieChannel.id}>... This may take a moment.`,
-    flags: MessageFlags.Ephemeral
+    flags: MessageFlags.Ephemeral,
   });
 
   // Determine if there is an active voting session; avoid reviving old sessions
@@ -74,7 +77,9 @@ async function handleCleanupSync(interaction, movieChannel) {
     const database = require('../database');
     const activeSession = await database.getActiveVotingSession(interaction.guild.id);
     hasActiveVoting = !!activeSession;
-  } catch (_) {}
+  } catch (e) {
+    /* no-op: session check optional */ void 0;
+  }
 
   try {
     const channel = movieChannel;
@@ -87,17 +92,17 @@ async function handleCleanupSync(interaction, movieChannel) {
 
     // Step 1: Get all movies from database for this channel
     const dbMovies = await database.getMoviesByChannel(interaction.guild.id, channel.id);
-    const dbMovieIds = new Set(dbMovies.map(movie => movie.message_id));
+    const dbMovieIds = new Set(dbMovies.map((movie) => movie.message_id));
 
     // Step 2: Fetch recent messages (Discord API limit is 100 per request)
     // Fetch up to 200 messages in two batches for more comprehensive cleanup
     let allMessages = new Map();
-    
+
     try {
       // First batch (most recent 100)
       const firstBatch = await channel.messages.fetch({ limit: 100 });
       firstBatch.forEach((msg, id) => allMessages.set(id, msg));
-      
+
       // Second batch (next 100) if first batch was full
       if (firstBatch.size === 100) {
         const lastMessageId = Array.from(firstBatch.keys()).pop();
@@ -109,7 +114,7 @@ async function handleCleanupSync(interaction, movieChannel) {
       logger.warn('Error fetching additional messages:', error.message);
       // Continue with what we have
     }
-    
+
     const botMessages = new Map();
     for (const [id, msg] of allMessages) {
       if (msg.author.id === botId) {
@@ -122,9 +127,10 @@ async function handleCleanupSync(interaction, movieChannel) {
       processedCount++;
 
       // Check if this is a movie recommendation message
-      const isMovieMessage = message.embeds.length > 0 && 
-                            message.embeds[0].title && 
-                            !message.embeds[0].title.includes('Quick Guide');
+      const isMovieMessage =
+        message.embeds.length > 0 &&
+        message.embeds[0].title &&
+        !message.embeds[0].title.includes('Quick Guide');
 
       if (isMovieMessage) {
         // Check if movie exists in database
@@ -141,7 +147,7 @@ async function handleCleanupSync(interaction, movieChannel) {
         }
 
         // Sync message with database state only if needed
-        const movie = dbMovies.find(m => m.message_id === messageId);
+        const movie = dbMovies.find((m) => m.message_id === messageId);
         if (movie) {
           // For scheduled movies, recreate at bottom instead of syncing in place
           if (movie.status === 'scheduled') {
@@ -172,7 +178,7 @@ async function handleCleanupSync(interaction, movieChannel) {
       if (updated) {
         updatedCount++;
         // Add a small delay to avoid rate limits
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise((resolve) => setTimeout(resolve, 500));
       }
     }
 
@@ -183,9 +189,10 @@ async function handleCleanupSync(interaction, movieChannel) {
     let recreatedViaHelper = 0;
     try {
       recreatedViaHelper = await recreateMissingMoviePosts(channel, interaction.guild.id);
-    } catch (_) {}
+    } catch (e) {
+      /* no-op: recreate helper optional */ void 0;
+    }
     cleanedDbCount += recreatedViaHelper;
-
 
     // Step 6: Check for movies with posts but missing threads
     await recreateMissingThreads(channel, botMessages);
@@ -205,7 +212,11 @@ async function handleCleanupSync(interaction, movieChannel) {
     if (forumChannels.isTextChannel(channel)) {
       await ensureQuickActionAtBottom(channel);
     } else if (forumChannels.isForumChannel(channel)) {
-      try { await forumChannels.ensureRecommendationPost(channel); } catch {}
+      try {
+        await forumChannels.ensureRecommendationPost(channel);
+      } catch (e) {
+        /* no-op: ensure post best-effort */ void 0;
+      }
     }
 
     const summary = [
@@ -217,21 +228,20 @@ async function handleCleanupSync(interaction, movieChannel) {
       `🎪 Synced ${eventSyncResults.syncedCount} Discord events, deleted ${eventSyncResults.deletedCount} orphaned events`,
       `🎬 Recreated ${cleanedDbCount} missing movie posts`,
       `🧵 Cleaned ${threadsCleanedCount} orphaned threads`,
-      `🍿 Added quick action message at bottom`
+      `🍿 Added quick action message at bottom`,
     ];
 
     // Note: Orphaned database entries are now automatically cleaned up
 
     await interaction.followUp({
       content: summary.join('\n'),
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
-
   } catch (error) {
     logger.error('Cleanup error:', error);
     await interaction.followUp({
       content: '❌ Cleanup failed. Check logs for details.',
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -239,26 +249,25 @@ async function handleCleanupSync(interaction, movieChannel) {
 async function handleCleanupPurge(interaction, movieChannel) {
   await interaction.reply({
     content: `⚠️ **PURGE CONFIRMATION REQUIRED**\n\nThis will completely clear <#${movieChannel.id}> and delete ALL current movie recommendations.\n\n**Watched movies and session data will be preserved for analytics.**\n\n**This action cannot be undone!**`,
-    flags: MessageFlags.Ephemeral
+    flags: MessageFlags.Ephemeral,
   });
 
   // Create confirmation buttons
-  const confirmButtons = new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId('confirm_purge')
-        .setLabel('🗑️ YES, PURGE ALL RECOMMENDATIONS')
-        .setStyle(ButtonStyle.Danger),
-      new ButtonBuilder()
-        .setCustomId('cancel_purge')
-        .setLabel('❌ Cancel')
-        .setStyle(ButtonStyle.Secondary)
-    );
+  const confirmButtons = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('confirm_purge')
+      .setLabel('🗑️ YES, PURGE ALL RECOMMENDATIONS')
+      .setStyle(ButtonStyle.Danger),
+    new ButtonBuilder()
+      .setCustomId('cancel_purge')
+      .setLabel('❌ Cancel')
+      .setStyle(ButtonStyle.Secondary)
+  );
 
   await interaction.followUp({
     content: `**⚠️ FINAL WARNING:** This will completely clear <#${movieChannel.id}> including:\n• All current movie recommendations\n• All voting data\n• All discussion threads\n\n**Watched movies and session analytics will be preserved.**`,
     components: [confirmButtons],
-    flags: MessageFlags.Ephemeral
+    flags: MessageFlags.Ephemeral,
   });
 }
 
@@ -276,7 +285,7 @@ async function updateMessageToCurrentFormat(message) {
 
     await message.edit({
       embeds: message.embeds,
-      components: movieComponents
+      components: movieComponents,
     });
     return true;
   } catch (error) {
@@ -294,7 +303,7 @@ async function syncMessageWithDatabase(message, movie) {
     // Only update components, preserve existing embed with IMDb data
     await message.edit({
       embeds: message.embeds, // Keep existing embeds with IMDb data
-      components: movieComponents
+      components: movieComponents,
     });
     return true;
   } catch (error) {
@@ -311,7 +320,8 @@ async function recreateScheduledMovieAtBottom(message, movie, channel) {
     let imdbData = null;
     try {
       if (movie.imdb_data) {
-        let parsed = typeof movie.imdb_data === 'string' ? JSON.parse(movie.imdb_data) : movie.imdb_data;
+        let parsed =
+          typeof movie.imdb_data === 'string' ? JSON.parse(movie.imdb_data) : movie.imdb_data;
         if (typeof parsed === 'string') parsed = JSON.parse(parsed);
         imdbData = parsed;
       }
@@ -324,7 +334,7 @@ async function recreateScheduledMovieAtBottom(message, movie, channel) {
     // Create new message at bottom
     const newMessage = await channel.send({
       embeds: [movieEmbed],
-      components: movieComponents
+      components: movieComponents,
     });
 
     // Update database with new message ID
@@ -363,11 +373,12 @@ async function ensureQuickActionPinned(channel) {
       const pinnedMessages = await channel.messages.fetchPins();
       // Check if pinnedMessages is a Collection and has the find method
       if (pinnedMessages && typeof pinnedMessages.find === 'function') {
-        existingQuickAction = pinnedMessages.find(msg =>
-          msg.author.id === channel.client.user.id &&
-          msg.embeds.length > 0 &&
-          (msg.embeds[0].title?.includes('Ready to recommend') ||
-           msg.embeds[0].title?.includes('No Active Voting Session'))
+        existingQuickAction = pinnedMessages.find(
+          (msg) =>
+            msg.author.id === channel.client.user.id &&
+            msg.embeds.length > 0 &&
+            (msg.embeds[0].title?.includes('Ready to recommend') ||
+              msg.embeds[0].title?.includes('No Active Voting Session'))
         );
       } else {
         const logger = require('../utils/logger');
@@ -382,11 +393,12 @@ async function ensureQuickActionPinned(channel) {
     if (!existingQuickAction) {
       try {
         const recentMessages = await channel.messages.fetch({ limit: 20 });
-        existingQuickAction = recentMessages.find(msg =>
-          msg.author.id === channel.client.user.id &&
-          msg.embeds.length > 0 &&
-          (msg.embeds[0].title?.includes('Ready to recommend') ||
-           msg.embeds[0].title?.includes('No Active Voting Session'))
+        existingQuickAction = recentMessages.find(
+          (msg) =>
+            msg.author.id === channel.client.user.id &&
+            msg.embeds.length > 0 &&
+            (msg.embeds[0].title?.includes('Ready to recommend') ||
+              msg.embeds[0].title?.includes('No Active Voting Session'))
         );
       } catch (error) {
         console.warn('Error fetching recent messages for quick action search:', error.message);
@@ -402,14 +414,14 @@ async function ensureQuickActionPinned(channel) {
         // Update existing pinned message
         await existingQuickAction.edit({
           embeds: [noSessionEmbed],
-          components: []
+          components: [],
         });
         const logger = require('../utils/logger');
         logger.debug('✅ Updated pinned no session message');
       } else {
         // Create new pinned message
         const message = await channel.send({
-          embeds: [noSessionEmbed]
+          embeds: [noSessionEmbed],
         });
         await message.pin();
         const logger = require('../utils/logger');
@@ -423,31 +435,29 @@ async function ensureQuickActionPinned(channel) {
     const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 
     const quickActionEmbed = embeds.createQuickActionEmbed(activeSession);
-    const recommendButton = new ActionRowBuilder()
-      .addComponents(
-        new ButtonBuilder()
-          .setCustomId('create_recommendation')
-          .setLabel('🍿 Recommend a Movie')
-          .setStyle(ButtonStyle.Primary)
-      );
+    const recommendButton = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('create_recommendation')
+        .setLabel('🎬 Recommend Content')
+        .setStyle(ButtonStyle.Primary)
+    );
 
     if (existingQuickAction) {
       // Update existing pinned message
       await existingQuickAction.edit({
         embeds: [quickActionEmbed],
-        components: [recommendButton]
+        components: [recommendButton],
       });
       console.log('✅ Updated pinned quick action message');
     } else {
       // Create new pinned message
       const message = await channel.send({
         embeds: [quickActionEmbed],
-        components: [recommendButton]
+        components: [recommendButton],
       });
       await message.pin();
       console.log('✅ Created and pinned quick action message');
     }
-
   } catch (error) {
     console.warn('Error ensuring quick action pinned:', error.message);
     // Fallback to old behavior if pinning fails
@@ -484,7 +494,7 @@ async function ensureQuickActionAtBottom(channel) {
       const noSessionEmbed = embeds.createNoSessionEmbed();
 
       await channel.send({
-        embeds: [noSessionEmbed]
+        embeds: [noSessionEmbed],
       });
 
       const logger = require('../utils/logger');
@@ -497,17 +507,16 @@ async function ensureQuickActionAtBottom(channel) {
     const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 
     const quickActionEmbed = embeds.createQuickActionEmbed(activeSession);
-    const recommendButton = new ActionRowBuilder()
-      .addComponents(
-        new ButtonBuilder()
-          .setCustomId('create_recommendation')
-          .setLabel('🍿 Recommend a Movie')
-          .setStyle(ButtonStyle.Primary)
-      );
+    const recommendButton = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('create_recommendation')
+        .setLabel('🎬 Recommend Content')
+        .setStyle(ButtonStyle.Primary)
+    );
 
     await channel.send({
       embeds: [quickActionEmbed],
-      components: [recommendButton]
+      components: [recommendButton],
     });
 
     const logger = require('../utils/logger');
@@ -531,16 +540,17 @@ async function cleanupOldGuideMessages(channel) {
 
     // Fetch recent messages to find old guide messages
     const messages = await channel.messages.fetch({ limit: 50 });
-    const botMessages = messages.filter(msg => msg.author.id === botId);
+    const botMessages = messages.filter((msg) => msg.author.id === botId);
 
     for (const [messageId, message] of botMessages) {
       // Check if this is a guide/quick action message
-      const isGuideMessage = message.embeds.length > 0 &&
-                            message.embeds[0].title &&
-                            (message.embeds[0].title.includes('Quick Guide') ||
-                             message.embeds[0].title.includes('Ready to recommend') ||
-                             message.embeds[0].title.includes('Movie Night') ||
-                             message.embeds[0].title.includes('No Active Voting Session'));
+      const isGuideMessage =
+        message.embeds.length > 0 &&
+        message.embeds[0].title &&
+        (message.embeds[0].title.includes('Quick Guide') ||
+          message.embeds[0].title.includes('Ready to recommend') ||
+          message.embeds[0].title.includes('Movie Night') ||
+          message.embeds[0].title.includes('No Active Voting Session'));
 
       if (isGuideMessage) {
         try {
@@ -578,19 +588,19 @@ async function cleanupOrphanedThreads(channel) {
     // Fetch all threads (active and archived)
     const [activeThreads, archivedThreads] = await Promise.all([
       channel.threads.fetchActive().catch(() => ({ threads: new Map() })),
-      channel.threads.fetchArchived({ limit: 100 }).catch(() => ({ threads: new Map() }))
+      channel.threads.fetchArchived({ limit: 100 }).catch(() => ({ threads: new Map() })),
     ]);
 
     const allThreads = new Map([...activeThreads.threads, ...archivedThreads.threads]);
 
     // Get current messages in channel to check for parent posts
     const messages = await channel.messages.fetch({ limit: 100 });
-    const botMessages = messages.filter(msg => msg.author.id === channel.client.user.id);
+    const botMessages = messages.filter((msg) => msg.author.id === channel.client.user.id);
 
     // Get current movie titles from database to check if threads are still relevant
     const database = require('../database');
     const currentMovies = await database.getMoviesByChannel(channel.guild.id, channel.id);
-    const currentMovieTitles = new Set(currentMovies.map(movie => movie.title));
+    const currentMovieTitles = new Set(currentMovies.map((movie) => movie.title));
 
     for (const [threadId, thread] of allThreads) {
       // Skip if not a movie discussion thread
@@ -605,10 +615,9 @@ async function cleanupOrphanedThreads(channel) {
       const movieStillExists = currentMovieTitles.has(movieTitle);
 
       // Check if there's a corresponding bot message for this movie
-      const hasCorrespondingPost = botMessages.some(msg =>
-        msg.embeds.length > 0 &&
-        msg.embeds[0].title &&
-        msg.embeds[0].title.includes(movieTitle)
+      const hasCorrespondingPost = botMessages.some(
+        (msg) =>
+          msg.embeds.length > 0 && msg.embeds[0].title && msg.embeds[0].title.includes(movieTitle)
       );
 
       // Only delete if movie doesn't exist in database AND no corresponding post
@@ -616,12 +625,16 @@ async function cleanupOrphanedThreads(channel) {
         try {
           await thread.delete();
           cleanedCount++;
-          console.log(`🧵 Deleted orphaned thread: ${thread.name} (${threadId}) - movie no longer exists`);
+          console.log(
+            `🧵 Deleted orphaned thread: ${thread.name} (${threadId}) - movie no longer exists`
+          );
         } catch (error) {
           console.warn(`Failed to delete orphaned thread ${threadId}:`, error.message);
         }
       } else {
-        console.log(`🧵 Keeping thread: ${thread.name} (movie exists: ${movieStillExists}, has post: ${hasCorrespondingPost})`);
+        console.log(
+          `🧵 Keeping thread: ${thread.name} (movie exists: ${movieStillExists}, has post: ${hasCorrespondingPost})`
+        );
       }
     }
 
@@ -651,7 +664,7 @@ async function cleanupAllThreads(channel) {
     // Fetch all threads (active and archived)
     const [activeThreads, archivedThreads] = await Promise.all([
       channel.threads.fetchActive().catch(() => ({ threads: new Map() })),
-      channel.threads.fetchArchived({ limit: 100 }).catch(() => ({ threads: new Map() }))
+      channel.threads.fetchArchived({ limit: 100 }).catch(() => ({ threads: new Map() })),
     ]);
 
     const allThreads = new Map([...activeThreads.threads, ...archivedThreads.threads]);
@@ -690,23 +703,25 @@ async function recreateMissingMoviePosts(channel, guildId) {
 
     // Get all movies for this guild and channel that are in the current session
     const allMovies = await database.getMoviesByChannel(guildId, channel.id);
-    const sessionMovies = allMovies.filter(movie =>
-      movie.session_id === activeSession.id ||
-      (movie.status === 'pending' && !movie.session_id) // Include pending movies without session
+    const sessionMovies = allMovies.filter(
+      (movie) =>
+        movie.session_id === activeSession.id || (movie.status === 'pending' && !movie.session_id) // Include pending movies without session
     );
 
     console.log(`🔍 Active voting session for guild ${guildId}: Session ${activeSession.id}`);
 
     // Get current messages in channel
     const messages = await channel.messages.fetch({ limit: 100 });
-    const botMessages = messages.filter(msg => msg.author.id === channel.client.user.id);
+    const botMessages = messages.filter((msg) => msg.author.id === channel.client.user.id);
     const existingMessageIds = new Set(botMessages.keys());
 
     for (const movie of sessionMovies) {
       // Skip watched movies - they don't need posts
       if (movie.status === 'watched') continue;
 
-      console.log(`🔍 Movie ${movie.message_id} in voting session: ${movie.session_id === activeSession.id} (movie session_id: ${movie.session_id})`);
+      console.log(
+        `🔍 Movie ${movie.message_id} in voting session: ${movie.session_id === activeSession.id} (movie session_id: ${movie.session_id})`
+      );
 
       // Check if this movie's message exists in the channel
       if (!existingMessageIds.has(movie.message_id)) {
@@ -749,22 +764,30 @@ async function recreateMoviePost(channel, movie) {
     }
 
     // Create movie embed with proper field mapping and safety checks
-    const movieEmbed = embeds.createMovieEmbed({
-      title: movie.title || 'Unknown Movie',
-      description: movie.description || '',
-      where_to_watch: movie.where_to_watch || 'Unknown Platform',
-      recommended_by: movie.recommended_by || 'Unknown User',
-      status: movie.status || 'pending',
-      created_at: movie.created_at
-    }, imdbData, voteCounts);
+    const movieEmbed = embeds.createMovieEmbed(
+      {
+        title: movie.title || 'Unknown Movie',
+        description: movie.description || '',
+        where_to_watch: movie.where_to_watch || 'Unknown Platform',
+        recommended_by: movie.recommended_by || 'Unknown User',
+        status: movie.status || 'pending',
+        created_at: movie.created_at,
+      },
+      imdbData,
+      voteCounts
+    );
 
     // Create voting buttons only (admin buttons require permission checks)
-    const movieComponents = components.createVotingButtons(movie.message_id, voteCounts.up, voteCounts.down);
+    const movieComponents = components.createVotingButtons(
+      movie.message_id,
+      voteCounts.up,
+      voteCounts.down
+    );
 
     // Post the recreated message
     const newMessage = await channel.send({
       embeds: [movieEmbed],
-      components: movieComponents
+      components: movieComponents,
     });
 
     // Create new movie record with new message ID
@@ -781,11 +804,13 @@ async function recreateMoviePost(channel, movie) {
         whereToWatch: movie.where_to_watch,
         recommendedBy: movie.recommended_by,
         imdbId: movie.imdb_id,
-        status: movie.status
+        status: movie.status,
       });
 
       if (movieId) {
-        logger.debug(`🔄 Recreated movie record: ${movie.title} (${movie.message_id} → ${newMessage.id})`);
+        logger.debug(
+          `🔄 Recreated movie record: ${movie.title} (${movie.message_id} → ${newMessage.id})`
+        );
       } else {
         logger.warn(`Failed to recreate movie record for ${movie.title}`);
         return false;
@@ -799,7 +824,7 @@ async function recreateMoviePost(channel, movie) {
     try {
       const thread = await newMessage.startThread({
         name: `💬 ${movie.title}`,
-        autoArchiveDuration: 10080 // 7 days
+        autoArchiveDuration: 10080, // 7 days
       });
 
       // Add detailed information to the thread
@@ -807,14 +832,13 @@ async function recreateMoviePost(channel, movie) {
       await movieCreation.addDetailedMovieInfoToThread(thread, {
         title: movie.title,
         where: movie.where_to_watch,
-        imdbData: imdbData
+        imdbData: imdbData,
       });
 
       console.log(`🧵 Created discussion thread for recreated post: ${movie.title}`);
     } catch (threadError) {
       console.warn(`Failed to create thread for ${movie.title}:`, threadError.message);
     }
-
   } catch (error) {
     console.error(`Error recreating movie post for ${movie.title}:`, error);
     throw error;
@@ -829,7 +853,7 @@ async function recreateMissingThreads(channel, botMessages) {
     // Get all current threads
     const [activeThreads, archivedThreads] = await Promise.all([
       channel.threads.fetchActive().catch(() => ({ threads: new Map() })),
-      channel.threads.fetchArchived({ limit: 100 }).catch(() => ({ threads: new Map() }))
+      channel.threads.fetchArchived({ limit: 100 }).catch(() => ({ threads: new Map() })),
     ]);
 
     const allThreads = new Map([...activeThreads.threads, ...archivedThreads.threads]);
@@ -850,7 +874,7 @@ async function recreateMissingThreads(channel, botMessages) {
 
       // Extract movie title from embed
       const embedTitle = message.embeds[0].title;
-      const movieTitle = embedTitle.replace(/^[🎬🍿⭐📌⏭️✅]\s*/, ''); // Remove status emojis
+      const movieTitle = embedTitle.replace(/^(?:🎬|🍿|⭐|📌|⏭️|✅)\s*/u, ''); // Remove status emojis
 
       // Check if this movie has a thread
       if (!existingThreadTitles.has(movieTitle)) {
@@ -861,10 +885,12 @@ async function recreateMissingThreads(channel, botMessages) {
           // Create missing thread
           const thread = await message.startThread({
             name: `${movieTitle} — Discussion`,
-            autoArchiveDuration: 1440 // 24 hours
+            autoArchiveDuration: 1440, // 24 hours
           });
 
-          await thread.send(`💬 **Discussion thread for ${movieTitle}**\n\nShare your thoughts, reviews, or questions about this movie!`);
+          await thread.send(
+            `💬 **Discussion thread for ${movieTitle}**\n\nShare your thoughts, reviews, or questions about this movie!`
+          );
           threadsCreated++;
           const logger = require('../utils/logger');
           logger.debug(`🧵 Created missing thread for: ${movieTitle}`);
@@ -893,7 +919,11 @@ async function recreateMissingThreads(channel, botMessages) {
 async function removeMoviePost(client, channelId, movieId) {
   try {
     if (!client || !channelId || !movieId) {
-      console.warn('Missing parameters for removeMoviePost:', { client: !!client, channelId, movieId });
+      console.warn('Missing parameters for removeMoviePost:', {
+        client: !!client,
+        channelId,
+        movieId,
+      });
       return false;
     }
 
@@ -905,7 +935,7 @@ async function removeMoviePost(client, channelId, movieId) {
 
     // Find and delete the movie message
     const messages = await channel.messages.fetch({ limit: 100 });
-    const movieMessage = messages.find(msg => msg.id === movieId);
+    const movieMessage = messages.find((msg) => msg.id === movieId);
 
     if (movieMessage) {
       await movieMessage.delete();
@@ -942,5 +972,5 @@ module.exports = {
   recreateMissingMoviePosts,
   recreateMoviePost,
   removeMoviePost,
-  recreateMissingThreads
+  recreateMissingThreads,
 };

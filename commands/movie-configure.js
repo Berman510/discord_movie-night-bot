@@ -3,7 +3,7 @@
  * Slash command definitions for bot configuration
  */
 
-const { TIMEZONE_OPTIONS } = require('../config/timezones');
+const { TIMEZONE_OPTIONS: _TIMEZONE_OPTIONS } = require('../config/timezones');
 
 const commands = [
   {
@@ -24,24 +24,25 @@ const commands = [
           { name: 'view-settings', value: 'view-settings' },
           { name: 'debug', value: 'debug' },
           { name: 'debug-session', value: 'debug-session' },
-          { name: 'reset', value: 'reset' }
-        ]
+          { name: 'reset', value: 'reset' },
+        ],
       },
       {
         name: 'channel',
-        description: 'Channel to set (for set-voting-channel, set-viewing-channel, or set-admin-channel actions)',
+        description:
+          'Channel to set (for set-voting-channel, set-viewing-channel, or set-admin-channel actions)',
         type: 7, // CHANNEL
-        required: false
+        required: false,
       },
 
       {
         name: 'role',
         description: 'Role to add/remove as admin',
         type: 8, // ROLE
-        required: false
-      }
-    ]
-  }
+        required: false,
+      },
+    ],
+  },
 ];
 
 module.exports = commands;

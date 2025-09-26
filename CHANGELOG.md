@@ -2,6 +2,119 @@
 
 All notable changes to **Movie Night Bot** will be documented in this file.
 
+## [1.16.0] - 2025-09-26
+
+### 🎬 Major Features: Watch Party & Session Workflow
+
+- **Complete TV Show Support**: Full parity with movies including episode search, voting, and session management
+- **Session-Based Workflow**: Explicit named sessions with lifecycle management (planning → voting → decided/completed/cancelled)
+- **Enhanced Admin Controls**: Streamlined admin operations with Ban/Skip/Pick Winner functionality
+- **Content Type Flexibility**: Support for Movie, TV Show, and Mixed sessions with proper content filtering
+- **Improved User Experience**: Better time parsing, ephemeral message management, and startup reliability
+
+### 🆕 Added
+
+#### TV Show Integration
+- **TV Episode Search**: Search for specific episodes with formats like "Show Name Episode 302" or "Show Name - 302"
+- **Episode Title Display**: Consistent formatting as "Series Name - S14E03 - Episode Title" across all channels
+- **TV Show Sessions**: Dedicated TV show voting sessions with proper content type separation
+- **Mixed Sessions**: Support for sessions containing both movies and TV shows
+
+#### Session Management
+- **Session Content Types**: Movie, TV Show, and Mixed session types with proper content filtering
+- **Carryover Content**: Automatic carryover of non-winning content to next session with proper admin channel posts
+- **Session Integrity**: Content type filtering ensures movies don't appear in TV sessions and vice versa
+- **Enhanced Session Creation**: Improved time parsing supporting formats like "11PM", "11 PM" without requiring full "11:00 PM"
+
+#### Admin Experience
+- **Voting Synchronization**: Real-time vote count updates between voting and admin channels
+- **Admin Channel Posts**: Carryover content now properly appears in both voting and admin channels for winner selection
+- **Content Type Respect**: Sync operations now respect active session content type, preventing content mix-ups
+
+#### User Experience
+- **Ephemeral Message Management**: Auto-expiry system for messages without interactions (20-second default)
+- **Silent Bot Restarts**: Bot restarts no longer create unread messages or recreate channel content
+- **Flexible Time Input**: Support for lazy time formats like "11PM", "7AM" without requiring colons
+- **Professional Messaging**: Improved error handling and user feedback throughout the application
+
+### 🔧 Fixed
+
+#### Critical Bug Fixes
+- **Carryover Admin Posts**: Fixed function parameter mismatch preventing carryover content from appearing in admin channels
+- **Content Type Mix-ups**: Fixed sync operations pulling wrong content types (movies appearing in TV sessions)
+- **Voting Sync Issues**: Fixed vote count synchronization between voting and admin channel posts
+- **Startup Message Recreation**: Eliminated unwanted message recreation during bot restarts
+
+#### Reliability Improvements
+- **Session Recovery**: Implemented silent recovery mode to prevent Discord message spam during startup
+- **Content Filtering**: Enhanced content type filtering in sync operations and forum population
+- **Error Handling**: Improved error handling and logging throughout the application
+- **Database Consistency**: Better handling of content type detection and session management
+
+### 🎨 Enhanced
+
+#### Content Display
+- **TV Show Titles**: Improved episode title formatting with series context for better identification
+- **Vote Count Display**: Real-time synchronization of vote counts across all channel types
+- **Content Organization**: Better separation and filtering of content types in all operations
+
+#### Admin Operations
+- **Sync Channel Integrity**: Sync operations now maintain session type integrity
+- **Forum Channel Support**: Enhanced forum channel population with proper content type filtering
+- **Admin Panel Reliability**: Improved admin control panel management and recreation
+
+#### Technical Improvements
+- **Content Type Architecture**: Unified content type handling across movies and TV shows
+- **Database Operations**: Enhanced database queries with proper content type filtering
+- **WebSocket Communication**: Improved dashboard integration with better error handling
+- **Logging and Debugging**: Enhanced logging throughout the application for better troubleshooting
+
+### 🔄 Changed
+
+#### Architecture
+- **Unified Content Handling**: Movies and TV shows now use consistent patterns and handlers
+- **Session-Centric Design**: All operations now respect and maintain session content type integrity
+- **Content Type Filtering**: All sync and population operations now filter by active session type
+
+#### User Interface
+- **Time Input Flexibility**: More forgiving time parsing for better user experience
+- **Ephemeral Message Lifecycle**: Smarter auto-expiry for informational messages
+- **Professional Error Messages**: Improved error messaging and user guidance
+
+#### Technical
+- **Silent Operations**: Bot startup and recovery operations no longer create user-visible messages
+- **Content Type Detection**: Enhanced detection and handling of different content types
+- **Database Schema**: Improved content type handling and session management
+
+### 🛠️ Technical Improvements
+
+- **Content Type Utilities**: New centralized content type handling system
+- **Enhanced Database Operations**: Better content filtering and session management queries
+- **Improved Error Handling**: More robust error handling throughout the application
+- **WebSocket Resilience**: Better handling of dashboard communication failures
+- **Logging Enhancements**: More detailed logging for troubleshooting and monitoring
+
+### 📚 Documentation
+
+- **User-Focused README**: Complete rewrite focusing on bot usage rather than technical setup
+- **Comprehensive Documentation**: Enhanced documentation covering all new features and workflows
+- **Setup Guides**: Improved setup and configuration documentation
+- **Troubleshooting**: Better error messages and troubleshooting guidance
+
+### 🔒 Backwards Compatibility
+
+- **Command Compatibility**: All existing slash commands remain unchanged
+- **Channel Layout**: Existing channel configurations continue to work
+- **Database Migration**: Automatic handling of schema changes and new features
+- **Configuration**: Existing bot configurations remain valid
+
+### 🧪 Testing & Quality
+
+- **Comprehensive Testing**: Extensive testing of all new features and bug fixes
+- **Content Type Validation**: Thorough testing of content type separation and filtering
+- **Session Lifecycle Testing**: Complete testing of session creation, management, and completion
+- **Integration Testing**: Full testing of bot and dashboard integration
+
 ## [1.15.1] - 2025-09-14
 
 ### Enhanced

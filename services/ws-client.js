@@ -17,7 +17,9 @@ function ensureWsInstalledIfNeeded() {
       cp.execSync('npm ci --omit=dev', { stdio: 'inherit' });
     } catch (e) {
       console.warn('[ws] npm ci failed, trying npm install --only=prod...');
-      try { cp.execSync('npm install --only=prod', { stdio: 'inherit' }); } catch (e2) {
+      try {
+        cp.execSync('npm install --only=prod', { stdio: 'inherit' });
+      } catch (e2) {
         console.warn('[ws] Failed to auto-install ws. WebSocket client will be disabled.');
         return null;
       }
@@ -54,7 +56,7 @@ function initWebSocketClient(logger) {
   const HEARTBEAT_MS = 30000;
   const MIN_RECONNECT_MS = 3000;
   const MAX_RECONNECT_MS = 60000;
-  let isConnected = false;
+  let _isConnected = false;
   let statusInterval = null;
   let lastReported = null;
 
@@ -62,39 +64,46 @@ function initWebSocketClient(logger) {
     try {
       logger?.info?.(`WS: connecting to ${WS_URL} ...`);
       ws = new WS(WS_URL, {
-        headers: { Authorization: `Bearer ${TOKEN}` }
-
+        headers: { Authorization: `Bearer ${TOKEN}` },
       });
 
       ws.on('open', () => {
         reconnectAttempts = 0;
-        isConnected = true;
-        try { global.wsStatus = { connected: true, attempts: reconnectAttempts, ts: Date.now() }; } catch (_) {}
+        _isConnected = true;
+        try {
+          global.wsStatus = { connected: true, attempts: reconnectAttempts, ts: Date.now() };
+        } catch (_) {}
         logger?.info?.('WS: connected');
         // hello payload
         const payload = {
           type: 'hello',
           payload: {
             botVersion: pkg.version,
-            env: process.env.NODE_ENV || 'development'
-          }
+            env: process.env.NODE_ENV || 'development',
+          },
         };
-        try { ws.send(JSON.stringify(payload)); } catch (_) {}
+        try {
+          ws.send(JSON.stringify(payload));
+        } catch (_) {}
         // Periodic status poll with change-only reporting
         if (!statusInterval) {
           statusInterval = setInterval(() => {
             const connected = !!(ws && ws.readyState === 1);
             if (lastReported !== connected) {
               lastReported = connected;
-              isConnected = connected;
-              try { global.wsStatus = { connected, attempts: reconnectAttempts, ts: Date.now() }; } catch (_) {}
+              _isConnected = connected;
+              try {
+                global.wsStatus = { connected, attempts: reconnectAttempts, ts: Date.now() };
+              } catch (_) {}
               logger?.info?.(`WS: ${connected ? 'connected' : 'disconnected'}`);
             }
           }, 5000);
         }
         // heartbeat
         heartbeat = setInterval(() => {
-          try { ws.ping(); } catch (_) {}
+          try {
+            ws.ping();
+          } catch (_) {}
         }, HEARTBEAT_MS);
       });
 
@@ -104,7 +113,11 @@ function initWebSocketClient(logger) {
 
       ws.on('message', async (data) => {
         let msg;
-        try { msg = JSON.parse(data); } catch (_) { return; }
+        try {
+          msg = JSON.parse(data);
+        } catch (_) {
+          return;
+        }
         // ack responses or control messages can be handled here later
         if (msg.type === 'pong') return;
         if (msg.type === 'ack') return;
@@ -119,17 +132,32 @@ function initWebSocketClient(logger) {
             const adminControls = require('./admin-controls');
             const forumChannels = require('./forum-channels');
             const { ensureQuickActionAtBottom, recreateMissingMoviePosts } = require('./cleanup');
+
+            // Only perform sync operations when explicitly requested by dashboard
+            // This prevents message recreation during bot startup/reconnection
+            logger?.info?.(`[${guildId}] WS sync_guild requested by dashboard`);
+
             try {
               const config = await database.getGuildConfig(guildId);
-              try { await adminControls.ensureAdminControlPanel(client, guildId); } catch (_) {}
+              try {
+                await adminControls.ensureAdminControlPanel(client, guildId);
+              } catch (_) {}
               if (config && config.movie_channel_id) {
-                const votingChannel = await client.channels.fetch(config.movie_channel_id).catch(() => null);
+                const votingChannel = await client.channels
+                  .fetch(config.movie_channel_id)
+                  .catch(() => null);
                 if (votingChannel) {
                   if (forumChannels.isForumChannel(votingChannel)) {
-                    try { await adminControls.populateForumChannel(client, guildId); } catch (_) {}
+                    try {
+                      await adminControls.populateForumChannel(client, guildId);
+                    } catch (_) {}
                   } else {
-                    try { await recreateMissingMoviePosts(votingChannel, guildId); } catch (_) {}
-                    try { await ensureQuickActionAtBottom(votingChannel); } catch (_) {}
+                    try {
+                      await recreateMissingMoviePosts(votingChannel, guildId);
+                    } catch (_) {}
+                    try {
+                      await ensureQuickActionAtBottom(votingChannel);
+                    } catch (_) {}
                   }
                 }
               }
@@ -145,7 +173,9 @@ function initWebSocketClient(logger) {
             const client = global.discordClient;
             if (!client) return;
             const adminControls = require('./admin-controls');
-            try { await adminControls.ensureAdminControlPanel(client, guildId); } catch (e) {
+            try {
+              await adminControls.ensureAdminControlPanel(client, guildId);
+            } catch (e) {
               logger?.warn?.(`[${guildId}] WS refresh_admin_panel error:`, e?.message || e);
             }
             return;
@@ -157,7 +187,7 @@ function initWebSocketClient(logger) {
             if (!guildId || !title) return;
             const database = require('../database');
             const forumChannels = require('./forum-channels');
-            const { embeds, components } = require('../utils');
+            const { embeds: _embeds, components: _components } = require('../utils');
             const client = global.discordClient;
             try {
               // Mark all instances as banned in DB (and avoid duplicate marker rows)
@@ -181,29 +211,45 @@ function initWebSocketClient(logger) {
                   if (movie.channel_type === 'forum' && movie.thread_id) {
                     const thread = await client?.channels?.fetch(movie.thread_id).catch(() => null);
                     if (thread) {
-                      try { await forumChannels.updateForumPostContent(thread, movie, 'banned'); } catch (_) {}
-                      try { await forumChannels.updateForumPostTags(thread, 'banned'); } catch (_) {}
-                      try { await forumChannels.archiveForumPost(thread, 'Movie banned'); } catch (_) {}
+                      try {
+                        await forumChannels.updateForumPostContent(thread, movie, 'banned');
+                      } catch (_) {}
+                      try {
+                        await forumChannels.updateForumPostTags(thread, 'banned');
+                      } catch (_) {}
+                      try {
+                        await forumChannels.archiveForumPost(thread, 'Movie banned');
+                      } catch (_) {}
                     }
                   } else if (movie.channel_id && movie.message_id) {
                     // Text-channel message: prefer deletion; fallback to editing with no components
-                    const channel = await client?.channels?.fetch(movie.channel_id).catch(() => null);
+                    const channel = await client?.channels
+                      ?.fetch(movie.channel_id)
+                      .catch(() => null);
                     if (channel && channel.messages) {
-                      const msgObj = await channel.messages.fetch(movie.message_id).catch(() => null);
+                      const msgObj = await channel.messages
+                        .fetch(movie.message_id)
+                        .catch(() => null);
                       if (msgObj) {
                         try {
                           await msgObj.delete();
                         } catch (_) {
                           // Fallback: edit to disabled state
                           try {
-                            await msgObj.edit({ content: '⛔️ This movie has been banned.', embeds: [], components: [] });
+                            await msgObj.edit({
+                              content: '⛔️ This movie has been banned.',
+                              embeds: [],
+                              components: [],
+                            });
                           } catch (_) {}
                         }
                       }
                     }
                   }
                 } catch (e) {
-                  logger?.warn?.(`[${guildId}] WS ban cleanup error for ${movie?.message_id}: ${e?.message || e}`);
+                  logger?.warn?.(
+                    `[${guildId}] WS ban cleanup error for ${movie?.message_id}: ${e?.message || e}`
+                  );
                 }
               }
             } catch (e) {
@@ -226,7 +272,9 @@ function initWebSocketClient(logger) {
               const forumChannels = require('./forum-channels');
 
               // Fetch movie and session
-              const movie = await database.getMovieByMessageId(messageId, guildId).catch(() => null);
+              const movie = await database
+                .getMovieByMessageId(messageId, guildId)
+                .catch(() => null);
               if (!movie) return;
               let session = null;
               if (movie.session_id) {
@@ -238,12 +286,16 @@ function initWebSocketClient(logger) {
               if (!session) return;
 
               // Finalize session with this movie as winner
-              try { await database.finalizeVotingSession(session.id, movie.message_id); } catch (_) {}
+              try {
+                await database.finalizeVotingSession(session.id, movie.message_id);
+              } catch (_) {}
 
               // Update forum thread content if applicable
               try {
                 if (movie.channel_type === 'forum' && movie.thread_id) {
-                  const thread = await client.channels.fetch(String(movie.thread_id)).catch(() => null);
+                  const thread = await client.channels
+                    .fetch(String(movie.thread_id))
+                    .catch(() => null);
                   if (thread) {
                     await forumChannels.updateForumPostContent(thread, movie, 'scheduled');
                   }
@@ -255,24 +307,38 @@ function initWebSocketClient(logger) {
                 const cfg = await database.getGuildConfig(guildId).catch(() => null);
                 const voteChannelId = cfg?.voting_channel_id || cfg?.movie_channel_id;
                 if (voteChannelId) {
-                  const voteChannel = await client.channels.fetch(String(voteChannelId)).catch(() => null);
+                  const voteChannel = await client.channels
+                    .fetch(String(voteChannelId))
+                    .catch(() => null);
                   if (voteChannel && forumChannels.isForumChannel(voteChannel)) {
-                    try { await forumChannels.postForumWinnerAnnouncement(voteChannel, movie, session.name || 'Movie Night', { event: session.discord_event_id || null, selectedByUserId: actorId }); } catch (_) {}
-                    try { await forumChannels.ensureRecommendationPost(voteChannel, null); } catch (_) {}
+                    try {
+                      await forumChannels.postForumWinnerAnnouncement(
+                        voteChannel,
+                        movie,
+                        session.name || 'Movie Night',
+                        { event: session.discord_event_id || null, selectedByUserId: actorId }
+                      );
+                    } catch (_) {}
+                    try {
+                      await forumChannels.ensureRecommendationPost(voteChannel, null);
+                    } catch (_) {}
                   }
                 }
               } catch (_) {}
 
               // Refresh admin panel
-              try { await adminControls.ensureAdminControlPanel(client, guildId); } catch (_) {}
-
+              try {
+                await adminControls.ensureAdminControlPanel(client, guildId);
+              } catch (_) {}
             } catch (e) {
               const logger = require('../utils/logger');
-              logger?.warn?.(`[${guildId}] WS pick_winner error (messageId=${messageId}):`, e?.message || e);
+              logger?.warn?.(
+                `[${guildId}] WS pick_winner error (messageId=${messageId}):`,
+                e?.message || e
+              );
             }
             return;
           }
-
 
           if (msg.type === 'remove_movie') {
             const guildId = msg?.payload?.guildId;
@@ -289,23 +355,40 @@ function initWebSocketClient(logger) {
               // Delete Discord artifacts
               try {
                 if (movie.channel_type === 'forum' && movie.thread_id) {
-                  const thread = await client.channels.fetch(String(movie.thread_id)).catch(() => null);
-                  if (thread) { await thread.delete('Removed via dashboard'); }
+                  const thread = await client.channels
+                    .fetch(String(movie.thread_id))
+                    .catch(() => null);
+                  if (thread) {
+                    await thread.delete('Removed via dashboard');
+                  }
                 } else if (movie.channel_id) {
                   const cleanup = require('./cleanup');
-                  await cleanup.removeMoviePost(client, String(movie.channel_id), String(movie.message_id));
+                  await cleanup.removeMoviePost(
+                    client,
+                    String(movie.channel_id),
+                    String(movie.message_id)
+                  );
                 }
               } catch (e) {
-                logger?.warn?.(`[${guildId}] WS remove_movie discord cleanup error (messageId=${messageId}):`, e?.message || e);
+                logger?.warn?.(
+                  `[${guildId}] WS remove_movie discord cleanup error (messageId=${messageId}):`,
+                  e?.message || e
+                );
               }
 
               // Delete DB rows (votes then movie)
-              try { await database.deleteVotesByMessageId(messageId); } catch (_) {}
-              try { await database.deleteMovie(messageId); } catch (_) {}
-
+              try {
+                await database.deleteVotesByMessageId(messageId);
+              } catch (_) {}
+              try {
+                await database.deleteMovie(messageId);
+              } catch (_) {}
             } catch (e) {
               const logger = require('../utils/logger');
-              logger?.warn?.(`[${guildId}] WS remove_movie error (messageId=${messageId}):`, e?.message || e);
+              logger?.warn?.(
+                `[${guildId}] WS remove_movie error (messageId=${messageId}):`,
+                e?.message || e
+              );
             }
             return;
           }
@@ -359,13 +442,21 @@ function initWebSocketClient(logger) {
                     const movieEmbed = embeds.createMovieEmbed(movie, imdbData, voteCounts);
                     const rows = ['watched', 'skipped', 'banned'].includes(movie.status)
                       ? []
-                      : components.createStatusButtons(movie.message_id, movie.status, voteCounts.up, voteCounts.down);
+                      : components.createStatusButtons(
+                          movie.message_id,
+                          movie.status,
+                          voteCounts.up,
+                          voteCounts.down
+                        );
                     await msgObj.edit({ embeds: [movieEmbed], components: rows });
                   }
                 }
               }
             } catch (e) {
-              logger?.warn?.(`[${guildId}] WS movie_status_changed update error (messageId=${messageId}):`, e?.message || e);
+              logger?.warn?.(
+                `[${guildId}] WS movie_status_changed update error (messageId=${messageId}):`,
+                e?.message || e
+              );
             }
             return;
           }
@@ -374,25 +465,31 @@ function initWebSocketClient(logger) {
             const messageId = msg?.payload?.messageId;
             const type = msg?.payload?.type; // 'up' | 'down' | 'clear'
             const actorId = msg?.payload?.actorId;
-            if (!guildId || !messageId || !actorId || !['up','down','clear'].includes(type)) return;
+            if (!guildId || !messageId || !actorId || !['up', 'down', 'clear'].includes(type))
+              return;
 
             const client = global.discordClient;
             if (!client) return;
 
-
             // Enforce Voting Roles or Mod/Admin for dashboard-initiated votes
             try {
-              const guild = client.guilds.cache.get(String(guildId)) || await client.guilds.fetch(String(guildId)).catch(() => null);
+              const guild =
+                client.guilds.cache.get(String(guildId)) ||
+                (await client.guilds.fetch(String(guildId)).catch(() => null));
               const member = await guild?.members?.fetch(String(actorId)).catch(() => null);
               if (!member) return;
               const { canMemberVote } = require('../services/permissions');
               const allowed = await canMemberVote(String(guildId), member);
               if (!allowed) {
-                logger?.debug?.(`[${guildId}] WS vote_movie denied: user ${actorId} lacks Voting Roles/mod/admin`);
+                logger?.debug?.(
+                  `[${guildId}] WS vote_movie denied: user ${actorId} lacks Voting Roles/mod/admin`
+                );
                 return;
               }
             } catch (permErr) {
-              logger?.warn?.(`[${guildId}] WS vote_movie: permission check failed: ${permErr?.message || permErr}`);
+              logger?.warn?.(
+                `[${guildId}] WS vote_movie: permission check failed: ${permErr?.message || permErr}`
+              );
               return;
             }
 
@@ -412,28 +509,49 @@ function initWebSocketClient(logger) {
                 const movieSessionId = movie.session_id;
                 if (movieSessionId && type !== 'clear' && currentVote !== type) {
                   const config = await database.getGuildConfig(guildId).catch(() => null);
-                  const enabled = config && typeof config.vote_cap_enabled !== 'undefined' ? Boolean(Number(config.vote_cap_enabled)) : true;
+                  const enabled =
+                    config && typeof config.vote_cap_enabled !== 'undefined'
+                      ? Boolean(Number(config.vote_cap_enabled))
+                      : true;
                   if (enabled) {
-                    const ratioUp = config && config.vote_cap_ratio_up != null ? Number(config.vote_cap_ratio_up) : 1/3;
-                    const ratioDown = config && config.vote_cap_ratio_down != null ? Number(config.vote_cap_ratio_down) : 1/5;
-                    const minCap = config && config.vote_cap_min != null ? Math.max(1, Number(config.vote_cap_min)) : 1;
+                    const ratioUp =
+                      config && config.vote_cap_ratio_up != null
+                        ? Number(config.vote_cap_ratio_up)
+                        : 1 / 3;
+                    const ratioDown =
+                      config && config.vote_cap_ratio_down != null
+                        ? Number(config.vote_cap_ratio_down)
+                        : 1 / 5;
+                    const minCap =
+                      config && config.vote_cap_min != null
+                        ? Math.max(1, Number(config.vote_cap_min))
+                        : 1;
 
                     const totalInSession = await database.countMoviesInSession(movieSessionId);
                     const upCap = Math.max(minCap, Math.floor(totalInSession * ratioUp));
                     const downCap = Math.max(minCap, Math.floor(totalInSession * ratioDown));
 
-                    const voteType = (type === 'up') ? 'up' : 'down';
-                    const used = await database.countUserVotesInSession(actorId, movieSessionId, voteType);
-                    const cap = (type === 'up') ? upCap : downCap;
+                    const voteType = type === 'up' ? 'up' : 'down';
+                    const used = await database.countUserVotesInSession(
+                      actorId,
+                      movieSessionId,
+                      voteType
+                    );
+                    const cap = type === 'up' ? upCap : downCap;
                     if (used >= cap) {
-                      logger?.debug?.(`[${guildId}] WS vote_movie: cap hit for user ${actorId} in session ${movieSessionId} (${voteType} ${used}/${cap})`);
+                      logger?.debug?.(
+                        `[${guildId}] WS vote_movie: cap hit for user ${actorId} in session ${movieSessionId} (${voteType} ${used}/${cap})`
+                      );
                       // Do not apply vote if cap exceeded
                       return;
                     }
                   }
                 }
               } catch (capErr) {
-                logger?.warn?.(`[${guildId}] WS vote_movie cap check failed (messageId=${messageId}, actorId=${actorId}):`, capErr?.message || capErr);
+                logger?.warn?.(
+                  `[${guildId}] WS vote_movie cap check failed (messageId=${messageId}, actorId=${actorId}):`,
+                  capErr?.message || capErr
+                );
               }
 
               // Apply vote
@@ -453,7 +571,13 @@ function initWebSocketClient(logger) {
                   const thread = await client.channels.fetch(movie.thread_id).catch(() => null);
                   if (thread) {
                     // Update title to reflect new counts
-                    await forumChannels.updateForumPostTitle(thread, movie.title, movie.status, voteCounts.up, voteCounts.down);
+                    await forumChannels.updateForumPostTitle(
+                      thread,
+                      movie.title,
+                      movie.status,
+                      voteCounts.up,
+                      voteCounts.down
+                    );
                     // Also update the starter message embed + buttons so counts are visible there too
                     try {
                       const starter = await thread.fetchStarterMessage().catch(() => null);
@@ -466,11 +590,18 @@ function initWebSocketClient(logger) {
                           }
                         } catch (_) {}
                         const movieEmbed = embeds.createMovieEmbed(movie, imdbData, voteCounts);
-                        const rows = components.createVotingButtons(movie.message_id, voteCounts.up, voteCounts.down);
+                        const rows = components.createVotingButtons(
+                          movie.message_id,
+                          voteCounts.up,
+                          voteCounts.down
+                        );
                         await starter.edit({ embeds: [movieEmbed], components: rows });
                       }
                     } catch (e) {
-                      logger?.warn?.(`[${guildId}] WS vote_movie: starter message update error (messageId=${messageId}):`, e?.message || e);
+                      logger?.warn?.(
+                        `[${guildId}] WS vote_movie: starter message update error (messageId=${messageId}):`,
+                        e?.message || e
+                      );
                     }
                   }
                 } else if (movie.channel_id) {
@@ -486,16 +617,26 @@ function initWebSocketClient(logger) {
                         }
                       } catch (_) {}
                       const movieEmbed = embeds.createMovieEmbed(movie, imdbData, voteCounts);
-                      const rows = components.createVotingButtons(movie.message_id, voteCounts.up, voteCounts.down);
+                      const rows = components.createVotingButtons(
+                        movie.message_id,
+                        voteCounts.up,
+                        voteCounts.down
+                      );
                       await msgObj.edit({ embeds: [movieEmbed], components: rows });
                     }
                   }
                 }
               } catch (e) {
-                logger?.warn?.(`[${guildId}] WS vote_movie: discord message update error (messageId=${messageId}):`, e?.message || e);
+                logger?.warn?.(
+                  `[${guildId}] WS vote_movie: discord message update error (messageId=${messageId}):`,
+                  e?.message || e
+                );
               }
             } catch (e) {
-              logger?.warn?.(`[${guildId}] WS vote_movie error (messageId=${messageId}, actorId=${actorId}):`, e?.message || e);
+              logger?.warn?.(
+                `[${guildId}] WS vote_movie error (messageId=${messageId}, actorId=${actorId}):`,
+                e?.message || e
+              );
             }
             return;
           }
@@ -529,10 +670,16 @@ function initWebSocketClient(logger) {
               // Delete Discord event if exists
               try {
                 if (session.discord_event_id) {
-                  const guild = client.guilds.cache.get(guildId) || await client.guilds.fetch(String(guildId)).catch(() => null);
+                  const guild =
+                    client.guilds.cache.get(guildId) ||
+                    (await client.guilds.fetch(String(guildId)).catch(() => null));
                   if (guild) {
-                    const ev = await guild.scheduledEvents.fetch(session.discord_event_id).catch(() => null);
-                    if (ev) { await ev.delete(); }
+                    const ev = await guild.scheduledEvents
+                      .fetch(session.discord_event_id)
+                      .catch(() => null);
+                    if (ev) {
+                      await ev.delete();
+                    }
                   }
                 }
               } catch (_) {}
@@ -541,24 +688,36 @@ function initWebSocketClient(logger) {
               const movie = await database.getMovieBySessionId(sessionId).catch(() => null);
 
               // Update DB: mark session cancelled and clear movie association/status
-              try { await database.updateSessionStatus(sessionId, 'cancelled'); } catch (_) {}
+              try {
+                await database.updateSessionStatus(sessionId, 'cancelled');
+              } catch (_) {}
 
               if (movie && movie.message_id) {
-                try { await database.updateMovieStatus(movie.message_id, 'planned'); } catch (_) {}
-                try { await database.updateMovieSessionId(movie.message_id, null); } catch (_) {}
+                try {
+                  await database.updateMovieStatus(movie.message_id, 'planned');
+                } catch (_) {}
+                try {
+                  await database.updateMovieSessionId(movie.message_id, null);
+                } catch (_) {}
 
                 // Update Discord message/thread
                 try {
                   if (movie.channel_type === 'forum' && movie.thread_id) {
                     const thread = await client.channels.fetch(movie.thread_id).catch(() => null);
                     if (thread) {
-                      await forumChannels.updateForumPostContent(thread, { ...movie, status: 'pending' }, 'pending');
+                      await forumChannels.updateForumPostContent(
+                        thread,
+                        { ...movie, status: 'pending' },
+                        'pending'
+                      );
                       await forumChannels.updateForumPostTags(thread, 'pending');
                     }
                   } else if (movie.channel_id) {
                     const channel = await client.channels.fetch(movie.channel_id).catch(() => null);
                     if (channel && channel.messages) {
-                      const msgObj = await channel.messages.fetch(movie.message_id).catch(() => null);
+                      const msgObj = await channel.messages
+                        .fetch(movie.message_id)
+                        .catch(() => null);
                       if (msgObj) {
                         const voteCounts = await database.getVoteCounts(movie.message_id);
                         let imdbData = null;
@@ -568,26 +727,42 @@ function initWebSocketClient(logger) {
                             imdbData = await imdb.getMovieDetailsCached(movie.imdb_id);
                           }
                         } catch (_) {}
-                        const movieEmbed = embeds.createMovieEmbed({ ...movie, status: 'pending' }, imdbData, voteCounts);
-                        const rows = components.createStatusButtons(movie.message_id, 'pending', voteCounts.up, voteCounts.down);
+                        const movieEmbed = embeds.createMovieEmbed(
+                          { ...movie, status: 'pending' },
+                          imdbData,
+                          voteCounts
+                        );
+                        const rows = components.createStatusButtons(
+                          movie.message_id,
+                          'pending',
+                          voteCounts.up,
+                          voteCounts.down
+                        );
                         await msgObj.edit({ embeds: [movieEmbed], components: rows });
                       }
                     }
                   }
                 } catch (e) {
-                  logger?.warn?.(`[${guildId}] WS cancel_session: discord message update error (sessionId=${sessionId}):`, e?.message || e);
+                  logger?.warn?.(
+                    `[${guildId}] WS cancel_session: discord message update error (sessionId=${sessionId}):`,
+                    e?.message || e
+                  );
                 }
               }
 
               // Delete session record
-              try { await database.deleteMovieSession(sessionId); } catch (_) {}
+              try {
+                await database.deleteMovieSession(sessionId);
+              } catch (_) {}
 
               // Ensure channel UX reflects "no active session" and refresh admin panel
               try {
                 const cfg = await database.getGuildConfig(guildId).catch(() => null);
                 const voteChannelId = cfg?.voting_channel_id || cfg?.movie_channel_id;
                 if (voteChannelId) {
-                  const voteChannel = await client.channels.fetch(String(voteChannelId)).catch(() => null);
+                  const voteChannel = await client.channels
+                    .fetch(String(voteChannelId))
+                    .catch(() => null);
                   if (voteChannel) {
                     if (forumChannels.isForumChannel(voteChannel)) {
                       await forumChannels.ensureRecommendationPost(voteChannel, null);
@@ -596,11 +771,25 @@ function initWebSocketClient(logger) {
                     }
                   }
                 }
-              } catch (_) { /* non-fatal */ }
+              } catch (_) {
+                /* non-fatal */
+              }
 
-              try { await adminControls.ensureAdminControlPanel(client, guildId); } catch (_) {}
+              try {
+                await adminControls.ensureAdminControlPanel(client, guildId);
+              } catch (_) {}
+
+              // Notify dashboard that session was cancelled
+              try {
+                sendMessage({ type: 'session_cancelled', payload: { guildId, sessionId } });
+              } catch (_) {
+                /* non-fatal */
+              }
             } catch (e) {
-              logger?.warn?.(`[${guildId}] WS cancel_session error (sessionId=${sessionId}):`, e?.message || e);
+              logger?.warn?.(
+                `[${guildId}] WS cancel_session error (sessionId=${sessionId}):`,
+                e?.message || e
+              );
             }
             return;
           }
@@ -611,6 +800,7 @@ function initWebSocketClient(logger) {
             const votingEndTs = msg?.payload?.votingEndTs;
             const name = msg?.payload?.name;
             const description = msg?.payload?.description;
+            const contentType = msg?.payload?.contentType || 'movie';
             if (!guildId || !startTs) return;
 
             const client = global.discordClient;
@@ -622,18 +812,29 @@ function initWebSocketClient(logger) {
             const sessionScheduler = require('./session-scheduler');
 
             try {
-              const guild = client.guilds.cache.get(guildId) || await client.guilds.fetch(String(guildId)).catch(() => null);
+              const guild =
+                client.guilds.cache.get(guildId) ||
+                (await client.guilds.fetch(String(guildId)).catch(() => null));
               if (!guild) return;
 
               const config = await database.getGuildConfig(guildId).catch(() => null);
               const scheduledDate = new Date(Number(startTs));
-              const votingEnd = (typeof votingEndTs === 'number') ? new Date(Number(votingEndTs)) : new Date(scheduledDate.getTime() - 60 * 60 * 1000);
+              const votingEnd =
+                typeof votingEndTs === 'number'
+                  ? new Date(Number(votingEndTs))
+                  : new Date(scheduledDate.getTime() - 60 * 60 * 1000);
               const sessionName = name || 'Movie Night';
               const tz = (config && (config.timezone || config.guild_timezone)) || 'UTC';
 
               // Create Discord event first (optional)
               let event = null;
-              try { event = await discordEvents.createDiscordEvent(guild, { name: sessionName, description }, scheduledDate); } catch (_) {}
+              try {
+                event = await discordEvents.createDiscordEvent(
+                  guild,
+                  { name: sessionName, description },
+                  scheduledDate
+                );
+              } catch (_) {}
 
               // Create DB session
               const sessionId = await database.createVotingSession({
@@ -644,13 +845,16 @@ function initWebSocketClient(logger) {
                 scheduledDate,
                 votingEndTime: votingEnd,
                 timezone: tz,
+                contentType: contentType,
                 discordEventId: event?.id || null,
-                createdBy: 'dashboard'
+                createdBy: 'dashboard',
               });
 
               // Schedule voting end if within window
               if (sessionId && votingEnd) {
-                try { await sessionScheduler.scheduleVotingEnd(sessionId, votingEnd); } catch (_) {}
+                try {
+                  await sessionScheduler.scheduleVotingEnd(sessionId, votingEnd);
+                } catch (_) {}
               }
 
               // Ensure recommendation/quick-action post in the voting channel so UX matches bot-created sessions
@@ -658,11 +862,19 @@ function initWebSocketClient(logger) {
                 const cfg = await database.getGuildConfig(guildId).catch(() => null);
                 const voteChannelId = cfg?.voting_channel_id || cfg?.movie_channel_id;
                 if (voteChannelId) {
-                  const voteChannel = await client.channels.fetch(String(voteChannelId)).catch(() => null);
+                  const voteChannel = await client.channels
+                    .fetch(String(voteChannelId))
+                    .catch(() => null);
                   if (voteChannel) {
                     const forumChannels = require('./forum-channels');
                     if (forumChannels.isForumChannel(voteChannel)) {
-                      const activeSession = { id: sessionId, name: sessionName, status: 'active', voting_end_time: votingEnd ? votingEnd.toISOString() : null };
+                      const activeSession = {
+                        id: sessionId,
+                        name: sessionName,
+                        status: 'active',
+                        voting_end_time: votingEnd ? votingEnd.toISOString() : null,
+                        content_type: contentType,
+                      };
                       await forumChannels.ensureRecommendationPost(voteChannel, activeSession);
                     } else {
                       const cleanup = require('./cleanup');
@@ -670,10 +882,14 @@ function initWebSocketClient(logger) {
                     }
                   }
                 }
-              } catch (_) { /* non-fatal */ }
+              } catch (_) {
+                /* non-fatal */
+              }
 
               // Refresh admin panel
-              try { await adminControls.ensureAdminControlPanel(client, guildId); } catch (_) {}
+              try {
+                await adminControls.ensureAdminControlPanel(client, guildId);
+              } catch (_) {}
             } catch (e) {
               logger?.warn?.(`[${guildId}] WS plan_session error:`, e?.message || e);
             }
@@ -698,13 +914,27 @@ function initWebSocketClient(logger) {
             const sessionScheduler = require('./session-scheduler');
 
             try {
-              const guild = client.guilds.cache.get(guildId) || await client.guilds.fetch(String(guildId)).catch(() => null);
+              const guild =
+                client.guilds.cache.get(guildId) ||
+                (await client.guilds.fetch(String(guildId)).catch(() => null));
               if (!guild) return;
               const session = await database.getSessionById(sessionId).catch(() => null);
               if (!session || String(session.guild_id) !== String(guildId)) return;
 
-              const scheduledDate = (typeof startTs === 'number') ? new Date(Number(startTs)) : (session.scheduled_date ? new Date(session.scheduled_date) : null);
-              const votingEnd = (typeof votingEndTs !== 'undefined') ? (votingEndTs ? new Date(Number(votingEndTs)) : null) : (session.voting_end_time ? new Date(session.voting_end_time) : null);
+              const scheduledDate =
+                typeof startTs === 'number'
+                  ? new Date(Number(startTs))
+                  : session.scheduled_date
+                    ? new Date(session.scheduled_date)
+                    : null;
+              const votingEnd =
+                typeof votingEndTs !== 'undefined'
+                  ? votingEndTs
+                    ? new Date(Number(votingEndTs))
+                    : null
+                  : session.voting_end_time
+                    ? new Date(session.voting_end_time)
+                    : null;
 
               // Name policy: avoid embedding date/time in title; keep it short and let description show time
               let newName;
@@ -716,30 +946,54 @@ function initWebSocketClient(logger) {
                 newName = 'Movie Night';
               }
 
-              const newDesc = (typeof description !== 'undefined') ? description : session.description;
+              const newDesc =
+                typeof description !== 'undefined' ? description : session.description;
 
               await database.updateMovieSessionDetails(sessionId, {
                 name: newName,
                 description: newDesc,
                 scheduledDate,
                 timezone: session.timezone || 'UTC',
-                votingEndTime: votingEnd
+                votingEndTime: votingEnd,
               });
 
               if (session.discord_event_id) {
-                try { await discordEvents.updateDiscordEvent(guild, session.discord_event_id, { name: newName, description: newDesc }, scheduledDate); } catch (_) {}
+                try {
+                  await discordEvents.updateDiscordEvent(
+                    guild,
+                    session.discord_event_id,
+                    { name: newName, description: newDesc },
+                    scheduledDate
+                  );
+                } catch (_) {}
               } else if (scheduledDate) {
                 try {
-                  const ev = await discordEvents.createDiscordEvent(guild, { name: newName, description: newDesc }, scheduledDate);
-                  if (ev?.id) { try { await database.updateVotingSessionEventId(sessionId, ev.id); } catch (_) {} }
+                  const ev = await discordEvents.createDiscordEvent(
+                    guild,
+                    { name: newName, description: newDesc },
+                    scheduledDate
+                  );
+                  if (ev?.id) {
+                    try {
+                      await database.updateVotingSessionEventId(sessionId, ev.id);
+                    } catch (_) {}
+                  }
                 } catch (_) {}
               }
 
-              try { sessionScheduler.clearSessionTimeout(sessionId); } catch (_) {}
-              if (votingEnd) { try { await sessionScheduler.scheduleVotingEnd(sessionId, votingEnd); } catch (_) {} }
+              try {
+                sessionScheduler.clearSessionTimeout(sessionId);
+              } catch (_) {}
+              if (votingEnd) {
+                try {
+                  await sessionScheduler.scheduleVotingEnd(sessionId, votingEnd);
+                } catch (_) {}
+              }
 
               // Refresh admin panel
-              try { await adminControls.ensureAdminControlPanel(client, guildId); } catch (_) {}
+              try {
+                await adminControls.ensureAdminControlPanel(client, guildId);
+              } catch (_) {}
 
               // Also refresh the pinned recommendation post to reflect new session name/date
               try {
@@ -747,29 +1001,40 @@ function initWebSocketClient(logger) {
                 const cfg = await database.getGuildConfig(guildId).catch(() => null);
                 const voteChannelId = cfg?.voting_channel_id || cfg?.movie_channel_id;
                 if (voteChannelId) {
-                  const voteChannel = await client.channels.fetch(String(voteChannelId)).catch(() => null);
+                  const voteChannel = await client.channels
+                    .fetch(String(voteChannelId))
+                    .catch(() => null);
                   if (voteChannel) {
                     if (forumChannels.isForumChannel(voteChannel)) {
                       const updatedActiveSession = {
                         id: sessionId,
                         name: newName,
                         status: 'active',
-                        voting_end_time: votingEnd ? new Date(votingEnd).toISOString() : (session.voting_end_time || null)
+                        voting_end_time: votingEnd
+                          ? new Date(votingEnd).toISOString()
+                          : session.voting_end_time || null,
                       };
-                      await forumChannels.ensureRecommendationPost(voteChannel, updatedActiveSession);
+                      await forumChannels.ensureRecommendationPost(
+                        voteChannel,
+                        updatedActiveSession
+                      );
                     } else {
                       const cleanup = require('./cleanup');
                       await cleanup.ensureQuickActionAtBottom(voteChannel);
                     }
                   }
                 }
-              } catch (_) { /* non-fatal */ }
+              } catch (_) {
+                /* non-fatal */
+              }
             } catch (e) {
-              logger?.warn?.(`[${guildId}] WS reschedule_session error (sessionId=${sessionId}):`, e?.message || e);
+              logger?.warn?.(
+                `[${guildId}] WS reschedule_session error (sessionId=${sessionId}):`,
+                e?.message || e
+              );
             }
             return;
           }
-
 
           if (msg.type === 'get_member_roles') {
             const guildId = msg?.payload?.guildId;
@@ -778,13 +1043,32 @@ function initWebSocketClient(logger) {
             try {
               const client = global.discordClient;
               if (!client) return;
-              const guild = client.guilds.cache.get(String(guildId)) || await client.guilds.fetch(String(guildId)).catch(() => null);
+              const guild =
+                client.guilds.cache.get(String(guildId)) ||
+                (await client.guilds.fetch(String(guildId)).catch(() => null));
               if (!guild) return;
               const member = await guild.members.fetch(String(userId)).catch(() => null);
-              const roles = member && member.roles && member.roles.cache ? Array.from(member.roles.cache.keys()).map(String) : [];
-              try { global.wsClient?.send && global.wsClient.send({ type: 'get_member_roles:response', replyTo: msg.id, payload: { guildId, userId, roles } }); } catch (_) {}
+              const roles =
+                member && member.roles && member.roles.cache
+                  ? Array.from(member.roles.cache.keys()).map(String)
+                  : [];
+              try {
+                global.wsClient?.send &&
+                  global.wsClient.send({
+                    type: 'get_member_roles:response',
+                    replyTo: msg.id,
+                    payload: { guildId, userId, roles },
+                  });
+              } catch (_) {}
             } catch (e) {
-              try { global.wsClient?.send && global.wsClient.send({ type: 'get_member_roles:response', replyTo: msg.id, payload: { guildId, userId, roles: [] } }); } catch (_) {}
+              try {
+                global.wsClient?.send &&
+                  global.wsClient.send({
+                    type: 'get_member_roles:response',
+                    replyTo: msg.id,
+                    payload: { guildId, userId, roles: [] },
+                  });
+              } catch (_) {}
             }
             return;
           }
@@ -803,18 +1087,33 @@ function initWebSocketClient(logger) {
                 logger.debug(`🤖 No Discord client available for get_guild_roles`, guildId);
                 return;
               }
-              const guild = client.guilds.cache.get(String(guildId)) || await client.guilds.fetch(String(guildId)).catch(() => null);
+              const guild =
+                client.guilds.cache.get(String(guildId)) ||
+                (await client.guilds.fetch(String(guildId)).catch(() => null));
               if (!guild) {
                 logger.debug(`🤖 Guild not found for get_guild_roles`, guildId);
                 return;
               }
-              const list = guild.roles && guild.roles.cache ? Array.from(guild.roles.cache.values()) : [];
+              const list =
+                guild.roles && guild.roles.cache ? Array.from(guild.roles.cache.values()) : [];
               const roles = list
-                .map(r => ({ id: String(r.id), name: String(r.name), position: Number(r.position || 0) }))
-                .sort((a,b) => b.position - a.position);
+                .map((r) => ({
+                  id: String(r.id),
+                  name: String(r.name),
+                  position: Number(r.position || 0),
+                }))
+                .sort((a, b) => b.position - a.position);
               logger.debug(`🤖 Sending ${roles.length} roles for guild`, guildId);
-              const response = { type: 'get_guild_roles:response', replyTo: msg.id, payload: { guildId, roles } };
-              logger.debug(`🤖 Attempting to send response:`, guildId, { type: response.type, replyTo: response.replyTo, rolesCount: roles.length });
+              const response = {
+                type: 'get_guild_roles:response',
+                replyTo: msg.id,
+                payload: { guildId, roles },
+              };
+              logger.debug(`🤖 Attempting to send response:`, guildId, {
+                type: response.type,
+                replyTo: response.replyTo,
+                rolesCount: roles.length,
+              });
               try {
                 if (global.wsClient?.send) {
                   global.wsClient.send(response);
@@ -827,7 +1126,14 @@ function initWebSocketClient(logger) {
               }
             } catch (e) {
               logger.error(`🤖 Error in get_guild_roles:`, guildId, e);
-              try { global.wsClient?.send && global.wsClient.send({ type: 'get_guild_roles:response', replyTo: msg.id, payload: { guildId, roles: [] } }); } catch (_) {}
+              try {
+                global.wsClient?.send &&
+                  global.wsClient.send({
+                    type: 'get_guild_roles:response',
+                    replyTo: msg.id,
+                    payload: { guildId, roles: [] },
+                  });
+              } catch (_) {}
             }
             return;
           }
@@ -847,7 +1153,9 @@ function initWebSocketClient(logger) {
                 return;
               }
               const { ChannelType } = require('discord.js');
-              const guild = client.guilds.cache.get(String(guildId)) || await client.guilds.fetch(String(guildId)).catch(() => null);
+              const guild =
+                client.guilds.cache.get(String(guildId)) ||
+                (await client.guilds.fetch(String(guildId)).catch(() => null));
               if (!guild) {
                 logger.debug(`🤖 Guild not found for get_guild_channels`, guildId);
                 return;
@@ -856,20 +1164,47 @@ function initWebSocketClient(logger) {
               const arr = coll ? Array.from(coll.values()).filter(Boolean) : [];
               const normType = (t) => {
                 switch (t) {
-                  case ChannelType.GuildText: return 'text';
-                  case ChannelType.GuildForum: return 'forum';
-                  case ChannelType.GuildAnnouncement: return 'announcement';
-                  case ChannelType.GuildVoice: return 'voice';
-                  case ChannelType.GuildStageVoice: return 'stage';
-                  case ChannelType.GuildCategory: return 'category';
-                  default: return String(t);
+                  case ChannelType.GuildText:
+                    return 'text';
+                  case ChannelType.GuildForum:
+                    return 'forum';
+                  case ChannelType.GuildAnnouncement:
+                    return 'announcement';
+                  case ChannelType.GuildVoice:
+                    return 'voice';
+                  case ChannelType.GuildStageVoice:
+                    return 'stage';
+                  case ChannelType.GuildCategory:
+                    return 'category';
+                  default:
+                    return String(t);
                 }
               };
-              const channels = arr.map(ch => ({ id: String(ch.id), name: String(ch.name || 'unnamed'), type: normType(ch.type), position: Number(ch.rawPosition || ch.position || 0), parentId: ch.parentId ? String(ch.parentId) : null }))
-                .sort((a,b) => a.type.localeCompare(b.type) || a.position - b.position || a.name.localeCompare(b.name));
+              const channels = arr
+                .map((ch) => ({
+                  id: String(ch.id),
+                  name: String(ch.name || 'unnamed'),
+                  type: normType(ch.type),
+                  position: Number(ch.rawPosition || ch.position || 0),
+                  parentId: ch.parentId ? String(ch.parentId) : null,
+                }))
+                .sort(
+                  (a, b) =>
+                    a.type.localeCompare(b.type) ||
+                    a.position - b.position ||
+                    a.name.localeCompare(b.name)
+                );
               logger.debug(`🤖 Sending ${channels.length} channels for guild`, guildId);
-              const response = { type: 'get_guild_channels:response', replyTo: msg.id, payload: { guildId, channels } };
-              logger.debug(`🤖 Attempting to send response:`, guildId, { type: response.type, replyTo: response.replyTo, channelsCount: channels.length });
+              const response = {
+                type: 'get_guild_channels:response',
+                replyTo: msg.id,
+                payload: { guildId, channels },
+              };
+              logger.debug(`🤖 Attempting to send response:`, guildId, {
+                type: response.type,
+                replyTo: response.replyTo,
+                channelsCount: channels.length,
+              });
               try {
                 if (global.wsClient?.send) {
                   global.wsClient.send(response);
@@ -882,11 +1217,17 @@ function initWebSocketClient(logger) {
               }
             } catch (e) {
               logger.error(`🤖 Error in get_guild_channels:`, guildId, e);
-              try { global.wsClient?.send && global.wsClient.send({ type: 'get_guild_channels:response', replyTo: msg.id, payload: { guildId, channels: [] } }); } catch (_) {}
+              try {
+                global.wsClient?.send &&
+                  global.wsClient.send({
+                    type: 'get_guild_channels:response',
+                    replyTo: msg.id,
+                    payload: { guildId, channels: [] },
+                  });
+              } catch (_) {}
             }
             return;
           }
-
 
           if (msg.type === 'update_vote_caps') {
             const guildId = msg?.payload?.guildId;
@@ -901,7 +1242,10 @@ function initWebSocketClient(logger) {
               minCap = Math.max(0, Math.floor(Number(minCap)));
               await database.updateVoteCaps(guildId, enabled, upRatio, downRatio, minCap);
               // Emit event so dashboard can refresh caps if desired
-              try { global.wsClient?.send && global.wsClient.send({ type: 'caps_updated', payload: { guildId } }); } catch (_) {}
+              try {
+                global.wsClient?.send &&
+                  global.wsClient.send({ type: 'caps_updated', payload: { guildId } });
+              } catch (_) {}
             } catch (e) {
               const logger = require('../utils/logger');
               logger?.warn?.(`[${guildId}] WS update_vote_caps error:`, e?.message || e);
@@ -921,7 +1265,7 @@ function initWebSocketClient(logger) {
                 watch_party_channel_id,
                 admin_roles,
                 moderator_roles,
-                voting_roles
+                voting_roles,
               } = msg?.payload || {};
 
               // Ensure row exists
@@ -936,20 +1280,32 @@ function initWebSocketClient(logger) {
               // Build dynamic update
               const sets = [];
               const params = [];
-              if (typeof movie_channel_id !== 'undefined') { sets.push('movie_channel_id = ?'); params.push(movie_channel_id || null); }
-              if (typeof admin_channel_id !== 'undefined') { sets.push('admin_channel_id = ?'); params.push(admin_channel_id || null); }
-              if (typeof watch_party_channel_id !== 'undefined') { sets.push('watch_party_channel_id = ?'); params.push(watch_party_channel_id || null); }
+              if (typeof movie_channel_id !== 'undefined') {
+                sets.push('movie_channel_id = ?');
+                params.push(movie_channel_id || null);
+              }
+              if (typeof admin_channel_id !== 'undefined') {
+                sets.push('admin_channel_id = ?');
+                params.push(admin_channel_id || null);
+              }
+              if (typeof watch_party_channel_id !== 'undefined') {
+                sets.push('watch_party_channel_id = ?');
+                params.push(watch_party_channel_id || null);
+              }
               if (typeof admin_roles !== 'undefined') {
-                const unique = Array.from(new Set((admin_roles || []).map(id => String(id))));
-                sets.push('admin_roles = ?'); params.push(JSON.stringify(unique));
+                const unique = Array.from(new Set((admin_roles || []).map((id) => String(id))));
+                sets.push('admin_roles = ?');
+                params.push(JSON.stringify(unique));
               }
               if (typeof moderator_roles !== 'undefined') {
-                const unique = Array.from(new Set((moderator_roles || []).map(id => String(id))));
-                sets.push('moderator_roles = ?'); params.push(JSON.stringify(unique));
+                const unique = Array.from(new Set((moderator_roles || []).map((id) => String(id))));
+                sets.push('moderator_roles = ?');
+                params.push(JSON.stringify(unique));
               }
               if (typeof voting_roles !== 'undefined') {
-                const unique = Array.from(new Set((voting_roles || []).map(id => String(id))));
-                sets.push('voting_roles = ?'); params.push(JSON.stringify(unique));
+                const unique = Array.from(new Set((voting_roles || []).map((id) => String(id))));
+                sets.push('voting_roles = ?');
+                params.push(JSON.stringify(unique));
               }
 
               if (sets.length > 0) {
@@ -959,23 +1315,30 @@ function initWebSocketClient(logger) {
               }
 
               // Emit event so dashboard can react if needed
-              try { global.wsClient?.send && global.wsClient.send({ type: 'config_updated', payload: { guildId } }); } catch (_) {}
+              try {
+                global.wsClient?.send &&
+                  global.wsClient.send({ type: 'config_updated', payload: { guildId } });
+              } catch (_) {}
             } catch (e) {
               const logger = require('../utils/logger');
               logger?.warn?.(`[${guildId}] WS update_guild_config error:`, e?.message || e);
             }
             return;
           }
-
         } catch (e) {
           logger?.warn?.(`WS handler error: ${e?.message || e}`);
         }
       });
 
       ws.on('close', (code, reason) => {
-        if (heartbeat) { clearInterval(heartbeat); heartbeat = null; }
-        isConnected = false;
-        try { global.wsStatus = { connected: false, attempts: reconnectAttempts, ts: Date.now() }; } catch (_) {}
+        if (heartbeat) {
+          clearInterval(heartbeat);
+          heartbeat = null;
+        }
+        _isConnected = false;
+        try {
+          global.wsStatus = { connected: false, attempts: reconnectAttempts, ts: Date.now() };
+        } catch (_) {}
         const why = (reason && reason.toString && reason.toString()) || '';
         logger?.warn?.(`WS: connection closed (code=${code}${why ? `, reason=${why}` : ''})`);
         scheduleReconnect();
@@ -983,8 +1346,10 @@ function initWebSocketClient(logger) {
 
       ws.on('error', (err) => {
         logger?.warn?.(`WS error: ${err?.message || err}`);
-        isConnected = false;
-        try { global.wsStatus = { connected: false, attempts: reconnectAttempts, ts: Date.now() }; } catch (_) {}
+        _isConnected = false;
+        try {
+          global.wsStatus = { connected: false, attempts: reconnectAttempts, ts: Date.now() };
+        } catch (_) {}
         // Ensure we schedule reconnects even if close is not emitted (e.g., HTTP 401 during upgrade)
         scheduleReconnect();
       });
@@ -1001,7 +1366,9 @@ function initWebSocketClient(logger) {
     const jitter = Math.floor(base * (0.2 * Math.random()));
     const delay = Math.max(MIN_RECONNECT_MS, Math.floor(base * 0.8) + jitter);
     reconnectAttempts++;
-    logger?.info?.(`WS: reconnect attempt #${reconnectAttempts} in ${Math.round(delay/1000)}s...`);
+    logger?.info?.(
+      `WS: reconnect attempt #${reconnectAttempts} in ${Math.round(delay / 1000)}s...`
+    );
     reconnectTimer = setTimeout(() => {
       reconnectTimer = null;
       connect();
@@ -1015,16 +1382,25 @@ function initWebSocketClient(logger) {
     enabled: true,
     send(obj) {
       if (!ws || ws.readyState !== 1) return false;
-      try { ws.send(JSON.stringify(obj)); return true; } catch (_) { return false; }
-    }
+      try {
+        ws.send(JSON.stringify(obj));
+        return true;
+      } catch (_) {
+        return false;
+      }
+    },
   };
 }
 
 function getStatus() {
-  try { return { connected: Boolean(global.wsStatus?.connected ?? false), attempts: Number(global.wsStatus?.attempts ?? 0) }; } catch (_) {
+  try {
+    return {
+      connected: Boolean(global.wsStatus?.connected ?? false),
+      attempts: Number(global.wsStatus?.attempts ?? 0),
+    };
+  } catch (_) {
     return { connected: false, attempts: 0 };
   }
 }
 
 module.exports = { initWebSocketClient, getStatus };
-

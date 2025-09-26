@@ -11,12 +11,13 @@ const ephemeralManager = require('./ephemeral-manager');
  */
 async function checkConfiguration(guildId) {
   const database = require('../database');
-  
+
   if (!database.isConnected) {
     return {
       isConfigured: false,
       missingItems: ['Database connection'],
-      message: '❌ **Database connection error**\n\nThe bot cannot connect to the database. Please contact the bot administrator.'
+      message:
+        '❌ **Database connection error**\n\nThe bot cannot connect to the database. Please contact the bot administrator.',
     };
   }
 
@@ -28,7 +29,8 @@ async function checkConfiguration(guildId) {
       return {
         isConfigured: false,
         missingItems: ['All configuration'],
-        message: '⚙️ **Bot not configured**\n\nThis bot needs to be configured before use. Please run `/movie-configure` to set up the bot.'
+        message:
+          '⚙️ **Bot not configured**\n\nThis bot needs to be configured before use. Please run `/movie-configure` to set up the bot.',
       };
     }
 
@@ -53,23 +55,23 @@ async function checkConfiguration(guildId) {
       return {
         isConfigured: false,
         missingItems,
-        message: `⚙️ **Configuration incomplete**\n\nMissing configuration:\n${missingItems.map(item => `• ${item}`).join('\n')}\n\nPlease run \`/movie-configure\` to complete the setup.`
+        message: `⚙️ **Configuration incomplete**\n\nMissing configuration:\n${missingItems.map((item) => `• ${item}`).join('\n')}\n\nPlease run \`/movie-configure\` to complete the setup.`,
       };
     }
 
     return {
       isConfigured: true,
       missingItems: [],
-      message: null
+      message: null,
     };
-
   } catch (error) {
     const logger = require('./logger');
     logger.error('Error checking configuration:', error);
     return {
       isConfigured: false,
       missingItems: ['Configuration check failed'],
-      message: '❌ **Configuration check failed**\n\nThere was an error checking the bot configuration. Please try again or contact the bot administrator.'
+      message:
+        '❌ **Configuration check failed**\n\nThere was an error checking the bot configuration. Please try again or contact the bot administrator.',
     };
   }
 }
@@ -78,32 +80,31 @@ async function checkConfiguration(guildId) {
  * Send configuration error message with setup button
  */
 async function sendConfigurationError(interaction, configCheck) {
-  const configButton = new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId('open_configuration')
-        .setLabel('⚙️ Configure Bot')
-        .setStyle(ButtonStyle.Primary)
-    );
+  const configButton = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('open_configuration')
+      .setLabel('⚙️ Configure Bot')
+      .setStyle(ButtonStyle.Primary)
+  );
 
   await interaction.reply({
     content: configCheck.message,
     components: [configButton],
-    flags: MessageFlags.Ephemeral
+    flags: MessageFlags.Ephemeral,
   });
 }
 
 /**
  * Middleware function to check configuration before command execution
  */
-async function requireConfiguration(interaction, next) {
+async function requireConfiguration(interaction, _next) {
   const configCheck = await checkConfiguration(interaction.guild.id);
-  
+
   if (!configCheck.isConfigured) {
     await sendConfigurationError(interaction, configCheck);
     return false; // Stop execution
   }
-  
+
   return true; // Continue execution
 }
 
@@ -112,7 +113,7 @@ async function requireConfiguration(interaction, next) {
  */
 async function checkConfigurationPermissions(interaction) {
   const { PermissionFlagsBits } = require('discord.js');
-  
+
   // Check if user has Discord Administrator permission
   if (interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
     return true;
@@ -132,67 +133,66 @@ async function checkConfigurationPermissions(interaction) {
 async function handleConfigurationButton(interaction) {
   // Check permissions
   const hasPermission = await checkConfigurationPermissions(interaction);
-  
+
   if (!hasPermission) {
-    await ephemeralManager.sendEphemeral(interaction,
+    await ephemeralManager.sendEphemeral(
+      interaction,
       '❌ **Permission denied**\n\nYou need Administrator or Manage Server permissions to configure the bot.'
     );
     return;
   }
 
   const database = require('../database');
-  const cfg = await database.getGuildConfig(interaction.guild.id).catch(() => ({})) || {};
-  const styleIf = (cond) => cond ? ButtonStyle.Success : ButtonStyle.Secondary;
+  const cfg = (await database.getGuildConfig(interaction.guild.id).catch(() => ({}))) || {};
+  const styleIf = (cond) => (cond ? ButtonStyle.Success : ButtonStyle.Secondary);
 
   // Show configuration options (colored if already configured)
-  const configOptions = new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId('config_voting_channel')
-        .setLabel('📺 Set Voting Channel')
-        .setStyle(styleIf(!!cfg.movie_channel_id)),
-      new ButtonBuilder()
-        .setCustomId('config_admin_channel')
-        .setLabel('🔧 Set Admin Channel')
-        .setStyle(styleIf(!!cfg.admin_channel_id)),
-      new ButtonBuilder()
-        .setCustomId('config_watch_party_channel')
-        .setLabel('🎬 Set Watch Party Channel')
-        .setStyle(styleIf(!!cfg.watch_party_channel_id))
-    );
+  const configOptions = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('config_voting_channel')
+      .setLabel('📺 Set Voting Channel')
+      .setStyle(styleIf(!!cfg.movie_channel_id)),
+    new ButtonBuilder()
+      .setCustomId('config_admin_channel')
+      .setLabel('🔧 Set Admin Channel')
+      .setStyle(styleIf(!!cfg.admin_channel_id)),
+    new ButtonBuilder()
+      .setCustomId('config_watch_party_channel')
+      .setLabel('🎬 Set Watch Party Channel')
+      .setStyle(styleIf(!!cfg.watch_party_channel_id))
+  );
 
-  const configOptions2 = new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId('config_voting_roles')
-        .setLabel('👥 Voting Roles')
-        .setStyle(styleIf(Array.isArray(cfg.voting_roles) && cfg.voting_roles.length > 0)),
-      new ButtonBuilder()
-        .setCustomId('config_admin_roles')
-        .setLabel('👑 Set Admin Roles')
-        .setStyle(styleIf(Array.isArray(cfg.admin_roles) && cfg.admin_roles.length > 0)),
-      new ButtonBuilder()
-        .setCustomId('config_vote_caps')
-        .setLabel('⚖️ Vote Caps')
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId('config_show_guide')
-        .setLabel('📖 Setup Guide')
-        .setStyle(ButtonStyle.Primary)
-    );
+  const configOptions2 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('config_voting_roles')
+      .setLabel('👥 Voting Roles')
+      .setStyle(styleIf(Array.isArray(cfg.voting_roles) && cfg.voting_roles.length > 0)),
+    new ButtonBuilder()
+      .setCustomId('config_admin_roles')
+      .setLabel('👑 Set Admin Roles')
+      .setStyle(styleIf(Array.isArray(cfg.admin_roles) && cfg.admin_roles.length > 0)),
+    new ButtonBuilder()
+      .setCustomId('config_vote_caps')
+      .setLabel('⚖️ Vote Caps')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('config_show_guide')
+      .setLabel('📖 Setup Guide')
+      .setStyle(ButtonStyle.Primary)
+  );
 
   // If already replied earlier in the flow, update; otherwise reply
   if (interaction.replied || interaction.deferred) {
     await interaction.followUp({
       content: '⚙️ **Bot Configuration**\n\nChoose what you want to configure:',
       components: [configOptions, configOptions2],
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   } else {
     await interaction.reply({
       content: '⚙️ **Bot Configuration**\n\nChoose what you want to configure:',
       components: [configOptions, configOptions2],
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -202,5 +202,5 @@ module.exports = {
   sendConfigurationError,
   requireConfiguration,
   checkConfigurationPermissions,
-  handleConfigurationButton
+  handleConfigurationButton,
 };
