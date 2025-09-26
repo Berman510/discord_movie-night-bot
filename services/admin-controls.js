@@ -545,35 +545,66 @@ async function handleSyncChannel(interaction) {
 
           let allContent = [];
           if (activeSession) {
-            // Get movies
-            const movies = await database.getMoviesByStatusExcludingCarryover(
-              interaction.guild.id,
-              'pending',
-              50
-            );
-            const plannedMovies = await database.getMoviesByStatusExcludingCarryover(
-              interaction.guild.id,
-              'planned',
-              50
-            );
-            const scheduledMovies = await database.getMoviesByStatusExcludingCarryover(
-              interaction.guild.id,
-              'scheduled',
-              50
-            );
-            const allMovies = [...movies, ...plannedMovies, ...scheduledMovies];
+            const sessionContentType = activeSession.content_type || 'movie';
 
-            // Get TV shows (using similar status filtering)
-            const tvShows = await database.getTVShowsByGuild(interaction.guild.id);
-            const activeTVShows = tvShows.filter(
-              (show) =>
-                show.status === 'pending' ||
-                show.status === 'planned' ||
-                show.status === 'scheduled'
-            );
+            // Get content based on session content type
+            if (sessionContentType === 'movie') {
+              // Movie sessions only get movies
+              const movies = await database.getMoviesByStatusExcludingCarryover(
+                interaction.guild.id,
+                'pending',
+                50
+              );
+              const plannedMovies = await database.getMoviesByStatusExcludingCarryover(
+                interaction.guild.id,
+                'planned',
+                50
+              );
+              const scheduledMovies = await database.getMoviesByStatusExcludingCarryover(
+                interaction.guild.id,
+                'scheduled',
+                50
+              );
+              allContent = [...movies, ...plannedMovies, ...scheduledMovies];
+            } else if (sessionContentType === 'tv_show') {
+              // TV show sessions only get TV shows
+              const tvShows = await database.getTVShowsByGuild(interaction.guild.id);
+              const activeTVShows = tvShows.filter(
+                (show) =>
+                  show.status === 'pending' ||
+                  show.status === 'planned' ||
+                  show.status === 'scheduled'
+              );
+              allContent = activeTVShows;
+            } else if (sessionContentType === 'mixed') {
+              // Mixed sessions get both movies and TV shows
+              const movies = await database.getMoviesByStatusExcludingCarryover(
+                interaction.guild.id,
+                'pending',
+                50
+              );
+              const plannedMovies = await database.getMoviesByStatusExcludingCarryover(
+                interaction.guild.id,
+                'planned',
+                50
+              );
+              const scheduledMovies = await database.getMoviesByStatusExcludingCarryover(
+                interaction.guild.id,
+                'scheduled',
+                50
+              );
+              const allMovies = [...movies, ...plannedMovies, ...scheduledMovies];
 
-            // Combine all content
-            allContent = [...allMovies, ...activeTVShows];
+              const tvShows = await database.getTVShowsByGuild(interaction.guild.id);
+              const activeTVShows = tvShows.filter(
+                (show) =>
+                  show.status === 'pending' ||
+                  show.status === 'planned' ||
+                  show.status === 'scheduled'
+              );
+
+              allContent = [...allMovies, ...activeTVShows];
+            }
           }
 
           for (const content of allContent) {
@@ -1271,39 +1302,62 @@ async function populateForumChannel(client, guildId) {
       return { populated: 0, error: 'Channel is not a forum channel' };
     }
 
-    // Get all active movies that should be in the forum
+    // Get all active content that should be in the forum based on session type
     const activeSession = await database.getActiveVotingSession(guildId);
     if (!activeSession) {
       return { populated: 0, error: 'No active voting session' };
     }
 
-    const movies = await database.getMoviesByStatusExcludingCarryover(guildId, 'pending', 50);
+    const sessionContentType = activeSession.content_type || 'movie';
+    let allContent = [];
+
+    // Get content based on session content type
+    if (sessionContentType === 'movie') {
+      // Movie sessions only get movies
+      allContent = await database.getMoviesByStatusExcludingCarryover(guildId, 'pending', 50);
+    } else if (sessionContentType === 'tv_show') {
+      // TV show sessions only get TV shows
+      const tvShows = await database.getTVShowsByGuild(guildId);
+      allContent = tvShows.filter((show) => show.status === 'pending');
+    } else if (sessionContentType === 'mixed') {
+      // Mixed sessions get both movies and TV shows
+      const movies = await database.getMoviesByStatusExcludingCarryover(guildId, 'pending', 50);
+      const tvShows = await database.getTVShowsByGuild(guildId);
+      const activeTVShows = tvShows.filter((show) => show.status === 'pending');
+      allContent = [...movies, ...activeTVShows];
+    }
+
     let populatedCount = 0;
+    console.log(`📋 Found ${allContent.length} active content items to populate in forum channel`);
 
-    console.log(`📋 Found ${movies.length} active movies to populate in forum channel`);
-
-    for (const movie of movies) {
+    for (const content of allContent) {
       try {
+        const isTV = content.show_type !== undefined;
+
         // Check if forum post already exists
         let existingThread = null;
-        if (movie.thread_id) {
+        if (content.thread_id) {
           try {
-            existingThread = await votingChannel.threads.fetch(movie.thread_id);
+            existingThread = await votingChannel.threads.fetch(content.thread_id);
           } catch (error) {
-            console.log(`Forum thread ${movie.thread_id} not found for ${movie.title}`);
+            console.log(`Forum thread ${content.thread_id} not found for ${content.title}`);
           }
         }
 
         if (!existingThread) {
-          // Create new forum post for this movie
-          await syncForumMoviePost(votingChannel, movie);
+          // Create new forum post for this content
+          if (isTV) {
+            await syncForumTVShowPost(votingChannel, content);
+          } else {
+            await syncForumMoviePost(votingChannel, content);
+          }
           populatedCount++;
-          console.log(`📝 Created forum post for: ${movie.title}`);
+          console.log(`📝 Created forum post for: ${content.title}`);
         } else {
-          console.log(`📝 Forum post already exists for: ${movie.title}`);
+          console.log(`📝 Forum post already exists for: ${content.title}`);
         }
       } catch (error) {
-        console.warn(`Failed to populate forum post for ${movie.title}:`, error.message);
+        console.warn(`Failed to populate forum post for ${content.title}:`, error.message);
       }
     }
 
