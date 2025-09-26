@@ -3,7 +3,13 @@
  * Comprehensive help with organized sections, commands, and support links
  */
 
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
+const {
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  MessageFlags,
+} = require('discord.js');
 // const { getContentTypeInfo } = require('../utils/content-types'); // Reserved for future use
 
 /**
@@ -28,15 +34,15 @@ function createMainHelpEmbed() {
     .setTitle('🎬 Watch Party Bot - Help Center')
     .setDescription(
       '**Welcome to Watch Party Bot!** 🎪\n\n' +
-      'Create movie nights and TV show sessions with voting, recommendations, and Discord Events integration. ' +
-      'Choose a topic below to get detailed help and guidance.\n\n' +
-      '**Quick Start:** Use `/watchparty-setup` for guided configuration!'
+        'Create movie nights and TV show sessions with voting, recommendations, and Discord Events integration. ' +
+        'Choose a topic below to get detailed help and guidance.\n\n' +
+        '**Quick Start:** Use `/watchparty-setup` for guided configuration!'
     )
     .setColor(0x00d4aa)
     .addFields(
       {
         name: '🎯 Core Features',
-        value: 
+        value:
           '• **Movie & TV Show Sessions** - Create voting sessions for any content type\n' +
           '• **Smart Recommendations** - IMDb integration with rich details\n' +
           '• **Discord Events** - Automatic event creation with posters\n' +
@@ -46,7 +52,7 @@ function createMainHelpEmbed() {
       },
       {
         name: '📋 Available Commands',
-        value: 
+        value:
           '**`/watchparty`** - Main command with all actions\n' +
           '**`/watchparty-queue`** - View current recommendations\n' +
           '**`/watchparty-setup`** - Interactive bot setup\n' +
@@ -56,7 +62,7 @@ function createMainHelpEmbed() {
       },
       {
         name: '🔗 Quick Links',
-        value: 
+        value:
           '🌐 **[Dashboard](https://watchparty.bermanoc.net)**\n' +
           '💬 **[Support Server](https://discord.gg/Tj2TswbZ)**\n' +
           '☕ **[Support Development](https://ko-fi.com/bermanoc)**',
@@ -203,7 +209,9 @@ function createCommandsHelpEmbed() {
         inline: false,
       }
     )
-    .setFooter({ text: 'Tip: Commands are organized by permission level - everyone can use basic commands!' });
+    .setFooter({
+      text: 'Tip: Commands are organized by permission level - everyone can use basic commands!',
+    });
 }
 
 /**
@@ -371,7 +379,9 @@ function createSessionsHelpEmbed() {
         inline: false,
       }
     )
-    .setFooter({ text: 'Pro tip: Use mixed sessions for variety, specific types for themed nights!' });
+    .setFooter({
+      text: 'Pro tip: Use mixed sessions for variety, specific types for themed nights!',
+    });
 }
 
 /**
@@ -456,7 +466,7 @@ function createTroubleshootingHelpEmbed() {
         name: '🗳️ Voting Issues',
         value:
           '**No Vote Buttons:** Check "Manage Messages" permission\n' +
-          '**Can\'t Vote:** Verify user has voter role configured\n' +
+          "**Can't Vote:** Verify user has voter role configured\n" +
           '**Vote Caps:** Check dashboard for vote limit settings\n' +
           '**Sync Issues:** Use admin panel "Sync Channels" button',
         inline: false,
@@ -492,7 +502,7 @@ function createBackButton() {
         .setCustomId('help_back')
         .setLabel('← Back to Main Help')
         .setStyle(ButtonStyle.Secondary)
-    )
+    ),
   ];
 }
 
