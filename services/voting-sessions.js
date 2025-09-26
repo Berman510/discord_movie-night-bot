@@ -854,9 +854,9 @@ async function createVotingSession(interaction, state) {
 
                     try {
                       await adminMirror.postContentToAdminChannel(
-                        adminChannel,
+                        interaction.client,
+                        interaction.guild.id,
                         content,
-                        { up: 0, down: 0 }, // Reset vote counts for carryover
                         contentType
                       );
                       logger.debug(
