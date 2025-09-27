@@ -28,6 +28,9 @@ jobs:
     name: Deploy Bot to Beta
     runs-on: ubuntu-latest
     environment: beta
+    permissions:
+      id-token: write
+      contents: read
     
     env:
       IMAGE_TAG: beta-${{ github.sha }}
