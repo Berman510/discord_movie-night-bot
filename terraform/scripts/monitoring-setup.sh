@@ -22,7 +22,7 @@ yum install -y \
     php-gd \
     php-json \
     unzip \
-    mysql
+    mariadb105
 
 # Install curl separately with conflict resolution
 yum install -y curl --allowerasing || yum install -y curl --skip-broken || echo "curl already available"

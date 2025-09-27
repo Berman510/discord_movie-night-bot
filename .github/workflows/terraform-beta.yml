@@ -48,6 +48,7 @@ env:
   TF_VAR_bot_image_tag_beta: beta-latest
   TF_VAR_pebblehost_beta_branch: v1.16.3
   TF_VAR_monitoring_instance_type: t4g.nano
+  TF_VAR_user_ip: 50.53.23.36
   TF_VAR_enable_lambda_bot: true  # Phase 3: Enable Lambda infrastructure
   TF_VAR_discord_public_key_beta: ${{ secrets.DISCORD_PUBLIC_KEY_BETA }}
   TF_VAR_enable_rds_mysql: true  # Enable AWS RDS MySQL for beta migration

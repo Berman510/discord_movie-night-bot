@@ -31,6 +31,12 @@ variable "domain_name" {
   default     = "bermanoc.net"
 }
 
+variable "user_ip" {
+  description = "User's current IP address for security group access"
+  type        = string
+  default     = "50.53.23.36"
+}
+
 # Bot Configuration
 variable "bot_cpu" {
   description = "CPU units for bot task"
