@@ -93,9 +93,6 @@ resource "aws_lambda_function" "discord_handler" {
 
   source_code_hash = data.archive_file.discord_handler[0].output_base64sha256
 
-  # Provisioned concurrency for zero cold starts
-  reserved_concurrent_executions = 10
-
   environment {
     variables = {
       DISCORD_PUBLIC_KEY = var.environment == "beta" ? var.discord_public_key_beta : var.discord_public_key_prod
@@ -116,13 +113,8 @@ resource "aws_lambda_function" "discord_handler" {
   })
 }
 
-# Provisioned concurrency for zero cold starts
-resource "aws_lambda_provisioned_concurrency_config" "discord_handler" {
-  count                             = var.enable_lambda_bot ? 1 : 0
-  function_name                     = aws_lambda_function.discord_handler[0].function_name
-  provisioned_concurrent_executions = 1
-  qualifier                         = aws_lambda_function.discord_handler[0].version
-}
+# Note: Provisioned concurrency removed - requires published function versions
+# Can be re-enabled later with proper versioning if needed for zero cold starts
 
 # IAM role for Discord Lambda
 resource "aws_iam_role" "lambda_discord" {
