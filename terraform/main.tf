@@ -36,7 +36,7 @@ locals {
 # Data sources to reference existing dashboard infrastructure
 data "aws_vpc" "main" {
   tags = {
-    Name = "${var.dashboard_project_name}-vpc"
+    Name = "movienight-dashboard-vpc"
   }
 }
 
@@ -52,25 +52,25 @@ data "aws_subnets" "public" {
 }
 
 data "aws_security_group" "ecs_tasks" {
-  name = "${var.dashboard_project_name}-ecs-tasks"
+  name = "movienight-dashboard-ecs-tasks"
 }
 
 data "aws_ecs_cluster" "main" {
-  cluster_name = "${var.dashboard_project_name}-cluster"
+  cluster_name = "movienight-dashboard-cluster"
 }
 
 # Reference existing IAM roles from dashboard
 data "aws_iam_role" "ecs_task_execution" {
-  name = "${var.dashboard_project_name}-ecs-task-execution"
+  name = "movienight-dashboard-ecs-task-execution"
 }
 
 data "aws_iam_role" "ecs_task" {
-  name = "${var.dashboard_project_name}-ecs-task"
+  name = "movienight-dashboard-ecs-task"
 }
 
 # Reference existing database secrets
 data "aws_secretsmanager_secret" "db_credentials_beta" {
-  name = "${var.dashboard_project_name}/beta/database"
+  name = "movienight-dashboard/beta/database"
 }
 
 # Production secrets (disabled for beta-only deployment)
@@ -79,7 +79,7 @@ data "aws_secretsmanager_secret" "db_credentials_beta" {
 # }
 
 data "aws_secretsmanager_secret" "ws_beta" {
-  name = "${var.dashboard_project_name}/beta/websocket"
+  name = "movienight-dashboard/beta/ws"
 }
 
 # data "aws_secretsmanager_secret" "ws_prod" {
