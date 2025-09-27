@@ -85,6 +85,10 @@ data "aws_secretsmanager_secret" "ws_beta" {
   name = "movienight-dashboard/beta/ws"
 }
 
+data "aws_secretsmanager_secret" "db_beta" {
+  name = "movienight-dashboard/beta/database"
+}
+
 # Add bot secrets access to existing ECS task execution role
 resource "aws_iam_role_policy" "bot_secrets_access" {
   name = "watchparty-bot-secrets-access"
@@ -100,8 +104,12 @@ resource "aws_iam_role_policy" "bot_secrets_access" {
         ]
         Resource = [
           aws_secretsmanager_secret.bot_secrets_beta.arn,
-          # Add production secret when enabled
+          data.aws_secretsmanager_secret.ws_beta.arn,
+          data.aws_secretsmanager_secret.db_beta.arn,
+          # Add production secrets when enabled
           # aws_secretsmanager_secret.bot_secrets_prod.arn,
+          # data.aws_secretsmanager_secret.ws_prod.arn,
+          # data.aws_secretsmanager_secret.db_prod.arn,
         ]
       }
     ]
