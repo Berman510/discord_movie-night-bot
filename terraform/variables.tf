@@ -1,4 +1,5 @@
 # Variables for Watch Party Bot Infrastructure
+# Trigger infrastructure deployment after OIDC fix
 
 variable "aws_region" {
   description = "AWS region"
