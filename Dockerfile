@@ -8,7 +8,8 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies with exact versions to match PebbleHost
-RUN npm ci --only=production
+# Skip prepare scripts (husky) in production Docker builds
+RUN npm ci --omit=dev --ignore-scripts
 
 # Copy application code
 COPY . .
