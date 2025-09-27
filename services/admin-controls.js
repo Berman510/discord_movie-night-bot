@@ -393,7 +393,8 @@ async function ensureAdminControlPanel(client, guildId) {
             msg.author.id === client.user.id &&
             msg.embeds.length > 0 &&
             msg.embeds[0].title &&
-            (msg.embeds[0].title.includes('Moderation Panel') || msg.embeds[0].title.includes('Admin Control Panel'))
+            (msg.embeds[0].title.includes('Moderation Panel') ||
+              msg.embeds[0].title.includes('Admin Control Panel'))
         );
       } else {
         const logger = require('../utils/logger');
@@ -413,7 +414,8 @@ async function ensureAdminControlPanel(client, guildId) {
             msg.author.id === client.user.id &&
             msg.embeds.length > 0 &&
             msg.embeds[0].title &&
-            (msg.embeds[0].title.includes('Moderation Panel') || msg.embeds[0].title.includes('Admin Control Panel'))
+            (msg.embeds[0].title.includes('Moderation Panel') ||
+              msg.embeds[0].title.includes('Admin Control Panel'))
         );
       } catch (error) {
         console.warn('Error fetching recent messages for admin panel search:', error.message);
@@ -543,7 +545,9 @@ async function handleSyncChannel(interaction) {
           // Only recreate voting posts when there is an active session
           const activeSession = await database.getActiveVotingSession(interaction.guild.id);
           const logger = require('../utils/logger');
-          logger.debug(`📋 Active session check: ${activeSession ? `Found session ${activeSession.id} (status: ${activeSession.status})` : 'No active session'}`);
+          logger.debug(
+            `📋 Active session check: ${activeSession ? `Found session ${activeSession.id} (status: ${activeSession.status})` : 'No active session'}`
+          );
 
           let allContent = [];
           if (activeSession) {
@@ -683,8 +687,12 @@ async function handleSyncChannel(interaction) {
                 await forumChannels.createNoActiveSessionPost(votingChannel);
               } catch (permError) {
                 if (permError.code === 50001) {
-                  logger.warn(`📋 Missing permissions to create forum posts in ${votingChannel.name}. Bot needs: Send Messages, Create Public Threads, Send Messages in Threads, Manage Messages`);
-                  errors.push(`Forum permissions: Bot needs Send Messages, Create Public Threads, Send Messages in Threads, and Manage Messages permissions in ${votingChannel.name}`);
+                  logger.warn(
+                    `📋 Missing permissions to create forum posts in ${votingChannel.name}. Bot needs: Send Messages, Create Public Threads, Send Messages in Threads, Manage Messages`
+                  );
+                  errors.push(
+                    `Forum permissions: Bot needs Send Messages, Create Public Threads, Send Messages in Threads, and Manage Messages permissions in ${votingChannel.name}`
+                  );
                 } else {
                   throw permError;
                 }
@@ -695,8 +703,12 @@ async function handleSyncChannel(interaction) {
                 await forumChannels.ensureRecommendationPost(votingChannel, activeSession);
               } catch (permError) {
                 if (permError.code === 50001) {
-                  logger.warn(`📋 Missing permissions to create forum posts in ${votingChannel.name}. Bot needs: Send Messages, Create Public Threads, Send Messages in Threads, Manage Messages`);
-                  errors.push(`Forum permissions: Bot needs Send Messages, Create Public Threads, Send Messages in Threads, and Manage Messages permissions in ${votingChannel.name}`);
+                  logger.warn(
+                    `📋 Missing permissions to create forum posts in ${votingChannel.name}. Bot needs: Send Messages, Create Public Threads, Send Messages in Threads, Manage Messages`
+                  );
+                  errors.push(
+                    `Forum permissions: Bot needs Send Messages, Create Public Threads, Send Messages in Threads, and Manage Messages permissions in ${votingChannel.name}`
+                  );
                 } else {
                   throw permError;
                 }
@@ -982,7 +994,8 @@ async function executePurgeQueue(interaction) {
           const isControlPanel =
             message.embeds.length > 0 &&
             message.embeds[0].title &&
-            (message.embeds[0].title.includes('Moderation Panel') || message.embeds[0].title.includes('Admin Control Panel'));
+            (message.embeds[0].title.includes('Moderation Panel') ||
+              message.embeds[0].title.includes('Admin Control Panel'));
 
           if (!isControlPanel) {
             await message.delete();
@@ -1326,12 +1339,13 @@ async function syncForumTVShowPost(forumChannel, tvShow) {
 
       // Update message ID to the starter message ID for proper voting
       if (message && message.id !== tvShow.message_id) {
-        await database.pool.execute('UPDATE tv_shows SET message_id = ? WHERE guild_id = ? AND title = ?', [
-          message.id,
-          tvShow.guild_id,
-          tvShow.title,
-        ]);
-        console.log(`🔄 Updated TV show message ID: ${tvShow.title} (${tvShow.message_id} → ${message.id})`);
+        await database.pool.execute(
+          'UPDATE tv_shows SET message_id = ? WHERE guild_id = ? AND title = ?',
+          [message.id, tvShow.guild_id, tvShow.title]
+        );
+        console.log(
+          `🔄 Updated TV show message ID: ${tvShow.title} (${tvShow.message_id} → ${message.id})`
+        );
 
         // Now create voting buttons with the correct message ID and update the message
         const tvShowComponents = components.createVotingButtons(

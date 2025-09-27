@@ -23,6 +23,7 @@ All notable changes to **Watch Party Bot** will be documented in this file.
 ### 🔐 **Required Permissions**
 
 For forum channels, the bot now requires:
+
 - Send Messages
 - Create Public Threads
 - Send Messages in Threads

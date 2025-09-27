@@ -3,6 +3,7 @@
 This Terraform configuration deploys the Discord Watch Party Bot to AWS ECS Fargate with both beta and production environments.
 
 ## Deployment Status
+
 - ✅ Beta infrastructure ready for deployment
 - ✅ IAM trust policies updated for bot repository
 - ✅ Terraform workflow issues fixed
@@ -62,12 +63,14 @@ terraform apply
 ## Environment Configuration
 
 ### Beta Environment
+
 - **Service**: `watchparty-bot-beta`
 - **WebSocket**: `wss://watchparty-beta.bermanoc.net/socket`
 - **Database**: Shared beta database with dashboard
 - **Logging**: 7-day retention
 
 ### Production Environment
+
 - **Service**: `watchparty-bot-prod`
 - **WebSocket**: `wss://watchparty.bermanoc.net/socket`
 - **Database**: Shared production database with dashboard
@@ -76,10 +79,12 @@ terraform apply
 ## Deployment
 
 ### Automatic Deployment
+
 - **Beta**: Pushes to `v1.16.3`, `develop`, or `beta` branches
 - **Production**: Pushes to `main` or `master` branches
 
 ### Manual Deployment
+
 ```bash
 # Deploy to beta
 gh workflow run deploy-beta.yml
@@ -91,6 +96,7 @@ gh workflow run deploy-bot.yml -f environment=prod
 ## Monitoring
 
 ### View Logs
+
 ```bash
 # Beta logs
 aws logs tail /ecs/watchparty-bot-beta --follow
@@ -100,6 +106,7 @@ aws logs tail /ecs/watchparty-bot-prod --follow
 ```
 
 ### Check Service Status
+
 ```bash
 # Beta service
 aws ecs describe-services --cluster watchparty-cluster --services watchparty-bot-beta

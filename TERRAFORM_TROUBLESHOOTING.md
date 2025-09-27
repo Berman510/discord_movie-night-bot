@@ -71,6 +71,7 @@ terraform force-unlock LOCK_ID
 ## After Resolving Locks
 
 1. **Verify locks are cleared:**
+
    ```bash
    ./scripts/check-terraform-locks.sh check
    ```

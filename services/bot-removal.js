@@ -3,7 +3,13 @@
  * Handles complete removal of bot data and graceful exit from guilds
  */
 
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
+const {
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  MessageFlags,
+} = require('discord.js');
 
 /**
  * Create bot removal confirmation embed
@@ -13,13 +19,13 @@ function createRemovalConfirmationEmbed(guildName) {
     .setTitle('⚠️ Remove Watch Party Bot')
     .setDescription(
       `**This will permanently remove the Watch Party Bot from "${guildName}"**\n\n` +
-      '**What will happen:**\n' +
-      '• All bot data will be deleted from our database\n' +
-      '• All bot messages will be deleted from your server\n' +
-      '• All Discord events created by the bot will be deleted\n' +
-      '• The bot will leave your server\n\n' +
-      '**⚠️ This action is PERMANENT and cannot be undone!**\n\n' +
-      '**Note:** You can always re-invite the bot later if needed, but all previous data will be lost.'
+        '**What will happen:**\n' +
+        '• All bot data will be deleted from our database\n' +
+        '• All bot messages will be deleted from your server\n' +
+        '• All Discord events created by the bot will be deleted\n' +
+        '• The bot will leave your server\n\n' +
+        '**⚠️ This action is PERMANENT and cannot be undone!**\n\n' +
+        '**Note:** You can always re-invite the bot later if needed, but all previous data will be lost.'
     )
     .setColor(0xed4245)
     .setFooter({ text: 'This action requires administrator permissions' });
@@ -46,10 +52,10 @@ function createRemovalConfirmationButtons() {
  */
 async function handleBotRemovalInitiation(interaction) {
   const permissions = require('./permissions');
-  
+
   // Check if user has admin permission
   const isAdmin = await permissions.checkMovieAdminPermission(interaction);
-  
+
   if (!isAdmin) {
     await interaction.reply({
       content: '❌ **Access Denied**\n\nYou need administrator permissions to remove the bot.',
@@ -73,10 +79,10 @@ async function handleBotRemovalInitiation(interaction) {
  */
 async function handleBotRemovalConfirmation(interaction) {
   const permissions = require('./permissions');
-  
+
   // Double-check admin permission
   const isAdmin = await permissions.checkMovieAdminPermission(interaction);
-  
+
   if (!isAdmin) {
     await interaction.update({
       content: '❌ **Access Denied**\n\nYou need administrator permissions to remove the bot.',
@@ -88,7 +94,8 @@ async function handleBotRemovalConfirmation(interaction) {
 
   // Update to show processing
   await interaction.update({
-    content: '🔄 **Removing Watch Party Bot...**\n\nPlease wait while we clean up all data and messages.',
+    content:
+      '🔄 **Removing Watch Party Bot...**\n\nPlease wait while we clean up all data and messages.',
     embeds: [],
     components: [],
   });
@@ -96,10 +103,10 @@ async function handleBotRemovalConfirmation(interaction) {
   try {
     // Perform complete bot removal
     const result = await performCompleteGuildRemoval(interaction.guild, interaction.client);
-    
+
     // Send final message before leaving
     await interaction.editReply({
-      content: 
+      content:
         '✅ **Watch Party Bot Removed Successfully**\n\n' +
         `**Cleanup Summary:**\n` +
         `• Database records deleted: ${result.databaseRecords}\n` +
@@ -114,19 +121,20 @@ async function handleBotRemovalConfirmation(interaction) {
       try {
         await interaction.guild.leave();
         const logger = require('../utils/logger');
-        logger.info(`🚪 Left guild: ${interaction.guild.name} (${interaction.guild.id}) after removal request`);
+        logger.info(
+          `🚪 Left guild: ${interaction.guild.name} (${interaction.guild.id}) after removal request`
+        );
       } catch (error) {
         const logger = require('../utils/logger');
         logger.error('Error leaving guild after removal:', error);
       }
     }, 3000);
-
   } catch (error) {
     const logger = require('../utils/logger');
     logger.error('Error during bot removal:', error);
-    
+
     await interaction.editReply({
-      content: 
+      content:
         '❌ **Error During Removal**\n\n' +
         'An error occurred while removing the bot. Some data may not have been cleaned up properly.\n\n' +
         'Please contact support if you need assistance.',
@@ -151,14 +159,14 @@ async function handleBotRemovalCancellation(interaction) {
 async function performCompleteGuildRemoval(guild, client) {
   const logger = require('../utils/logger');
   const database = require('../database');
-  
+
   logger.info(`🗑️ Starting complete removal for guild: ${guild.name} (${guild.id})`);
-  
+
   const result = {
     databaseRecords: 0,
     messagesDeleted: 0,
     eventsDeleted: 0,
-    errors: []
+    errors: [],
   };
 
   try {
@@ -188,7 +196,7 @@ async function performCompleteGuildRemoval(guild, client) {
       const channelsToClean = [
         config?.voting_channel_id,
         config?.admin_channel_id,
-        config?.watch_party_channel_id
+        config?.watch_party_channel_id,
       ].filter(Boolean);
 
       for (const channelId of channelsToClean) {
@@ -196,8 +204,8 @@ async function performCompleteGuildRemoval(guild, client) {
           const channel = await guild.channels.fetch(channelId);
           if (channel) {
             const messages = await channel.messages.fetch({ limit: 100 });
-            const botMessages = messages.filter(msg => msg.author.id === client.user.id);
-            
+            const botMessages = messages.filter((msg) => msg.author.id === client.user.id);
+
             for (const [messageId, message] of botMessages) {
               try {
                 await message.delete();
@@ -206,7 +214,7 @@ async function performCompleteGuildRemoval(guild, client) {
                 logger.warn(`Failed to delete message ${messageId}:`, error.message);
               }
             }
-            
+
             // Clean up threads created by the bot
             if (channel.threads) {
               const threads = await channel.threads.fetchActive();
@@ -235,18 +243,22 @@ async function performCompleteGuildRemoval(guild, client) {
     // Step 3: Complete database cleanup using deep purge
     try {
       const deepPurge = require('./deep-purge');
-      const purgeResult = await deepPurge.executeDeepPurge(guild.id, {
-        movies: true,
-        sessions: true,
-        votes: true,
-        participants: true,
-        attendees: true,
-        config: true
-      }, client);
-      
+      const purgeResult = await deepPurge.executeDeepPurge(
+        guild.id,
+        {
+          movies: true,
+          sessions: true,
+          votes: true,
+          participants: true,
+          attendees: true,
+          config: true,
+        },
+        client
+      );
+
       result.databaseRecords = purgeResult.deleted;
       logger.info(`🗑️ Deep purge completed: ${purgeResult.deleted} records deleted`);
-      
+
       if (purgeResult.errors.length > 0) {
         result.errors.push(...purgeResult.errors);
       }
@@ -255,8 +267,9 @@ async function performCompleteGuildRemoval(guild, client) {
       result.errors.push(`Database cleanup: ${error.message}`);
     }
 
-    logger.info(`✅ Guild removal completed for ${guild.name}: ${result.databaseRecords} DB records, ${result.messagesDeleted} messages, ${result.eventsDeleted} events`);
-    
+    logger.info(
+      `✅ Guild removal completed for ${guild.name}: ${result.databaseRecords} DB records, ${result.messagesDeleted} messages, ${result.eventsDeleted} events`
+    );
   } catch (error) {
     logger.error('Error during complete guild removal:', error);
     result.errors.push(`General error: ${error.message}`);
@@ -270,26 +283,33 @@ async function performCompleteGuildRemoval(guild, client) {
  */
 async function handleAutomaticGuildCleanup(guild, client) {
   const logger = require('../utils/logger');
-  
-  logger.info(`🚪 Bot was removed from guild: ${guild.name} (${guild.id}) - performing automatic cleanup`);
-  
+
+  logger.info(
+    `🚪 Bot was removed from guild: ${guild.name} (${guild.id}) - performing automatic cleanup`
+  );
+
   try {
     // Perform the same cleanup as manual removal, but without Discord message deletion
     // (since we can't delete messages after being kicked)
     const _database = require('../database');
     const deepPurge = require('./deep-purge');
-    
-    const purgeResult = await deepPurge.executeDeepPurge(guild.id, {
-      movies: true,
-      sessions: true,
-      votes: true,
-      participants: true,
-      attendees: true,
-      config: true
-    }, client);
-    
-    logger.info(`✅ Automatic cleanup completed for ${guild.name}: ${purgeResult.deleted} database records deleted`);
-    
+
+    const purgeResult = await deepPurge.executeDeepPurge(
+      guild.id,
+      {
+        movies: true,
+        sessions: true,
+        votes: true,
+        participants: true,
+        attendees: true,
+        config: true,
+      },
+      client
+    );
+
+    logger.info(
+      `✅ Automatic cleanup completed for ${guild.name}: ${purgeResult.deleted} database records deleted`
+    );
   } catch (error) {
     logger.error('Error during automatic guild cleanup:', error);
   }
