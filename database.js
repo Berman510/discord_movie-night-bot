@@ -2689,12 +2689,17 @@ class Database {
       ]);
 
       // Emit event if status actually changed
-      if (currentMovie && oldStatus !== status) {
+      if (currentMovie && oldStatus !== status && global.eventSystem) {
         try {
-          const { emitMovieStatusChanged } = require('./services/event-system');
-          await emitMovieStatusChanged(currentMovie.guild_id, messageId, oldStatus, status, {
-            watchedAt,
-          });
+          await global.eventSystem.emitMovieStatusChanged(
+            currentMovie.guild_id,
+            messageId,
+            oldStatus,
+            status,
+            {
+              watchedAt,
+            }
+          );
         } catch (eventError) {
           console.warn('Error emitting movie status changed event:', eventError.message);
         }
@@ -2750,11 +2755,10 @@ class Database {
       );
 
       // Emit vote event with updated counts
-      if (guildId) {
+      if (guildId && global.eventSystem) {
         try {
           const voteCounts = await this.getVoteCounts(messageId);
-          const { emitMovieVoted } = require('./services/event-system');
-          await emitMovieVoted(guildId, messageId, userId, voteType, voteCounts);
+          await global.eventSystem.emitMovieVoted(guildId, messageId, userId, voteType, voteCounts);
         } catch (eventError) {
           console.warn('Error emitting movie voted event:', eventError.message);
         }
@@ -3040,12 +3044,17 @@ class Database {
       );
 
       // Emit event if status actually changed
-      if (currentSession && oldStatus !== status) {
+      if (currentSession && oldStatus !== status && global.eventSystem) {
         try {
-          const { emitSessionStatusChanged } = require('./services/event-system');
-          await emitSessionStatusChanged(currentSession.guild_id, sessionId, oldStatus, status, {
-            winnerMessageId,
-          });
+          await global.eventSystem.emitSessionStatusChanged(
+            currentSession.guild_id,
+            sessionId,
+            oldStatus,
+            status,
+            {
+              winnerMessageId,
+            }
+          );
         } catch (eventError) {
           console.warn('Error emitting session status changed event:', eventError.message);
         }
