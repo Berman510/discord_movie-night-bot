@@ -10,20 +10,20 @@ output "bot_beta_service_name" {
   value       = aws_ecs_service.bot_beta.name
 }
 
-output "bot_prod_service_name" {
-  description = "Name of the production bot ECS service"
-  value       = aws_ecs_service.bot_prod.name
-}
+# output "bot_prod_service_name" {
+#   description = "Name of the production bot ECS service"
+#   value       = aws_ecs_service.bot_prod.name
+# }
 
 output "bot_beta_log_group" {
   description = "CloudWatch log group for beta bot"
   value       = aws_cloudwatch_log_group.bot_beta.name
 }
 
-output "bot_prod_log_group" {
-  description = "CloudWatch log group for production bot"
-  value       = aws_cloudwatch_log_group.bot_prod.name
-}
+# output "bot_prod_log_group" {
+#   description = "CloudWatch log group for production bot"
+#   value       = aws_cloudwatch_log_group.bot_prod.name
+# }
 
 output "bot_beta_secrets_arn" {
   description = "ARN of the beta bot secrets"
@@ -31,11 +31,11 @@ output "bot_beta_secrets_arn" {
   sensitive   = true
 }
 
-output "bot_prod_secrets_arn" {
-  description = "ARN of the production bot secrets"
-  value       = aws_secretsmanager_secret.bot_secrets_prod.arn
-  sensitive   = true
-}
+# output "bot_prod_secrets_arn" {
+#   description = "ARN of the production bot secrets"
+#   value       = aws_secretsmanager_secret.bot_secrets_prod.arn
+#   sensitive   = true
+# }
 
 output "monitoring_instance_ip" {
   description = "Public IP of the monitoring instance"
@@ -52,7 +52,7 @@ output "pebblehost_beta_branch" {
   value       = var.pebblehost_beta_branch
 }
 
-output "pebblehost_prod_branch" {
-  description = "Recommended PebbleHost branch for production environment"
-  value       = var.pebblehost_prod_branch
-}
+# output "pebblehost_prod_branch" {
+#   description = "Recommended PebbleHost branch for production environment"
+#   value       = var.pebblehost_prod_branch
+# }
