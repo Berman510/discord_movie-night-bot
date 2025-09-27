@@ -26,7 +26,7 @@ You can also check directly with AWS CLI:
 
 ```bash
 aws dynamodb scan \
-  --table-name movienight-dashboard-tf-locks \
+  --table-name watchparty-dashboard-tf-locks \
   --region us-west-2 \
   --output table
 ```
@@ -48,13 +48,13 @@ If you need to manually remove specific locks:
 ```bash
 # List all locks
 aws dynamodb scan \
-  --table-name movienight-dashboard-tf-locks \
+  --table-name watchparty-dashboard-tf-locks \
   --region us-west-2 \
   --query 'Items[*].{LockID:LockID.S,Path:Path.S,Who:Who.S,Created:Created.S}'
 
 # Remove specific lock (replace LOCK_ID with actual ID)
 aws dynamodb delete-item \
-  --table-name movienight-dashboard-tf-locks \
+  --table-name watchparty-dashboard-tf-locks \
   --region us-west-2 \
   --key '{"LockID": {"S": "LOCK_ID_HERE"}}'
 ```
@@ -91,8 +91,8 @@ To prevent future lock issues:
 
 ## Current Configuration
 
-- **State Backend**: S3 bucket `movienight-dashboard-tfstate-321447295215-us-west-2`
-- **Lock Table**: DynamoDB table `movienight-dashboard-tf-locks`
+- **State Backend**: S3 bucket `watchparty-dashboard-tfstate-321447295215-us-west-2`
+- **Lock Table**: DynamoDB table `watchparty-dashboard-tf-locks`
 - **State Key**: `watchparty-bot/terraform.tfstate`
 - **Region**: `us-west-2`
 

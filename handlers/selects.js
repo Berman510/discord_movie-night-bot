@@ -300,7 +300,7 @@ async function showMovieSelection(interaction, state) {
     const topMovie = await database.getTopVotedMovie(guildId);
 
     const embed = new EmbedBuilder()
-      .setTitle('🎬 Create Movie Night Session')
+      .setTitle('🎬 Create Watch Party Session')
       .setDescription(
         '**Step 4:** Choose a movie for your session\n\n*Select a movie to feature in this session, or create a general session*'
       )
@@ -318,7 +318,7 @@ async function showMovieSelection(interaction, state) {
     movieOptions.push({
       label: '📝 No Specific Movie (General Session)',
       value: 'no_movie',
-      description: 'Create a general movie night session',
+      description: 'Create a general watch party session',
     });
 
     // Add top-voted movie if available
@@ -386,7 +386,7 @@ async function showMovieSelection(interaction, state) {
 
 async function showSessionDetailsModal(interaction, state) {
   const embed = new EmbedBuilder()
-    .setTitle('🎬 Create Movie Night Session')
+    .setTitle('🎬 Create Watch Party Session')
     .setDescription(
       '**Step 5:** Enter session details\n\n*Almost done! Just add a name and description for your session.*'
     )

@@ -2,7 +2,7 @@
  * Watch Party Bot — Main Entry Point
  * Version: 1.14.1
  *
- * A modular Discord bot for organizing movie nights with voting, sessions, and IMDb integration
+ * A modular Discord bot for organizing watch partys with voting, sessions, and IMDb integration
  */
 // Ensure production dependencies are installed when running from a clean git pull (e.g., PebbleHost)
 try {
@@ -82,11 +82,11 @@ global.discordClient = client;
 // Bot ready event
 client.once('clientReady', async () => {
   logger.info(`✅ ${client.user.tag} is online!`);
-  logger.info(`🎬 Movie Night Bot v${BOT_VERSION} ready`);
+  logger.info(`🎬 Watch Party Bot v${BOT_VERSION} ready`);
   logger.info(`📊 Serving ${client.guilds.cache.size} guilds`);
 
   // Set bot status
-  client.user.setActivity('🍿 Movie Night', { type: 3 }); // 3 = WATCHING
+  client.user.setActivity('🍿 Watch Party', { type: 3 }); // 3 = WATCHING
 
   // Skip automatic admin panel initialization on startup to prevent message recreation
   // Admin panels will be created on-demand when users interact with the bot
@@ -222,7 +222,7 @@ process.on('SIGTERM', async () => {
 // Start the bot
 async function startBot() {
   try {
-    logger.info(`🎬 Movie Night Bot v${BOT_VERSION} starting...`);
+    logger.info(`🎬 Watch Party Bot v${BOT_VERSION} starting...`);
 
     // Initialize database
     await database.connect();

@@ -120,9 +120,9 @@ async function tryShowSetupPanelInAdminChannels(client, guildId) {
     // Create setup panel embed
     const _guidedSetup = require('./guided-setup');
     const embed = new EmbedBuilder()
-      .setTitle('🎬 Movie Night Bot - Setup Required')
+      .setTitle('🎬 Watch Party Bot - Setup Required')
       .setDescription(
-        `**Configuration Cleared**\n\nThe bot configuration has been cleared. Please complete setup to use Movie Night Bot.`
+        `**Configuration Cleared**\n\nThe bot configuration has been cleared. Please complete setup to use Watch Party Bot.`
       )
       .setColor(0xffa500)
       .addFields(
@@ -143,7 +143,7 @@ async function tryShowSetupPanelInAdminChannels(client, guildId) {
           inline: false,
         }
       )
-      .setFooter({ text: 'Setup required before using Movie Night features' });
+      .setFooter({ text: 'Setup required before using Watch Party features' });
 
     const components = [
       new ActionRowBuilder().addComponents(

@@ -1,6 +1,6 @@
 /**
  * Statistics Service Module
- * Handles movie night statistics and analytics
+ * Handles watch party statistics and analytics
  */
 
 const { MessageFlags, EmbedBuilder } = require('discord.js');
@@ -62,7 +62,7 @@ async function showOverviewStats(interaction) {
   }
 
   const embed = new EmbedBuilder()
-    .setTitle('📊 Movie Night Statistics')
+    .setTitle('📊 Watch Party Statistics')
     .setDescription('Overview of movie recommendations and activity')
     .setColor(0x5865f2)
     .addFields(

@@ -3,9 +3,9 @@
  * Handles server configuration and settings management
  *
  * TODO: Watch Party Channel Configuration
- * - Add configuration for session viewing channel (voice/text channel where movie nights happen)
+ * - Add configuration for session viewing channel (voice/text channel where watch partys happen)
  * - Add database field for watch_party_channel_id in guild_config table
- * - Add configuration command: /movienight-configure action:set-watch-party-channel
+ * - Add configuration command: /watchparty-configure action:set-watch-party-channel
  * - This channel would be monitored during scheduled session times for automatic participant tracking
  * - Could support both voice channels (for watch parties) and text channels (for chat-based viewing)
  * - Add validation to ensure configured channel exists and bot has proper permissions

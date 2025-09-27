@@ -6,7 +6,7 @@
 const commands = [
   {
     name: 'movie-stats',
-    description: 'View movie night statistics and analytics',
+    description: 'View watch party statistics and analytics',
     options: [
       {
         name: 'type',

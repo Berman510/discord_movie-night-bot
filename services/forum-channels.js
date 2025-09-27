@@ -591,8 +591,8 @@ async function postForumWinnerAnnouncement(channel, winnerMovie, sessionName, op
 
     // Create winner announcement embed
     const winnerEmbed = new EmbedBuilder()
-      .setTitle('🏆 Movie Night Winner Announced!')
-      .setDescription(`**${winnerMovie.title}** has been selected for our next movie night!`)
+      .setTitle('🏆 Watch Party Winner Announced!')
+      .setDescription(`**${winnerMovie.title}** has been selected for our next watch party!`)
       .setColor(0xffd700)
       .addFields(
         { name: '📺 Platform', value: winnerMovie.where_to_watch || 'TBD', inline: true },

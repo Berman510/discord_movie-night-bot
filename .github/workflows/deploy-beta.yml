@@ -19,7 +19,7 @@ on:
 env:
   AWS_REGION: us-west-2
   ECR_REPOSITORY: watchparty-bot
-  ECS_CLUSTER: movienight-dashboard-cluster
+  ECS_CLUSTER: watchparty-dashboard-cluster
   ECS_SERVICE: watchparty-bot-beta
   DEPLOY_ENV: beta
 

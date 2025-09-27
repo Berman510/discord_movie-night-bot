@@ -315,7 +315,7 @@ function initWebSocketClient(logger) {
                       await forumChannels.postForumWinnerAnnouncement(
                         voteChannel,
                         movie,
-                        session.name || 'Movie Night',
+                        session.name || 'Watch Party',
                         { event: session.discord_event_id || null, selectedByUserId: actorId }
                       );
                     } catch (_) {}
@@ -823,7 +823,7 @@ function initWebSocketClient(logger) {
                 typeof votingEndTs === 'number'
                   ? new Date(Number(votingEndTs))
                   : new Date(scheduledDate.getTime() - 60 * 60 * 1000);
-              const sessionName = name || 'Movie Night';
+              const sessionName = name || 'Watch Party';
               const tz = (config && (config.timezone || config.guild_timezone)) || 'UTC';
 
               // Create Discord event first (optional)
@@ -943,7 +943,7 @@ function initWebSocketClient(logger) {
               } else if (session && session.name && session.name.trim().length > 0) {
                 newName = session.name.trim();
               } else {
-                newName = 'Movie Night';
+                newName = 'Watch Party';
               }
 
               const newDesc =

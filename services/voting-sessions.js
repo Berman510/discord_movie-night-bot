@@ -125,7 +125,7 @@ async function showVotingSessionDateModal(interaction) {
     .setCustomId('session_description')
     .setLabel('Session Description (Optional)')
     .setStyle(TextInputStyle.Paragraph)
-    .setPlaceholder('Join us for a festive movie night!')
+    .setPlaceholder('Join us for a festive watch party!')
     .setRequired(false)
     .setMaxLength(500);
 
@@ -222,7 +222,7 @@ async function showVotingSessionRescheduleModal(interaction, session) {
     .setCustomId('session_description')
     .setLabel('Session Description (Optional)')
     .setStyle(TextInputStyle.Paragraph)
-    .setPlaceholder('Join us for a festive movie night!')
+    .setPlaceholder('Join us for a festive watch party!')
     .setRequired(false)
     .setMaxLength(500)
     .setValue(prefillDescription);
@@ -336,7 +336,7 @@ async function handleVotingSessionRescheduleModal(interaction) {
         ? 'TV Show Night'
         : session?.content_type === 'mixed'
           ? 'Watch Party'
-          : 'Movie Night';
+          : 'Watch Party';
     const sessionName = `${contentTypeLabel} - ${startDateTime.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
 
     // Determine timezone preference similar to creation
@@ -580,7 +580,7 @@ async function handleVotingSessionDateModal(interaction) {
       ? 'TV Show Night'
       : state.contentType === 'mixed'
         ? 'Watch Party'
-        : 'Movie Night';
+        : 'Watch Party';
   const sessionName = `${contentTypeLabel} - ${sessionDateTime.toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',
@@ -680,7 +680,7 @@ async function createVotingSession(interaction, state) {
         id: sessionId,
         guildId: interaction.guild.id,
         name: state.sessionName,
-        description: state.sessionDescription || 'Join us for movie night voting and viewing!',
+        description: state.sessionDescription || 'Join us for watch party voting and viewing!',
         votingEndTime: state.votingEndDateTime,
       };
 

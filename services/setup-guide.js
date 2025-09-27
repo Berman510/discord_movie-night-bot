@@ -1,6 +1,6 @@
 /**
  * Setup Guide Service Module
- * Provides comprehensive setup instructions for Movie Night Bot
+ * Provides comprehensive setup instructions for Watch Party Bot
  */
 
 const {
@@ -16,14 +16,14 @@ const {
  */
 async function showSetupGuide(interaction) {
   const embed = new EmbedBuilder()
-    .setTitle('🎬 Movie Night Bot Setup Guide')
+    .setTitle('🎬 Watch Party Bot Setup Guide')
     .setDescription('Complete setup instructions for administrators')
     .setColor(0x5865f2)
     .addFields(
       {
         name: '📋 Overview',
         value:
-          'This guide will help you set up Movie Night Bot for your server. Follow each step to configure channels, roles, and permissions.',
+          'This guide will help you set up Watch Party Bot for your server. Follow each step to configure channels, roles, and permissions.',
         inline: false,
       },
       {
@@ -33,7 +33,7 @@ async function showSetupGuide(interaction) {
         inline: false,
       }
     )
-    .setFooter({ text: 'Movie Night Bot Setup Guide' })
+    .setFooter({ text: 'Watch Party Bot Setup Guide' })
     .setTimestamp();
 
   const row = new ActionRowBuilder().addComponents(
@@ -68,7 +68,7 @@ async function showSetupGuide(interaction) {
 async function showChannelSetup(interaction) {
   const embed = new EmbedBuilder()
     .setTitle('📺 Channel Setup Guide')
-    .setDescription('Create the required channels for Movie Night Bot')
+    .setDescription('Create the required channels for Watch Party Bot')
     .setColor(0x5865f2)
     .addFields(
       {
@@ -128,23 +128,23 @@ async function showChannelSetup(interaction) {
 async function showRoleSetup(interaction) {
   const embed = new EmbedBuilder()
     .setTitle('👥 Role Setup Guide')
-    .setDescription('Create the required roles for Movie Night Bot')
+    .setDescription('Create the required roles for Watch Party Bot')
     .setColor(0x5865f2)
     .addFields(
       {
-        name: '1️⃣ Movie Night Viewers Role',
-        value: `**Purpose:** Members who participate in movie nights
+        name: '1️⃣ Watch Party Viewers Role',
+        value: `**Purpose:** Members who participate in watch partys
 **Permissions:** Standard member permissions
 **Features:**
-• Get pinged for movie night events
+• Get pinged for watch party events
 • Can vote on movie recommendations
 • Can join movie sessions
 • Tracked for attendance during sessions`,
         inline: false,
       },
       {
-        name: '2️⃣ Movie Night Mods Role',
-        value: `**Purpose:** Moderators who manage movie nights
+        name: '2️⃣ Watch Party Mods Role',
+        value: `**Purpose:** Moderators who manage watch partys
 **Permissions:** Moderate permissions + admin channel access
 **Features:**
 • Access to admin maintenance channel
@@ -256,7 +256,7 @@ async function showPermissionSetup(interaction) {
 async function showConfigurationSetup(interaction) {
   const embed = new EmbedBuilder()
     .setTitle('⚙️ Bot Configuration Guide')
-    .setDescription('Configure Movie Night Bot using slash commands')
+    .setDescription('Configure Watch Party Bot using slash commands')
     .setColor(0x57f287)
     .addFields(
       {
@@ -270,8 +270,8 @@ async function showConfigurationSetup(interaction) {
       {
         name: '2️⃣ Configure Roles',
         value: `Set up admin and notification roles:
-• \`action:add-admin-role\` - Add Movie Night Mods role
-• \`action:set-notification-role\` - Set Movie Night Viewers role for pings`,
+• \`action:add-admin-role\` - Add Watch Party Mods role
+• \`action:set-notification-role\` - Set Watch Party Viewers role for pings`,
         inline: false,
       },
       {

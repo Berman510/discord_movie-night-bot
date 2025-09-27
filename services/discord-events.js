@@ -8,7 +8,7 @@ const { GuildScheduledEventEntityType, GuildScheduledEventPrivacyLevel } = requi
 // Ensure event titles never include date/time (Discord doesn’t localize titles)
 function buildEventTitle(sessionData) {
   try {
-    const raw = String(sessionData?.name || 'Movie Night');
+    const raw = String(sessionData?.name || 'Watch Party');
     const chunks = raw
       .split(' - ')
       .map((s) => s.trim())
@@ -20,13 +20,13 @@ function buildEventTitle(sessionData) {
       );
 
     let keep;
-    if (chunks.length === 0) keep = 'Movie Night';
+    if (chunks.length === 0) keep = 'Watch Party';
     else if (chunks.length === 1) keep = chunks[0];
     else keep = isDateLike(chunks[1]) ? chunks[0] : `${chunks[0]} - ${chunks[1]}`;
 
-    return `🎬 ${keep || 'Movie Night'}`;
+    return `🎬 ${keep || 'Watch Party'}`;
   } catch (_) {
-    return '🎬 Movie Night';
+    return '🎬 Watch Party';
   }
 }
 
@@ -74,7 +74,7 @@ async function createDiscordEvent(guild, sessionData, scheduledDate) {
 
     // Create enhanced description with voting info and channel link
     const baseDescription =
-      sessionData.description || 'It’s Movie Night! Cast your vote and join us for the screening.';
+      sessionData.description || 'It’s Watch Party! Cast your vote and join us for the screening.';
     let enhancedDescription = baseDescription;
 
     // Add voting information if available
@@ -145,7 +145,7 @@ async function createDiscordEvent(guild, sessionData, scheduledDate) {
             // For text channels or other types, use external event with channel mention
             eventConfig.entityType = GuildScheduledEventEntityType.External;
             eventConfig.entityMetadata = {
-              location: `#${channel.name} - Movie Night Session`,
+              location: `#${channel.name} - Watch Party Session`,
             };
             console.log(`📍 Setting external event with location: #${channel.name}`);
           }
@@ -160,14 +160,14 @@ async function createDiscordEvent(guild, sessionData, scheduledDate) {
         // Fallback to external event
         eventConfig.entityType = GuildScheduledEventEntityType.External;
         eventConfig.entityMetadata = {
-          location: 'Movie Night Session - Check voting channel for details',
+          location: 'Watch Party Session - Check voting channel for details',
         };
         console.log(`📍 Using external event fallback`);
       }
     } else {
       eventConfig.entityType = GuildScheduledEventEntityType.External;
       eventConfig.entityMetadata = {
-        location: 'Movie Night Session - Check voting channel for details',
+        location: 'Watch Party Session - Check voting channel for details',
       };
       console.log(`📍 Using external event (no Watch Party Channel configured)`);
     }
@@ -201,7 +201,7 @@ async function updateDiscordEvent(guild, eventId, sessionData, scheduledDate) {
     const config = await database.getGuildConfig(guild.id);
 
     const baseDescription =
-      sessionData.description || 'Join us for movie night voting and viewing!';
+      sessionData.description || 'Join us for watch party voting and viewing!';
     let enhancedDescription = baseDescription;
 
     // Enrich with IMDb details when available
@@ -390,8 +390,8 @@ async function notifyRole(guild, event, sessionData) {
     // Create notification message
     const { EmbedBuilder } = require('discord.js');
     const embed = new EmbedBuilder()
-      .setTitle('🎬 New Movie Night Event!')
-      .setDescription(`A new movie night session has been scheduled!`)
+      .setTitle('🎬 New Watch Party Event!')
+      .setDescription(`A new watch party session has been scheduled!`)
       .setColor(0x5865f2)
       .addFields(
         { name: '📝 Session', value: sessionData.name, inline: false },

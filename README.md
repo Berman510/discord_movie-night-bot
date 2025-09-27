@@ -56,7 +56,7 @@ Use `/watchparty create-session` to schedule:
 
 ### 🎪 **Discord Events Integration**
 
-- **Automatic Events** - Creates Discord Events for each movie night
+- **Automatic Events** - Creates Discord Events for each watch party
 - **RSVP Tracking** - See who's planning to attend
 - **Timezone Support** - Works with your server's timezone
 - **Rich Descriptions** - Events include movie details and voting results
@@ -64,7 +64,7 @@ Use `/watchparty create-session` to schedule:
 ### 🔧 **Easy Administration**
 
 - **Admin Control Panel** - Dedicated channel with management buttons
-- **Session Planning** - Schedule movie nights with custom themes
+- **Session Planning** - Schedule watch partys with custom themes
 - **Movie Management** - Skip, ban, or mark movies as watched
 - **Channel Sync** - Keep everything organized automatically
 
@@ -72,7 +72,7 @@ Use `/watchparty create-session` to schedule:
 
 - **Voting Statistics** - See what your community loves
 - **User Preferences** - Track individual voting patterns
-- **Session History** - Complete record of all movie nights
+- **Session History** - Complete record of all watch partys
 - **Web Dashboard** - Beautiful charts and insights
 
 ---
@@ -101,7 +101,7 @@ Create a **Watch Party** category with these channels:
 
 #### 🍿 Watch Party Channel (Public)
 
-- **Purpose**: Where actual movie nights happen
+- **Purpose**: Where actual watch partys happen
 - **Type**: Voice Channel (recommended) or Text Channel
 - **Permissions**: Everyone can join and participate
 
@@ -134,7 +134,7 @@ Configure these roles for proper permissions:
 ### 🎬 For Everyone
 
 - **`/watchparty recommend-content`** - Suggest a movie or TV show
-- **`/watchparty list-sessions`** - See upcoming movie nights
+- **`/watchparty list-sessions`** - See upcoming watch partys
 - **`/watchparty join-session [id]`** - Join a specific session for updates
 
 ### 👮 For Moderators
@@ -145,7 +145,7 @@ Configure these roles for proper permissions:
 ### 👑 For Admins
 
 - **`/watchparty-setup`** - Interactive bot configuration wizard
-- **`/watchparty create-session`** - Plan a new movie night
+- **`/watchparty create-session`** - Plan a new watch party
 - **`/watchparty-plan`** - Alternative session planning command
 - **`/watchparty-watched`** - Mark the winning movie as watched
 - **`/watchparty-configure`** - Advanced configuration options
@@ -154,7 +154,7 @@ Configure these roles for proper permissions:
 
 - **`/watchparty-configure set-voting-channel`** - Set where recommendations are posted
 - **`/watchparty-configure set-admin-channel`** - Set private admin channel
-- **`/watchparty-configure set-watch-party-channel`** - Set where movie nights happen
+- **`/watchparty-configure set-watch-party-channel`** - Set where watch partys happen
 - **`/watchparty-configure add-admin-role`** - Add an admin role
 - **`/watchparty-configure view-settings`** - See current configuration
 
@@ -303,7 +303,7 @@ Most actions happen through buttons on bot messages:
 The Watch Party Bot is constantly evolving! Check out our [roadmap](ROADMAP.md) to see what's coming:
 
 - **Enhanced Analytics** - Deeper insights into your community's movie preferences
-- **Attendance Tracking** - See who actually shows up to movie nights
+- **Attendance Tracking** - See who actually shows up to watch partys
 - **Smart Recommendations** - Bot learns your community's taste over time
 - **Custom Themes** - Personalize the bot's appearance for your server
 

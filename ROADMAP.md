@@ -94,7 +94,7 @@ Expose configuration for asymmetric vote caps.
 - [x] Dashboard ↔ Bot WebSocket integration with real‑time actions
 - [x] Role‑based voting enforcement (Admins/Mods/Voting Roles; strict gating if none configured)
 - [x] “Viewing Channel” renamed to “Watch Party Channel” across UI and DB
-- [x] Slash commands consolidated to /movienight‑\* and documented in README
+- [x] Slash commands consolidated to /watchparty‑\* and documented in README
 - [x] Dashboard Setup Guide added; README streamlined with Quick Start and Access model
 
 If you’d like any of these moved up in priority, please open an issue or discuss on the project board.

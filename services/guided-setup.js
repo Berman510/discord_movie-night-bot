@@ -20,9 +20,9 @@ const database = require('../database');
  */
 async function startGuidedSetup(interaction) {
   const embed = new EmbedBuilder()
-    .setTitle('🎬 Movie Night Bot - Quick Setup')
+    .setTitle('🎬 Watch Party Bot - Quick Setup')
     .setDescription(
-      `Welcome! Let's get your Movie Night Bot configured in just a few steps.\n\n**What we'll set up:**\n• 📺 Voting channel (where movies are recommended)\n• 🔧 Admin channel (for bot management)\n• 🎬 Watch Party Channel (where you watch movies)\n• 👑 Admin roles (who can manage the bot)\n• 👥 Voting Roles (also used for announcements)\n\n**Note:** The bot already has its own "${interaction.client.user.displayName}" role with required permissions.\n\n**Prefer a browser?** Manage the bot  from the dashboard: https://watchparty.bermanoc.net`
+      `Welcome! Let's get your Watch Party Bot configured in just a few steps.\n\n**What we'll set up:**\n• 📺 Voting channel (where movies are recommended)\n• 🔧 Admin channel (for bot management)\n• 🎬 Watch Party Channel (where you watch movies)\n• 👑 Admin roles (who can manage the bot)\n• 👥 Voting Roles (also used for announcements)\n\n**Note:** The bot already has its own "${interaction.client.user.displayName}" role with required permissions.\n\n**Prefer a browser?** Manage the bot  from the dashboard: https://watchparty.bermanoc.net`
     )
     .setColor(0x5865f2)
     .setFooter({ text: 'This setup takes about 2 minutes' });
@@ -385,7 +385,7 @@ async function showSetupComplete(interaction) {
 
   const embed = new EmbedBuilder()
     .setTitle('🎉 Setup Complete!')
-    .setDescription('Your Movie Night Bot is now configured and ready to use!')
+    .setDescription('Your Watch Party Bot is now configured and ready to use!')
     .setColor(0x57f287)
     .addFields(
       {
@@ -477,7 +477,7 @@ async function showChannelSafetyConfirmation(interaction, channel, channelType) 
   const embed = new EmbedBuilder()
     .setTitle('⚠️ Channel Safety Warning')
     .setDescription(
-      `**${channel}** appears to have existing content.\n\n**⚠️ STRONGLY RECOMMENDED:** Use dedicated channels for the Movie Night Bot to avoid conflicts with existing content.\n\n**🏗️ Consider creating a dedicated category:**\n• \`#movie-voting\` - For movie recommendations and voting\n• \`#movie-admin\` - For bot administration (private)\n• \`#movie-night-vc\` - Voice channel for watching together\n\n**Required Permissions:**\n${getChannelPermissionInfo(channelType)}\n\n**Are you sure you want to use this existing channel?**`
+      `**${channel}** appears to have existing content.\n\n**⚠️ STRONGLY RECOMMENDED:** Use dedicated channels for the Watch Party Bot to avoid conflicts with existing content.\n\n**🏗️ Consider creating a dedicated category:**\n• \`#movie-voting\` - For movie recommendations and voting\n• \`#movie-admin\` - For bot administration (private)\n• \`#movie-night-vc\` - Voice channel for watching together\n\n**Required Permissions:**\n${getChannelPermissionInfo(channelType)}\n\n**Are you sure you want to use this existing channel?**`
     )
     .setColor(0xfee75c)
     .setFooter({ text: 'Using existing channels may cause conflicts with other content' });
@@ -651,9 +651,9 @@ async function showCategoryCreationGuide(interaction) {
   const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 
   const embed = new EmbedBuilder()
-    .setTitle('🏗️ Create Dedicated Movie Night Category')
+    .setTitle('🏗️ Create Dedicated Watch Party Category')
     .setDescription(
-      `**Recommended Setup:**\n\n**1. Create a new category:** \`Movie Night\`\n\n**2. Create these channels in the category:**\n• \`#movie-voting\` (Forum Channel) - For movie recommendations\n• \`#movie-admin\` (Text Channel, Private) - For bot administration\n• \`#movie-night-vc\` (Voice Channel) - For watching together\n\n**3. Set permissions carefully:**\n\n**Movie Voting (Forum):**\n• Everyone: View Channel, Create Threads, Send Messages in Threads, Add Reactions\n• Bot: View, Send Messages, Embed Links, Create Threads, Manage Threads, Manage Messages\n• **Important:** Users should NOT have "Send Messages" in main channel\n\n**Movie Admin (Text, Private):**\n• Admins/Mods only: View Channel, Send Messages, Add Reactions\n• Bot: View, Send Messages, Embed Links, Manage Messages\n• Everyone else: No access\n\n**Movie Night VC (Voice):**\n• Everyone: View Channel, Connect, Speak\n• Bot: View, Connect, Create Events, Manage Events\n\n**After creating the channels, return here to configure them!**`
+      `**Recommended Setup:**\n\n**1. Create a new category:** \`Watch Party\`\n\n**2. Create these channels in the category:**\n• \`#movie-voting\` (Forum Channel) - For movie recommendations\n• \`#movie-admin\` (Text Channel, Private) - For bot administration\n• \`#movie-night-vc\` (Voice Channel) - For watching together\n\n**3. Set permissions carefully:**\n\n**Movie Voting (Forum):**\n• Everyone: View Channel, Create Threads, Send Messages in Threads, Add Reactions\n• Bot: View, Send Messages, Embed Links, Create Threads, Manage Threads, Manage Messages\n• **Important:** Users should NOT have "Send Messages" in main channel\n\n**Movie Admin (Text, Private):**\n• Admins/Mods only: View Channel, Send Messages, Add Reactions\n• Bot: View, Send Messages, Embed Links, Manage Messages\n• Everyone else: No access\n\n**Watch Party VC (Voice):**\n• Everyone: View Channel, Connect, Speak\n• Bot: View, Connect, Create Events, Manage Events\n\n**After creating the channels, return here to configure them!**`
     )
     .setColor(0x57f287)
     .setFooter({ text: 'Proper permissions are crucial for bot functionality' });

@@ -4,7 +4,7 @@
 set -e
 
 AWS_REGION="us-west-2"
-TABLE_NAME="movienight-dashboard-tf-locks"
+TABLE_NAME="watchparty-dashboard-tf-locks"
 STATE_KEY="watchparty-bot/terraform.tfstate"
 
 show_help() {

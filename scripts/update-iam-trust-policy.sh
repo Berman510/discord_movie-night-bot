@@ -3,7 +3,7 @@
 
 set -e
 
-ROLE_NAME="movienight-dashboard-github-actions-apply"
+ROLE_NAME="watchparty-dashboard-github-actions-apply"
 AWS_REGION="us-west-2"
 
 echo "🔐 Updating IAM role trust policy for GitHub Actions"
@@ -27,7 +27,7 @@ cat > /tmp/trust-policy.json << 'EOF'
                 },
                 "StringLike": {
                     "token.actions.githubusercontent.com:sub": [
-                        "repo:Berman510/movienight-dashboard:*",
+                        "repo:Berman510/watchparty-dashboard:*",
                         "repo:Berman510/discord_movie-night-bot:*"
                     ]
                 }

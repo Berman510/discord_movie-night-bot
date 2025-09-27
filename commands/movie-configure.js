@@ -7,7 +7,7 @@ const { TIMEZONE_OPTIONS: _TIMEZONE_OPTIONS } = require('../config/timezones');
 
 const commands = [
   {
-    name: 'movienight-configure',
+    name: 'watchparty-configure',
     description: 'Configure bot settings for this server (Administrator only)',
     options: [
       {

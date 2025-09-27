@@ -178,7 +178,7 @@ async function selectWinner(client, session, winner, config) {
 
         // Add event link if available
         if (session.discord_event_id) {
-          winnerDescription += `\n\n📅 [**Join the Discord Event**](https://discord.com/events/${session.guild_id}/${session.discord_event_id}) to RSVP for movie night!`;
+          winnerDescription += `\n\n📅 [**Join the Discord Event**](https://discord.com/events/${session.guild_id}/${session.discord_event_id}) to RSVP for watch party!`;
         }
 
         // Add IMDB info if available
@@ -371,7 +371,7 @@ async function selectWinner(client, session, winner, config) {
 👤 Selected by: Won by votes`;
 
           eventDescription += `📊 Final Score: ${winner.totalScore} (${winner.upVotes} 👍 - ${winner.downVotes} 👎)\n\n`;
-          eventDescription += `📅 Join us for movie night!\n\n🔗 SESSION_UID:${session.id}`;
+          eventDescription += `📅 Join us for watch party!\n\n🔗 SESSION_UID:${session.id}`;
 
           const editPayload = {
             name: `🎬 ${session.name} - ${winner.movie.title}`,

@@ -6,7 +6,7 @@
 const commands = [
   {
     name: 'movie-session',
-    description: 'Create and manage movie night events',
+    description: 'Create and manage watch party events',
     options: [
       {
         name: 'action',

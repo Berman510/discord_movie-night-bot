@@ -28,7 +28,7 @@ function getContentTypeInfo(contentType) {
         verbLower: 'watch',
         recommendAction: 'Recommend Movie',
         recommendTitle: '🍿 Recommend Movies',
-        sessionType: 'Movie Night',
+        sessionType: 'Watch Party',
       };
 
     case CONTENT_TYPES.TV_SHOW:

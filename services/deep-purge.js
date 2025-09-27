@@ -375,7 +375,7 @@ async function executeDeepPurge(guildId, categories, reason = null, client = nul
 
           for (const [eventId, event] of events) {
             try {
-              if (event.name.includes('Movie Night')) {
+              if (event.name.includes('Watch Party')) {
                 await event.delete();
                 logger.debug(`🗑️ Deleted Discord event: ${event.name} (${eventId})`);
               }

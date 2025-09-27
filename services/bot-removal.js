@@ -174,7 +174,7 @@ async function performCompleteGuildRemoval(guild, client) {
     try {
       const events = await guild.scheduledEvents.fetch();
       for (const [eventId, event] of events) {
-        if (event.name.includes('Movie Night') || event.name.includes('Watch Party')) {
+        if (event.name.includes('Watch Party') || event.name.includes('Watch Party')) {
           try {
             await event.delete();
             result.eventsDeleted++;

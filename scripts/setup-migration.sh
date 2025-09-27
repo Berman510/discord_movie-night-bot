@@ -13,7 +13,7 @@ AWS_REGION=${AWS_REGION:-us-west-2}
 # Get PebbleHost credentials from AWS Secrets Manager
 echo "📥 Retrieving PebbleHost database credentials..."
 PEBBLEHOST_CREDS=$(aws secretsmanager get-secret-value \
-    --secret-id movienight-dashboard/beta/database \
+    --secret-id watchparty-dashboard/beta/database \
     --region $AWS_REGION \
     --query SecretString --output text)
 

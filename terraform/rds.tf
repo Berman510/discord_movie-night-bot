@@ -5,7 +5,7 @@
 data "aws_vpc" "rds_vpc" {
   count = var.enable_rds_mysql ? 1 : 0
   tags = {
-    Name = "movienight-dashboard-vpc"
+    Name = "watchparty-dashboard-vpc"
   }
 }
 

@@ -33,19 +33,19 @@ For forum channels, the bot now requires:
 
 ### 🎨 **Complete Rebranding**
 
-- **Brand Migration**: Changed all "Movie Night" references to "Watch Party" to avoid trademark conflicts
-- **URL Migration**: Updated all dashboard URLs from movienight.bermanoc.net to watchparty.bermanoc.net
+- **Brand Migration**: Changed all "Watch Party" references to "Watch Party" to avoid trademark conflicts
+- **URL Migration**: Updated all dashboard URLs from watchparty.bermanoc.net to watchparty.bermanoc.net
 - **Documentation Updates**: Updated README, help system, and all user-facing text for Watch Party branding
-- **Route53 Redirects**: Added automatic redirects from old movienight URLs to new watchparty URLs
+- **Route53 Redirects**: Added automatic redirects from old watchparty URLs to new watchparty URLs
 - **Terraform Infrastructure**: Updated subdomain defaults and added redirect infrastructure
 
 ### 🔗 **Infrastructure Changes**
 
-- **Route53 Redirect Infrastructure**: Automatic HTTPS redirects from movienight.bermanoc.net → watchparty.bermanoc.net
+- **Route53 Redirect Infrastructure**: Automatic HTTPS redirects from watchparty.bermanoc.net → watchparty.bermanoc.net
 - **CloudFront Distributions**: Proper HTTPS redirect handling with SSL certificates
 - **S3 Redirect Buckets**: Backend infrastructure for seamless URL transitions
 - **Updated Help System**: All dashboard links now point to watchparty.bermanoc.net
-- **Dashboard Rebranding**: Complete UI text updates from "Movie Night" to "Watch Party"
+- **Dashboard Rebranding**: Complete UI text updates from "Watch Party" to "Watch Party"
 
 ### 🛠️ **Technical Updates**
 
@@ -248,7 +248,7 @@ For forum channels, the bot now requires:
 
 ### Major Features
 
-- **Dashboard Integration**: Full WebSocket communication with Movie Night Dashboard
+- **Dashboard Integration**: Full WebSocket communication with Watch Party Dashboard
 - **Real-time Synchronization**: Automatic sync between bot and dashboard configurations
 - **Enhanced Configuration**: WebSocket handlers for vote caps and guild configuration updates
 
@@ -339,19 +339,19 @@ For forum channels, the bot now requires:
 - Rename “Viewing Channel” to “Watch Party Channel” across UI and DB: `session_viewing_channel_id` -> `watch_party_channel_id`
 - Guided Setup and Config flows updated (buttons, selects, copy)
 - Slash command renames for consistency:
-  - `movie-night` -> `movienight`
-  - `movie-setup` -> `movienight-setup`
-  - `movie-queue` -> `movienight-queue`
-  - `movie-plan` -> `movienight-plan`
-  - `movie-watched` -> `movienight-watched`
-  - `movie-skip` -> `movienight-skip`
-  - `admin-panel` -> `movienight-admin-panel`
-  - `debug-config` -> `movienight-debug-config`
+  - `movie-night` -> `watchparty`
+  - `movie-setup` -> `watchparty-setup`
+  - `movie-queue` -> `watchparty-queue`
+  - `movie-plan` -> `watchparty-plan`
+  - `movie-watched` -> `watchparty-watched`
+  - `movie-skip` -> `watchparty-skip`
+  - `admin-panel` -> `watchparty-admin-panel`
+  - `debug-config` -> `watchparty-debug-config`
 - Deprecated/removed redundant commands: `movie-session`, `movie-cleanup`, `movie-stats`, `movie-help`
 
 ### Docs
 
-- README cleanup: removed ad-hoc TODO and What's New sections; added Quick Start and Role-based Access; updated movienight-\* command references
+- README cleanup: removed ad-hoc TODO and What's New sections; added Quick Start and Role-based Access; updated watchparty-\* command references
 - Added ROADMAP.md to document future ideas/goals that were previously in README
 
 ## [1.14.3-rc2] - 2025-09-12
@@ -766,7 +766,7 @@ For forum channels, the bot now requires:
 - Forum tie-break: detect forum channels and skip channel.send during tie announcement to avoid `votingChannel.send is not a function` crash; admins still receive tie-break options in admin channel
 - Ephemeral IMDb selection: replace deferUpdate with update+auto-dismiss so the selection popup clears after choosing a movie
 - Forum post duplication: remove redundant follow-up details post; initial forum starter embed now contains full info + buttons
-- Event notification noise (forum mode): skip "New Movie Night Event!" message when voting channel is a forum
+- Event notification noise (forum mode): skip "New Watch Party Event!" message when voting channel is a forum
 - System post cleanup: remove lingering "No Active Voting Session" thread once a new session begins
 
 ## [1.13.0-rc106] - 2025-09-08
@@ -997,7 +997,7 @@ For forum channels, the bot now requires:
 - **🔒 Safety Improvements**: Two-step confirmation for dangerous operations with explicit submit buttons
 - **📊 Environment Logging**: LOG_LEVEL, DEBUG_LOGGING, LOG_COLORS environment variables
 - **⚙️ Setup Experience**: Visual progress indicators, navigation buttons, and clear instructions
-- **🔄 Role Naming**: Dynamic bot role name display instead of hardcoded "Movie Night Bot"
+- **🔄 Role Naming**: Dynamic bot role name display instead of hardcoded "Watch Party Bot"
 - **📝 Command Structure**: Consolidated setup commands into single intuitive interface
 - **🎪 Voice Monitoring**: Only logs activity in configured session viewing channels
 - **🔧 Configuration Labels**: "set-voting-channel" instead of generic "set-channel"
@@ -1151,7 +1151,7 @@ For forum channels, the bot now requires:
 - **🔧 CRITICAL: Fixed Session Creation Syntax Error**: Resolved malformed try-catch block causing "Unexpected token 'catch'" error
 - **🛡️ Channel Safety Confirmation System**: Added safety checks for existing channels during configuration to prevent conflicts
 - **⚠️ Existing Channel Warning**: Configuration now detects existing content and shows confirmation dialog with safety recommendations
-- **🏗️ Dedicated Category Creation Guide**: Added comprehensive guide for creating dedicated Movie Night category with proper permissions
+- **🏗️ Dedicated Category Creation Guide**: Added comprehensive guide for creating dedicated Watch Party category with proper permissions
 - **📋 Enhanced Channel Safety**: Checks for existing messages/threads before allowing channel configuration
 - **🎯 Smart Configuration Flow**: Guides users toward dedicated channels while supporting mixed-use scenarios safely
 - **📊 Comprehensive Permission Documentation**: Detailed permission requirements for each channel type in setup process
@@ -2379,7 +2379,7 @@ For forum channels, the bot now requires:
 - **Movie Post Integration:** Scheduled movies now display direct links to Discord events
 - **Role Management:** Complete role notification system with database storage and configuration
 - **User Experience:** Clear visual connection between movie recommendations and scheduled events
-- **Event Visibility:** Role members automatically notified when new movie nights are scheduled
+- **Event Visibility:** Role members automatically notified when new watch partys are scheduled
 
 ### Fixed
 
@@ -2768,7 +2768,7 @@ For forum channels, the bot now requires:
 
 ### Added
 
-- **Movie Session Management:** `/movie-session` command for organizing movie night events
+- **Movie Session Management:** `/movie-session` command for organizing watch party events
 - **Event Creation:** Create named movie sessions with optional dates/times
 - **Session Tracking:** List active movie sessions and their details
 - **Winner Selection:** Automatically pick the highest-voted movie as the session winner

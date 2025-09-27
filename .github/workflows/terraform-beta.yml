@@ -94,7 +94,7 @@ jobs:
     - name: Clear Stale Terraform Locks
       run: |
         echo "🔍 Checking for stale Terraform state locks..."
-        TABLE_NAME="movienight-dashboard-tf-locks"
+        TABLE_NAME="watchparty-dashboard-tf-locks"
         STATE_KEY="watchparty-bot/terraform.tfstate"
 
         # Wait a moment for any concurrent workflows to settle
@@ -213,7 +213,7 @@ jobs:
 
             # Clear any new locks that might have been created
             echo "🔍 Clearing any new locks before retry..."
-            TABLE_NAME="movienight-dashboard-tf-locks"
+            TABLE_NAME="watchparty-dashboard-tf-locks"
             STATE_KEY="watchparty-bot/terraform.tfstate"
             LOCKS=$(aws dynamodb scan \
               --table-name "$TABLE_NAME" \
@@ -250,7 +250,7 @@ jobs:
 
         # Check if ECS service exists and is running
         SERVICE_NAME="watchparty-bot-beta"
-        CLUSTER_NAME=$(terraform output -raw ecs_cluster_name 2>/dev/null || echo "movienight-dashboard-cluster")
+        CLUSTER_NAME=$(terraform output -raw ecs_cluster_name 2>/dev/null || echo "watchparty-dashboard-cluster")
 
         echo "Checking ECS service: $SERVICE_NAME in cluster: $CLUSTER_NAME"
 
@@ -292,7 +292,7 @@ jobs:
       if: failure()
       run: |
         echo "🧹 Cleaning up after workflow failure..."
-        TABLE_NAME="movienight-dashboard-tf-locks"
+        TABLE_NAME="watchparty-dashboard-tf-locks"
         STATE_KEY="watchparty-bot/terraform.tfstate"
 
         # Remove any locks that might have been left behind

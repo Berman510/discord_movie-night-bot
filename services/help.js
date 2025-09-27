@@ -34,7 +34,7 @@ function createMainHelpEmbed() {
     .setTitle('🎬 Watch Party Bot - Help Center')
     .setDescription(
       '**Welcome to Watch Party Bot!** 🎪\n\n' +
-        'Create movie nights and TV show sessions with voting, recommendations, and Discord Events integration. ' +
+        'Create watch partys and TV show sessions with voting, recommendations, and Discord Events integration. ' +
         'Choose a topic below to get detailed help and guidance.\n\n' +
         '**Quick Start:** Use `/watchparty-setup` for guided configuration!'
     )
@@ -56,7 +56,7 @@ function createMainHelpEmbed() {
           '**`/watchparty`** - Main command with all actions\n' +
           '**`/watchparty-queue`** - View current recommendations\n' +
           '**`/watchparty-setup`** - Interactive bot setup\n' +
-          '**`/movienight-configure`** - Advanced configuration\n' +
+          '**`/watchparty-configure`** - Advanced configuration\n' +
           '**`/help`** - This help system',
         inline: true,
       },
@@ -195,8 +195,8 @@ function createCommandsHelpEmbed() {
           '**`/watchparty create-session`** - Create new voting sessions\n' +
           '**`/watchparty configure`** - Configure bot settings\n' +
           '**`/watchparty-setup`** - Interactive guided setup\n' +
-          '**`/movienight-configure`** - Advanced configuration options\n' +
-          '**`/movienight-debug-config`** - Debug configuration issues',
+          '**`/watchparty-configure`** - Advanced configuration options\n' +
+          '**`/watchparty-debug-config`** - Debug configuration issues',
         inline: false,
       },
       {
@@ -236,11 +236,11 @@ function createSetupHelpEmbed() {
         name: '🔧 Manual Configuration',
         value:
           '**Channels:**\n' +
-          '• **`/movienight-configure set-voting-channel #channel`** - Where voting happens\n' +
-          '• **`/movienight-configure set-admin-channel #channel`** - Admin controls\n' +
-          '• **`/movienight-configure set-watch-party-channel #voice`** - Voice/Stage channel\n\n' +
+          '• **`/watchparty-configure set-voting-channel #channel`** - Where voting happens\n' +
+          '• **`/watchparty-configure set-admin-channel #channel`** - Admin controls\n' +
+          '• **`/watchparty-configure set-watch-party-channel #voice`** - Voice/Stage channel\n\n' +
           '**Roles:**\n' +
-          '• **`/movienight-configure add-admin-role @role`** - Add admin role\n' +
+          '• **`/watchparty-configure add-admin-role @role`** - Add admin role\n' +
           '• Configure viewer/voter roles in dashboard',
         inline: false,
       },
@@ -294,7 +294,7 @@ function createRolesHelpEmbed() {
           '**Who:** Trusted members who help manage sessions\n' +
           '**Examples:** `@Moderators`, `@Movie Mods`\n' +
           '**Permissions:** Close voting, pick winners, skip movies, refresh admin panels\n\n' +
-          '⚙️ **Setup:** Configure in dashboard or via `/movienight-configure`',
+          '⚙️ **Setup:** Configure in dashboard or via `/watchparty-configure`',
         inline: false,
       },
       {
@@ -319,7 +319,7 @@ function createRolesHelpEmbed() {
         name: '🔧 Role Configuration',
         value:
           '**Via Commands:**\n' +
-          '• `/movienight-configure add-admin-role @role`\n' +
+          '• `/watchparty-configure add-admin-role @role`\n' +
           '• `/watchparty-setup` (guided setup)\n\n' +
           '**Via Dashboard:**\n' +
           '• Visit [watchparty.bermanoc.net](https://watchparty.bermanoc.net)\n' +
@@ -484,7 +484,7 @@ function createTroubleshootingHelpEmbed() {
         value:
           '**Support Server:** [discord.gg/Tj2TswbZ](https://discord.gg/Tj2TswbZ)\n' +
           '**Dashboard:** [watchparty.bermanoc.net](https://watchparty.bermanoc.net)\n' +
-          '**Debug Command:** `/movienight-debug-config` for detailed info\n' +
+          '**Debug Command:** `/watchparty-debug-config` for detailed info\n' +
           '**Support Development:** [ko-fi.com/bermanoc](https://ko-fi.com/bermanoc)',
         inline: false,
       }

@@ -1783,7 +1783,7 @@ async function handlePickWinner(interaction, guildId, movieId) {
         }
       }
 
-      const contentTypeLabel = contentType === 'movie' ? 'Movie Night' : 'TV Show Night';
+      const contentTypeLabel = contentType === 'movie' ? 'Watch Party' : 'TV Show Night';
       const eventData = {
         name: `${contentTypeLabel}: ${content.title}`,
         description: `🏆 Winner: ${content.title}\n📺 Platform: ${content.where_to_watch || 'TBD'}\n👤 Recommended by: <@${content.recommended_by}>\n\n${imdbData?.Plot || 'Join us for watch party!'}`,
@@ -1811,7 +1811,7 @@ async function handlePickWinner(interaction, guildId, movieId) {
           if (forumChannels.isForumChannel(votingChannel)) {
             // Forum channel - remove ALL voting threads (including the winner recommendation), then post winner announcement
             await forumChannels.clearForumMoviePosts(votingChannel, null);
-            const sessionName = contentType === 'movie' ? 'Movie Night' : 'TV Show Night';
+            const sessionName = contentType === 'movie' ? 'Watch Party' : 'TV Show Night';
             await forumChannels.postForumWinnerAnnouncement(votingChannel, content, sessionName, {
               event: null,
               selectedByUserId: interaction.user.id,
@@ -1910,7 +1910,7 @@ async function handlePickWinner(interaction, guildId, movieId) {
           }
 
           // Build description with event link if available
-          const sessionName = contentType === 'movie' ? 'movie night' : 'TV show night';
+          const sessionName = contentType === 'movie' ? 'watch party' : 'TV show night';
           let winnerDescription = `**${content.title}** has been selected for our next ${sessionName}!`;
 
           // Add event link if available
@@ -1919,7 +1919,7 @@ async function handlePickWinner(interaction, guildId, movieId) {
             winnerDescription += `\n\n📅 [**Join the Discord Event**](https://discord.com/events/${guildId}/${activeSession.discord_event_id}) to RSVP for ${sessionName}!`;
           }
 
-          const sessionTitle = contentType === 'movie' ? 'Movie Night' : 'TV Show Night';
+          const sessionTitle = contentType === 'movie' ? 'Watch Party' : 'TV Show Night';
           const winnerEmbed = new EmbedBuilder()
             .setTitle(`🏆 ${sessionTitle} Winner Announced!`)
             .setDescription(winnerDescription)
@@ -2083,7 +2083,7 @@ async function handlePickWinner(interaction, guildId, movieId) {
               );
             }
           }
-          const sessionName = contentType === 'movie' ? 'movie night' : 'TV show night';
+          const sessionName = contentType === 'movie' ? 'watch party' : 'TV show night';
           updatedDescription += `📅 Join us for ${sessionName}!\n\n🔗 SESSION_UID:${activeSession.id}`;
 
           const eventEmoji = contentType === 'movie' ? '🎬' : '📺';
@@ -2386,7 +2386,7 @@ async function handleChooseWinner(interaction, guildId, movieId) {
             await forumChannels.postForumWinnerAnnouncement(
               votingChannel,
               movie,
-              activeSession.name || 'Movie Night',
+              activeSession.name || 'Watch Party',
               {
                 event: activeSession.discord_event_id || null,
                 selectedByUserId: interaction.user.id,
@@ -2418,8 +2418,8 @@ async function handleChooseWinner(interaction, guildId, movieId) {
               }
             }
             const winnerEmbed = new EmbedBuilder()
-              .setTitle('🏆 Movie Night Winner Announced!')
-              .setDescription(`**${movie.title}** has been selected for our next movie night!`)
+              .setTitle('🏆 Watch Party Winner Announced!')
+              .setDescription(`**${movie.title}** has been selected for our next watch party!`)
               .setColor(0xffd700)
               .addFields(
                 { name: '📺 Platform', value: movie.where_to_watch || 'TBD', inline: true },
@@ -3166,7 +3166,7 @@ async function handleConfigurationAction(interaction, customId) {
       case 'admin_roles':
         await interaction.reply({
           content:
-            '🔧 **Admin Roles Configuration**\n\nUse `/movienight-configure admin-roles add` and `/movienight-configure admin-roles remove` commands to manage admin roles.',
+            '🔧 **Admin Roles Configuration**\n\nUse `/watchparty-configure admin-roles add` and `/watchparty-configure admin-roles remove` commands to manage admin roles.',
           flags: MessageFlags.Ephemeral,
         });
         break;
@@ -3424,7 +3424,7 @@ async function completeSetupAndInitialize(interaction) {
     const embed = new EmbedBuilder()
       .setTitle('🎉 Setup Complete!')
       .setDescription(
-        'Your Movie Night Bot is now configured and ready to use!\n\n**Initializing channels...**'
+        'Your Watch Party Bot is now configured and ready to use!\n\n**Initializing channels...**'
       )
       .setColor(0x57f287);
 
@@ -3455,7 +3455,7 @@ async function completeSetupAndInitialize(interaction) {
     // Update completion panel in-place (avoid creating a new ephemeral)
     const finalEmbed = new EmbedBuilder()
       .setTitle('🎉 Setup Complete!')
-      .setDescription('Your Movie Night Bot is now configured and ready to use!')
+      .setDescription('Your Watch Party Bot is now configured and ready to use!')
       .setColor(0x57f287)
       .addFields(
         {
@@ -3739,7 +3739,7 @@ async function handleCancelSuggestion(interaction) {
 
     await interaction.update({
       content:
-        '❌ **Movie recommendation cancelled**\n\nYou can try again anytime using `/movienight recommend-movie`.',
+        '❌ **Movie recommendation cancelled**\n\nYou can try again anytime using `/watchparty recommend-movie`.',
       embeds: [],
       components: [],
     });

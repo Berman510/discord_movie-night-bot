@@ -549,7 +549,7 @@ async function cleanupOldGuideMessages(channel) {
         message.embeds[0].title &&
         (message.embeds[0].title.includes('Quick Guide') ||
           message.embeds[0].title.includes('Ready to recommend') ||
-          message.embeds[0].title.includes('Movie Night') ||
+          message.embeds[0].title.includes('Watch Party') ||
           message.embeds[0].title.includes('No Active Voting Session'));
 
       if (isGuideMessage) {

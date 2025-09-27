@@ -2,6 +2,6 @@ const { SlashCommandBuilder } = require('discord.js');
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName('movienight-debug-config')
+    .setName('watchparty-debug-config')
     .setDescription('Debug guild configuration (Admin only)'),
 };

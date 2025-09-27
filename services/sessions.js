@@ -3,7 +3,7 @@
  * Handles movie session creation, management, and interactions
  *
  * TODO: Enhanced Session Participant Tracking
- * - Add guild configuration for session viewing channel (where movie nights happen)
+ * - Add guild configuration for session viewing channel (where watch partys happen)
  * - Implement automatic participant tracking during session times:
  *   - Bot monitors configured viewing channel during scheduled session times
  *   - Tracks users who join/leave voice channel during session duration
@@ -93,9 +93,9 @@ async function handleMovieSession(interaction) {
 async function showSessionCreationModal(interaction) {
   // New improved workflow: Date → Time → Timezone → Details
   const embed = new EmbedBuilder()
-    .setTitle('🎬 Create Movie Night Session')
+    .setTitle('🎬 Create Watch Party Session')
     .setDescription(
-      '**Step 1:** Choose your date first\n\n*Pick when you want to have your movie night*'
+      '**Step 1:** Choose your date first\n\n*Pick when you want to have your watch party*'
     )
     .setColor(0x5865f2)
     .addFields({
@@ -642,8 +642,8 @@ async function handleDateSelection(interaction, customId, state) {
 
 async function showTimeSelection(interaction, state) {
   const embed = new EmbedBuilder()
-    .setTitle('🎬 Create Movie Night Session')
-    .setDescription('**Step 2:** Choose your time\n\n*What time works best for your movie night?*')
+    .setTitle('🎬 Create Watch Party Session')
+    .setDescription('**Step 2:** Choose your time\n\n*What time works best for your watch party?*')
     .setColor(0x5865f2)
     .addFields(
       { name: '📅 Selected Date', value: state.dateDisplay, inline: true },
@@ -744,7 +744,7 @@ async function handleTimeSelection(interaction, customId, state) {
 
 async function showTimezoneSelection(interaction, state) {
   const embed = new EmbedBuilder()
-    .setTitle('🎬 Create Movie Night Session')
+    .setTitle('🎬 Create Watch Party Session')
     .setDescription(
       '**Step 3:** Choose your timezone\n\n*This ensures everyone sees the correct time for your session*'
     )
@@ -858,7 +858,7 @@ async function showSessionDetailsModal(interaction, state) {
 
   const modal = new ModalBuilder()
     .setCustomId('session_details_modal')
-    .setTitle('Movie Night Session Details');
+    .setTitle('Watch Party Session Details');
 
   const nameInput = new TextInputBuilder()
     .setCustomId('session_name')
@@ -976,7 +976,7 @@ async function generateSessionDescription(state, interaction) {
   }
 
   description +=
-    '\nJoin us for an awesome movie night! Feel free to bring snacks and get ready for a great time!';
+    '\nJoin us for an awesome watch party! Feel free to bring snacks and get ready for a great time!';
 
   return description;
 }
@@ -1380,7 +1380,7 @@ async function updateMoviePostForSession(
       if (thread) {
         const sessionEmbed = new EmbedBuilder()
           .setTitle('🎉 Movie Scheduled for Session!')
-          .setDescription(`This movie has been scheduled for a movie night session!`)
+          .setDescription(`This movie has been scheduled for a watch party session!`)
           .setColor(0x57f287)
           .addFields(
             { name: '📝 Session Name', value: sessionName, inline: false },

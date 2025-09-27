@@ -11,7 +11,7 @@ This guide is for developers and self-hosters who want to run their own instance
 ## Discord Developer Portal Setup
 
 1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
-2. Create **New Application** → give it a name (e.g., "Movie Night Bot")
+2. Create **New Application** → give it a name (e.g., "Watch Party Bot")
 3. Go to **Bot** section → **Add Bot** → copy the **Bot Token**
 4. (Optional) Enable **Message Content Intent** in Bot section if you use message-based features
 5. Go to **OAuth2 → URL Generator**:
@@ -34,7 +34,7 @@ This guide is for developers and self-hosters who want to run their own instance
 - **Manage Messages** (update movie posts when scheduled)
 - **Create Public Threads** (movie discussion threads)
 - **Send Messages in Threads** (participate in discussions)
-- **Manage Events** (create Discord events for movie nights)
+- **Manage Events** (create Discord events for watch partys)
 - **Mention Everyone** (ping notification roles for events)
 
 **Updated Permissions Integer:** `2147765248`

@@ -11,7 +11,7 @@ fi
 # Usage: ./scripts/check-terraform-locks.sh [check|unlock]
 
 REGION=${AWS_REGION:-us-west-2}
-TABLE_NAME="movienight-dashboard-tf-locks"
+TABLE_NAME="watchparty-dashboard-tf-locks"
 STATE_KEY="watchparty-bot/terraform.tfstate"
 
 ACTION=${1:-check}
