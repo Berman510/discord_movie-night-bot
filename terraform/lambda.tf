@@ -313,7 +313,7 @@ resource "aws_lambda_function" "session_scheduler" {
 
   environment {
     variables = {
-      DYNAMODB_TABLE = aws_dynamodb_table.bot_state.name
+      DYNAMODB_TABLE = aws_dynamodb_table.bot_state[0].name
       RDS_ENDPOINT   = var.enable_rds_mysql ? data.aws_db_instance.main[0].endpoint : ""
       ENVIRONMENT    = var.environment
     }
