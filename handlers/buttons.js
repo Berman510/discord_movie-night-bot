@@ -3453,13 +3453,13 @@ async function completeSetupAndInitialize(interaction) {
         {
           name: "🎬 What's Next?",
           value:
-            '• Use `/movie-night action:create-session` to create your first movie session\n• Users can recommend movies with the 🍿 button in your voting channel\n• Manage everything from your admin channel\n• Or manage via the Web Dashboard: https://movienight.bermanoc.net (minus voting)',
+            '• Use `/movie-night action:create-session` to create your first movie session\n• Users can recommend movies with the 🍿 button in your voting channel\n• Manage everything from your admin channel\n• Or manage via the Web Dashboard: https://watchparty.bermanoc.net (minus voting)',
           inline: false,
         },
         {
           name: '📚 Need Help?',
           value:
-            'Use `/movie-night action:help` for detailed usage instructions, or visit the Web Dashboard: https://movienight.bermanoc.net',
+            'Use `/movie-night action:help` for detailed usage instructions, or visit the Web Dashboard: https://watchparty.bermanoc.net',
           inline: false,
         }
       );
@@ -3526,7 +3526,7 @@ async function handleAdministrationPanel(interaction) {
       },
       {
         name: '🌐 Web Dashboard',
-        value: 'Manage the bot  at https://movienight.bermanoc.net',
+        value: 'Manage the bot  at https://watchparty.bermanoc.net',
         inline: false,
       }
     )

@@ -288,7 +288,7 @@ Most actions happen through buttons on bot messages:
 
 ### Getting Help
 
-**📖 Full Documentation**: [movienight.bermanoc.net/docs](https://movienight.bermanoc.net/docs)
+**📖 Full Documentation**: [watchparty.bermanoc.net/docs](https://watchparty.bermanoc.net/docs)
 
 **💬 Discord Support**: [Join our support server](https://discord.gg/Tj2TswbZ) for help from the community and developers
 

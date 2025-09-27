@@ -22,7 +22,7 @@ async function startGuidedSetup(interaction) {
   const embed = new EmbedBuilder()
     .setTitle('🎬 Movie Night Bot - Quick Setup')
     .setDescription(
-      `Welcome! Let's get your Movie Night Bot configured in just a few steps.\n\n**What we'll set up:**\n• 📺 Voting channel (where movies are recommended)\n• 🔧 Admin channel (for bot management)\n• 🎬 Watch Party Channel (where you watch movies)\n• 👑 Admin roles (who can manage the bot)\n• 👥 Voting Roles (also used for announcements)\n\n**Note:** The bot already has its own "${interaction.client.user.displayName}" role with required permissions.\n\n**Prefer a browser?** Manage the bot  from the dashboard: https://movienight.bermanoc.net`
+      `Welcome! Let's get your Movie Night Bot configured in just a few steps.\n\n**What we'll set up:**\n• 📺 Voting channel (where movies are recommended)\n• 🔧 Admin channel (for bot management)\n• 🎬 Watch Party Channel (where you watch movies)\n• 👑 Admin roles (who can manage the bot)\n• 👥 Voting Roles (also used for announcements)\n\n**Note:** The bot already has its own "${interaction.client.user.displayName}" role with required permissions.\n\n**Prefer a browser?** Manage the bot  from the dashboard: https://watchparty.bermanoc.net`
     )
     .setColor(0x5865f2)
     .setFooter({ text: 'This setup takes about 2 minutes' });
@@ -60,7 +60,7 @@ async function showSetupMenuWithMessage(interaction, currentConfig = null, succe
   }
 
   const baseDesc =
-    'Choose what to configure. ✅ = Configured, ❌ = Not set\n\nTip: You can also manage via the Web Dashboard: https://movienight.bermanoc.net (minus voting)';
+    'Choose what to configure. ✅ = Configured, ❌ = Not set\n\nTip: You can also manage via the Web Dashboard: https://watchparty.bermanoc.net (minus voting)';
   let description = baseDesc;
   if (successMessage) {
     description = `${successMessage}\n\n${baseDesc}`;
@@ -391,13 +391,13 @@ async function showSetupComplete(interaction) {
       {
         name: "🎬 What's Next?",
         value:
-          '• Use `/movie-night action:create-session` to create your first movie session\n• Users can recommend movies with the 🍿 button in your voting channel\n• Manage everything from your admin channel\n• Or manage via the Web Dashboard: https://movienight.bermanoc.net (minus voting)',
+          '• Use `/movie-night action:create-session` to create your first movie session\n• Users can recommend movies with the 🍿 button in your voting channel\n• Manage everything from your admin channel\n• Or manage via the Web Dashboard: https://watchparty.bermanoc.net (minus voting)',
         inline: false,
       },
       {
         name: '📚 Need Help?',
         value:
-          'Use `/movie-night action:help` for detailed usage instructions, or visit the Web Dashboard: https://movienight.bermanoc.net',
+          'Use `/movie-night action:help` for detailed usage instructions, or visit the Web Dashboard: https://watchparty.bermanoc.net',
         inline: false,
       }
     );
@@ -548,7 +548,7 @@ async function configureChannelDirectly(interaction, channel, channelType) {
           }
         }
         message = success
-          ? `✅ **Admin channel set to ${channel}**\n\nAdmin controls will appear here!\n\n🌐 You can also manage from the Web Dashboard: https://movienight.bermanoc.net`
+          ? `✅ **Admin channel set to ${channel}**\n\nAdmin controls will appear here!\n\n🌐 You can also manage from the Web Dashboard: https://watchparty.bermanoc.net`
           : '❌ Failed to set admin channel.';
         break;
 

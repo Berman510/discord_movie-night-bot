@@ -69,7 +69,7 @@ async function createAdminControlEmbed(guildName, guildId) {
       },
       {
         name: '🌐 Web Dashboard',
-        value: 'Manage the bot  from the dashboard: https://movienight.bermanoc.net',
+        value: 'Manage the bot  from the dashboard: https://watchparty.bermanoc.net',
         inline: false,
       },
       {
@@ -139,7 +139,7 @@ async function tryShowSetupPanelInAdminChannels(client, guildId) {
         {
           name: '🌐 Web Dashboard',
           value:
-            'Prefer a browser? Configure and manage the bot (minus voting) at https://movienight.bermanoc.net',
+            'Prefer a browser? Configure and manage the bot (minus voting) at https://watchparty.bermanoc.net',
           inline: false,
         }
       )
