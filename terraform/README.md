@@ -2,6 +2,9 @@
 
 This Terraform configuration deploys the Discord Watch Party Bot to AWS ECS Fargate with both beta and production environments.
 
+## Deployment Status
+- ✅ Beta infrastructure ready for deployment
+
 ## Architecture
 
 ```
