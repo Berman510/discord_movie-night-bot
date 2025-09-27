@@ -37,7 +37,6 @@ class Database {
    */
   async getSessionsTableName() {
     // After Migration 36, we always use watch_sessions
-    console.log('🗄️ Using watch_sessions table (Migration 36 enforced)');
     return 'watch_sessions';
   }
 
