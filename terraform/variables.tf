@@ -34,13 +34,13 @@ variable "domain_name" {
 variable "bot_cpu" {
   description = "CPU units for bot task"
   type        = number
-  default     = 256
+  default     = 128  # Reduced from 256 for cost optimization
 }
 
 variable "bot_memory" {
   description = "Memory for bot task"
   type        = number
-  default     = 512
+  default     = 256  # Reduced from 512 for cost optimization
 }
 
 variable "bot_image_tag_beta" {
