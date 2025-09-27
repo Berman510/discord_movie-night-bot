@@ -13,7 +13,16 @@ yum install -y \
     htop \
     tmux \
     git \
-    wget
+    wget \
+    httpd \
+    php \
+    php-mysqlnd \
+    php-mbstring \
+    php-zip \
+    php-gd \
+    php-json \
+    unzip \
+    mysql
 
 # Install curl separately with conflict resolution
 yum install -y curl --allowerasing || yum install -y curl --skip-broken || echo "curl already available"
@@ -259,3 +268,67 @@ echo "  SSM: Use AWS Session Manager in the browser (recommended)"
 echo "       https://console.aws.amazon.com/systems-manager/session-manager"
 echo ""
 echo "💡 SSM Session Manager provides secure browser-based terminal access"
+
+# Setup phpMyAdmin if requested
+%{ if setup_phpmyadmin }
+echo ""
+echo "🗄️ Setting up phpMyAdmin..."
+
+# Start Apache
+systemctl enable httpd
+systemctl start httpd
+
+# Download and install phpMyAdmin
+cd /tmp
+PHPMYADMIN_VERSION="5.2.1"
+wget -q https://files.phpmyadmin.net/phpMyAdmin/$${PHPMYADMIN_VERSION}/phpMyAdmin-$${PHPMYADMIN_VERSION}-all-languages.zip
+unzip -q phpMyAdmin-$${PHPMYADMIN_VERSION}-all-languages.zip
+mv phpMyAdmin-$${PHPMYADMIN_VERSION}-all-languages /var/www/html/phpmyadmin
+chown -R apache:apache /var/www/html/phpmyadmin
+
+# Create phpMyAdmin configuration
+cat > /var/www/html/phpmyadmin/config.inc.php << 'PHPCONFIG'
+<?php
+$$cfg['blowfish_secret'] = 'WatchPartyBot2024DatabaseMigration32';
+
+$$i = 0;
+
+// PebbleHost MySQL Server
+$$i++;
+$$cfg['Servers'][$$i]['auth_type'] = 'cookie';
+$$cfg['Servers'][$$i]['host'] = 'na01-sql.pebblehost.com';
+$$cfg['Servers'][$$i]['port'] = 3306;
+$$cfg['Servers'][$$i]['compress'] = false;
+$$cfg['Servers'][$$i]['AllowNoPassword'] = false;
+$$cfg['Servers'][$$i]['verbose'] = 'PebbleHost MySQL (Beta)';
+
+%{ if rds_endpoint != "" }
+// AWS RDS MySQL Server
+$$i++;
+$$cfg['Servers'][$$i]['auth_type'] = 'cookie';
+$$cfg['Servers'][$$i]['host'] = '${rds_endpoint}';
+$$cfg['Servers'][$$i]['port'] = 3306;
+$$cfg['Servers'][$$i]['compress'] = false;
+$$cfg['Servers'][$$i]['AllowNoPassword'] = false;
+$$cfg['Servers'][$$i]['verbose'] = 'AWS RDS MySQL (Beta)';
+%{ endif }
+
+$$cfg['ServerDefault'] = 1;
+$$cfg['UploadDir'] = '';
+$$cfg['SaveDir'] = '';
+$$cfg['DefaultLang'] = 'en';
+$$cfg['CheckConfigurationPermissions'] = false;
+$$cfg['ShowPhpInfo'] = false;
+$$cfg['ShowServerInfo'] = false;
+$$cfg['ThemeDefault'] = 'pmahomme';
+PHPCONFIG
+
+chmod 644 /var/www/html/phpmyadmin/config.inc.php
+
+# Install Node.js for migration script
+curl -fsSL https://rpm.nodesource.com/setup_18.x | bash -
+yum install -y nodejs
+
+echo "✅ phpMyAdmin setup complete!"
+echo "🌐 phpMyAdmin: http://$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)/phpmyadmin"
+%{ endif }

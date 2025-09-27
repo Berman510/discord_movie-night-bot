@@ -130,13 +130,15 @@ resource "aws_iam_instance_profile" "monitoring" {
 # User Data Script for Monitoring Instance
 locals {
   monitoring_user_data = base64encode(templatefile("${path.module}/scripts/monitoring-setup.sh", {
-    project_name    = var.project_name
-    aws_region      = var.aws_region
-    ecs_cluster     = data.aws_ecs_cluster.main.cluster_name
-    beta_service    = "${var.project_name}-beta"
-    prod_service    = "${var.project_name}-prod"
-    beta_log_group  = "/ecs/${var.project_name}-beta"
-    prod_log_group  = "/ecs/${var.project_name}-prod"
+    project_name     = var.project_name
+    aws_region       = var.aws_region
+    ecs_cluster      = data.aws_ecs_cluster.main.cluster_name
+    beta_service     = "${var.project_name}-beta"
+    prod_service     = "${var.project_name}-prod"
+    beta_log_group   = "/ecs/${var.project_name}-beta"
+    prod_log_group   = "/ecs/${var.project_name}-prod"
+    setup_phpmyadmin = true
+    rds_endpoint     = var.enable_rds_mysql ? aws_db_instance.main[0].endpoint : ""
   }))
 }
 
