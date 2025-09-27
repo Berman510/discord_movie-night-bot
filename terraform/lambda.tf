@@ -2,6 +2,12 @@
 # Phase 3: Cost optimization through serverless architecture
 # Only created when enable_lambda_bot = true
 
+# Data source for RDS instance (conditional)
+data "aws_db_instance" "main" {
+  count                  = var.enable_lambda_bot && var.enable_rds_mysql ? 1 : 0
+  db_instance_identifier = aws_db_instance.main[0].id
+}
+
 # DynamoDB table for bot state (votes, sessions, payloads)
 resource "aws_dynamodb_table" "bot_state" {
   count          = var.enable_lambda_bot ? 1 : 0
@@ -86,7 +92,7 @@ resource "aws_lambda_function" "discord_handler" {
     variables = {
       DISCORD_PUBLIC_KEY = var.environment == "beta" ? var.discord_public_key_beta : var.discord_public_key_prod
       DYNAMODB_TABLE     = aws_dynamodb_table.bot_state[0].name
-      RDS_ENDPOINT       = data.aws_db_instance.main.endpoint
+      RDS_ENDPOINT       = var.enable_rds_mysql ? data.aws_db_instance.main[0].endpoint : ""
       ENVIRONMENT        = var.environment
     }
   }
@@ -308,7 +314,7 @@ resource "aws_lambda_function" "session_scheduler" {
   environment {
     variables = {
       DYNAMODB_TABLE = aws_dynamodb_table.bot_state.name
-      RDS_ENDPOINT   = data.aws_db_instance.main.endpoint
+      RDS_ENDPOINT   = var.enable_rds_mysql ? data.aws_db_instance.main[0].endpoint : ""
       ENVIRONMENT    = var.environment
     }
   }
@@ -368,12 +374,12 @@ resource "aws_iam_role_policy_attachment" "lambda_scheduler_basic" {
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_scheduler_dynamodb" {
-  policy_arn = aws_iam_policy.lambda_discord_dynamodb.arn
+  policy_arn = aws_iam_policy.lambda_discord_dynamodb[0].arn
   role       = aws_iam_role.lambda_scheduler.name
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_scheduler_rds" {
-  policy_arn = aws_iam_policy.lambda_discord_rds.arn
+  policy_arn = aws_iam_policy.lambda_discord_rds[0].arn
   role       = aws_iam_role.lambda_scheduler.name
 }
 
