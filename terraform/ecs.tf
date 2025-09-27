@@ -272,7 +272,6 @@ resource "aws_ecs_service" "bot_beta" {
   cluster         = data.aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.bot_beta.arn
   desired_count   = 1
-  launch_type     = "FARGATE"
 
   # Use Fargate Spot for 70% cost savings
   capacity_provider_strategy {

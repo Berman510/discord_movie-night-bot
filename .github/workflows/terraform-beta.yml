@@ -214,6 +214,10 @@ jobs:
                   --key '{"LockID": {"S": "'$LOCK_ID'"}}' 2>/dev/null || true
               done
             fi
+
+            # Regenerate plan for retry to avoid stale plan errors
+            echo "🔄 Regenerating Terraform plan for retry..."
+            terraform plan -out=tfplan
           fi
         done
 
