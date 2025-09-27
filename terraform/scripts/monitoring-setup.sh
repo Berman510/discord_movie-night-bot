@@ -298,6 +298,9 @@ $$i++;
 $$cfg['Servers'][$$i]['auth_type'] = 'cookie';
 $$cfg['Servers'][$$i]['host'] = 'na01-sql.pebblehost.com';
 $$cfg['Servers'][$$i]['port'] = 3306;
+$$cfg['Servers'][$$i]['socket'] = '';
+$$cfg['Servers'][$$i]['connect_type'] = 'tcp';
+$$cfg['Servers'][$$i]['extension'] = 'mysqli';
 $$cfg['Servers'][$$i]['compress'] = false;
 $$cfg['Servers'][$$i]['AllowNoPassword'] = false;
 $$cfg['Servers'][$$i]['verbose'] = 'PebbleHost MySQL (Beta)';
@@ -308,6 +311,9 @@ $$i++;
 $$cfg['Servers'][$$i]['auth_type'] = 'cookie';
 $$cfg['Servers'][$$i]['host'] = '${rds_endpoint}';
 $$cfg['Servers'][$$i]['port'] = 3306;
+$$cfg['Servers'][$$i]['socket'] = '';
+$$cfg['Servers'][$$i]['connect_type'] = 'tcp';
+$$cfg['Servers'][$$i]['extension'] = 'mysqli';
 $$cfg['Servers'][$$i]['compress'] = false;
 $$cfg['Servers'][$$i]['AllowNoPassword'] = false;
 $$cfg['Servers'][$$i]['verbose'] = 'AWS RDS MySQL (Beta)';
@@ -321,6 +327,14 @@ $$cfg['CheckConfigurationPermissions'] = false;
 $$cfg['ShowPhpInfo'] = false;
 $$cfg['ShowServerInfo'] = false;
 $$cfg['ThemeDefault'] = 'pmahomme';
+
+// Force TCP connections and disable socket usage
+$$cfg['Servers'][1]['socket'] = '';
+$$cfg['Servers'][1]['connect_type'] = 'tcp';
+%{ if rds_endpoint != "" }
+$$cfg['Servers'][2]['socket'] = '';
+$$cfg['Servers'][2]['connect_type'] = 'tcp';
+%{ endif }
 PHPCONFIG
 
 chmod 644 /var/www/html/phpmyadmin/config.inc.php
