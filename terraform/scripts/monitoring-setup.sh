@@ -47,8 +47,7 @@ echo "----------------------------------------"
 aws logs tail ${beta_log_group} \
     --follow \
     --format short \
-    --region ${aws_region} \
-    --output-format colored
+    --region ${aws_region}
 EOF
 
 cat > /opt/botmonitor/scripts/console_connect_prod.sh << 'EOF'
@@ -62,8 +61,7 @@ echo "----------------------------------------"
 aws logs tail ${prod_log_group} \
     --follow \
     --format short \
-    --region ${aws_region} \
-    --output-format colored
+    --region ${aws_region}
 EOF
 
 cat > /opt/botmonitor/scripts/restart_beta.sh << 'EOF'
