@@ -141,5 +141,17 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
 
-# Private notes (ignored)
+# Private notes and temporary files (ignored)
 notes/
+SCREENSHOT_PLAN.md
+PR_BODY_*.md
+SECRETS_NEEDED.md
+TABLE_RENAME_*.md
+TESTING_PHASE*.md
+
+# Terraform state and config
+terraform/backend.hcl
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.backup
+terraform/.terraform.lock.hcl

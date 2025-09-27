@@ -542,6 +542,8 @@ async function handleSyncChannel(interaction) {
 
           // Only recreate voting posts when there is an active session
           const activeSession = await database.getActiveVotingSession(interaction.guild.id);
+          const logger = require('../utils/logger');
+          logger.debug(`📋 Active session check: ${activeSession ? `Found session ${activeSession.id} (status: ${activeSession.status})` : 'No active session'}`);
 
           let allContent = [];
           if (activeSession) {
@@ -607,6 +609,29 @@ async function handleSyncChannel(interaction) {
             }
           }
 
+          // Clean up existing messages/threads to prevent duplicates when switching channel types
+          if (forumChannels.isForumChannel(votingChannel)) {
+            // For forum channels, clean up any existing text channel messages
+            try {
+              const cleanup = require('./cleanup');
+              await cleanup.cleanupOldGuideMessages(votingChannel);
+            } catch (e) {
+              console.warn('Error cleaning up old messages before forum sync:', e.message);
+            }
+          } else {
+            // For text channels, clean up any existing forum threads
+            try {
+              const forumChannels = require('./forum-channels');
+              // Clear forum posts but preserve database records
+              await forumChannels.clearForumMoviePosts(votingChannel, null, {
+                preserveDatabase: true,
+                deleteWinnerAnnouncements: false,
+              });
+            } catch (e) {
+              console.warn('Error cleaning up old forum posts before text sync:', e.message);
+            }
+          }
+
           for (const content of allContent) {
             try {
               // Skip content with purged message IDs - they need proper recreation
@@ -653,11 +678,29 @@ async function handleSyncChannel(interaction) {
               const logger = require('../utils/logger');
               logger.debug('📋 No active session - cleaning up forum movie posts');
               await forumChannels.clearForumMoviePosts(votingChannel, null);
-              // Create no session post
-              await forumChannels.createNoActiveSessionPost(votingChannel);
+              // Create no session post with permission check
+              try {
+                await forumChannels.createNoActiveSessionPost(votingChannel);
+              } catch (permError) {
+                if (permError.code === 50001) {
+                  logger.warn(`📋 Missing permissions to create forum posts in ${votingChannel.name}. Bot needs: Send Messages, Create Public Threads, Send Messages in Threads, Manage Messages`);
+                  errors.push(`Forum permissions: Bot needs Send Messages, Create Public Threads, Send Messages in Threads, and Manage Messages permissions in ${votingChannel.name}`);
+                } else {
+                  throw permError;
+                }
+              }
             } else {
               // Only ensure recommendation post if there's an active session
-              await forumChannels.ensureRecommendationPost(votingChannel, activeSession);
+              try {
+                await forumChannels.ensureRecommendationPost(votingChannel, activeSession);
+              } catch (permError) {
+                if (permError.code === 50001) {
+                  logger.warn(`📋 Missing permissions to create forum posts in ${votingChannel.name}. Bot needs: Send Messages, Create Public Threads, Send Messages in Threads, Manage Messages`);
+                  errors.push(`Forum permissions: Bot needs Send Messages, Create Public Threads, Send Messages in Threads, and Manage Messages permissions in ${votingChannel.name}`);
+                } else {
+                  throw permError;
+                }
+              }
             }
           }
         } else {
@@ -1149,23 +1192,36 @@ async function syncForumMoviePost(forumChannel, movie) {
         console.warn(`Failed to parse IMDb data for ${movie.title}:`, e.message);
       }
       const movieEmbed = embeds.createMovieEmbed(movie, imdbData, voteCounts);
-      const movieComponents = components.createVotingButtons(
-        movie.message_id,
-        voteCounts.up,
-        voteCounts.down
-      );
 
+      // Create forum post first to get the new message ID
       const result = await forumChannels.createForumMoviePost(
         forumChannel,
         { title: movie.title, embed: movieEmbed },
-        movieComponents
+        [] // No components initially
       );
 
-      const { thread, message: _message } = result;
+      const { thread, message } = result;
 
-      // Update database with new thread ID
-
+      // Update database with new thread ID AND message ID (critical for voting)
       await database.updateMovieThreadId(movie.message_id, thread.id);
+
+      // Update message ID to the starter message ID for proper voting
+      if (message && message.id !== movie.message_id) {
+        await database.updateMovieMessageId(movie.guild_id, movie.title, message.id);
+        console.log(`🔄 Updated message ID: ${movie.title} (${movie.message_id} → ${message.id})`);
+
+        // Now create voting buttons with the correct message ID and update the message
+        const movieComponents = components.createVotingButtons(
+          message.id,
+          voteCounts.up,
+          voteCounts.down
+        );
+
+        await message.edit({
+          embeds: [movieEmbed],
+          components: movieComponents,
+        });
+      }
 
       console.log(`📝 Created new forum post: ${movie.title} (Thread: ${thread.id})`);
     }
@@ -1252,25 +1308,43 @@ async function syncForumTVShowPost(forumChannel, tvShow) {
         console.warn(`Failed to parse IMDb data for ${tvShow.title}:`, e.message);
       }
       const tvShowEmbed = embeds.createMovieEmbed(tvShow, imdbData, voteCounts, 'tv_show');
-      const tvShowComponents = components.createVotingButtons(
-        tvShow.message_id,
-        voteCounts.up,
-        voteCounts.down
-      );
 
+      // Create forum post first to get the new message ID
       const result = await forumChannels.createForumMoviePost(
         forumChannel,
         { title: tvShow.title, embed: tvShowEmbed, contentType: 'tv_show' },
-        tvShowComponents
+        [] // No components initially
       );
 
-      const { thread, message: _message } = result;
+      const { thread, message } = result;
 
       // Update database with new thread ID for TV show
       await database.pool.execute('UPDATE tv_shows SET thread_id = ? WHERE message_id = ?', [
         thread.id,
         tvShow.message_id,
       ]);
+
+      // Update message ID to the starter message ID for proper voting
+      if (message && message.id !== tvShow.message_id) {
+        await database.pool.execute('UPDATE tv_shows SET message_id = ? WHERE guild_id = ? AND title = ?', [
+          message.id,
+          tvShow.guild_id,
+          tvShow.title,
+        ]);
+        console.log(`🔄 Updated TV show message ID: ${tvShow.title} (${tvShow.message_id} → ${message.id})`);
+
+        // Now create voting buttons with the correct message ID and update the message
+        const tvShowComponents = components.createVotingButtons(
+          message.id,
+          voteCounts.up,
+          voteCounts.down
+        );
+
+        await message.edit({
+          embeds: [tvShowEmbed],
+          components: tvShowComponents,
+        });
+      }
 
       console.log(`📝 Created new TV show forum post: ${tvShow.title} (Thread: ${thread.id})`);
     }

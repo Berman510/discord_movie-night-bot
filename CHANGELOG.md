@@ -2,6 +2,32 @@
 
 All notable changes to **Watch Party Bot** will be documented in this file.
 
+## [1.16.3] - 2025-01-27
+
+### 🔧 **Critical Fixes**
+
+- **Fixed Channel Type Switching**: Resolved "Content not found in database" errors when switching between forum and text channels
+- **Fixed Message ID Resolution**: Forum sync functions now properly update message IDs when creating new posts
+- **Fixed Duplicate Commands**: Removed automatic guild registration on join to prevent duplicate slash commands
+- **Fixed WebSocket Authentication**: Updated environment variable names for proper dashboard connection
+- **Fixed Sync Permissions**: Added proper error handling for Missing Access (50001) forum permission errors
+- **Removed Migration Logging**: Cleaned up repetitive migration 36 enforcement messages
+
+### 🛠️ **Technical Improvements**
+
+- **Enhanced Sync Logic**: Create post first → Get new message ID → Update database → Add voting buttons
+- **Duplicate Prevention**: Added cleanup logic to prevent duplicate posts when switching channel types
+- **Better Error Messages**: Clear permission requirements for forum channels
+- **Improved Logging**: Added debug logging for session detection and message ID updates
+
+### 🔐 **Required Permissions**
+
+For forum channels, the bot now requires:
+- Send Messages
+- Create Public Threads
+- Send Messages in Threads
+- Manage Messages (for pinning)
+
 ## [1.16.2] - 2025-01-26
 
 ### 🎨 **Complete Rebranding**

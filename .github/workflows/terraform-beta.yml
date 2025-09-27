@@ -1,0 +1,149 @@
+name: Deploy Beta Infrastructure
+
+on:
+  push:
+    paths:
+      - 'terraform/**'
+    branches: [v1.16.3, develop, beta]
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Terraform action'
+        required: true
+        default: 'apply'
+        type: choice
+        options:
+        - plan
+        - apply
+        - destroy
+
+env:
+  AWS_REGION: us-west-2
+  TF_VAR_environment: beta
+  # Bot-specific secrets
+  TF_VAR_bot_discord_token_beta: ${{ secrets.DISCORD_TOKEN_BETA }}
+  TF_VAR_bot_client_id_beta: ${{ secrets.CLIENT_ID_BETA }}
+  TF_VAR_bot_guild_id_beta: ${{ secrets.GUILD_ID_BETA }}
+  TF_VAR_bot_omdb_api_key_beta: ${{ secrets.OMDB_API_KEY_BETA }}
+  TF_VAR_bot_log_level_beta: ${{ secrets.LOG_LEVEL_BETA }}
+  TF_VAR_bot_log_colors_beta: ${{ secrets.LOG_COLORS_BETA }}
+  TF_VAR_bot_db_migrations_enabled_beta: ${{ secrets.DB_MIGRATIONS_ENABLED_BETA }}
+  TF_VAR_bot_imdb_cache_enabled_beta: ${{ secrets.IMDB_CACHE_ENABLED_BETA }}
+  TF_VAR_bot_imdb_cache_ttl_days_beta: ${{ secrets.IMDB_CACHE_TTL_DAYS_BETA }}
+  TF_VAR_bot_imdb_cache_max_rows_beta: ${{ secrets.IMDB_CACHE_MAX_ROWS_BETA }}
+  TF_VAR_bot_watchparty_ws_enabled_beta: ${{ secrets.WATCHPARTY_WS_ENABLED_BETA }}
+  TF_VAR_bot_watchparty_ws_url_beta: ${{ secrets.WATCHPARTY_WS_URL_BETA }}
+  # Infrastructure configuration
+  TF_VAR_aws_region: us-west-2
+  TF_VAR_project_name: watchparty-bot
+  TF_VAR_dashboard_project_name: watchparty
+  TF_VAR_domain_name: bermanoc.net
+  TF_VAR_bot_cpu: 256
+  TF_VAR_bot_memory: 512
+  TF_VAR_bot_image_tag_beta: beta-latest
+  TF_VAR_pebblehost_beta_branch: v1.16.3
+  TF_VAR_enable_monitoring_instance: true
+  TF_VAR_monitoring_instance_type: t4g.nano
+  TF_VAR_monitoring_key_name: ${{ secrets.EC2_KEY_NAME || '' }}
+
+jobs:
+  terraform:
+    name: Terraform Beta Infrastructure
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    defaults:
+      run:
+        working-directory: terraform
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Select role to assume
+      run: |
+        if [ "${{ inputs.action }}" = "plan" ]; then
+          echo "ROLE_TO_ASSUME=${{ secrets.AWS_ROLE_PLAN }}" >> $GITHUB_ENV
+        else
+          echo "ROLE_TO_ASSUME=${{ secrets.AWS_ROLE_APPLY }}" >> $GITHUB_ENV
+        fi
+
+    - name: Configure AWS credentials (OIDC)
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ env.ROLE_TO_ASSUME }}
+        role-session-name: GitHubActions-TerraformBeta
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ~1.0
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Terraform Init
+      run: terraform init -backend-config=backend.hcl
+
+    - name: Terraform Validate
+      run: terraform validate
+
+    - name: Terraform Plan
+      id: plan
+      run: |
+        terraform plan -out=tfplan
+        terraform show -no-color tfplan > plan.txt
+      continue-on-error: true
+
+    - name: Comment Plan (if PR)
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const plan = fs.readFileSync('terraform/plan.txt', 'utf8');
+          const maxGitHubBodyCharacters = 65536;
+          
+          function chunkSubstr(str, size) {
+            const numChunks = Math.ceil(str.length / size)
+            const chunks = new Array(numChunks)
+            for (let i = 0, o = 0; i < numChunks; ++i, o += size) {
+              chunks[i] = str.substr(o, size)
+            }
+            return chunks
+          }
+          
+          const planChunks = chunkSubstr(plan, maxGitHubBodyCharacters);
+          
+          for (let i = 0; i < planChunks.length; i++) {
+            const output = `### 🏗️ Terraform Plan (Beta Infrastructure) - Part ${i + 1}
+            
+            \`\`\`
+            ${planChunks[i]}
+            \`\`\`
+            `;
+            
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            });
+          }
+
+    - name: Terraform Apply
+      if: github.ref == 'refs/heads/v1.16.3' || github.event.inputs.action == 'apply'
+      run: terraform apply -auto-approve tfplan
+
+    - name: Terraform Destroy
+      if: github.event.inputs.action == 'destroy'
+      run: terraform destroy -auto-approve
+
+    - name: Output Infrastructure Info
+      if: github.event.inputs.action != 'destroy'
+      run: |
+        echo "## 🏗️ Beta Infrastructure Deployed" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Outputs:" >> $GITHUB_STEP_SUMMARY
+        terraform output -json | jq -r 'to_entries[] | "- **\(.key)**: \(.value.value)"' >> $GITHUB_STEP_SUMMARY

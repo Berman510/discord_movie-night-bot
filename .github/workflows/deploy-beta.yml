@@ -1,0 +1,172 @@
+name: Deploy Bot to Beta
+
+on:
+  push:
+    branches: [v1.16.3, develop, beta]  # Beta deployment branches
+    paths-ignore:
+      - 'terraform/**'  # Don't trigger on infrastructure changes
+  workflow_dispatch:
+    inputs:
+      git_ref:
+        description: 'Git reference to deploy (branch/tag/commit)'
+        required: false
+        default: ''
+      pebblehost_branch:
+        description: 'Update PebbleHost to use this branch/tag'
+        required: false
+        default: ''
+
+env:
+  AWS_REGION: us-west-2
+  ECR_REPOSITORY: watchparty-bot
+  ECS_CLUSTER: watchparty-cluster
+  ECS_SERVICE: watchparty-bot-beta
+  DEPLOY_ENV: beta
+
+jobs:
+  deploy:
+    name: Deploy Bot to Beta
+    runs-on: ubuntu-latest
+    environment: beta
+    
+    env:
+      IMAGE_TAG: beta-${{ github.sha }}
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.inputs.git_ref || github.ref }}
+
+    - name: Set deployment variables
+      run: |
+        if [ -n "${{ github.event.inputs.git_ref }}" ]; then
+          echo "DEPLOY_REF=${{ github.event.inputs.git_ref }}" >> $GITHUB_ENV
+          echo "IMAGE_TAG=beta-${{ github.event.inputs.git_ref }}-$(date +%s)" >> $GITHUB_ENV
+        else
+          echo "DEPLOY_REF=${GITHUB_REF#refs/heads/}" >> $GITHUB_ENV
+          echo "IMAGE_TAG=beta-${{ github.sha }}" >> $GITHUB_ENV
+        fi
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+        role-session-name: GitHubActions-BotBetaDeploy
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Build, tag, and push image to Amazon ECR
+      id: build-image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+      run: |
+        # Build a docker container and push it to ECR
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+        
+        # Also tag as beta-latest for easy reference
+        docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:beta-latest
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:beta-latest
+
+    - name: Update ECS service
+      env:
+        IMAGE_URI: ${{ steps.build-image.outputs.image }}
+      run: |
+        # Get current task definition
+        TASK_DEFINITION=$(aws ecs describe-task-definition \
+          --task-definition $ECS_SERVICE \
+          --query 'taskDefinition' \
+          --output json)
+        
+        # Update image in task definition
+        NEW_TASK_DEFINITION=$(echo $TASK_DEFINITION | jq --arg IMAGE "$IMAGE_URI" \
+          '.containerDefinitions[0].image = $IMAGE | del(.taskDefinitionArn) | del(.revision) | del(.status) | del(.requiresAttributes) | del(.placementConstraints) | del(.compatibilities) | del(.registeredAt) | del(.registeredBy)')
+        
+        # Register new task definition
+        NEW_REVISION=$(aws ecs register-task-definition \
+          --cli-input-json "$NEW_TASK_DEFINITION" \
+          --query 'taskDefinition.revision' \
+          --output text)
+        
+        echo "New task definition revision: $NEW_REVISION"
+        
+        # Update service to use new task definition
+        aws ecs update-service \
+          --cluster $ECS_CLUSTER \
+          --service $ECS_SERVICE \
+          --task-definition $ECS_SERVICE:$NEW_REVISION \
+          --force-new-deployment
+        
+        echo "Beta service update initiated"
+
+    - name: Wait for deployment
+      run: |
+        echo "Waiting for beta service to stabilize..."
+        aws ecs wait services-stable \
+          --cluster $ECS_CLUSTER \
+          --services $ECS_SERVICE \
+          --cli-read-timeout 300 \
+          --cli-connect-timeout 60
+        
+        echo "✅ Beta bot deployment completed successfully!"
+
+    - name: Verify deployment
+      run: |
+        # Get service status
+        SERVICE_STATUS=$(aws ecs describe-services \
+          --cluster $ECS_CLUSTER \
+          --services $ECS_SERVICE \
+          --query 'services[0].deployments[0].status' \
+          --output text)
+        
+        RUNNING_COUNT=$(aws ecs describe-services \
+          --cluster $ECS_CLUSTER \
+          --services $ECS_SERVICE \
+          --query 'services[0].runningCount' \
+          --output text)
+        
+        echo "Beta Service Status: $SERVICE_STATUS"
+        echo "Beta Running Tasks: $RUNNING_COUNT"
+        
+        if [ "$SERVICE_STATUS" = "PRIMARY" ] && [ "$RUNNING_COUNT" -gt "0" ]; then
+          echo "✅ Beta deployment verification successful!"
+        else
+          echo "❌ Beta deployment verification failed!"
+          exit 1
+        fi
+
+    - name: Update PebbleHost Configuration
+      if: github.event.inputs.pebblehost_branch != ''
+      run: |
+        echo "📝 PebbleHost Integration Note:"
+        echo "Update your PebbleHost beta bot configuration to use branch/tag: ${{ github.event.inputs.pebblehost_branch }}"
+        echo ""
+        echo "Steps:"
+        echo "1. Log into PebbleHost control panel"
+        echo "2. Go to your beta bot instance"
+        echo "3. Update Git integration to use branch: ${{ github.event.inputs.pebblehost_branch }}"
+        echo "4. Restart the bot instance"
+
+        # Add to job summary
+        echo "## 🔄 PebbleHost Update Required" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "Update your PebbleHost beta bot to use branch: **${{ github.event.inputs.pebblehost_branch }}**" >> $GITHUB_STEP_SUMMARY
+
+    - name: Deployment Summary
+      run: |
+        echo "## 🚀 Beta Deployment Complete" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Deployment Details:" >> $GITHUB_STEP_SUMMARY
+        echo "- **Environment**: Beta" >> $GITHUB_STEP_SUMMARY
+        echo "- **Git Reference**: $DEPLOY_REF" >> $GITHUB_STEP_SUMMARY
+        echo "- **Image Tag**: $IMAGE_TAG" >> $GITHUB_STEP_SUMMARY
+        echo "- **ECS Service**: $ECS_SERVICE" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Monitoring:" >> $GITHUB_STEP_SUMMARY
+        echo "- **Logs**: \`aws logs tail /ecs/watchparty-bot-beta --follow\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **Status**: \`aws ecs describe-services --cluster watchparty-cluster --services watchparty-bot-beta\`" >> $GITHUB_STEP_SUMMARY

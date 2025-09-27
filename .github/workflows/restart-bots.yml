@@ -1,0 +1,146 @@
+name: Restart Bot Services
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to restart'
+        required: true
+        type: choice
+        options:
+        - beta
+        - prod
+        - both
+      reason:
+        description: 'Reason for restart'
+        required: false
+        default: 'Manual restart'
+
+env:
+  AWS_REGION: us-west-2
+  ECS_CLUSTER: watchparty-cluster
+
+jobs:
+  restart:
+    name: Restart Bot Services
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment == 'both' && 'production' || github.event.inputs.environment }}
+
+    steps:
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+        role-session-name: GitHubActions-BotRestart
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Restart Beta Bot
+      if: github.event.inputs.environment == 'beta' || github.event.inputs.environment == 'both'
+      run: |
+        echo "🔄 Restarting Beta Bot Service..."
+        
+        aws ecs update-service \
+          --cluster $ECS_CLUSTER \
+          --service watchparty-bot-beta \
+          --force-new-deployment
+        
+        echo "✅ Beta bot restart initiated"
+
+    - name: Restart Production Bot
+      if: github.event.inputs.environment == 'prod' || github.event.inputs.environment == 'both'
+      run: |
+        echo "🔄 Restarting Production Bot Service..."
+        
+        aws ecs update-service \
+          --cluster $ECS_CLUSTER \
+          --service watchparty-bot-prod \
+          --force-new-deployment
+        
+        echo "✅ Production bot restart initiated"
+
+    - name: Wait for Beta Deployment
+      if: github.event.inputs.environment == 'beta' || github.event.inputs.environment == 'both'
+      run: |
+        echo "⏳ Waiting for beta service to stabilize..."
+        aws ecs wait services-stable \
+          --cluster $ECS_CLUSTER \
+          --services watchparty-bot-beta \
+          --cli-read-timeout 300
+        echo "✅ Beta bot restart completed"
+
+    - name: Wait for Production Deployment
+      if: github.event.inputs.environment == 'prod' || github.event.inputs.environment == 'both'
+      run: |
+        echo "⏳ Waiting for production service to stabilize..."
+        aws ecs wait services-stable \
+          --cluster $ECS_CLUSTER \
+          --services watchparty-bot-prod \
+          --cli-read-timeout 300
+        echo "✅ Production bot restart completed"
+
+    - name: Verify Beta Service
+      if: github.event.inputs.environment == 'beta' || github.event.inputs.environment == 'both'
+      run: |
+        SERVICE_STATUS=$(aws ecs describe-services \
+          --cluster $ECS_CLUSTER \
+          --services watchparty-bot-beta \
+          --query 'services[0].deployments[0].status' \
+          --output text)
+        
+        RUNNING_COUNT=$(aws ecs describe-services \
+          --cluster $ECS_CLUSTER \
+          --services watchparty-bot-beta \
+          --query 'services[0].runningCount' \
+          --output text)
+        
+        echo "Beta Service Status: $SERVICE_STATUS"
+        echo "Beta Running Tasks: $RUNNING_COUNT"
+        
+        if [ "$SERVICE_STATUS" = "PRIMARY" ] && [ "$RUNNING_COUNT" -gt "0" ]; then
+          echo "✅ Beta bot is running successfully"
+        else
+          echo "❌ Beta bot restart verification failed"
+          exit 1
+        fi
+
+    - name: Verify Production Service
+      if: github.event.inputs.environment == 'prod' || github.event.inputs.environment == 'both'
+      run: |
+        SERVICE_STATUS=$(aws ecs describe-services \
+          --cluster $ECS_CLUSTER \
+          --services watchparty-bot-prod \
+          --query 'services[0].deployments[0].status' \
+          --output text)
+        
+        RUNNING_COUNT=$(aws ecs describe-services \
+          --cluster $ECS_CLUSTER \
+          --services watchparty-bot-prod \
+          --query 'services[0].runningCount' \
+          --output text)
+        
+        echo "Production Service Status: $SERVICE_STATUS"
+        echo "Production Running Tasks: $RUNNING_COUNT"
+        
+        if [ "$SERVICE_STATUS" = "PRIMARY" ] && [ "$RUNNING_COUNT" -gt "0" ]; then
+          echo "✅ Production bot is running successfully"
+        else
+          echo "❌ Production bot restart verification failed"
+          exit 1
+        fi
+
+    - name: Restart Summary
+      run: |
+        echo "## 🔄 Bot Restart Complete" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Restart Details:" >> $GITHUB_STEP_SUMMARY
+        echo "- **Environment**: ${{ github.event.inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Reason**: ${{ github.event.inputs.reason }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Timestamp**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Monitoring:" >> $GITHUB_STEP_SUMMARY
+        if [ "${{ github.event.inputs.environment }}" = "beta" ] || [ "${{ github.event.inputs.environment }}" = "both" ]; then
+          echo "- **Beta Logs**: \`aws logs tail /ecs/watchparty-bot-beta --follow\`" >> $GITHUB_STEP_SUMMARY
+        fi
+        if [ "${{ github.event.inputs.environment }}" = "prod" ] || [ "${{ github.event.inputs.environment }}" = "both" ]; then
+          echo "- **Prod Logs**: \`aws logs tail /ecs/watchparty-bot-prod --follow\`" >> $GITHUB_STEP_SUMMARY
+        fi
