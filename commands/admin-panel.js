@@ -3,7 +3,7 @@ const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('movienight-admin-panel')
-    .setDescription('Restore the admin control panel')
+    .setDescription('Restore the moderation control panel')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels),
 
   async execute(interaction) {
@@ -25,7 +25,7 @@ module.exports = {
 
       await interaction.reply({
         content:
-          '✅ **Admin control panel restored!**\n\nThe admin control panel has been recreated in the configured admin channel.',
+          '✅ **Moderation control panel restored!**\n\nThe moderation control panel has been recreated in the configured admin channel.',
         ephemeral: true,
       });
     } catch (error) {
