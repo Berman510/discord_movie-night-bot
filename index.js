@@ -280,6 +280,32 @@ async function startBot() {
       global.wsClient = { enabled: false };
     }
 
+    // Initialize admin panel validation (runs every 15 minutes)
+    const adminControls = require('./services/admin-controls');
+    setInterval(
+      async () => {
+        try {
+          logger.debug('🔍 Running periodic admin panel validation...');
+
+          for (const [guildId, guild] of client.guilds.cache) {
+            try {
+              // Validate and refresh admin panel for each guild
+              await adminControls.ensureAdminControlPanel(client, guildId);
+            } catch (error) {
+              logger.warn(`Failed to validate admin panel for guild ${guildId}:`, error.message);
+            }
+          }
+
+          logger.debug('✅ Completed periodic admin panel validation');
+        } catch (error) {
+          logger.warn('Error during periodic admin panel validation:', error.message);
+        }
+      },
+      15 * 60 * 1000
+    ); // Every 15 minutes
+
+    logger.info('🔍 Admin panel validation scheduler initialized');
+
     // Start payload cleanup
     startPayloadCleanup();
   } catch (error) {

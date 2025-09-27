@@ -2666,6 +2666,9 @@ async function handleAdminControlButtons(interaction, customId) {
       case 'admin_ctrl_refresh':
         await adminControls.handleRefreshPanel(interaction);
         break;
+      case 'admin_ctrl_validate':
+        await adminControls.handleValidateState(interaction);
+        break;
       case 'admin_ctrl_populate_forum':
         await handlePopulateForumChannel(interaction);
         break;

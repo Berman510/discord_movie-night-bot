@@ -220,9 +220,87 @@ async function createModeratorControlButtons(guildId = null) {
 }
 
 /**
+ * Validate session state consistency and clean up orphaned sessions
+ */
+async function validateSessionState(guildId) {
+  if (!guildId) return;
+
+  try {
+    const logger = require('../utils/logger');
+
+    // Get all non-completed sessions for this guild
+    const sessionsTable = await database.getSessionsTableName();
+    const [sessions] = await database.pool.execute(
+      `SELECT * FROM ${sessionsTable}
+       WHERE guild_id = ? AND status NOT IN ('completed', 'cancelled')
+       ORDER BY created_at DESC`,
+      [guildId]
+    );
+
+    let cleanedSessions = 0;
+
+    for (const session of sessions) {
+      let shouldCleanup = false;
+
+      // Check if session is in voting state but has no scheduled date and is old
+      if (session.status === 'voting' && !session.scheduled_date) {
+        const ageHours = (Date.now() - new Date(session.created_at).getTime()) / (1000 * 60 * 60);
+        if (ageHours > 24) {
+          // Voting sessions older than 24 hours without schedule
+          shouldCleanup = true;
+          logger.debug(`🧹 Found stale voting session ${session.id} (${ageHours.toFixed(1)}h old)`);
+        }
+      }
+
+      // Check if decided/planning session has passed scheduled date
+      if (['decided', 'planning', 'active'].includes(session.status) && session.scheduled_date) {
+        const scheduledTime = new Date(session.scheduled_date).getTime();
+        const now = Date.now();
+        const hoursAfterScheduled = (now - scheduledTime) / (1000 * 60 * 60);
+
+        if (hoursAfterScheduled > 4) {
+          // 4 hours after scheduled time
+          shouldCleanup = true;
+          logger.debug(
+            `🧹 Found expired session ${session.id} (${hoursAfterScheduled.toFixed(1)}h past scheduled time)`
+          );
+        }
+      }
+
+      if (shouldCleanup) {
+        // Mark session as completed and clean up
+        await database.updateSessionStatus(session.id, 'completed');
+
+        // Move any associated movies back to pending
+        await database.pool.execute(
+          `UPDATE movies SET session_id = NULL, status = 'pending'
+           WHERE session_id = ? AND status != 'watched'`,
+          [session.id]
+        );
+
+        cleanedSessions++;
+        logger.info(`🧹 Cleaned up stale session ${session.id} for guild ${guildId}`);
+      }
+    }
+
+    if (cleanedSessions > 0) {
+      logger.info(`🧹 Cleaned up ${cleanedSessions} stale session(s) for guild ${guildId}`);
+    }
+  } catch (error) {
+    const logger = require('../utils/logger');
+    logger.warn('Error validating session state:', error.message);
+  }
+}
+
+/**
  * Create admin control action buttons (full access)
  */
 async function createAdminControlButtons(guildId = null) {
+  // Validate and clean up session state first
+  if (guildId) {
+    await validateSessionState(guildId);
+  }
+
   // Main moderation controls
   const row1 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -238,8 +316,8 @@ async function createAdminControlButtons(guildId = null) {
       .setLabel('🚫 Banned Movies')
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
-      .setCustomId('admin_ctrl_refresh')
-      .setLabel('🔄 Refresh Panel')
+      .setCustomId('admin_ctrl_validate')
+      .setLabel('🔍 Validate State')
       .setStyle(ButtonStyle.Secondary)
   );
 
@@ -1129,6 +1207,52 @@ async function handleRefreshPanel(interaction) {
 }
 
 /**
+ * Handle validate state action
+ */
+async function handleValidateState(interaction) {
+  try {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+    const logger = require('../utils/logger');
+    logger.info(
+      `🔍 Manual session state validation triggered by ${interaction.user.tag} in guild ${interaction.guild.id}`
+    );
+
+    // Run validation
+    await validateSessionState(interaction.guild.id);
+
+    // Refresh the admin panel with updated state
+    const embed = await createAdminControlEmbed(interaction.guild.name, interaction.guild.id);
+    const components = await createAdminControlButtons(interaction.guild.id);
+
+    await interaction.message.edit({
+      embeds: [embed],
+      components: components,
+    });
+
+    await interaction.editReply({
+      content: '✅ Session state validation completed. Admin panel refreshed with current state.',
+    });
+
+    logger.info('✅ Manual session state validation completed');
+  } catch (error) {
+    const logger = require('../utils/logger');
+    logger.error('Error validating session state:', error);
+
+    if (interaction.deferred) {
+      await interaction.editReply({
+        content: '❌ An error occurred while validating session state.',
+      });
+    } else {
+      await interaction.reply({
+        content: '❌ An error occurred while validating session state.',
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+  }
+}
+
+/**
  * Sync a movie post in a forum channel
  */
 async function syncForumMoviePost(forumChannel, movie) {
@@ -1471,7 +1595,9 @@ module.exports = {
   handleGuildStats,
   handleBannedMoviesList,
   handleRefreshPanel,
+  handleValidateState,
   syncForumMoviePost,
   syncForumTVShowPost,
   populateForumChannel,
+  validateSessionState,
 };
