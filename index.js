@@ -281,7 +281,8 @@ async function startBot() {
     }
 
     // Initialize event-driven state management system
-    const eventSystem = require('./services/event-system');
+    const { BotEventSystem } = require('./services/event-system');
+    global.eventSystem = new BotEventSystem();
     logger.info('📡 Event-driven state management system initialized');
 
     // Initialize admin panel validation (runs every 15 minutes as backup)

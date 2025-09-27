@@ -305,6 +305,7 @@ class BotEventSystem extends EventEmitter {
 const eventSystem = new BotEventSystem();
 
 module.exports = {
+  BotEventSystem,
   eventSystem,
 
   // Convenience methods for emitting events
