@@ -2682,10 +2682,11 @@ async function handleAdminControlButtons(interaction, customId) {
       case 'admin_ctrl_back_to_moderation':
         await handleBackToModerationPanel(interaction);
         break;
-      case 'admin_ctrl_remove_bot':
+      case 'admin_ctrl_remove_bot': {
         const botRemoval = require('../services/bot-removal');
         await botRemoval.handleBotRemovalInitiation(interaction);
         break;
+      }
       default:
         await interaction.reply({
           content: '❌ Unknown admin control action.',

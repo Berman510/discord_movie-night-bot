@@ -13,7 +13,7 @@
 
 const mysql = require('mysql2/promise');
 const fs = require('fs').promises;
-const path = require('path');
+const _path = require('path');
 
 // Parse command line arguments
 const args = process.argv.slice(2);

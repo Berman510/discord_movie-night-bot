@@ -276,7 +276,7 @@ async function handleAutomaticGuildCleanup(guild, client) {
   try {
     // Perform the same cleanup as manual removal, but without Discord message deletion
     // (since we can't delete messages after being kicked)
-    const database = require('../database');
+    const _database = require('../database');
     const deepPurge = require('./deep-purge');
     
     const purgeResult = await deepPurge.executeDeepPurge(guild.id, {

@@ -3,7 +3,7 @@
  * Phase 3 Cost Optimization - Serverless Discord Bot
  */
 
-const crypto = require('crypto');
+const cryptoModule = require('crypto');
 
 // Discord interaction types
 const InteractionType = {
@@ -37,7 +37,7 @@ function verifyDiscordSignature(signature, timestamp, body, publicKey) {
     const signatureBuffer = Buffer.from(signature, 'hex');
     const publicKeyBuffer = Buffer.from(publicKey, 'hex');
     
-    return crypto.verify(
+    return cryptoModule.verify(
       'ed25519',
       message,
       {
@@ -180,7 +180,7 @@ exports.handler = async (event) => {
 /**
  * Health check endpoint
  */
-exports.healthCheck = async (event) => {
+exports.healthCheck = async (_event) => {
   return {
     statusCode: 200,
     headers: {
