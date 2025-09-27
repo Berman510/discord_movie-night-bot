@@ -5,6 +5,7 @@ This Terraform configuration deploys the Discord Watch Party Bot to AWS ECS Farg
 ## Deployment Status
 - ✅ Beta infrastructure ready for deployment
 - ✅ IAM trust policies updated for bot repository
+- ✅ Terraform workflow issues fixed
 
 ## Architecture
 
