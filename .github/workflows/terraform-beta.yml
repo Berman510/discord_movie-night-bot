@@ -43,8 +43,8 @@ env:
   TF_VAR_project_name: watchparty-bot
   TF_VAR_dashboard_project_name: watchparty
   TF_VAR_domain_name: bermanoc.net
-  TF_VAR_bot_cpu: 128  # Reduced from 256 for cost optimization
-  TF_VAR_bot_memory: 256  # Reduced from 512 for cost optimization
+  TF_VAR_bot_cpu: 256  # Minimum valid Fargate configuration (0.25 vCPU)
+  TF_VAR_bot_memory: 512  # Minimum valid Fargate configuration (512 MiB)
   TF_VAR_bot_image_tag_beta: beta-latest
   TF_VAR_pebblehost_beta_branch: v1.16.3
   TF_VAR_enable_monitoring_instance: true

@@ -34,13 +34,13 @@ variable "domain_name" {
 variable "bot_cpu" {
   description = "CPU units for bot task"
   type        = number
-  default     = 128  # Reduced from 256 for cost optimization
+  default     = 256  # Minimum valid Fargate configuration (0.25 vCPU)
 }
 
 variable "bot_memory" {
   description = "Memory for bot task"
   type        = number
-  default     = 256  # Reduced from 512 for cost optimization
+  default     = 512  # Minimum valid Fargate configuration (512 MiB)
 }
 
 variable "bot_image_tag_beta" {
