@@ -45,14 +45,17 @@ data "aws_subnets" "public" {
     name   = "vpc-id"
     values = [data.aws_vpc.main.id]
   }
-  
+
   tags = {
-    Type = "public"
+    Type = "Public"
   }
 }
 
 data "aws_security_group" "ecs_tasks" {
-  name = "movienight-dashboard-ecs-tasks"
+  filter {
+    name   = "group-name"
+    values = ["movienight-dashboard-ecs-tasks-*"]
+  }
 }
 
 data "aws_ecs_cluster" "main" {
