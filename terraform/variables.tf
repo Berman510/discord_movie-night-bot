@@ -214,3 +214,22 @@ variable "discord_public_key_prod" {
   default     = ""
   sensitive   = true
 }
+
+# RDS MySQL Configuration
+variable "enable_rds_mysql" {
+  description = "Enable AWS RDS MySQL database (alternative to PebbleHost)"
+  type        = bool
+  default     = false
+}
+
+variable "db_name" {
+  description = "RDS MySQL database name"
+  type        = string
+  default     = "watchparty_bot"
+}
+
+variable "db_username" {
+  description = "RDS MySQL username"
+  type        = string
+  default     = "watchparty_user"
+}
