@@ -140,9 +140,17 @@ client.on('guildCreate', async (guild) => {
 });
 
 // Bot leaves a guild
-client.on('guildDelete', (guild) => {
+client.on('guildDelete', async (guild) => {
   logger.info(`👋 Left guild: ${guild.name} (${guild.id})`);
   logger.info(`📊 Now serving ${client.guilds.cache.size} guilds`);
+
+  // Perform automatic cleanup when bot is removed from guild
+  try {
+    const botRemoval = require('./services/bot-removal');
+    await botRemoval.handleAutomaticGuildCleanup(guild, client);
+  } catch (error) {
+    logger.error('Error during automatic guild cleanup:', error);
+  }
 });
 
 // Handle all interactions

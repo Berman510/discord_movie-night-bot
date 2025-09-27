@@ -18,8 +18,8 @@ const contentTypes = require('../utils/content-types');
  */
 async function createAdminControlEmbed(guildName, guildId) {
   const embed = new EmbedBuilder()
-    .setTitle('🔧 Movie Night Admin Control Panel')
-    .setDescription(`Administrative controls for **${guildName}**`)
+    .setTitle('🔧 Watch Party Moderation Panel')
+    .setDescription(`Moderation controls for **${guildName}**`)
     .setColor(0x5865f2);
 
   // Get channel information
@@ -393,7 +393,7 @@ async function ensureAdminControlPanel(client, guildId) {
             msg.author.id === client.user.id &&
             msg.embeds.length > 0 &&
             msg.embeds[0].title &&
-            msg.embeds[0].title.includes('Admin Control Panel')
+            (msg.embeds[0].title.includes('Moderation Panel') || msg.embeds[0].title.includes('Admin Control Panel'))
         );
       } else {
         const logger = require('../utils/logger');
@@ -413,7 +413,7 @@ async function ensureAdminControlPanel(client, guildId) {
             msg.author.id === client.user.id &&
             msg.embeds.length > 0 &&
             msg.embeds[0].title &&
-            msg.embeds[0].title.includes('Admin Control Panel')
+            (msg.embeds[0].title.includes('Moderation Panel') || msg.embeds[0].title.includes('Admin Control Panel'))
         );
       } catch (error) {
         console.warn('Error fetching recent messages for admin panel search:', error.message);
@@ -939,7 +939,7 @@ async function executePurgeQueue(interaction) {
           const isControlPanel =
             message.embeds.length > 0 &&
             message.embeds[0].title &&
-            message.embeds[0].title.includes('Admin Control Panel');
+            (message.embeds[0].title.includes('Moderation Panel') || message.embeds[0].title.includes('Admin Control Panel'));
 
           if (!isControlPanel) {
             await message.delete();

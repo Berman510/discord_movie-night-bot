@@ -107,6 +107,19 @@ async function handleButton(interaction) {
       return;
     }
 
+    // Bot removal confirmation buttons
+    if (customId === 'confirm_bot_removal') {
+      const botRemoval = require('../services/bot-removal');
+      await botRemoval.handleBotRemovalConfirmation(interaction);
+      return;
+    }
+
+    if (customId === 'cancel_bot_removal') {
+      const botRemoval = require('../services/bot-removal');
+      await botRemoval.handleBotRemovalCancellation(interaction);
+      return;
+    }
+
     // Duplicate movie confirmation
     if (ns === 'mn' && action === 'duplicate_confirm') {
       await handleDuplicateConfirm(interaction, msgId);
@@ -2669,6 +2682,10 @@ async function handleAdminControlButtons(interaction, customId) {
       case 'admin_ctrl_back_to_moderation':
         await handleBackToModerationPanel(interaction);
         break;
+      case 'admin_ctrl_remove_bot':
+        const botRemoval = require('../services/bot-removal');
+        await botRemoval.handleBotRemovalInitiation(interaction);
+        break;
       default:
         await interaction.reply({
           content: '❌ Unknown admin control action.',
@@ -3526,13 +3543,18 @@ async function handleAdministrationPanel(interaction) {
       },
       {
         name: '🌐 Web Dashboard',
-        value: 'Manage the bot  at https://watchparty.bermanoc.net',
+        value: 'Manage the bot at https://watchparty.bermanoc.net',
+        inline: false,
+      },
+      {
+        name: '🗑️ Bot Management',
+        value: '• **Remove Bot** - Permanently remove bot and all data from server',
         inline: false,
       }
     )
     .setFooter({ text: 'These actions require administrator permissions' });
 
-  const adminButtons = new ActionRowBuilder().addComponents(
+  const adminButtons1 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('open_configuration')
       .setLabel('⚙️ Configure Bot')
@@ -3545,6 +3567,13 @@ async function handleAdministrationPanel(interaction) {
       .setCustomId('admin_ctrl_stats')
       .setLabel('📊 Guild Stats')
       .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId('admin_ctrl_remove_bot')
+      .setLabel('🗑️ Remove Bot')
+      .setStyle(ButtonStyle.Danger)
+  );
+
+  const adminButtons2 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('admin_ctrl_back_to_moderation')
       .setLabel('🔙 Back to Moderation')
@@ -3564,7 +3593,7 @@ async function handleAdministrationPanel(interaction) {
 
   await interaction.reply({
     embeds: [adminEmbed],
-    components: [adminButtons],
+    components: [adminButtons1, adminButtons2],
     flags: MessageFlags.Ephemeral,
   });
   ephemeralManager.startThrottle('admin_panel', interaction.user.id);
