@@ -26,10 +26,7 @@ resource "aws_dynamodb_table" "bot_state" {
     type = "S"
   }
 
-  attribute {
-    name = "ttl"
-    type = "N"
-  }
+  # TTL attribute removed - not needed for indexing, only for ttl block
 
   # TTL for automatic cleanup of votes and temporary data
   ttl {
