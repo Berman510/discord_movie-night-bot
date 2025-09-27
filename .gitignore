@@ -149,8 +149,7 @@ SECRETS_NEEDED.md
 TABLE_RENAME_*.md
 TESTING_PHASE*.md
 
-# Terraform state and config
-terraform/backend.hcl
+# Terraform state and temporary files
 terraform/.terraform/
 terraform/*.tfstate
 terraform/*.tfstate.backup
