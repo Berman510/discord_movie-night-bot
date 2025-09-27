@@ -299,6 +299,62 @@ class BotEventSystem extends EventEmitter {
       logger.debug('Could not notify dashboard:', error.message);
     }
   }
+
+  /**
+   * Handle movie creation - placeholder for future implementation
+   */
+  async handleMovieCreated(event) {
+    logger.debug('📡 Movie created event:', event);
+    // TODO: Implement movie creation handling
+  }
+
+  /**
+   * Handle movie removal - placeholder for future implementation
+   */
+  async handleMovieRemoved(event) {
+    logger.debug('📡 Movie removed event:', event);
+    // TODO: Implement movie removal handling
+  }
+
+  /**
+   * Handle session creation - placeholder for future implementation
+   */
+  async handleSessionCreated(event) {
+    logger.debug('📡 Session created event:', event);
+    // TODO: Implement session creation handling
+  }
+
+  /**
+   * Handle session winner selection - placeholder for future implementation
+   */
+  async handleSessionWinnerSelected(event) {
+    logger.debug('📡 Session winner selected event:', event);
+    // TODO: Implement session winner selection handling
+  }
+
+  /**
+   * Handle session end - placeholder for future implementation
+   */
+  async handleSessionEnded(event) {
+    logger.debug('📡 Session ended event:', event);
+    // TODO: Implement session end handling
+  }
+
+  /**
+   * Handle session cancellation - placeholder for future implementation
+   */
+  async handleSessionCancelled(event) {
+    logger.debug('📡 Session cancelled event:', event);
+    // TODO: Implement session cancellation handling
+  }
+
+  /**
+   * Handle guild configuration changes - placeholder for future implementation
+   */
+  async handleGuildConfigChanged(event) {
+    logger.debug('📡 Guild config changed event:', event);
+    // TODO: Implement guild config change handling
+  }
 }
 
 // Create singleton instance
