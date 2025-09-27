@@ -84,8 +84,8 @@ resource "aws_lambda_function" "discord_handler" {
 
   environment {
     variables = {
-      DISCORD_PUBLIC_KEY = var.discord_public_key
-      DYNAMODB_TABLE     = aws_dynamodb_table.bot_state.name
+      DISCORD_PUBLIC_KEY = var.environment == "beta" ? var.discord_public_key_beta : var.discord_public_key_prod
+      DYNAMODB_TABLE     = aws_dynamodb_table.bot_state[0].name
       RDS_ENDPOINT       = data.aws_db_instance.main.endpoint
       ENVIRONMENT        = var.environment
     }
@@ -104,13 +104,15 @@ resource "aws_lambda_function" "discord_handler" {
 
 # Provisioned concurrency for zero cold starts
 resource "aws_lambda_provisioned_concurrency_config" "discord_handler" {
-  function_name                     = aws_lambda_function.discord_handler.function_name
+  count                             = var.enable_lambda_bot ? 1 : 0
+  function_name                     = aws_lambda_function.discord_handler[0].function_name
   provisioned_concurrent_executions = 1
-  qualifier                         = aws_lambda_function.discord_handler.version
+  qualifier                         = aws_lambda_function.discord_handler[0].version
 }
 
 # IAM role for Discord Lambda
 resource "aws_iam_role" "lambda_discord" {
+  count = var.enable_lambda_bot ? 1 : 0
   name = "${var.project_name}-lambda-discord-role"
 
   assume_role_policy = jsonencode({
