@@ -280,12 +280,16 @@ async function startBot() {
       global.wsClient = { enabled: false };
     }
 
-    // Initialize admin panel validation (runs every 15 minutes)
+    // Initialize event-driven state management system
+    const eventSystem = require('./services/event-system');
+    logger.info('📡 Event-driven state management system initialized');
+
+    // Initialize admin panel validation (runs every 15 minutes as backup)
     const adminControls = require('./services/admin-controls');
     setInterval(
       async () => {
         try {
-          logger.debug('🔍 Running periodic admin panel validation...');
+          logger.debug('🔍 Running periodic admin panel validation (backup)...');
 
           for (const [guildId, guild] of client.guilds.cache) {
             try {
@@ -304,7 +308,7 @@ async function startBot() {
       15 * 60 * 1000
     ); // Every 15 minutes
 
-    logger.info('🔍 Admin panel validation scheduler initialized');
+    logger.info('🔍 Admin panel validation scheduler initialized (backup only)');
 
     // Start payload cleanup
     startPayloadCleanup();

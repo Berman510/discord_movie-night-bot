@@ -2674,11 +2674,32 @@ class Database {
     if (!this.isConnected) return false;
 
     try {
+      // Get current status for event emission
+      const [currentRows] = await this.pool.execute(
+        `SELECT status, guild_id FROM movies WHERE message_id = ?`,
+        [messageId]
+      );
+      const currentMovie = currentRows[0];
+      const oldStatus = currentMovie?.status;
+
       await this.pool.execute(`UPDATE movies SET status = ?, watched_at = ? WHERE message_id = ?`, [
         status,
         watchedAt,
         messageId,
       ]);
+
+      // Emit event if status actually changed
+      if (currentMovie && oldStatus !== status) {
+        try {
+          const { emitMovieStatusChanged } = require('./services/event-system');
+          await emitMovieStatusChanged(currentMovie.guild_id, messageId, oldStatus, status, {
+            watchedAt,
+          });
+        } catch (eventError) {
+          console.warn('Error emitting movie status changed event:', eventError.message);
+        }
+      }
+
       return true;
     } catch (error) {
       console.error('Error updating movie status:', error.message);
@@ -2727,6 +2748,18 @@ class Database {
          ON DUPLICATE KEY UPDATE vote_type = VALUES(vote_type)`,
         [messageId, guildId || '', userId, voteType]
       );
+
+      // Emit vote event with updated counts
+      if (guildId) {
+        try {
+          const voteCounts = await this.getVoteCounts(messageId);
+          const { emitMovieVoted } = require('./services/event-system');
+          await emitMovieVoted(guildId, messageId, userId, voteType, voteCounts);
+        } catch (eventError) {
+          console.warn('Error emitting movie voted event:', eventError.message);
+        }
+      }
+
       return true;
     } catch (error) {
       console.error('Error saving vote:', error.message);
@@ -2992,10 +3025,32 @@ class Database {
 
     try {
       const sessionsTable = await this.getSessionsTableName();
+
+      // Get current status for event emission
+      const [currentRows] = await this.pool.execute(
+        `SELECT status, guild_id FROM ${sessionsTable} WHERE id = ?`,
+        [sessionId]
+      );
+      const currentSession = currentRows[0];
+      const oldStatus = currentSession?.status;
+
       await this.pool.execute(
         `UPDATE ${sessionsTable} SET status = ?, winner_message_id = ? WHERE id = ?`,
         [status, winnerMessageId, sessionId]
       );
+
+      // Emit event if status actually changed
+      if (currentSession && oldStatus !== status) {
+        try {
+          const { emitSessionStatusChanged } = require('./services/event-system');
+          await emitSessionStatusChanged(currentSession.guild_id, sessionId, oldStatus, status, {
+            winnerMessageId,
+          });
+        } catch (eventError) {
+          console.warn('Error emitting session status changed event:', eventError.message);
+        }
+      }
+
       return true;
     } catch (error) {
       console.error('Error updating session status:', error.message);

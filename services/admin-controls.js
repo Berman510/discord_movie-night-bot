@@ -56,10 +56,10 @@ async function createAdminControlEmbed(guildName, guildId) {
     .addFields(
       {
         name: '📋 Quick Actions',
-        value: `• **Sync** - Update admin channel with current movies
-• **Purge** - Clear movie queue while preserving records
+        value: `• **Purge** - Clear movie queue while preserving records
 • **Deep Purge** - Complete guild data removal (with confirmations)
-• **Stats** - View guild movie statistics`,
+• **Stats** - View guild movie statistics
+• **Banned Movies** - View and manage banned content`,
         inline: false,
       },
       {
@@ -74,7 +74,7 @@ async function createAdminControlEmbed(guildName, guildId) {
       },
       {
         name: '⚡ Status',
-        value: `Control panel active and ready for use. • ${wsText}`,
+        value: `📡 **Event-Driven Updates:** All UI components update automatically when data changes. No manual sync needed! • ${wsText}`,
         inline: false,
       }
     )
@@ -301,12 +301,8 @@ async function createAdminControlButtons(guildId = null) {
     await validateSessionState(guildId);
   }
 
-  // Main moderation controls
+  // Main moderation controls - streamlined without manual sync buttons
   const row1 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId('admin_ctrl_sync')
-      .setLabel('🔄 Sync Channels')
-      .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
       .setCustomId('admin_ctrl_purge')
       .setLabel('🗑️ Purge Current Queue')
@@ -314,10 +310,6 @@ async function createAdminControlButtons(guildId = null) {
     new ButtonBuilder()
       .setCustomId('admin_ctrl_banned_list')
       .setLabel('🚫 Banned Movies')
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId('admin_ctrl_validate')
-      .setLabel('🔍 Validate State')
       .setStyle(ButtonStyle.Secondary)
   );
 
@@ -1589,13 +1581,10 @@ module.exports = {
   createModeratorControlButtons,
   createControlButtonsForUser,
   ensureAdminControlPanel,
-  handleSyncChannel,
   handlePurgeQueue,
   executePurgeQueue,
   handleGuildStats,
   handleBannedMoviesList,
-  handleRefreshPanel,
-  handleValidateState,
   syncForumMoviePost,
   syncForumTVShowPost,
   populateForumChannel,

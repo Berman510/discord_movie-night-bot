@@ -2609,11 +2609,7 @@ async function handleAdminControlButtons(interaction, customId) {
 
   if (!allowed) {
     // Actions that moderators are allowed to perform
-    const moderatorAllowed = new Set([
-      'admin_ctrl_sync',
-      'admin_ctrl_refresh',
-      'admin_ctrl_banned_list',
-    ]);
+    const moderatorAllowed = new Set(['admin_ctrl_banned_list']);
     if (moderatorAllowed.has(customId)) {
       allowed = await permissions.checkMovieModeratorPermission(interaction);
       if (!allowed) {
@@ -2638,9 +2634,6 @@ async function handleAdminControlButtons(interaction, customId) {
 
   try {
     switch (customId) {
-      case 'admin_ctrl_sync':
-        await adminControls.handleSyncChannel(interaction);
-        break;
       case 'admin_ctrl_purge':
         await adminControls.handlePurgeQueue(interaction);
         break;
@@ -2662,12 +2655,6 @@ async function handleAdminControlButtons(interaction, customId) {
         break;
       case 'admin_ctrl_banned_list':
         await adminControls.handleBannedMoviesList(interaction);
-        break;
-      case 'admin_ctrl_refresh':
-        await adminControls.handleRefreshPanel(interaction);
-        break;
-      case 'admin_ctrl_validate':
-        await adminControls.handleValidateState(interaction);
         break;
       case 'admin_ctrl_populate_forum':
         await handlePopulateForumChannel(interaction);
