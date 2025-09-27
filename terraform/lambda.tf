@@ -71,16 +71,27 @@ resource "aws_apigatewayv2_api" "discord_bot" {
   })
 }
 
+# Archive Lambda source code
+data "archive_file" "discord_handler" {
+  count = var.enable_lambda_bot ? 1 : 0
+
+  type        = "zip"
+  source_dir  = "${path.module}/../lambda/discord-handler"
+  output_path = "${path.module}/discord-handler.zip"
+}
+
 # Lambda function for Discord interactions
 resource "aws_lambda_function" "discord_handler" {
   count            = var.enable_lambda_bot ? 1 : 0
-  filename         = "discord-handler.zip"
+  filename         = data.archive_file.discord_handler[0].output_path
   function_name    = "${var.project_name}-discord-handler"
   role            = aws_iam_role.lambda_discord[0].arn
   handler         = "index.handler"
   runtime         = "nodejs18.x"
   timeout         = 30
   memory_size     = 512
+
+  source_code_hash = data.archive_file.discord_handler[0].output_base64sha256
 
   # Provisioned concurrency for zero cold starts
   reserved_concurrent_executions = 10
@@ -298,15 +309,24 @@ resource "aws_cloudwatch_event_rule" "session_scheduler" {
   })
 }
 
+# Archive session scheduler source code
+data "archive_file" "session_scheduler" {
+  type        = "zip"
+  source_dir  = "${path.module}/../lambda/session-scheduler"
+  output_path = "${path.module}/session-scheduler.zip"
+}
+
 # Lambda function for session scheduling
 resource "aws_lambda_function" "session_scheduler" {
-  filename         = "session-scheduler.zip"
+  filename         = data.archive_file.session_scheduler.output_path
   function_name    = "${var.project_name}-session-scheduler"
   role            = aws_iam_role.lambda_scheduler.arn
   handler         = "index.handler"
   runtime         = "nodejs18.x"
   timeout         = 300  # 5 minutes max
   memory_size     = 256
+
+  source_code_hash = data.archive_file.session_scheduler.output_base64sha256
 
   environment {
     variables = {
