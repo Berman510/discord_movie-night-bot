@@ -1,0 +1,128 @@
+name: Deploy Bot to AWS ECS
+
+on:
+  push:
+    branches: [main, master]  # Production deployment
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'prod'
+        type: choice
+        options:
+        - beta
+        - prod
+
+env:
+  AWS_REGION: us-west-2
+  ECR_REPOSITORY: watchparty-bot
+  ECS_CLUSTER: watchparty-cluster
+
+jobs:
+  deploy:
+    name: Deploy Bot
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'prod' }}
+
+    env:
+      DEPLOY_ENV: ${{ github.event.inputs.environment || 'prod' }}
+      ECS_SERVICE: watchparty-bot-${{ github.event.inputs.environment || 'prod' }}
+      IMAGE_TAG: ${{ github.event.inputs.environment || 'prod' }}-${{ github.sha }}
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+        role-session-name: GitHubActions-BotDeploy
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Build, tag, and push image to Amazon ECR
+      id: build-image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+      run: |
+        # Build a docker container and push it to ECR
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+        # Also tag as environment-latest for easy reference
+        ENV_LATEST_TAG="${DEPLOY_ENV}-latest"
+        docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$ENV_LATEST_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$ENV_LATEST_TAG
+
+    - name: Update ECS service
+      env:
+        IMAGE_URI: ${{ steps.build-image.outputs.image }}
+      run: |
+        # Get current task definition
+        TASK_DEFINITION=$(aws ecs describe-task-definition \
+          --task-definition $ECS_SERVICE \
+          --query 'taskDefinition' \
+          --output json)
+        
+        # Update image in task definition
+        NEW_TASK_DEFINITION=$(echo $TASK_DEFINITION | jq --arg IMAGE "$IMAGE_URI" \
+          '.containerDefinitions[0].image = $IMAGE | del(.taskDefinitionArn) | del(.revision) | del(.status) | del(.requiresAttributes) | del(.placementConstraints) | del(.compatibilities) | del(.registeredAt) | del(.registeredBy)')
+        
+        # Register new task definition
+        NEW_REVISION=$(aws ecs register-task-definition \
+          --cli-input-json "$NEW_TASK_DEFINITION" \
+          --query 'taskDefinition.revision' \
+          --output text)
+        
+        echo "New task definition revision: $NEW_REVISION"
+        
+        # Update service to use new task definition
+        aws ecs update-service \
+          --cluster $ECS_CLUSTER \
+          --service $ECS_SERVICE \
+          --task-definition $ECS_SERVICE:$NEW_REVISION \
+          --force-new-deployment
+        
+        echo "Service update initiated"
+
+    - name: Wait for deployment
+      run: |
+        echo "Waiting for service to stabilize..."
+        aws ecs wait services-stable \
+          --cluster $ECS_CLUSTER \
+          --services $ECS_SERVICE \
+          --cli-read-timeout 600 \
+          --cli-connect-timeout 60
+        
+        echo "✅ Bot deployment completed successfully!"
+
+    - name: Verify deployment
+      run: |
+        # Get service status
+        SERVICE_STATUS=$(aws ecs describe-services \
+          --cluster $ECS_CLUSTER \
+          --services $ECS_SERVICE \
+          --query 'services[0].deployments[0].status' \
+          --output text)
+        
+        RUNNING_COUNT=$(aws ecs describe-services \
+          --cluster $ECS_CLUSTER \
+          --services $ECS_SERVICE \
+          --query 'services[0].runningCount' \
+          --output text)
+        
+        echo "Service Status: $SERVICE_STATUS"
+        echo "Running Tasks: $RUNNING_COUNT"
+        
+        if [ "$SERVICE_STATUS" = "PRIMARY" ] && [ "$RUNNING_COUNT" -gt "0" ]; then
+          echo "✅ Deployment verification successful!"
+        else
+          echo "❌ Deployment verification failed!"
+          exit 1
+        fi

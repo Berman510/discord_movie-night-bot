@@ -542,6 +542,8 @@ async function handleSyncChannel(interaction) {
 
           // Only recreate voting posts when there is an active session
           const activeSession = await database.getActiveVotingSession(interaction.guild.id);
+          const logger = require('../utils/logger');
+          logger.debug(`📋 Active session check: ${activeSession ? `Found session ${activeSession.id} (status: ${activeSession.status})` : 'No active session'}`);
 
           let allContent = [];
           if (activeSession) {
@@ -676,11 +678,29 @@ async function handleSyncChannel(interaction) {
               const logger = require('../utils/logger');
               logger.debug('📋 No active session - cleaning up forum movie posts');
               await forumChannels.clearForumMoviePosts(votingChannel, null);
-              // Create no session post
-              await forumChannels.createNoActiveSessionPost(votingChannel);
+              // Create no session post with permission check
+              try {
+                await forumChannels.createNoActiveSessionPost(votingChannel);
+              } catch (permError) {
+                if (permError.code === 50001) {
+                  logger.warn(`📋 Missing permissions to create forum posts in ${votingChannel.name}. Bot needs: Send Messages, Create Public Threads, Send Messages in Threads, Manage Messages`);
+                  errors.push(`Forum permissions: Bot needs Send Messages, Create Public Threads, Send Messages in Threads, and Manage Messages permissions in ${votingChannel.name}`);
+                } else {
+                  throw permError;
+                }
+              }
             } else {
               // Only ensure recommendation post if there's an active session
-              await forumChannels.ensureRecommendationPost(votingChannel, activeSession);
+              try {
+                await forumChannels.ensureRecommendationPost(votingChannel, activeSession);
+              } catch (permError) {
+                if (permError.code === 50001) {
+                  logger.warn(`📋 Missing permissions to create forum posts in ${votingChannel.name}. Bot needs: Send Messages, Create Public Threads, Send Messages in Threads, Manage Messages`);
+                  errors.push(`Forum permissions: Bot needs Send Messages, Create Public Threads, Send Messages in Threads, and Manage Messages permissions in ${votingChannel.name}`);
+                } else {
+                  throw permError;
+                }
+              }
             }
           }
         } else {

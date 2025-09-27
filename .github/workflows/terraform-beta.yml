@@ -1,0 +1,320 @@
+name: Deploy Beta Infrastructure
+
+on:
+  push:
+    paths:
+      - 'terraform/**'
+    branches: [v1.16.3, develop, beta]
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Terraform action'
+        required: true
+        default: 'apply'
+        type: choice
+        options:
+        - plan
+        - apply
+        - destroy
+
+# Prevent concurrent Terraform runs to avoid state lock conflicts
+concurrency:
+  group: terraform-beta-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-west-2
+  TF_VAR_environment: beta
+  # Bot-specific secrets
+  TF_VAR_bot_discord_token_beta: ${{ secrets.DISCORD_TOKEN_BETA }}
+  TF_VAR_bot_client_id_beta: ${{ secrets.CLIENT_ID_BETA }}
+  TF_VAR_bot_guild_id_beta: ${{ secrets.GUILD_ID_BETA }}
+  TF_VAR_bot_omdb_api_key_beta: ${{ secrets.OMDB_API_KEY_BETA }}
+  TF_VAR_bot_log_level_beta: ${{ secrets.LOG_LEVEL_BETA }}
+  TF_VAR_bot_log_colors_beta: ${{ secrets.LOG_COLORS_BETA }}
+  TF_VAR_bot_db_migrations_enabled_beta: ${{ secrets.DB_MIGRATIONS_ENABLED_BETA }}
+  TF_VAR_bot_imdb_cache_enabled_beta: ${{ secrets.IMDB_CACHE_ENABLED_BETA }}
+  TF_VAR_bot_imdb_cache_ttl_days_beta: ${{ secrets.IMDB_CACHE_TTL_DAYS_BETA }}
+  TF_VAR_bot_imdb_cache_max_rows_beta: ${{ secrets.IMDB_CACHE_MAX_ROWS_BETA }}
+  TF_VAR_bot_watchparty_ws_enabled_beta: ${{ secrets.WATCHPARTY_WS_ENABLED_BETA }}
+  TF_VAR_bot_watchparty_ws_url_beta: ${{ secrets.WATCHPARTY_WS_URL_BETA }}
+  # Infrastructure configuration
+  TF_VAR_aws_region: us-west-2
+  TF_VAR_project_name: watchparty-bot
+  TF_VAR_dashboard_project_name: watchparty
+  TF_VAR_domain_name: bermanoc.net
+  TF_VAR_bot_cpu: 256  # Minimum valid Fargate configuration (0.25 vCPU)
+  TF_VAR_bot_memory: 512  # Minimum valid Fargate configuration (512 MiB)
+  TF_VAR_bot_image_tag_beta: beta-latest
+  TF_VAR_pebblehost_beta_branch: v1.16.3
+  TF_VAR_monitoring_instance_type: t4g.nano
+  TF_VAR_enable_lambda_bot: true  # Phase 3: Enable Lambda infrastructure
+  TF_VAR_discord_public_key_beta: ${{ secrets.DISCORD_PUBLIC_KEY_BETA }}
+  TF_VAR_enable_rds_mysql: true  # Enable AWS RDS MySQL for beta migration
+  TF_VAR_enable_monitoring_instance: true  # Re-enable for phpMyAdmin
+  TF_VAR_monitoring_key_name: ${{ secrets.EC2_KEY_NAME || '' }}
+
+jobs:
+  terraform:
+    name: Terraform Beta Infrastructure
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    defaults:
+      run:
+        working-directory: terraform
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Select role to assume
+      run: |
+        if [ "${{ inputs.action }}" = "plan" ]; then
+          echo "ROLE_TO_ASSUME=${{ secrets.AWS_ROLE_PLAN }}" >> $GITHUB_ENV
+        else
+          echo "ROLE_TO_ASSUME=${{ secrets.AWS_ROLE_APPLY }}" >> $GITHUB_ENV
+        fi
+
+    - name: Configure AWS credentials (OIDC)
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ env.ROLE_TO_ASSUME }}
+        role-session-name: GitHubActions-TerraformBeta
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.5
+
+    - name: Clear Stale Terraform Locks
+      run: |
+        echo "🔍 Checking for stale Terraform state locks..."
+        TABLE_NAME="movienight-dashboard-tf-locks"
+        STATE_KEY="watchparty-bot/terraform.tfstate"
+
+        # Wait a moment for any concurrent workflows to settle
+        echo "⏳ Waiting 10 seconds for any concurrent operations to settle..."
+        sleep 10
+
+        # Check if there are any locks for our state file
+        LOCKS=$(aws dynamodb scan \
+          --table-name "$TABLE_NAME" \
+          --region "$AWS_REGION" \
+          --filter-expression "contains(#path, :state_key)" \
+          --expression-attribute-names '{"#path": "Path"}' \
+          --expression-attribute-values '{":state_key": {"S": "'$STATE_KEY'"}}' \
+          --query 'Items[*].LockID.S' \
+          --output text 2>/dev/null || echo "")
+
+        if [ -n "$LOCKS" ] && [ "$LOCKS" != "None" ]; then
+          echo "🔒 Found stale locks, removing them..."
+          for LOCK_ID in $LOCKS; do
+            echo "🗑️ Removing lock: $LOCK_ID"
+            aws dynamodb delete-item \
+              --table-name "$TABLE_NAME" \
+              --region "$AWS_REGION" \
+              --key '{"LockID": {"S": "'$LOCK_ID'"}}' \
+              && echo "✅ Removed lock: $LOCK_ID" \
+              || echo "⚠️ Failed to remove lock: $LOCK_ID"
+          done
+          echo "✅ Stale locks cleared"
+
+          # Wait a moment after clearing locks
+          echo "⏳ Waiting 5 seconds after lock cleanup..."
+          sleep 5
+        else
+          echo "✅ No stale locks found"
+        fi
+
+    - name: Terraform Init
+      run: terraform init -backend-config=backend.hcl
+
+    - name: Terraform Validate
+      run: terraform validate
+
+    - name: Terraform Plan
+      id: plan
+      run: |
+        # Retry terraform plan up to 3 times in case of transient issues
+        for i in {1..3}; do
+          echo "🔄 Terraform plan attempt $i/3..."
+          if terraform plan -out=tfplan; then
+            terraform show -no-color tfplan > plan.txt
+            echo "✅ Terraform plan succeeded on attempt $i"
+            break
+          else
+            if [ $i -eq 3 ]; then
+              echo "❌ Terraform plan failed after 3 attempts"
+              exit 1
+            fi
+            echo "⚠️ Terraform plan failed on attempt $i, retrying in 30 seconds..."
+            sleep 30
+          fi
+        done
+      continue-on-error: true
+
+    - name: Comment Plan (if PR)
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const plan = fs.readFileSync('terraform/plan.txt', 'utf8');
+          const maxGitHubBodyCharacters = 65536;
+          
+          function chunkSubstr(str, size) {
+            const numChunks = Math.ceil(str.length / size)
+            const chunks = new Array(numChunks)
+            for (let i = 0, o = 0; i < numChunks; ++i, o += size) {
+              chunks[i] = str.substr(o, size)
+            }
+            return chunks
+          }
+          
+          const planChunks = chunkSubstr(plan, maxGitHubBodyCharacters);
+          
+          for (let i = 0; i < planChunks.length; i++) {
+            const output = `### 🏗️ Terraform Plan (Beta Infrastructure) - Part ${i + 1}
+            
+            \`\`\`
+            ${planChunks[i]}
+            \`\`\`
+            `;
+            
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            });
+          }
+
+    - name: Terraform Apply
+      if: github.ref == 'refs/heads/v1.16.3' || github.event.inputs.action == 'apply'
+      run: |
+        # Retry terraform apply up to 2 times in case of transient issues
+        for i in {1..2}; do
+          echo "🚀 Terraform apply attempt $i/2..."
+          if terraform apply -auto-approve tfplan; then
+            echo "✅ Terraform apply succeeded on attempt $i"
+            break
+          else
+            if [ $i -eq 2 ]; then
+              echo "❌ Terraform apply failed after 2 attempts"
+              exit 1
+            fi
+            echo "⚠️ Terraform apply failed on attempt $i, retrying in 60 seconds..."
+            sleep 60
+
+            # Clear any new locks that might have been created
+            echo "🔍 Clearing any new locks before retry..."
+            TABLE_NAME="movienight-dashboard-tf-locks"
+            STATE_KEY="watchparty-bot/terraform.tfstate"
+            LOCKS=$(aws dynamodb scan \
+              --table-name "$TABLE_NAME" \
+              --region "$AWS_REGION" \
+              --filter-expression "contains(#path, :state_key)" \
+              --expression-attribute-names '{"#path": "Path"}' \
+              --expression-attribute-values '{":state_key": {"S": "'$STATE_KEY'"}}' \
+              --query 'Items[*].LockID.S' \
+              --output text 2>/dev/null || echo "")
+
+            if [ -n "$LOCKS" ] && [ "$LOCKS" != "None" ]; then
+              for LOCK_ID in $LOCKS; do
+                aws dynamodb delete-item \
+                  --table-name "$TABLE_NAME" \
+                  --region "$AWS_REGION" \
+                  --key '{"LockID": {"S": "'$LOCK_ID'"}}' 2>/dev/null || true
+              done
+            fi
+
+            # Regenerate plan for retry to avoid stale plan errors
+            echo "🔄 Regenerating Terraform plan for retry..."
+            terraform plan -out=tfplan
+          fi
+        done
+
+    - name: Terraform Destroy
+      if: github.event.inputs.action == 'destroy'
+      run: terraform destroy -auto-approve
+
+    - name: Verify Deployment
+      if: github.event.inputs.action != 'destroy'
+      run: |
+        echo "🔍 Verifying beta infrastructure deployment..."
+
+        # Check if ECS service exists and is running
+        SERVICE_NAME="watchparty-bot-beta"
+        CLUSTER_NAME=$(terraform output -raw ecs_cluster_name 2>/dev/null || echo "movienight-dashboard-cluster")
+
+        echo "Checking ECS service: $SERVICE_NAME in cluster: $CLUSTER_NAME"
+
+        # Wait for service to be stable (up to 5 minutes)
+        echo "⏳ Waiting for ECS service to stabilize..."
+        aws ecs wait services-stable \
+          --cluster "$CLUSTER_NAME" \
+          --services "$SERVICE_NAME" \
+          --region "$AWS_REGION" \
+          --cli-read-timeout 300 \
+          --cli-connect-timeout 60 \
+          || echo "⚠️ Service stabilization timeout - check ECS console"
+
+        # Get service status
+        SERVICE_STATUS=$(aws ecs describe-services \
+          --cluster "$CLUSTER_NAME" \
+          --services "$SERVICE_NAME" \
+          --region "$AWS_REGION" \
+          --query 'services[0].{Status:status,Running:runningCount,Desired:desiredCount,Pending:pendingCount}' \
+          --output table 2>/dev/null || echo "❌ Failed to get service status")
+
+        echo "📊 ECS Service Status:"
+        echo "$SERVICE_STATUS"
+
+    - name: Output Infrastructure Info
+      if: github.event.inputs.action != 'destroy'
+      run: |
+        echo "## 🏗️ Beta Infrastructure Deployed" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Outputs:" >> $GITHUB_STEP_SUMMARY
+        terraform output -json | jq -r 'to_entries[] | "- **\(.key)**: \(.value.value)"' >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Next Steps:" >> $GITHUB_STEP_SUMMARY
+        echo "1. Check ECS service logs in AWS Console" >> $GITHUB_STEP_SUMMARY
+        echo "2. Verify bot connectivity in Discord" >> $GITHUB_STEP_SUMMARY
+        echo "3. Test basic bot functionality" >> $GITHUB_STEP_SUMMARY
+
+    - name: Cleanup on Failure
+      if: failure()
+      run: |
+        echo "🧹 Cleaning up after workflow failure..."
+        TABLE_NAME="movienight-dashboard-tf-locks"
+        STATE_KEY="watchparty-bot/terraform.tfstate"
+
+        # Remove any locks that might have been left behind
+        LOCKS=$(aws dynamodb scan \
+          --table-name "$TABLE_NAME" \
+          --region "$AWS_REGION" \
+          --filter-expression "contains(#path, :state_key)" \
+          --expression-attribute-names '{"#path": "Path"}' \
+          --expression-attribute-values '{":state_key": {"S": "'$STATE_KEY'"}}' \
+          --query 'Items[*].LockID.S' \
+          --output text 2>/dev/null || echo "")
+
+        if [ -n "$LOCKS" ] && [ "$LOCKS" != "None" ]; then
+          echo "🔒 Cleaning up locks left by failed workflow..."
+          for LOCK_ID in $LOCKS; do
+            echo "🗑️ Removing lock: $LOCK_ID"
+            aws dynamodb delete-item \
+              --table-name "$TABLE_NAME" \
+              --region "$AWS_REGION" \
+              --key '{"LockID": {"S": "'$LOCK_ID'"}}' 2>/dev/null \
+              && echo "✅ Cleaned up lock: $LOCK_ID" \
+              || echo "⚠️ Failed to clean up lock: $LOCK_ID"
+          done
+        else
+          echo "✅ No locks to clean up"
+        fi
