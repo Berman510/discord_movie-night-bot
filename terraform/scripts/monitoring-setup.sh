@@ -16,6 +16,11 @@ yum install -y \
     curl \
     wget
 
+# Install and start SSM agent for Session Manager access
+yum install -y amazon-ssm-agent
+systemctl enable amazon-ssm-agent
+systemctl start amazon-ssm-agent
+
 # Configure AWS CLI region
 aws configure set region ${aws_region}
 
@@ -247,4 +252,10 @@ cat > /etc/logrotate.d/botmonitor << 'EOF'
 EOF
 
 echo "✅ Bot monitoring setup completed"
-echo "Connect via: ssh botmonitor@$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)"
+echo ""
+echo "🔗 Connection Options:"
+echo "  SSH: ssh botmonitor@$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)"
+echo "  SSM: Use AWS Session Manager in the browser (recommended)"
+echo "       https://console.aws.amazon.com/systems-manager/session-manager"
+echo ""
+echo "💡 SSM Session Manager provides secure browser-based terminal access"
