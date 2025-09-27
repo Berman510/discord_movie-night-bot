@@ -1,11 +1,30 @@
 # RDS MySQL Database for Discord Bot and Dashboard
 # Free tier eligible: db.t3.micro with 20GB storage
 
+# Data sources for VPC and subnets
+data "aws_vpc" "rds_vpc" {
+  count = var.enable_rds_mysql ? 1 : 0
+  tags = {
+    Name = "${var.dashboard_project_name}-vpc"
+  }
+}
+
+data "aws_subnets" "rds_private" {
+  count = var.enable_rds_mysql ? 1 : 0
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.rds_vpc[0].id]
+  }
+  tags = {
+    Type = "Private"
+  }
+}
+
 # DB Subnet Group
 resource "aws_db_subnet_group" "main" {
   count      = var.enable_rds_mysql ? 1 : 0
   name       = "${var.project_name}-db-subnet-group"
-  subnet_ids = data.aws_subnets.private.ids
+  subnet_ids = data.aws_subnets.rds_private[0].ids
 
   tags = merge(local.common_tags, {
     Name = "${var.project_name}-db-subnet-group"
@@ -17,28 +36,30 @@ resource "aws_security_group" "rds" {
   count       = var.enable_rds_mysql ? 1 : 0
   name        = "${var.project_name}-rds-sg"
   description = "Security group for RDS MySQL database"
-  vpc_id      = data.aws_vpc.main.id
+  vpc_id      = data.aws_vpc.rds_vpc[0].id
 
   # Allow MySQL access from ECS tasks and Lambda functions
-  ingress {
-    from_port       = 3306
-    to_port         = 3306
-    protocol        = "tcp"
-    security_groups = [
-      data.aws_security_group.ecs_tasks.id,
-      var.enable_lambda_bot ? aws_security_group.lambda_rds[0].id : null
-    ]
-    description = "MySQL access from ECS and Lambda"
-  }
-
-  # Allow MySQL access from dashboard ECS cluster
   ingress {
     from_port   = 3306
     to_port     = 3306
     protocol    = "tcp"
-    cidr_blocks = ["10.0.0.0/16"]  # VPC CIDR
-    description = "MySQL access from VPC"
+    cidr_blocks = ["10.0.0.0/16"]  # VPC CIDR for ECS access
+    description = "MySQL access from ECS tasks"
   }
+
+  # Allow MySQL access from Lambda functions (if enabled)
+  dynamic "ingress" {
+    for_each = var.enable_lambda_bot ? [1] : []
+    content {
+      from_port       = 3306
+      to_port         = 3306
+      protocol        = "tcp"
+      security_groups = [aws_security_group.lambda_rds[0].id]
+      description     = "MySQL access from Lambda"
+    }
+  }
+
+
 
   egress {
     from_port   = 0

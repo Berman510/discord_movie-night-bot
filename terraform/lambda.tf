@@ -135,14 +135,16 @@ resource "aws_iam_role" "lambda_discord" {
 
 # Basic Lambda execution policy
 resource "aws_iam_role_policy_attachment" "lambda_discord_basic" {
+  count      = var.enable_lambda_bot ? 1 : 0
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-  role       = aws_iam_role.lambda_discord.name
+  role       = aws_iam_role.lambda_discord[0].name
 }
 
 # DynamoDB access policy
 resource "aws_iam_role_policy" "lambda_discord_dynamodb" {
-  name = "${var.project_name}-lambda-discord-dynamodb"
-  role = aws_iam_role.lambda_discord.id
+  count = var.enable_lambda_bot ? 1 : 0
+  name  = "${var.project_name}-lambda-discord-dynamodb-${var.environment}"
+  role  = aws_iam_role.lambda_discord[0].id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -151,15 +153,15 @@ resource "aws_iam_role_policy" "lambda_discord_dynamodb" {
         Effect = "Allow"
         Action = [
           "dynamodb:GetItem",
-          "dynamodb:PutItem", 
+          "dynamodb:PutItem",
           "dynamodb:UpdateItem",
           "dynamodb:DeleteItem",
           "dynamodb:Query",
           "dynamodb:Scan"
         ]
         Resource = [
-          aws_dynamodb_table.bot_state.arn,
-          "${aws_dynamodb_table.bot_state.arn}/index/*"
+          aws_dynamodb_table.bot_state[0].arn,
+          "${aws_dynamodb_table.bot_state[0].arn}/index/*"
         ]
       }
     ]
@@ -167,12 +169,14 @@ resource "aws_iam_role_policy" "lambda_discord_dynamodb" {
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_discord_dynamodb" {
-  policy_arn = aws_iam_policy.lambda_discord_dynamodb.arn
-  role       = aws_iam_role.lambda_discord.name
+  count      = var.enable_lambda_bot ? 1 : 0
+  policy_arn = aws_iam_policy.lambda_discord_dynamodb[0].arn
+  role       = aws_iam_role.lambda_discord[0].name
 }
 
 resource "aws_iam_policy" "lambda_discord_dynamodb" {
-  name        = "${var.project_name}-lambda-discord-dynamodb"
+  count       = var.enable_lambda_bot ? 1 : 0
+  name        = "${var.project_name}-lambda-discord-dynamodb-${var.environment}"
   description = "DynamoDB access for Discord Lambda"
 
   policy = jsonencode({
@@ -183,14 +187,14 @@ resource "aws_iam_policy" "lambda_discord_dynamodb" {
         Action = [
           "dynamodb:GetItem",
           "dynamodb:PutItem",
-          "dynamodb:UpdateItem", 
+          "dynamodb:UpdateItem",
           "dynamodb:DeleteItem",
           "dynamodb:Query",
           "dynamodb:Scan"
         ]
         Resource = [
-          aws_dynamodb_table.bot_state.arn,
-          "${aws_dynamodb_table.bot_state.arn}/index/*"
+          aws_dynamodb_table.bot_state[0].arn,
+          "${aws_dynamodb_table.bot_state[0].arn}/index/*"
         ]
       }
     ]
@@ -199,8 +203,9 @@ resource "aws_iam_policy" "lambda_discord_dynamodb" {
 
 # RDS access policy (for existing MySQL database)
 resource "aws_iam_role_policy" "lambda_discord_rds" {
-  name = "${var.project_name}-lambda-discord-rds"
-  role = aws_iam_role.lambda_discord.id
+  count = var.enable_lambda_bot && var.enable_rds_mysql ? 1 : 0
+  name  = "${var.project_name}-lambda-discord-rds-${var.environment}"
+  role  = aws_iam_role.lambda_discord[0].id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -217,12 +222,14 @@ resource "aws_iam_role_policy" "lambda_discord_rds" {
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_discord_rds" {
-  policy_arn = aws_iam_policy.lambda_discord_rds.arn
-  role       = aws_iam_role.lambda_discord.name
+  count      = var.enable_lambda_bot && var.enable_rds_mysql ? 1 : 0
+  policy_arn = aws_iam_policy.lambda_discord_rds[0].arn
+  role       = aws_iam_role.lambda_discord[0].name
 }
 
 resource "aws_iam_policy" "lambda_discord_rds" {
-  name        = "${var.project_name}-lambda-discord-rds"
+  count       = var.enable_lambda_bot && var.enable_rds_mysql ? 1 : 0
+  name        = "${var.project_name}-lambda-discord-rds-${var.environment}"
   description = "RDS access for Discord Lambda"
 
   policy = jsonencode({
@@ -241,21 +248,24 @@ resource "aws_iam_policy" "lambda_discord_rds" {
 
 # API Gateway integration with Lambda
 resource "aws_apigatewayv2_integration" "discord_handler" {
-  api_id           = aws_apigatewayv2_api.discord_bot.id
+  count            = var.enable_lambda_bot ? 1 : 0
+  api_id           = aws_apigatewayv2_api.discord_bot[0].id
   integration_type = "AWS_PROXY"
-  integration_uri  = aws_lambda_function.discord_handler.invoke_arn
+  integration_uri  = aws_lambda_function.discord_handler[0].invoke_arn
 }
 
 # API Gateway route
 resource "aws_apigatewayv2_route" "discord_interactions" {
-  api_id    = aws_apigatewayv2_api.discord_bot.id
+  count     = var.enable_lambda_bot ? 1 : 0
+  api_id    = aws_apigatewayv2_api.discord_bot[0].id
   route_key = "POST /interactions"
-  target    = "integrations/${aws_apigatewayv2_integration.discord_handler.id}"
+  target    = "integrations/${aws_apigatewayv2_integration.discord_handler[0].id}"
 }
 
 # API Gateway stage
 resource "aws_apigatewayv2_stage" "discord_bot" {
-  api_id      = aws_apigatewayv2_api.discord_bot.id
+  count   = var.enable_lambda_bot ? 1 : 0
+  api_id  = aws_apigatewayv2_api.discord_bot[0].id
   name        = var.environment
   auto_deploy = true
 
@@ -266,11 +276,12 @@ resource "aws_apigatewayv2_stage" "discord_bot" {
 
 # Lambda permission for API Gateway
 resource "aws_lambda_permission" "api_gateway" {
+  count         = var.enable_lambda_bot ? 1 : 0
   statement_id  = "AllowExecutionFromAPIGateway"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.discord_handler.function_name
+  function_name = aws_lambda_function.discord_handler[0].function_name
   principal     = "apigateway.amazonaws.com"
-  source_arn    = "${aws_apigatewayv2_api.discord_bot.execution_arn}/*/*"
+  source_arn    = "${aws_apigatewayv2_api.discord_bot[0].execution_arn}/*/*"
 }
 
 # EventBridge rule for session scheduling
@@ -369,10 +380,10 @@ resource "aws_iam_role_policy_attachment" "lambda_scheduler_rds" {
 # Outputs
 output "discord_api_endpoint" {
   description = "Discord API Gateway endpoint"
-  value       = "${aws_apigatewayv2_api.discord_bot.api_endpoint}/${var.environment}"
+  value       = var.enable_lambda_bot ? "${aws_apigatewayv2_api.discord_bot[0].api_endpoint}/${var.environment}" : null
 }
 
 output "dynamodb_table_name" {
   description = "DynamoDB table name for bot state"
-  value       = aws_dynamodb_table.bot_state.name
+  value       = var.enable_lambda_bot ? aws_dynamodb_table.bot_state[0].name : null
 }
