@@ -37,14 +37,14 @@ output "bot_beta_secrets_arn" {
 #   sensitive   = true
 # }
 
-output "monitoring_instance_ip" {
-  description = "Public IP of the monitoring instance"
-  value       = var.enable_monitoring_instance ? aws_eip.monitoring[0].public_ip : null
+output "monitoring_asg_name" {
+  description = "Name of the monitoring Auto Scaling Group"
+  value       = var.enable_monitoring_instance ? aws_autoscaling_group.monitoring[0].name : null
 }
 
-output "monitoring_instance_id" {
-  description = "ID of the monitoring instance"
-  value       = var.enable_monitoring_instance ? aws_instance.monitoring[0].id : null
+output "monitoring_launch_template_id" {
+  description = "ID of the monitoring launch template"
+  value       = var.enable_monitoring_instance ? aws_launch_template.monitoring[0].id : null
 }
 
 output "pebblehost_beta_branch" {

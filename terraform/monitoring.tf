@@ -140,37 +140,94 @@ locals {
   }))
 }
 
-# Monitoring EC2 Instance
-resource "aws_instance" "monitoring" {
-  count                  = var.enable_monitoring_instance ? 1 : 0
-  ami                    = data.aws_ami.amazon_linux.id
-  instance_type          = var.monitoring_instance_type
-  key_name              = var.monitoring_key_name != "" ? var.monitoring_key_name : null
+# Launch Template for Monitoring Instance
+resource "aws_launch_template" "monitoring" {
+  count       = var.enable_monitoring_instance ? 1 : 0
+  name        = "${var.project_name}-monitoring-template"
+  description = "Launch template for monitoring instance"
+
+  image_id      = data.aws_ami.amazon_linux.id
+  instance_type = var.monitoring_instance_type
+  key_name      = var.monitoring_key_name != "" ? var.monitoring_key_name : null
+
   vpc_security_group_ids = [aws_security_group.monitoring[0].id]
-  subnet_id             = data.aws_subnets.public.ids[0]
-  iam_instance_profile  = aws_iam_instance_profile.monitoring[0].name
+
+  iam_instance_profile {
+    name = aws_iam_instance_profile.monitoring[0].name
+  }
 
   user_data = local.monitoring_user_data
 
-  root_block_device {
-    volume_type = "gp3"
-    volume_size = 30
-    encrypted   = true
+  block_device_mappings {
+    device_name = "/dev/xvda"
+    ebs {
+      volume_type = "gp3"
+      volume_size = 30
+      encrypted   = true
+      delete_on_termination = true
+    }
+  }
+
+  tag_specifications {
+    resource_type = "instance"
+    tags = merge(local.common_tags, {
+      Name = "${var.project_name}-monitoring"
+      Type = "monitoring"
+    })
+  }
+
+  tag_specifications {
+    resource_type = "volume"
+    tags = merge(local.common_tags, {
+      Name = "${var.project_name}-monitoring-volume"
+      Type = "monitoring"
+    })
   }
 
   tags = merge(local.common_tags, {
-    Name = "${var.project_name}-monitoring"
-    Type = "monitoring"
+    Name = "${var.project_name}-monitoring-template"
   })
 }
 
-# Elastic IP for Monitoring Instance
-resource "aws_eip" "monitoring" {
-  count    = var.enable_monitoring_instance ? 1 : 0
-  instance = aws_instance.monitoring[0].id
-  domain   = "vpc"
+# Auto Scaling Group for Monitoring Instance
+resource "aws_autoscaling_group" "monitoring" {
+  count               = var.enable_monitoring_instance ? 1 : 0
+  name                = "${var.project_name}-monitoring-asg"
+  vpc_zone_identifier = data.aws_subnets.public.ids
+  target_group_arns   = []
+  health_check_type   = "EC2"
+  health_check_grace_period = 300
 
-  tags = merge(local.common_tags, {
-    Name = "${var.project_name}-monitoring-eip"
-  })
+  min_size         = 0
+  max_size         = 1
+  desired_capacity = var.monitoring_desired_capacity
+
+  launch_template {
+    id      = aws_launch_template.monitoring[0].id
+    version = "$Latest"
+  }
+
+  # Instance refresh settings for updates
+  instance_refresh {
+    strategy = "Rolling"
+    preferences {
+      min_healthy_percentage = 0
+      instance_warmup       = 300
+    }
+  }
+
+  tag {
+    key                 = "Name"
+    value               = "${var.project_name}-monitoring-asg"
+    propagate_at_launch = false
+  }
+
+  dynamic "tag" {
+    for_each = local.common_tags
+    content {
+      key                 = tag.key
+      value               = tag.value
+      propagate_at_launch = false
+    }
+  }
 }

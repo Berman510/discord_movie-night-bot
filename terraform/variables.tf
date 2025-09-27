@@ -87,6 +87,12 @@ variable "monitoring_key_name" {
   default     = ""
 }
 
+variable "monitoring_desired_capacity" {
+  description = "Desired capacity for monitoring ASG (0 to disable, 1 to enable)"
+  type        = number
+  default     = 1
+}
+
 # Bot Secrets - Beta Environment
 variable "bot_discord_token_beta" {
   description = "Discord bot token for beta environment"
