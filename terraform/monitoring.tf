@@ -23,7 +23,7 @@ resource "aws_security_group" "monitoring" {
   description = "Security group for bot monitoring instance"
   vpc_id      = data.aws_vpc.main.id
 
-  # SSH access
+  # SSH access (optional - SSM Session Manager is preferred)
   ingress {
     from_port   = 22
     to_port     = 22
@@ -32,23 +32,8 @@ resource "aws_security_group" "monitoring" {
     description = "SSH access"
   }
 
-  # HTTP access for phpMyAdmin (restricted to user IP)
-  ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["${var.user_ip}/32"]
-    description = "HTTP access for phpMyAdmin"
-  }
-
-  # HTTPS access for phpMyAdmin (restricted to user IP)
-  ingress {
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["${var.user_ip}/32"]
-    description = "HTTPS access for phpMyAdmin"
-  }
+  # Note: HTTP/HTTPS ports removed - using SSM port forwarding for secure access
+  # phpMyAdmin accessible via: ./scripts/phpmyadmin-tunnel.sh
 
   # Outbound internet access
   egress {
