@@ -80,11 +80,11 @@ jobs:
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
       with:
-        terraform_version: ~1.0
+        terraform_version: 1.5
         aws-region: ${{ env.AWS_REGION }}
 
     - name: Terraform Init
-      run: terraform init -backend-config=backend.hcl
+      run: terraform init -backend-config=backend.hcl -backend-config=backend.hcl
 
     - name: Terraform Validate
       run: terraform validate
