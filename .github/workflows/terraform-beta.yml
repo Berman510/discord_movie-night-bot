@@ -17,6 +17,11 @@ on:
         - apply
         - destroy
 
+# Prevent concurrent Terraform runs to avoid state lock conflicts
+concurrency:
+  group: terraform-beta-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
   AWS_REGION: us-west-2
   TF_VAR_environment: beta
@@ -88,6 +93,10 @@ jobs:
         TABLE_NAME="movienight-dashboard-tf-locks"
         STATE_KEY="watchparty-bot/terraform.tfstate"
 
+        # Wait a moment for any concurrent workflows to settle
+        echo "⏳ Waiting 10 seconds for any concurrent operations to settle..."
+        sleep 10
+
         # Check if there are any locks for our state file
         LOCKS=$(aws dynamodb scan \
           --table-name "$TABLE_NAME" \
@@ -109,6 +118,11 @@ jobs:
               && echo "✅ Removed lock: $LOCK_ID" \
               || echo "⚠️ Failed to remove lock: $LOCK_ID"
           done
+          echo "✅ Stale locks cleared"
+
+          # Wait a moment after clearing locks
+          echo "⏳ Waiting 5 seconds after lock cleanup..."
+          sleep 5
         else
           echo "✅ No stale locks found"
         fi
