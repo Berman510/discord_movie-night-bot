@@ -1,0 +1,21 @@
+{
+  "name": "session-scheduler",
+  "version": "1.0.0",
+  "description": "AWS Lambda function for Discord bot session scheduling",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "aws-sdk": "^2.1691.0"
+  },
+  "keywords": [
+    "aws",
+    "lambda",
+    "discord",
+    "scheduler",
+    "eventbridge"
+  ],
+  "author": "Watch Party Bot",
+  "license": "MIT"
+}
