@@ -6,15 +6,17 @@ set -e
 # Update system
 yum update -y
 
-# Install required packages
+# Install required packages (handle curl conflicts)
 yum install -y \
     aws-cli \
     jq \
     htop \
     tmux \
     git \
-    curl \
     wget
+
+# Install curl separately with conflict resolution
+yum install -y curl --allowerasing || yum install -y curl --skip-broken || echo "curl already available"
 
 # Install and start SSM agent for Session Manager access
 yum install -y amazon-ssm-agent
