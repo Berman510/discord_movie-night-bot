@@ -117,19 +117,7 @@ variable "bot_omdb_api_key_beta" {
   sensitive   = true
 }
 
-# Lambda Configuration
-variable "enable_lambda_bot" {
-  description = "Enable Lambda-based bot (Phase 3 cost optimization)"
-  type        = bool
-  default     = false  # Disabled by default, enable for testing
-}
 
-variable "discord_public_key" {
-  description = "Discord application public key for interaction verification"
-  type        = string
-  default     = ""
-  sensitive   = true
-}
 
 variable "bot_log_level_beta" {
   description = "Log level for beta environment"
