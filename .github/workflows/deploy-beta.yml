@@ -172,4 +172,4 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### Monitoring:" >> $GITHUB_STEP_SUMMARY
         echo "- **Logs**: \`aws logs tail /ecs/watchparty-bot-beta --follow\`" >> $GITHUB_STEP_SUMMARY
-        echo "- **Status**: \`aws ecs describe-services --cluster watchparty-cluster --services watchparty-bot-beta\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **Status**: \`aws ecs describe-services --cluster $ECS_CLUSTER --services $ECS_SERVICE\`" >> $GITHUB_STEP_SUMMARY

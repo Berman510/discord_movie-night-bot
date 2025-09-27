@@ -132,11 +132,11 @@ resource "aws_ecs_task_definition" "bot_beta" {
         },
         {
           name      = "WATCHPARTY_WS_ENABLED"
-          valueFrom = "${aws_secretsmanager_secret.bot_secrets_beta.arn}:watchparty_ws_enabled::"
+          valueFrom = "${aws_secretsmanager_secret.bot_secrets_beta.arn}:WATCHPARTY_WS_ENABLED::"
         },
         {
           name      = "WATCHPARTY_WS_URL"
-          valueFrom = "${aws_secretsmanager_secret.bot_secrets_beta.arn}:watchparty_ws_url::"
+          valueFrom = "${aws_secretsmanager_secret.bot_secrets_beta.arn}:WATCHPARTY_WS_URL::"
         },
         # Shared secrets from dashboard infrastructure
         {
