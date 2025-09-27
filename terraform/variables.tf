@@ -72,7 +72,7 @@ variable "pebblehost_prod_branch" {
 variable "enable_monitoring_instance" {
   description = "Enable EC2 monitoring instance"
   type        = bool
-  default     = true
+  default     = false  # Disabled for cost optimization - save $3.60/month
 }
 
 variable "monitoring_instance_type" {
