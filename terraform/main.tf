@@ -76,10 +76,10 @@ data "aws_secretsmanager_secret" "db_credentials_beta" {
   name = "watchparty-dashboard/beta/database"
 }
 
-# Production secrets (disabled for beta-only deployment)
-# data "aws_secretsmanager_secret" "db_credentials_prod" {
-#   name = "${var.dashboard_project_name}/prod/database"
-# }
+# Production secrets
+data "aws_secretsmanager_secret" "db_credentials_prod" {
+  name = "watchparty-dashboard/prod/database"
+}
 
 data "aws_secretsmanager_secret" "ws_beta" {
   name = "watchparty-dashboard/beta/ws"
@@ -106,19 +106,18 @@ resource "aws_iam_role_policy" "bot_secrets_access" {
           aws_secretsmanager_secret.bot_secrets_beta.arn,
           data.aws_secretsmanager_secret.ws_beta.arn,
           data.aws_secretsmanager_secret.db_beta.arn,
-          # Add production secrets when enabled
-          # aws_secretsmanager_secret.bot_secrets_prod.arn,
-          # data.aws_secretsmanager_secret.ws_prod.arn,
-          # data.aws_secretsmanager_secret.db_prod.arn,
+          aws_secretsmanager_secret.bot_secrets_prod.arn,
+          data.aws_secretsmanager_secret.ws_prod.arn,
+          data.aws_secretsmanager_secret.db_credentials_prod.arn,
         ]
       }
     ]
   })
 }
 
-# data "aws_secretsmanager_secret" "ws_prod" {
-#   name = "${var.dashboard_project_name}/prod/websocket"
-# }
+data "aws_secretsmanager_secret" "ws_prod" {
+  name = "watchparty-dashboard/prod/ws"
+}
 
 # ECR Repository for Bot
 resource "aws_ecr_repository" "bot" {
