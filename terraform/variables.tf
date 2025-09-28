@@ -16,7 +16,7 @@ variable "project_name" {
 variable "dashboard_project_name" {
   description = "Name of the dashboard project (to reference existing resources)"
   type        = string
-  default     = "watchparty"
+  default     = "watchparty-dashboard"
 }
 
 variable "environment" {
@@ -226,7 +226,7 @@ variable "discord_public_key_prod" {
 variable "enable_rds_mysql" {
   description = "Enable AWS RDS MySQL database (alternative to PebbleHost)"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "db_name" {
