@@ -25,6 +25,7 @@ env:
   TF_VAR_bot_client_id_prod: ${{ secrets.CLIENT_ID_PROD }}
   TF_VAR_bot_guild_id_prod: ${{ secrets.GUILD_ID_PROD }}
   TF_VAR_bot_omdb_api_key_prod: ${{ secrets.OMDB_API_KEY_PROD }}
+  TF_VAR_discord_public_key_prod: ${{ secrets.DISCORD_PUBLIC_KEY_PROD }}
   TF_VAR_bot_discord_token_beta: ${{ secrets.DISCORD_TOKEN_BETA }}
   TF_VAR_bot_client_id_beta: ${{ secrets.CLIENT_ID_BETA }}
   TF_VAR_bot_guild_id_beta: ${{ secrets.GUILD_ID_BETA }}
@@ -63,10 +64,15 @@ jobs:
     - name: Select role to assume
       run: |
         if [ "${{ inputs.action }}" = "plan" ]; then
-          echo "ROLE_TO_ASSUME=${{ secrets.AWS_ROLE_PLAN }}" >> $GITHUB_ENV
+          ROLE="${{ secrets.AWS_ROLE_PLAN }}"
         else
-          echo "ROLE_TO_ASSUME=${{ secrets.AWS_ROLE_APPLY }}" >> $GITHUB_ENV
+          ROLE="${{ secrets.AWS_ROLE_APPLY }}"
         fi
+        if [ -z "${ROLE}" ]; then
+          # Fallback to permissive role in this account if secret is unset
+          ROLE="arn:aws:iam::321447295215:role/watchparty-dashboard-github-actions-apply"
+        fi
+        echo "ROLE_TO_ASSUME=${ROLE}" >> $GITHUB_ENV
 
     - name: Configure AWS credentials (OIDC)
       uses: aws-actions/configure-aws-credentials@v4
@@ -80,18 +86,8 @@ jobs:
       with:
         terraform_version: 1.5
 
-    - name: Terraform Init
-      run: terraform init -backend-config=backend.hcl -backend-config=backend.hcl
-
-    - name: Terraform Validate
-      run: terraform validate
-
-    - name: Terraform Plan
-      id: plan
-      run: |
-        terraform plan -out=tfplan
-        terraform show -no-color tfplan > plan.txt
-      continue-on-error: true
+    - name: Terraform Plan (script)
+      run: ../scripts/terraform_plan.sh
 
     - name: Comment Plan (if PR)
       if: github.event_name == 'pull_request'
@@ -101,7 +97,7 @@ jobs:
           const fs = require('fs');
           const plan = fs.readFileSync('terraform/plan.txt', 'utf8');
           const maxGitHubBodyCharacters = 65536;
-          
+
           function chunkSubstr(str, size) {
             const numChunks = Math.ceil(str.length / size)
             const chunks = new Array(numChunks)
@@ -110,17 +106,17 @@ jobs:
             }
             return chunks
           }
-          
+
           const planChunks = chunkSubstr(plan, maxGitHubBodyCharacters);
-          
+
           for (let i = 0; i < planChunks.length; i++) {
             const output = `### 🏗️ Terraform Plan (Production Infrastructure) - Part ${i + 1}
-            
+
             \`\`\`
             ${planChunks[i]}
             \`\`\`
             `;
-            
+
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
@@ -129,9 +125,9 @@ jobs:
             });
           }
 
-    - name: Terraform Apply
+    - name: Terraform Apply (script)
       if: github.event.inputs.action == 'apply'
-      run: terraform apply -auto-approve tfplan
+      run: ../scripts/terraform_apply.sh
 
     - name: Terraform Destroy
       if: github.event.inputs.action == 'destroy'
