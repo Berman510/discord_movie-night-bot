@@ -27,25 +27,24 @@ resource "aws_secretsmanager_secret_version" "bot_secrets_beta" {
   })
 }
 
-# Bot Secrets - Production Environment (disabled for beta-only deployment)
-# Uncomment when ready to deploy production
-# resource "aws_secretsmanager_secret" "bot_secrets_prod" {
-#   name                    = "${var.project_name}/prod/secrets"
-#   description             = "Discord bot secrets for ${var.project_name} (production)"
-#   recovery_window_in_days = 0
-#
-#   tags = merge(local.common_tags, { Name = "${var.project_name}-prod-secrets" })
-# }
-#
-# resource "aws_secretsmanager_secret_version" "bot_secrets_prod" {
-#   secret_id = aws_secretsmanager_secret.bot_secrets_prod.id
-#   secret_string = jsonencode({
-#     discord_token = var.bot_discord_token_prod
-#     client_id     = var.bot_client_id_prod
-#     guild_id      = var.bot_guild_id_prod
-#     omdb_api_key  = var.bot_omdb_api_key_prod
-#   })
-# }
+# Bot Secrets - Production Environment
+resource "aws_secretsmanager_secret" "bot_secrets_prod" {
+  name                    = "${var.project_name}/prod/secrets"
+  description             = "Discord bot secrets for ${var.project_name} (production)"
+  recovery_window_in_days = 0
+
+  tags = merge(local.common_tags, { Name = "${var.project_name}-prod-secrets" })
+}
+
+resource "aws_secretsmanager_secret_version" "bot_secrets_prod" {
+  secret_id = aws_secretsmanager_secret.bot_secrets_prod.id
+  secret_string = jsonencode({
+    discord_token = var.bot_discord_token_prod
+    client_id     = var.bot_client_id_prod
+    guild_id      = var.bot_guild_id_prod
+    omdb_api_key  = var.bot_omdb_api_key_prod
+  })
+}
 
 # CloudWatch Log Groups
 resource "aws_cloudwatch_log_group" "bot_beta" {
@@ -132,11 +131,11 @@ resource "aws_ecs_task_definition" "bot_beta" {
         },
         {
           name      = "WATCHPARTY_WS_ENABLED"
-          valueFrom = "${aws_secretsmanager_secret.bot_secrets_beta.arn}:WATCHPARTY_WS_ENABLED::"
+          valueFrom = "${aws_secretsmanager_secret.bot_secrets_beta.arn}:watchparty_ws_enabled::"
         },
         {
           name      = "WATCHPARTY_WS_URL"
-          valueFrom = "${aws_secretsmanager_secret.bot_secrets_beta.arn}:WATCHPARTY_WS_URL::"
+          valueFrom = "${aws_secretsmanager_secret.bot_secrets_beta.arn}:watchparty_ws_url::"
         },
         # Shared secrets from dashboard infrastructure
         {
