@@ -76,7 +76,7 @@ resource "aws_security_group" "rds" {
 
 # Security Group for Lambda to access RDS
 resource "aws_security_group" "lambda_rds" {
-  count       = var.enable_lambda_bot && var.enable_rds_mysql ? 1 : 0
+  count       = var.enable_rds_mysql ? 1 : 0
   name        = "${var.project_name}-lambda-rds-sg"
   description = "Security group for Lambda functions to access RDS"
   vpc_id      = data.aws_vpc.main.id
