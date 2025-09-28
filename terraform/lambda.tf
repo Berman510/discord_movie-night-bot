@@ -357,7 +357,8 @@ resource "aws_lambda_permission" "eventbridge_scheduler" {
 
 # IAM role for scheduler Lambda
 resource "aws_iam_role" "lambda_scheduler" {
-  name = "${var.project_name}-lambda-scheduler-role"
+  count = var.enable_lambda_bot ? 1 : 0
+  name  = "${var.project_name}-lambda-scheduler-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -378,18 +379,21 @@ resource "aws_iam_role" "lambda_scheduler" {
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_scheduler_basic" {
+  count      = var.enable_lambda_bot ? 1 : 0
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-  role       = aws_iam_role.lambda_scheduler.name
+  role       = aws_iam_role.lambda_scheduler[0].name
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_scheduler_dynamodb" {
+  count      = var.enable_lambda_bot ? 1 : 0
   policy_arn = aws_iam_policy.lambda_discord_dynamodb[0].arn
-  role       = aws_iam_role.lambda_scheduler.name
+  role       = aws_iam_role.lambda_scheduler[0].name
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_scheduler_rds" {
+  count      = var.enable_lambda_bot && var.enable_rds_mysql ? 1 : 0
   policy_arn = aws_iam_policy.lambda_discord_rds[0].arn
-  role       = aws_iam_role.lambda_scheduler.name
+  role       = aws_iam_role.lambda_scheduler[0].name
 }
 
 # Outputs
