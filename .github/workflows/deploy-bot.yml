@@ -34,10 +34,18 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
+    - name: Select role to assume (apply)
+      run: |
+        if [ -n "${{ secrets.AWS_ROLE_APPLY }}" ]; then
+          echo "ROLE_TO_ASSUME=${{ secrets.AWS_ROLE_APPLY }}" >> $GITHUB_ENV
+        else
+          echo "ROLE_TO_ASSUME=${{ secrets.AWS_ROLE_ARN }}" >> $GITHUB_ENV
+        fi
+
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
-        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+        role-to-assume: ${{ env.ROLE_TO_ASSUME }}
         role-session-name: GitHubActions-BotDeploy
         aws-region: ${{ env.AWS_REGION }}
 
