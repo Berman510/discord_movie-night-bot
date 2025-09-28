@@ -292,6 +292,7 @@ resource "aws_lambda_permission" "api_gateway" {
 
 # EventBridge rule for session scheduling
 resource "aws_cloudwatch_event_rule" "session_scheduler" {
+  count               = var.enable_lambda_bot ? 1 : 0
   name                = "${var.project_name}-session-scheduler"
   description         = "Trigger session end detection every minute"
   schedule_expression = "rate(1 minute)"
@@ -303,6 +304,7 @@ resource "aws_cloudwatch_event_rule" "session_scheduler" {
 
 # Archive session scheduler source code
 data "archive_file" "session_scheduler" {
+  count       = var.enable_lambda_bot ? 1 : 0
   type        = "zip"
   source_dir  = "${path.module}/../lambda/session-scheduler"
   output_path = "${path.module}/session-scheduler.zip"
@@ -310,15 +312,16 @@ data "archive_file" "session_scheduler" {
 
 # Lambda function for session scheduling
 resource "aws_lambda_function" "session_scheduler" {
-  filename         = data.archive_file.session_scheduler.output_path
+  count            = var.enable_lambda_bot ? 1 : 0
+  filename         = data.archive_file.session_scheduler[0].output_path
   function_name    = "${var.project_name}-session-scheduler"
-  role            = aws_iam_role.lambda_scheduler.arn
-  handler         = "index.handler"
-  runtime         = "nodejs18.x"
-  timeout         = 300  # 5 minutes max
-  memory_size     = 256
+  role             = aws_iam_role.lambda_scheduler[0].arn
+  handler          = "index.handler"
+  runtime          = "nodejs18.x"
+  timeout          = 300  # 5 minutes max
+  memory_size      = 256
 
-  source_code_hash = data.archive_file.session_scheduler.output_base64sha256
+  source_code_hash = data.archive_file.session_scheduler[0].output_base64sha256
 
   environment {
     variables = {
@@ -341,18 +344,20 @@ resource "aws_lambda_function" "session_scheduler" {
 
 # EventBridge target for session scheduler
 resource "aws_cloudwatch_event_target" "session_scheduler" {
-  rule      = aws_cloudwatch_event_rule.session_scheduler.name
+  count     = var.enable_lambda_bot ? 1 : 0
+  rule      = aws_cloudwatch_event_rule.session_scheduler[0].name
   target_id = "SessionSchedulerTarget"
-  arn       = aws_lambda_function.session_scheduler.arn
+  arn       = aws_lambda_function.session_scheduler[0].arn
 }
 
 # Lambda permission for EventBridge
 resource "aws_lambda_permission" "eventbridge_scheduler" {
+  count         = var.enable_lambda_bot ? 1 : 0
   statement_id  = "AllowExecutionFromEventBridge"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.session_scheduler.function_name
+  function_name = aws_lambda_function.session_scheduler[0].function_name
   principal     = "events.amazonaws.com"
-  source_arn    = aws_cloudwatch_event_rule.session_scheduler.arn
+  source_arn    = aws_cloudwatch_event_rule.session_scheduler[0].arn
 }
 
 # IAM role for scheduler Lambda
