@@ -74,6 +74,8 @@ class Database {
         connectionLimit: 10,
         queueLimit: 0,
         connectTimeout: 60000,
+        charset: 'utf8mb4',
+        collation: 'utf8mb4_unicode_ci',
       });
 
       // Test connection
