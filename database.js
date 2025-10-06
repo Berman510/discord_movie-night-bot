@@ -75,13 +75,16 @@ class Database {
         queueLimit: 0,
         connectTimeout: 60000,
         charset: 'utf8mb4',
-        collation: 'utf8mb4_unicode_ci',
       });
 
       // Test connection
       const logger = require('./utils/logger');
       logger.info(`🔌 Attempting to connect to MySQL at ${host}:${port}...`);
       await this.pool.execute('SELECT 1');
+
+      // Set charset and collation for the session
+      await this.pool.execute('SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci');
+
       this.isConnected = true;
       logger.info('✅ Connected to MySQL database');
 
