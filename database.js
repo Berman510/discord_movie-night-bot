@@ -2414,6 +2414,51 @@ class Database {
       logger.warn('Trigger update warning:', e.message);
     }
 
+    // Migration 37: Fix collation issues by converting all string columns to utf8mb4_unicode_ci
+    try {
+      const logger = require('./utils/logger');
+
+      // Fix watch_sessions table collation
+      await this.pool.execute(`
+        ALTER TABLE watch_sessions
+        CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+      `);
+
+      // Fix movies table collation
+      await this.pool.execute(`
+        ALTER TABLE movies
+        CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+      `);
+
+      // Fix tv_shows table collation if it exists
+      try {
+        await this.pool.execute(`
+          ALTER TABLE tv_shows
+          CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+        `);
+      } catch (e) {
+        // Table might not exist, ignore
+      }
+
+      // Fix other tables that might have string columns
+      const tables = ['session_participants', 'banned_movies', 'banned_tv_shows'];
+      for (const table of tables) {
+        try {
+          await this.pool.execute(`
+            ALTER TABLE ${table}
+            CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+          `);
+        } catch (e) {
+          // Table might not exist, ignore
+        }
+      }
+
+      logger.info('✅ Migration 37: Fixed table collations to utf8mb4_unicode_ci');
+    } catch (error) {
+      const logger = require('./utils/logger');
+      logger.warn('Migration 37 warning:', error.message);
+    }
+
     logger.info('✅ Database migrations completed');
   }
 
