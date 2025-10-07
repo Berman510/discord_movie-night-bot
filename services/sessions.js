@@ -743,10 +743,41 @@ async function handleTimeSelection(interaction, customId, state) {
 }
 
 async function showTimezoneSelection(interaction, state) {
+  // Try to get user's previously used timezone or guild default
+  let suggestedTimezone = null;
+  let suggestedTimezoneName = null;
+
+  try {
+    // Check if user has a previously used timezone (from recent sessions)
+    const recentSessions = await database.getUserRecentSessions(interaction.user.id, 5);
+    if (recentSessions && recentSessions.length > 0) {
+      const lastSession = recentSessions.find((s) => s.timezone && s.timezone !== 'UTC');
+      if (lastSession) {
+        suggestedTimezone = lastSession.timezone;
+        const tzOption = TIMEZONE_OPTIONS.find((tz) => tz.value === suggestedTimezone);
+        suggestedTimezoneName = tzOption ? tzOption.label : suggestedTimezone;
+      }
+    }
+
+    // Fallback to guild default timezone
+    if (!suggestedTimezone) {
+      const config = await database.getGuildConfig(interaction.guild.id);
+      if (config && (config.default_timezone || config.timezone)) {
+        suggestedTimezone = config.default_timezone || config.timezone;
+        const tzOption = TIMEZONE_OPTIONS.find((tz) => tz.value === suggestedTimezone);
+        suggestedTimezoneName = tzOption ? tzOption.label : suggestedTimezone;
+      }
+    }
+  } catch (error) {
+    console.warn('Could not get timezone suggestions:', error.message);
+  }
+
   const embed = new EmbedBuilder()
     .setTitle('🎬 Create Watch Party Session')
     .setDescription(
-      '**Step 3:** Choose your timezone\n\n*This ensures everyone sees the correct time for your session*'
+      '**Step 3:** Choose your timezone\n\n*This ensures everyone sees the correct time for your session*' +
+        (suggestedTimezoneName ? `\n\n💡 **Suggestion:** ${suggestedTimezoneName}` : '') +
+        '\n\n📍 **Important:** The time you entered will be interpreted in the timezone you select here.'
     )
     .setColor(0x5865f2)
     .addFields(
@@ -755,11 +786,23 @@ async function showTimezoneSelection(interaction, state) {
       { name: '🌍 Current Selection', value: 'No timezone selected yet', inline: true }
     );
 
+  // Sort timezone options to put suggested timezone first
+  let sortedOptions = [...TIMEZONE_OPTIONS];
+  if (suggestedTimezone) {
+    const suggestedIndex = sortedOptions.findIndex((tz) => tz.value === suggestedTimezone);
+    if (suggestedIndex > -1) {
+      const suggested = sortedOptions.splice(suggestedIndex, 1)[0];
+      // Add a star to indicate it's suggested
+      suggested.label = `⭐ ${suggested.label} (Suggested)`;
+      sortedOptions.unshift(suggested);
+    }
+  }
+
   const timezoneSelect = new StringSelectMenuBuilder()
     .setCustomId('session_timezone_selected')
     .setPlaceholder('Choose your timezone...')
     .addOptions(
-      TIMEZONE_OPTIONS.map((tz) => ({
+      sortedOptions.map((tz) => ({
         label: tz.label,
         value: tz.value,
         emoji: tz.emoji,
@@ -1535,7 +1578,6 @@ function formatTime(hour, minute) {
 }
 
 function createDateInTimezone(baseDate, hour, minute, timezone) {
-  // Create a date string in the format that works with timezone
   const year = baseDate.getFullYear();
   const month = (baseDate.getMonth() + 1).toString().padStart(2, '0');
   const day = baseDate.getDate().toString().padStart(2, '0');
@@ -1554,34 +1596,67 @@ function createDateInTimezone(baseDate, hour, minute, timezone) {
     'Europe/London': 'Europe/London',
     'Europe/Paris': 'Europe/Paris',
     'Asia/Tokyo': 'Asia/Tokyo',
+    'Asia/Kolkata': 'Asia/Kolkata',
+    'Australia/Sydney': 'Australia/Sydney',
     UTC: 'UTC',
   };
 
   const tzIdentifier = timezoneMap[timezone] || 'UTC';
 
   try {
-    // Create the date in the specified timezone
-    const dateStr = `${year}-${month}-${day}T${hourStr}:${minuteStr}:00`;
+    // For UTC, simple case
+    if (tzIdentifier === 'UTC') {
+      const utcDate = new Date(`${year}-${month}-${day}T${hourStr}:${minuteStr}:00Z`);
+      console.log(
+        `🌍 Created UTC date: ${year}-${month}-${day} ${hourStr}:${minuteStr} -> ${utcDate.toISOString()}`
+      );
+      return utcDate;
+    }
 
-    // Use Intl.DateTimeFormat to handle timezone conversion properly
-    const tempDate = new Date(dateStr);
+    // For other timezones, use the most reliable approach:
+    // Create the date as if it's in the target timezone, then convert to UTC
 
-    // Get the timezone offset for the target timezone
-    const targetDate = new Date(tempDate.toLocaleString('en-US', { timeZone: tzIdentifier }));
-    const localDate = new Date(tempDate.toLocaleString('en-US'));
-    const offset = localDate.getTime() - targetDate.getTime();
+    // Step 1: Create a date object representing the local time
+    const localDate = new Date(`${year}-${month}-${day}T${hourStr}:${minuteStr}:00`);
 
-    // Apply the offset to get the correct UTC time
-    const utcDate = new Date(tempDate.getTime() + offset);
+    // Step 2: Get what this date/time would be if interpreted as UTC
+    const asUtc = new Date(
+      Date.UTC(year, baseDate.getMonth(), baseDate.getDate(), hour, minute, 0)
+    );
 
-    console.log(`🌍 Created date: ${dateStr} in ${tzIdentifier} -> UTC: ${utcDate.toISOString()}`);
-    return utcDate;
+    // Step 3: Find the timezone offset for this specific date (handles DST)
+    // We do this by creating a date in the target timezone and seeing the difference
+    const testDate = new Date(asUtc);
+    const utcTime = testDate.getTime() + testDate.getTimezoneOffset() * 60000;
+    const targetTime = new Date(utcTime + getTimezoneOffset(tzIdentifier, testDate) * 60000);
+    const offsetMs = targetTime.getTime() - testDate.getTime();
+
+    // Step 4: Apply the offset to get the correct UTC time
+    const resultDate = new Date(asUtc.getTime() - offsetMs);
+
+    console.log(
+      `🌍 Created date: ${year}-${month}-${day} ${hourStr}:${minuteStr} in ${tzIdentifier} -> UTC: ${resultDate.toISOString()}`
+    );
+    return resultDate;
   } catch (error) {
     console.error('Error creating date in timezone:', error);
-    // Fallback to simple date creation
-    const fallbackDate = new Date(baseDate);
-    fallbackDate.setHours(hour, minute, 0, 0);
+    // Fallback to simple UTC date creation
+    const fallbackDate = new Date(`${year}-${month}-${day}T${hourStr}:${minuteStr}:00Z`);
+    console.log(`⚠️ Fallback to UTC date creation: ${fallbackDate.toISOString()}`);
     return fallbackDate;
+  }
+}
+
+// Helper function to get timezone offset in minutes for a specific date
+function getTimezoneOffset(timezone, date) {
+  try {
+    // Use Intl.DateTimeFormat to get the timezone offset
+    const utcDate = new Date(date.toLocaleString('en-US', { timeZone: 'UTC' }));
+    const tzDate = new Date(date.toLocaleString('en-US', { timeZone: timezone }));
+    return (utcDate.getTime() - tzDate.getTime()) / (1000 * 60);
+  } catch (error) {
+    console.warn(`Could not get timezone offset for ${timezone}:`, error.message);
+    return 0; // Fallback to UTC
   }
 }
 

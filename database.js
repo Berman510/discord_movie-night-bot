@@ -3804,6 +3804,24 @@ class Database {
     }
   }
 
+  async getUserRecentSessions(userId, limit = 5) {
+    if (!this.isConnected) return [];
+
+    try {
+      const sessionsTable = await this.getSessionsTableName();
+      const [rows] = await this.pool.execute(
+        `SELECT timezone, created_at FROM ${sessionsTable}
+         WHERE created_by = ? AND timezone IS NOT NULL
+         ORDER BY created_at DESC LIMIT ?`,
+        [userId, limit]
+      );
+      return rows;
+    } catch (error) {
+      console.error('Error getting user recent sessions:', error.message);
+      return [];
+    }
+  }
+
   async createVotingSession(sessionData) {
     if (!this.isConnected) return null;
 
