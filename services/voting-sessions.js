@@ -568,7 +568,9 @@ async function handleVotingSessionDateModal(interaction) {
         : 'Watch Party';
 
   const sessionName = `${contentTypeLabel} - ${sessionDate}`;
-  const sessionDescription = `Join us for ${contentTypeLabel.toLowerCase()} voting and viewing!`;
+  // Use user-provided description or generate a default one
+  const finalSessionDescription =
+    sessionDescription || `Join us for ${contentTypeLabel.toLowerCase()} voting and viewing!`;
 
   // Update state with raw date/time information (timezone conversion happens after timezone selection)
   state.selectedDate = sessionDate;
@@ -576,7 +578,7 @@ async function handleVotingSessionDateModal(interaction) {
   state.votingEndDate = votingEndDate;
   state.votingEndTime = votingEndTime;
   state.sessionName = sessionName;
-  state.sessionDescription = sessionDescription;
+  state.sessionDescription = finalSessionDescription;
 
   // Store raw date/time components for timezone conversion later
   state.rawSessionDate = baseDate;
