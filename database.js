@@ -2459,6 +2459,47 @@ class Database {
       logger.warn('Migration 37 warning:', error.message);
     }
 
+    // Migration 38: Fix database triggers with old PebbleHost user definers
+    try {
+      const logger = require('./utils/logger');
+
+      // Drop all triggers that might have old definers
+      await this.pool.execute('DROP TRIGGER IF EXISTS trg_movies_bi_session_guild');
+      await this.pool.execute('DROP TRIGGER IF EXISTS trg_movies_bu_session_guild');
+
+      // Recreate triggers with current user as definer
+      await this.pool.execute(`
+        CREATE TRIGGER trg_movies_bi_session_guild BEFORE INSERT ON movies FOR EACH ROW
+        BEGIN
+          IF NEW.session_id IS NOT NULL THEN
+            IF (SELECT guild_id FROM watch_sessions WHERE id = NEW.session_id) IS NULL THEN
+              SET NEW.session_id = NULL;
+            ELSEIF (SELECT guild_id FROM watch_sessions WHERE id = NEW.session_id) <> NEW.guild_id THEN
+              SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Guild mismatch: movies.session_id references a session in a different guild';
+            END IF;
+          END IF;
+        END
+      `);
+
+      await this.pool.execute(`
+        CREATE TRIGGER trg_movies_bu_session_guild BEFORE UPDATE ON movies FOR EACH ROW
+        BEGIN
+          IF NEW.session_id IS NOT NULL THEN
+            IF (SELECT guild_id FROM watch_sessions WHERE id = NEW.session_id) IS NULL THEN
+              SET NEW.session_id = NULL;
+            ELSEIF (SELECT guild_id FROM watch_sessions WHERE id = NEW.session_id) <> NEW.guild_id THEN
+              SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Guild mismatch: movies.session_id references a session in a different guild';
+            END IF;
+          END IF;
+        END
+      `);
+
+      logger.info('✅ Migration 38: Fixed database triggers with correct user definers');
+    } catch (error) {
+      const logger = require('./utils/logger');
+      logger.warn('Migration 38 warning:', error.message);
+    }
+
     logger.info('✅ Database migrations completed');
   }
 
