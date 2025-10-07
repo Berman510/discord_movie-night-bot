@@ -540,7 +540,6 @@ async function handleVotingSessionDateModal(interaction) {
   }
 
   // Get user's timezone selection from state, or fall back to guild timezone
-  const state = global.votingSessionCreationState?.get(interaction.user.id) || {};
   let guildTimezone = state.selectedTimezone;
 
   if (!guildTimezone) {
