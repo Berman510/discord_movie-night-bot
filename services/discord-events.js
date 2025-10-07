@@ -3,7 +3,11 @@
  * Handles Discord scheduled event creation and management
  */
 
-const { GuildScheduledEventEntityType, GuildScheduledEventPrivacyLevel } = require('discord.js');
+const {
+  GuildScheduledEventEntityType,
+  GuildScheduledEventPrivacyLevel,
+  PermissionFlagsBits,
+} = require('discord.js');
 
 // Ensure event titles never include date/time (Discord doesn’t localize titles)
 function buildEventTitle(sessionData) {
@@ -34,6 +38,12 @@ async function createDiscordEvent(guild, sessionData, scheduledDate) {
   if (!scheduledDate) return null;
 
   try {
+    // Check if bot has permission to manage events
+    const botMember = guild.members.me;
+    if (!botMember || !botMember.permissions.has(PermissionFlagsBits.ManageEvents)) {
+      console.warn('Failed to create Discord event: Missing Permissions');
+      return null;
+    }
     // Get guild config for session viewing channel
     const database = require('../database');
     const config = await database.getGuildConfig(guild.id);

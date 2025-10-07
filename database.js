@@ -3809,11 +3809,12 @@ class Database {
 
     try {
       const sessionsTable = await this.getSessionsTableName();
+      // Use string interpolation for LIMIT since MySQL prepared statements don't support LIMIT with placeholders in some versions
       const [rows] = await this.pool.execute(
         `SELECT timezone, created_at FROM ${sessionsTable}
          WHERE created_by = ? AND timezone IS NOT NULL
-         ORDER BY created_at DESC LIMIT ?`,
-        [userId, limit]
+         ORDER BY created_at DESC LIMIT ${parseInt(limit)}`,
+        [userId]
       );
       return rows;
     } catch (error) {
