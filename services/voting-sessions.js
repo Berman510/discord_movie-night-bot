@@ -16,6 +16,7 @@ const {
 } = require('discord.js');
 const database = require('../database');
 const _ephemeralManager = require('../utils/ephemeral-manager');
+const logger = require('../utils/logger');
 
 // Helper function to parse flexible time formats
 function parseTimeFlexible(str) {
@@ -250,7 +251,6 @@ async function handleVotingSessionRescheduleModal(interaction) {
   const adminControls = require('./admin-controls');
   const adminMirror = require('./admin-mirror');
   const discordEvents = require('./discord-events');
-  const logger = require('../utils/logger');
 
   // Defer early to avoid timeouts
   if (!interaction.deferred && !interaction.replied) {
@@ -754,8 +754,6 @@ async function createVotingSession(interaction, state) {
     // Store the converted dates in state for use in success message
     state.sessionDateTime = sessionDateTime;
     state.votingEndDateTime = votingEndDateTime;
-
-    const logger = require('../utils/logger');
     logger.debug(`🕐 Session times (${selectedTimezone}):`);
     logger.debug(
       `   Session: ${sessionDateTime.toLocaleString()} (${sessionDateTime.toISOString()})`
@@ -807,7 +805,6 @@ async function createVotingSession(interaction, state) {
 
       if (event && event.id) {
         // Update session with Discord event ID
-        const logger = require('../utils/logger');
         logger.debug(`📅 Saving event ID ${event.id} to session ${sessionId}`);
         const updateResult = await database.updateVotingSessionEventId(sessionId, event.id);
         if (updateResult) {
@@ -857,9 +854,6 @@ async function createVotingSession(interaction, state) {
         /* no-op: ephemeral cleanup */ void 0;
       }
     }, 8000);
-
-    // Initialize logger for this function
-    const logger = require('../utils/logger');
 
     // Handle carryover content from previous session (content-type aware)
     try {
@@ -926,7 +920,6 @@ async function createVotingSession(interaction, state) {
             // The carryover movies will be handled below by creating new forum posts
           } else {
             // Clear existing messages first (text channels only)
-            const logger = require('../utils/logger');
             logger.debug(`📋 Clearing existing messages in text channel: ${votingChannel.name}`);
             const messages = await votingChannel.messages.fetch({ limit: 100 });
             const botMessages = messages.filter((msg) => msg.author.id === client.user.id);
@@ -1230,7 +1223,6 @@ async function createVotingSession(interaction, state) {
           interaction.guild.id
         );
       } catch (e) {
-        const logger = require('../utils/logger');
         logger.warn('Error refreshing admin control panel after session creation:', e.message);
       }
     } catch (error) {
