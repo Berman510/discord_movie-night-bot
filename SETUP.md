@@ -26,18 +26,22 @@ This guide is for developers and self-hosters who want to run their own instance
 
 ### Required Bot Permissions
 
+- **View Channel** (access channels and see content)
 - **Send Messages** (post movie recommendations and responses)
 - **Embed Links** (rich movie information displays)
 - **Read Message History** (access existing movie posts)
-- **Use Slash Commands** (all bot commands)
-- **Add Reactions** (voting system)
-- **Manage Messages** (update movie posts when scheduled)
+- **Use Application Commands** (all slash commands)
+- **Use External Emojis** (enhanced message formatting)
+- **Add Reactions** (voting system with 👍/👎 buttons)
+- **Manage Messages** (update vote counts and admin controls)
 - **Create Public Threads** (movie discussion threads)
 - **Send Messages in Threads** (participate in discussions)
-- **Manage Events** (create Discord events for watch partys)
+- **Manage Threads** (manage discussion threads)
+- **Manage Events** (create Discord scheduled events for watch parties)
 - **Mention Everyone** (ping notification roles for events)
+- **Connect** (voice channel attendance tracking)
 
-**Updated Permissions Integer:** `2147765248`
+**Updated Permissions Integer:** `337156467776`
 
 ### Required Gateway Intents
 
@@ -49,7 +53,7 @@ In Discord Developer Portal → Bot section, enable:
 **Invite link template:**
 
 ```
-https://discord.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&scope=bot%20applications.commands&permissions=2147765248
+https://discord.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&scope=bot%20applications.commands&permissions=337156467776
 ```
 
 ## Environment Configuration
