@@ -303,7 +303,7 @@ $$cfg['Servers'][$$i]['connect_type'] = 'tcp';
 $$cfg['Servers'][$$i]['extension'] = 'mysqli';
 $$cfg['Servers'][$$i]['compress'] = false;
 $$cfg['Servers'][$$i]['AllowNoPassword'] = false;
-$$cfg['Servers'][$$i]['verbose'] = 'PebbleHost MySQL (Beta)';
+$$cfg['Servers'][$$i]['verbose'] = 'PebbleHost MySQL (Legacy - Migration Only)';
 
 %{ if rds_endpoint != "" }
 // AWS RDS MySQL Server
@@ -316,10 +316,14 @@ $$cfg['Servers'][$$i]['connect_type'] = 'tcp';
 $$cfg['Servers'][$$i]['extension'] = 'mysqli';
 $$cfg['Servers'][$$i]['compress'] = false;
 $$cfg['Servers'][$$i]['AllowNoPassword'] = false;
-$$cfg['Servers'][$$i]['verbose'] = 'AWS RDS MySQL (Beta)';
+$$cfg['Servers'][$$i]['verbose'] = 'AWS RDS MySQL (Production)';
 %{ endif }
 
-$$cfg['ServerDefault'] = 1;
+%{ if rds_endpoint != "" }
+$$cfg['ServerDefault'] = 2; // Default to AWS RDS when available
+%{ else }
+$$cfg['ServerDefault'] = 1; // Fallback to PebbleHost
+%{ endif }
 $$cfg['UploadDir'] = '';
 $$cfg['SaveDir'] = '';
 $$cfg['DefaultLang'] = 'en';
