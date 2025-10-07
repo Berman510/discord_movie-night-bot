@@ -72,7 +72,17 @@ function getRecommendationPostContent(session) {
   const info = getContentTypeInfo(session.content_type);
 
   const title = info.recommendTitle;
-  const description = `**Current Session:** ${session.name}\n\n${info.emoji} Click the button below to recommend ${info.pluralLower}!\n\n📝 Each ${info.singularLower} gets its own thread for voting and discussion.\n\n🗳️ Voting ends: <t:${Math.floor(new Date(session.voting_end_time).getTime() / 1000)}:R>`;
+
+  // Build description with session details
+  let description = `**Current Session:** ${session.name}`;
+
+  // Add session description if it exists
+  if (session.description && session.description.trim()) {
+    description += `\n\n**Details:** ${session.description}`;
+  }
+
+  description += `\n\n${info.emoji} Click the button below to recommend ${info.pluralLower}!\n\n📝 Each ${info.singularLower} gets its own thread for voting and discussion.\n\n🗳️ Voting ends: <t:${Math.floor(new Date(session.voting_end_time).getTime() / 1000)}:R>`;
+
   const buttonLabel = info.recommendAction;
   const buttonEmoji = info.emoji;
 
