@@ -3185,12 +3185,29 @@ async function handleCancelSessionConfirmation(interaction) {
           }
 
           // Refresh admin control panel
-          const adminControls = require('../services/admin-controls');
-          await adminControls.ensureAdminControlPanel(interaction.client, interaction.guild.id);
+          try {
+            const adminControls = require('../services/admin-controls');
+            await adminControls.ensureAdminControlPanel(interaction.client, interaction.guild.id);
+            logger.info('🔧 Admin control panel refreshed after session cancellation');
+          } catch (panelError) {
+            logger.warn(
+              'Error refreshing admin control panel after cancellation:',
+              panelError.message
+            );
+          }
         }
       } catch (error) {
         console.warn('Error clearing admin channel:', error.message);
       }
+    }
+
+    // Always try to refresh admin panel, even if admin channel clearing failed
+    try {
+      const adminControls = require('../services/admin-controls');
+      await adminControls.ensureAdminControlPanel(interaction.client, interaction.guild.id);
+      logger.info('🔧 Admin control panel refreshed after session cancellation (fallback)');
+    } catch (panelError) {
+      logger.warn('Error refreshing admin control panel (fallback):', panelError.message);
     }
 
     await interaction.editReply({
