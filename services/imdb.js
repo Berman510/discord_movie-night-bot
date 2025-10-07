@@ -175,6 +175,42 @@ async function searchEpisode(showName, season, episode) {
 }
 
 /**
+ * Direct title lookup using OMDb API 't' parameter
+ */
+async function getDirectTitleLookup(title, contentType = null) {
+  if (!OMDB_API_KEY) {
+    return null;
+  }
+
+  try {
+    const typeParam =
+      contentType === 'movie' ? '&type=movie' : contentType === 'series' ? '&type=series' : '';
+    const response = await fetch(
+      `http://www.omdbapi.com/?apikey=${OMDB_API_KEY}&t=${encodeURIComponent(title)}${typeParam}`
+    );
+    const data = await response.json();
+
+    if (data.Response === 'True') {
+      // Convert single result to array format matching search results
+      return [
+        {
+          Title: data.Title,
+          Year: data.Year,
+          imdbID: data.imdbID,
+          Type: data.Type,
+          Poster: data.Poster,
+        },
+      ];
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error in direct title lookup:', error.message);
+    return null;
+  }
+}
+
+/**
  * Enhanced search with multiple strategies for better matching
  */
 async function searchContentEnhanced(title, page = 1, contentType = null) {
@@ -189,27 +225,48 @@ async function searchContentEnhanced(title, page = 1, contentType = null) {
   let hasMore = false;
 
   try {
-    // Strategy 1: Exact search with specified content type or mixed
-    const exactSearch = contentType
-      ? contentType === 'movie'
-        ? await searchMovie(title, page)
-        : await searchSeries(title, page)
-      : await searchContent(title, page);
-
-    if (exactSearch && exactSearch.results.length > 0) {
-      searchStrategies.push(`Exact search (${contentType || 'mixed'})`);
-      allResults = exactSearch.results;
-      totalResults = exactSearch.totalResults;
-      hasMore = exactSearch.hasMore;
+    // Strategy 1: Direct title lookup (especially good for short titles like "It")
+    const directLookup = await getDirectTitleLookup(title, contentType);
+    if (directLookup && directLookup.length > 0) {
+      searchStrategies.push('Direct title lookup');
+      allResults = directLookup;
+      totalResults = 1;
+      hasMore = false;
     }
 
-    // Strategy 2: If no results or few results, try alternative searches
+    // Strategy 2: Regular search with specified content type or mixed (if no direct match)
+    if (allResults.length === 0) {
+      const exactSearch = contentType
+        ? contentType === 'movie'
+          ? await searchMovie(title, page)
+          : await searchSeries(title, page)
+        : await searchContent(title, page);
+
+      if (exactSearch && exactSearch.results.length > 0) {
+        searchStrategies.push(`Search results (${contentType || 'mixed'})`);
+        allResults = exactSearch.results;
+        totalResults = exactSearch.totalResults;
+        hasMore = exactSearch.hasMore;
+      }
+    }
+
+    // Strategy 3: If no results or few results, try alternative searches
     if (allResults.length < 5) {
       // For short titles, try with common variations
       const variations = generateTitleVariations(title);
 
       for (const variation of variations.slice(0, 3)) {
-        // Try up to 3 variations
+        // Try direct lookup first for variations
+        const directVariationLookup = await getDirectTitleLookup(variation, contentType);
+        if (directVariationLookup && directVariationLookup.length > 0) {
+          searchStrategies.push(`Direct lookup: "${variation}"`);
+          const existingIds = new Set(allResults.map((r) => r.imdbID));
+          const newResults = directVariationLookup.filter((r) => !existingIds.has(r.imdbID));
+          allResults = [...allResults, ...newResults];
+          break;
+        }
+
+        // Then try regular search for variations
         const variationSearch = contentType
           ? contentType === 'movie'
             ? await searchMovie(variation, 1)
@@ -217,7 +274,7 @@ async function searchContentEnhanced(title, page = 1, contentType = null) {
           : await searchContent(variation, 1);
 
         if (variationSearch && variationSearch.results.length > 0) {
-          searchStrategies.push(`Variation: "${variation}"`);
+          searchStrategies.push(`Variation search: "${variation}"`);
           // Add unique results (avoid duplicates by IMDb ID)
           const existingIds = new Set(allResults.map((r) => r.imdbID));
           const newResults = variationSearch.results.filter((r) => !existingIds.has(r.imdbID));
@@ -227,7 +284,7 @@ async function searchContentEnhanced(title, page = 1, contentType = null) {
       }
     }
 
-    // Strategy 3: If still no results, try broader search without type restriction
+    // Strategy 4: If still no results, try broader search without type restriction
     if (allResults.length === 0 && contentType) {
       const broadSearch = await searchContent(title, page);
       if (broadSearch && broadSearch.results.length > 0) {
@@ -713,6 +770,7 @@ module.exports = {
   searchMovie,
   searchSeries,
   searchContent,
+  getDirectTitleLookup,
   searchContentEnhanced,
   searchMovieWithSuggestions,
   searchContentWithSuggestions,
