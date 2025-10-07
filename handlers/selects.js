@@ -93,6 +93,12 @@ async function handleSelect(interaction) {
       return;
     }
 
+    // Timezone selection for voting session creation
+    if (customId === 'voting_session_timezone_selected') {
+      await handleVotingSessionTimezoneSelection(interaction);
+      return;
+    }
+
     // Configuration timezone selection
     if (customId === 'config_timezone_selected') {
       await handleConfigTimezoneSelection(interaction);
@@ -246,6 +252,28 @@ async function handleSessionTimezoneSelection(interaction) {
 
   // Show movie selection step
   await showMovieSelection(interaction, state);
+}
+
+async function handleVotingSessionTimezoneSelection(interaction) {
+  const selectedTimezone = interaction.values[0];
+  const timezoneName =
+    TIMEZONE_OPTIONS.find((tz) => tz.value === selectedTimezone)?.label || selectedTimezone;
+
+  // Store timezone selection in voting session state
+  if (!global.votingSessionCreationState) {
+    global.votingSessionCreationState = new Map();
+  }
+
+  const userId = interaction.user.id;
+  let state = global.votingSessionCreationState.get(userId) || {};
+  state.selectedTimezone = selectedTimezone;
+  state.timezoneName = timezoneName;
+  state.step = 'complete';
+  global.votingSessionCreationState.set(userId, state);
+
+  // Now create the voting session with the selected timezone
+  const votingSessions = require('../services/voting-sessions');
+  await votingSessions.createVotingSession(interaction, state);
 }
 
 async function handleSessionMovieSelection(interaction) {

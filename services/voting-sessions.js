@@ -11,6 +11,7 @@ const {
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
+  StringSelectMenuBuilder,
   MessageFlags,
 } = require('discord.js');
 const database = require('../database');
@@ -67,6 +68,7 @@ async function startVotingSessionCreation(interaction, contentType = 'movie') {
     selectedDate: null,
     selectedTime: null,
     selectedTimezone: null,
+    timezoneName: null,
     sessionName: null,
     sessionDescription: null,
     contentType: contentType,
@@ -537,23 +539,32 @@ async function handleVotingSessionDateModal(interaction) {
     }
   }
 
-  // Get guild timezone for proper conversion
-  const config = await database.getGuildConfig(interaction.guild.id);
-  const guildTimezone = config?.timezone || 'America/Los_Angeles';
+  // Get user's timezone selection from state, or fall back to guild timezone
+  const state = global.votingSessionCreationState?.get(interaction.user.id) || {};
+  let guildTimezone = state.selectedTimezone;
 
-  // Convert MM/DD/YYYY to YYYY-MM-DD for Date constructor
+  if (!guildTimezone) {
+    const config = await database.getGuildConfig(interaction.guild.id);
+    guildTimezone = config?.default_timezone || config?.timezone || 'America/Los_Angeles';
+  }
+
+  // Convert MM/DD/YYYY to Date object for timezone conversion
   const [month, day, year] = sessionDate.split('/');
-  const isoDateString = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  const baseDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
 
-  // Create datetime objects with parsed 24-hour times
-  const sessionDateTime = new Date(
-    `${isoDateString}T${parsedSessionTime.hours.toString().padStart(2, '0')}:${parsedSessionTime.minutes.toString().padStart(2, '0')}:00`
+  // Use the improved timezone conversion function
+  const { createDateInTimezone } = require('./sessions');
+  const sessionDateTime = createDateInTimezone(
+    baseDate,
+    parsedSessionTime.hours,
+    parsedSessionTime.minutes,
+    guildTimezone
   );
 
   // Parse voting end date/time (default to 1 hour before session if not provided)
   let votingEndDateTime = null;
   if (parsedVotingEndTime) {
-    let endIsoDateString = isoDateString; // default to same day
+    let endBaseDate = baseDate; // default to same day
     if (votingEndDate) {
       if (!dateRegex.test(votingEndDate)) {
         await interaction.reply({
@@ -563,10 +574,13 @@ async function handleVotingSessionDateModal(interaction) {
         return;
       }
       const [vendMonth, vendDay, vendYear] = votingEndDate.split('/');
-      endIsoDateString = `${vendYear}-${vendMonth.padStart(2, '0')}-${vendDay.padStart(2, '0')}`;
+      endBaseDate = new Date(parseInt(vendYear), parseInt(vendMonth) - 1, parseInt(vendDay));
     }
-    votingEndDateTime = new Date(
-      `${endIsoDateString}T${parsedVotingEndTime.hours.toString().padStart(2, '0')}:${parsedVotingEndTime.minutes.toString().padStart(2, '0')}:00`
+    votingEndDateTime = createDateInTimezone(
+      endBaseDate,
+      parsedVotingEndTime.hours,
+      parsedVotingEndTime.minutes,
+      guildTimezone
     );
   } else {
     // Default to 1 hour before session
@@ -630,12 +644,105 @@ async function handleVotingSessionDateModal(interaction) {
   state.sessionDescription = sessionDescription;
   state.sessionDateTime = sessionDateTime;
   state.votingEndDateTime = votingEndDateTime;
-  state.step = 'complete';
+  state.step = 'timezone';
 
   global.votingSessionCreationState.set(userId, state);
 
-  // Create the voting session directly
-  await createVotingSession(interaction, state);
+  // Show timezone selection before creating the session
+  await showVotingSessionTimezoneSelection(interaction, state);
+}
+
+/**
+ * Show timezone selection for voting session
+ */
+async function showVotingSessionTimezoneSelection(interaction, state) {
+  const { TIMEZONE_OPTIONS } = require('../config/timezones');
+  const database = require('../database');
+
+  // Try to get user's previously used timezone or guild default
+  let suggestedTimezone = null;
+  let suggestedTimezoneName = null;
+
+  try {
+    // Check if user has a previously used timezone (from recent sessions)
+    const recentSessions = await database.getUserRecentSessions(interaction.user.id, 5);
+    if (recentSessions && recentSessions.length > 0) {
+      const lastSession = recentSessions.find((s) => s.timezone && s.timezone !== 'UTC');
+      if (lastSession) {
+        suggestedTimezone = lastSession.timezone;
+        const tzOption = TIMEZONE_OPTIONS.find((tz) => tz.value === suggestedTimezone);
+        suggestedTimezoneName = tzOption ? tzOption.label : suggestedTimezone;
+      }
+    }
+
+    // Fallback to guild default timezone
+    if (!suggestedTimezone) {
+      const config = await database.getGuildConfig(interaction.guild.id);
+      if (config && (config.default_timezone || config.timezone)) {
+        suggestedTimezone = config.default_timezone || config.timezone;
+        const tzOption = TIMEZONE_OPTIONS.find((tz) => tz.value === suggestedTimezone);
+        suggestedTimezoneName = tzOption ? tzOption.label : suggestedTimezone;
+      }
+    }
+  } catch (error) {
+    console.warn('Could not get timezone suggestions:', error.message);
+  }
+
+  const contentTypeLabel =
+    state.contentType === 'tv_show'
+      ? 'TV Show Night'
+      : state.contentType === 'mixed'
+        ? 'Watch Party'
+        : 'Watch Party';
+
+  const embed = new _EmbedBuilder()
+    .setTitle(`🎬 Create ${contentTypeLabel}`)
+    .setDescription(
+      '**Final Step:** Choose your timezone\n\n*This ensures everyone sees the correct time for your session*' +
+        (suggestedTimezoneName ? `\n\n💡 **Suggestion:** ${suggestedTimezoneName}` : '') +
+        '\n\n📍 **Important:** The times you entered will be interpreted in the timezone you select here.'
+    )
+    .setColor(0x5865f2)
+    .addFields(
+      { name: '📅 Session Date', value: state.selectedDate, inline: true },
+      { name: '🕐 Session Time', value: state.selectedTime, inline: true },
+      {
+        name: '🗳️ Voting Ends',
+        value: state.votingEndTime || '1 hour before session',
+        inline: true,
+      }
+    );
+
+  // Sort timezone options to put suggested timezone first
+  let sortedOptions = [...TIMEZONE_OPTIONS];
+  if (suggestedTimezone) {
+    const suggestedIndex = sortedOptions.findIndex((tz) => tz.value === suggestedTimezone);
+    if (suggestedIndex > -1) {
+      const suggested = sortedOptions.splice(suggestedIndex, 1)[0];
+      // Add a star to indicate it's suggested
+      suggested.label = `⭐ ${suggested.label} (Suggested)`;
+      sortedOptions.unshift(suggested);
+    }
+  }
+
+  const timezoneSelect = new StringSelectMenuBuilder()
+    .setCustomId('voting_session_timezone_selected')
+    .setPlaceholder('Choose your timezone...')
+    .addOptions(
+      sortedOptions.map((tz) => ({
+        label: tz.label,
+        value: tz.value,
+        emoji: tz.emoji,
+      }))
+    );
+
+  const row = new ActionRowBuilder().addComponents(timezoneSelect);
+
+  await interaction.reply({
+    embeds: [embed],
+    components: [row],
+    flags: MessageFlags.Ephemeral,
+  });
 }
 
 /**
@@ -645,9 +752,12 @@ async function createVotingSession(interaction, state) {
   const database = require('../database');
 
   try {
-    // Get guild configuration for timezone
-    const config = await database.getGuildConfig(interaction.guild.id);
-    const guildTimezone = config?.default_timezone || config?.timezone || 'UTC'; // Prefer configured default_timezone, fallback to timezone, then UTC
+    // Use the selected timezone from state, or fall back to guild configuration
+    let selectedTimezone = state.selectedTimezone;
+    if (!selectedTimezone) {
+      const config = await database.getGuildConfig(interaction.guild.id);
+      selectedTimezone = config?.default_timezone || config?.timezone || 'UTC';
+    }
 
     // Create the voting session in the database
     const sessionData = {
@@ -657,7 +767,7 @@ async function createVotingSession(interaction, state) {
       description: state.sessionDescription,
       scheduledDate: state.sessionDateTime,
       votingEndTime: state.votingEndDateTime,
-      timezone: guildTimezone,
+      timezone: selectedTimezone,
       contentType: state.contentType || 'movie',
       createdBy: interaction.user.id,
       status: 'voting',
@@ -1165,6 +1275,7 @@ module.exports = {
   startVotingSessionCreation,
   showVotingSessionDateModal,
   handleVotingSessionDateModal,
+  showVotingSessionTimezoneSelection,
   createVotingSession,
   showVotingSessionRescheduleModal,
   handleVotingSessionRescheduleModal,
