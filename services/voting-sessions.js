@@ -539,52 +539,24 @@ async function handleVotingSessionDateModal(interaction) {
     }
   }
 
-  // Get user's timezone selection from state, or fall back to guild timezone
-  let guildTimezone = state.selectedTimezone;
-
-  if (!guildTimezone) {
-    const config = await database.getGuildConfig(interaction.guild.id);
-    guildTimezone = config?.default_timezone || config?.timezone || 'America/Los_Angeles';
-  }
-
-  // Convert MM/DD/YYYY to Date object for timezone conversion
+  // Store raw date/time values - timezone conversion will happen after user selects timezone
   const [month, day, year] = sessionDate.split('/');
   const baseDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
 
-  // Use the improved timezone conversion function
-  const { createDateInTimezone } = require('./sessions');
-  const sessionDateTime = createDateInTimezone(
-    baseDate,
-    parsedSessionTime.hours,
-    parsedSessionTime.minutes,
-    guildTimezone
-  );
+  // Store raw voting end date/time
+  let votingEndBaseDate = baseDate; // default to same day
+  let parsedVotingEndTimeForStorage = parsedVotingEndTime;
 
-  // Parse voting end date/time (default to 1 hour before session if not provided)
-  let votingEndDateTime = null;
-  if (parsedVotingEndTime) {
-    let endBaseDate = baseDate; // default to same day
-    if (votingEndDate) {
-      if (!dateRegex.test(votingEndDate)) {
-        await interaction.reply({
-          content: '❌ Invalid voting end date format. Please use MM/DD/YYYY.',
-          flags: MessageFlags.Ephemeral,
-        });
-        return;
-      }
-      const [vendMonth, vendDay, vendYear] = votingEndDate.split('/');
-      endBaseDate = new Date(parseInt(vendYear), parseInt(vendMonth) - 1, parseInt(vendDay));
+  if (parsedVotingEndTime && votingEndDate) {
+    if (!dateRegex.test(votingEndDate)) {
+      await interaction.reply({
+        content: '❌ Invalid voting end date format. Please use MM/DD/YYYY.',
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
     }
-    votingEndDateTime = createDateInTimezone(
-      endBaseDate,
-      parsedVotingEndTime.hours,
-      parsedVotingEndTime.minutes,
-      guildTimezone
-    );
-  } else {
-    // Default to 1 hour before session
-    votingEndDateTime = new Date(sessionDateTime);
-    votingEndDateTime.setHours(votingEndDateTime.getHours() - 1);
+    const [vendMonth, vendDay, vendYear] = votingEndDate.split('/');
+    votingEndBaseDate = new Date(parseInt(vendYear), parseInt(vendMonth) - 1, parseInt(vendDay));
   }
 
   // Auto-generate session name from parsed date and content type
@@ -594,55 +566,24 @@ async function handleVotingSessionDateModal(interaction) {
       : state.contentType === 'mixed'
         ? 'Watch Party'
         : 'Watch Party';
-  const sessionName = `${contentTypeLabel} - ${sessionDateTime.toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  })}`;
 
-  const logger = require('../utils/logger');
-  logger.debug(`🕐 Session times (${guildTimezone}):`);
-  logger.debug(
-    `   Session: ${sessionDateTime.toLocaleString()} (${sessionDateTime.toISOString()})`
-  );
-  logger.debug(
-    `   Voting ends: ${votingEndDateTime.toLocaleString()} (${votingEndDateTime.toISOString()})`
-  );
+  const sessionName = `${contentTypeLabel} - ${sessionDate}`;
+  const sessionDescription = `Join us for ${contentTypeLabel.toLowerCase()} voting and viewing!`;
 
-  // Validate that the dates are in the future
-  if (sessionDateTime <= new Date()) {
-    await interaction.reply({
-      content: '❌ Session date and time must be in the future.',
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
-  }
-
-  if (votingEndDateTime <= new Date()) {
-    await interaction.reply({
-      content: '❌ Voting end time must be in the future.',
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
-  }
-
-  if (votingEndDateTime >= sessionDateTime) {
-    await interaction.reply({
-      content: '❌ Voting must end before the session starts.',
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
-  }
-
-  // Update state with all information
+  // Update state with raw date/time information (timezone conversion happens after timezone selection)
   state.selectedDate = sessionDate;
   state.selectedTime = sessionTime;
+  state.votingEndDate = votingEndDate;
   state.votingEndTime = votingEndTime;
   state.sessionName = sessionName;
   state.sessionDescription = sessionDescription;
-  state.sessionDateTime = sessionDateTime;
-  state.votingEndDateTime = votingEndDateTime;
+
+  // Store raw date/time components for timezone conversion later
+  state.rawSessionDate = baseDate;
+  state.rawSessionTime = parsedSessionTime;
+  state.rawVotingEndDate = votingEndBaseDate;
+  state.rawVotingEndTime = parsedVotingEndTimeForStorage;
+
   state.step = 'timezone';
 
   global.votingSessionCreationState.set(userId, state);
@@ -758,14 +699,77 @@ async function createVotingSession(interaction, state) {
       selectedTimezone = config?.default_timezone || config?.timezone || 'UTC';
     }
 
+    // Now convert the raw date/time using the selected timezone
+    const { createDateInTimezone } = require('./sessions');
+
+    const sessionDateTime = createDateInTimezone(
+      state.rawSessionDate,
+      state.rawSessionTime.hours,
+      state.rawSessionTime.minutes,
+      selectedTimezone
+    );
+
+    // Convert voting end time or default to 1 hour before session
+    let votingEndDateTime;
+    if (state.rawVotingEndTime) {
+      votingEndDateTime = createDateInTimezone(
+        state.rawVotingEndDate,
+        state.rawVotingEndTime.hours,
+        state.rawVotingEndTime.minutes,
+        selectedTimezone
+      );
+    } else {
+      // Default to 1 hour before session
+      votingEndDateTime = new Date(sessionDateTime);
+      votingEndDateTime.setHours(votingEndDateTime.getHours() - 1);
+    }
+
+    // Validate that the dates are in the future
+    if (sessionDateTime <= new Date()) {
+      await interaction.reply({
+        content: '❌ Session date and time must be in the future.',
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    if (votingEndDateTime <= new Date()) {
+      await interaction.reply({
+        content: '❌ Voting end time must be in the future.',
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    if (votingEndDateTime >= sessionDateTime) {
+      await interaction.reply({
+        content: '❌ Voting must end before the session starts.',
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    // Store the converted dates in state for use in success message
+    state.sessionDateTime = sessionDateTime;
+    state.votingEndDateTime = votingEndDateTime;
+
+    const logger = require('../utils/logger');
+    logger.debug(`🕐 Session times (${selectedTimezone}):`);
+    logger.debug(
+      `   Session: ${sessionDateTime.toLocaleString()} (${sessionDateTime.toISOString()})`
+    );
+    logger.debug(
+      `   Voting ends: ${votingEndDateTime.toLocaleString()} (${votingEndDateTime.toISOString()})`
+    );
+
     // Create the voting session in the database
     const sessionData = {
       guildId: interaction.guild.id,
       channelId: interaction.channel?.id || null,
       name: state.sessionName,
       description: state.sessionDescription,
-      scheduledDate: state.sessionDateTime,
-      votingEndTime: state.votingEndDateTime,
+      scheduledDate: sessionDateTime,
+      votingEndTime: votingEndDateTime,
       timezone: selectedTimezone,
       contentType: state.contentType || 'movie',
       createdBy: interaction.user.id,
