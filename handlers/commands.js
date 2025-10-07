@@ -58,6 +58,10 @@ async function handleSlashCommand(interaction) {
         await handleHelp(interaction);
         break;
 
+      case 'rescue77':
+        await handleRescueSession77(interaction);
+        break;
+
       default:
         await interaction.reply({
           content: `❌ Unknown command: ${commandName}`,
@@ -564,6 +568,135 @@ async function handleHelp(interaction) {
   await helpService.handleHelp(interaction);
 }
 
+/**
+ * Emergency rescue command for session 77 - Migration 36 failed
+ */
+async function handleRescueSession77(interaction) {
+  try {
+    // Only allow in the specific guild
+    if (interaction.guild.id !== '991929035875688499') {
+      return await interaction.reply({
+        content: '❌ This command is only available in the specific guild.',
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+
+    // Check admin permissions
+    const { PermissionFlagsBits } = require('discord.js');
+    if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
+      return await interaction.reply({
+        content: '❌ You need Administrator permissions to use this command.',
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+    const GUILD_ID = '991929035875688499';
+    const SESSION_ID = 77;
+
+    let report = '🚨 **Emergency Session 77 Rescue Operation**\n\n';
+
+    // Step 1: Check what tables exist
+    const [tables] = await database.pool.execute(`
+      SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('watch_sessions', 'movie_sessions')
+    `);
+
+    const hasWatchSessions = tables.some((t) => t.TABLE_NAME === 'watch_sessions');
+    const hasMovieSessions = tables.some((t) => t.TABLE_NAME === 'movie_sessions');
+
+    report += `**Step 1: Table Check**\n`;
+    report += `• movie_sessions exists: ${hasMovieSessions}\n`;
+    report += `• watch_sessions exists: ${hasWatchSessions}\n\n`;
+
+    if (!hasMovieSessions) {
+      report += '❌ movie_sessions table not found - session may already be migrated';
+      return await interaction.editReply(report);
+    }
+
+    // Step 2: Find session 77 in movie_sessions
+    const [movieSessions] = await database.pool.execute(
+      'SELECT * FROM movie_sessions WHERE id = ? AND guild_id = ?',
+      [SESSION_ID, GUILD_ID]
+    );
+
+    if (movieSessions.length === 0) {
+      report += '❌ Session 77 not found in movie_sessions table';
+      return await interaction.editReply(report);
+    }
+
+    const session = movieSessions[0];
+    report += `**Step 2: Found Session 77 in movie_sessions**\n`;
+    report += `• Title: ${session.title}\n`;
+    report += `• Status: ${session.status}\n`;
+    report += `• Created: ${session.created_at}\n\n`;
+
+    // Step 3: Check if it already exists in watch_sessions
+    const [watchSessions] = await database.pool.execute(
+      'SELECT * FROM watch_sessions WHERE id = ? AND guild_id = ?',
+      [SESSION_ID, GUILD_ID]
+    );
+
+    if (watchSessions.length > 0) {
+      report += '✅ Session 77 already exists in watch_sessions - no copy needed\n\n';
+    } else {
+      report += '**Step 3: Copying session to watch_sessions**\n';
+
+      // Copy the session
+      const columns = Object.keys(session).join(', ');
+      const placeholders = Object.keys(session)
+        .map(() => '?')
+        .join(', ');
+      const values = Object.values(session);
+
+      await database.pool.execute(
+        `INSERT INTO watch_sessions (${columns}) VALUES (${placeholders})`,
+        values
+      );
+
+      report += '✅ Session 77 copied to watch_sessions\n\n';
+    }
+
+    // Step 4: Check movies
+    const [movies] = await database.pool.execute(
+      'SELECT id, title, session_id FROM movies WHERE session_id = ? AND guild_id = ?',
+      [SESSION_ID, GUILD_ID]
+    );
+
+    report += `**Step 4: Movies Check**\n`;
+    report += `• Found ${movies.length} movies referencing session 77\n\n`;
+
+    // Step 5: Verify rescue
+    const [verifySession] = await database.pool.execute(
+      'SELECT * FROM watch_sessions WHERE id = ? AND guild_id = ?',
+      [SESSION_ID, GUILD_ID]
+    );
+
+    if (verifySession.length > 0) {
+      report += '✅ **SUCCESS**: Session 77 is now in watch_sessions table\n';
+      report += '✅ Bot and dashboard should now be able to find it\n\n';
+      report += '**Next Steps:**\n';
+      report += '• Refresh your dashboard page\n';
+      report += '• Try voting on movies in Discord\n';
+      report += '• Check if admin panel shows correct session';
+    } else {
+      report += '❌ **FAILED**: Session 77 still not in watch_sessions';
+    }
+
+    await interaction.editReply(report);
+  } catch (error) {
+    logger.error('Error in rescue77 command:', error);
+    const errorMsg = `❌ Rescue operation failed: ${error.message}`;
+
+    if (interaction.deferred) {
+      await interaction.editReply(errorMsg);
+    } else {
+      await interaction.reply({ content: errorMsg, flags: MessageFlags.Ephemeral });
+    }
+  }
+}
+
 // Create aliases for renamed functions to maintain compatibility
 const handleWatchPartyConfigure = handleMovieConfigure;
 const handleWatchPartySetup = handleMovieSetup;
@@ -592,6 +725,7 @@ module.exports = {
   handleMovieWatched,
   handleMovieSkip,
   handleMoviePlan,
+  handleRescueSession77,
   handleDebugConfig,
   handleHelp,
 };

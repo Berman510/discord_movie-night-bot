@@ -13,6 +13,7 @@ const moviePlanCommand = require('./movie-plan');
 const debugConfigCommand = require('./debug-config');
 const adminPanelCommand = require('./admin-panel');
 const helpCommand = require('./help');
+const rescue77Command = require('./rescue77');
 
 // Combine all command definitions
 const commands = [
@@ -25,6 +26,7 @@ const commands = [
   debugConfigCommand.data.toJSON(),
   adminPanelCommand.data.toJSON(),
   ...helpCommand,
+  rescue77Command.data.toJSON(),
 ];
 
 module.exports = {
