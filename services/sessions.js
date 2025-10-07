@@ -1613,31 +1613,33 @@ function createDateInTimezone(baseDate, hour, minute, timezone) {
       return utcDate;
     }
 
-    // For other timezones, use the most reliable approach:
-    // Create the date as if it's in the target timezone, then convert to UTC
+    // SIMPLE AND CORRECT APPROACH:
+    // The user input "11:00 PM" in "Pacific Time" should be interpreted as 11:00 PM Pacific
+    // We need to convert this to UTC for storage
 
-    // Step 1: Create a date object representing the local time
-    const localDate = new Date(`${year}-${month}-${day}T${hourStr}:${minuteStr}:00`);
+    // Step 1: Create a date object representing the time in the target timezone
+    // We'll use a trick: create the date as if it's UTC, then adjust for the timezone offset
+    const inputDateString = `${year}-${month}-${day}T${hourStr}:${minuteStr}:00`;
 
-    // Step 2: Get what this date/time would be if interpreted as UTC
-    const asUtc = new Date(
-      Date.UTC(year, baseDate.getMonth(), baseDate.getDate(), hour, minute, 0)
-    );
+    // Step 2: Find out what the UTC offset is for this date/time in the target timezone
+    // We create a test date and see how it formats in both UTC and the target timezone
+    const testDate = new Date(`${year}-${month}-${day}T12:00:00Z`); // noon UTC on the same date
 
-    // Step 3: Find the timezone offset for this specific date (handles DST)
-    // We do this by creating a date in the target timezone and seeing the difference
-    const testDate = new Date(asUtc);
-    const utcTime = testDate.getTime() + testDate.getTimezoneOffset() * 60000;
-    const targetTime = new Date(utcTime + getTimezoneOffset(tzIdentifier, testDate) * 60000);
-    const offsetMs = targetTime.getTime() - testDate.getTime();
+    // Get the time in the target timezone
+    const timeInTargetTz = new Date(testDate.toLocaleString('en-US', { timeZone: tzIdentifier }));
+    const timeInUTC = new Date(testDate.toLocaleString('en-US', { timeZone: 'UTC' }));
 
-    // Step 4: Apply the offset to get the correct UTC time
-    const resultDate = new Date(asUtc.getTime() - offsetMs);
+    // Calculate the offset in milliseconds
+    const offsetMs = timeInUTC.getTime() - timeInTargetTz.getTime();
+
+    // Step 3: Create the final date by treating input as local time and applying offset
+    const localDate = new Date(inputDateString);
+    const utcDate = new Date(localDate.getTime() + offsetMs);
 
     console.log(
-      `🌍 Created date: ${year}-${month}-${day} ${hourStr}:${minuteStr} in ${tzIdentifier} -> UTC: ${resultDate.toISOString()}`
+      `🌍 Created date: ${year}-${month}-${day} ${hourStr}:${minuteStr} in ${tzIdentifier} -> UTC: ${utcDate.toISOString()}`
     );
-    return resultDate;
+    return utcDate;
   } catch (error) {
     console.error('Error creating date in timezone:', error);
     // Fallback to simple UTC date creation
