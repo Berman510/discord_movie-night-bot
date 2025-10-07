@@ -77,14 +77,15 @@ class Database {
         charset: 'utf8mb4',
       });
 
+      // Set charset for each new connection
+      this.pool.on('connection', function (connection) {
+        connection.query('SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci');
+      });
+
       // Test connection
       const logger = require('./utils/logger');
       logger.info(`🔌 Attempting to connect to MySQL at ${host}:${port}...`);
       await this.pool.execute('SELECT 1');
-
-      // Set charset and collation for the session
-      await this.pool.execute('SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci');
-
       this.isConnected = true;
       logger.info('✅ Connected to MySQL database');
 
