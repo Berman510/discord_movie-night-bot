@@ -20,7 +20,7 @@ const {
   IMDB_CACHE_MAX_ROWS: _IMDB_CACHE_MAX_ROWS,
 } = process.env;
 
-async function searchMovie(title) {
+async function searchMovie(title, page = 1) {
   if (!OMDB_API_KEY) {
     console.warn('⚠️ OMDB_API_KEY not set - IMDb features disabled');
     return null;
@@ -28,12 +28,16 @@ async function searchMovie(title) {
 
   try {
     const response = await fetch(
-      `http://www.omdbapi.com/?apikey=${OMDB_API_KEY}&s=${encodeURIComponent(title)}&type=movie`
+      `http://www.omdbapi.com/?apikey=${OMDB_API_KEY}&s=${encodeURIComponent(title)}&type=movie&page=${page}`
     );
     const data = await response.json();
 
     if (data.Response === 'True' && data.Search) {
-      return data.Search.slice(0, 10); // Return up to 10 results
+      return {
+        results: data.Search,
+        totalResults: parseInt(data.totalResults) || data.Search.length,
+        hasMore: page * 10 < (parseInt(data.totalResults) || 0),
+      };
     }
 
     return null;
@@ -46,7 +50,7 @@ async function searchMovie(title) {
 /**
  * Search for TV shows/series
  */
-async function searchSeries(title) {
+async function searchSeries(title, page = 1) {
   if (!OMDB_API_KEY) {
     console.warn('⚠️ OMDB_API_KEY not set - IMDb features disabled');
     return null;
@@ -54,12 +58,16 @@ async function searchSeries(title) {
 
   try {
     const response = await fetch(
-      `http://www.omdbapi.com/?apikey=${OMDB_API_KEY}&s=${encodeURIComponent(title)}&type=series`
+      `http://www.omdbapi.com/?apikey=${OMDB_API_KEY}&s=${encodeURIComponent(title)}&type=series&page=${page}`
     );
     const data = await response.json();
 
     if (data.Response === 'True' && data.Search) {
-      return data.Search.slice(0, 10); // Return up to 10 results
+      return {
+        results: data.Search,
+        totalResults: parseInt(data.totalResults) || data.Search.length,
+        hasMore: page * 10 < (parseInt(data.totalResults) || 0),
+      };
     }
 
     return null;
@@ -72,7 +80,7 @@ async function searchSeries(title) {
 /**
  * Search for both movies and TV shows
  */
-async function searchContent(title) {
+async function searchContent(title, page = 1) {
   if (!OMDB_API_KEY) {
     console.warn('⚠️ OMDB_API_KEY not set - IMDb features disabled');
     return null;
@@ -81,12 +89,16 @@ async function searchContent(title) {
   try {
     // Search without type restriction to get both movies and series
     const response = await fetch(
-      `http://www.omdbapi.com/?apikey=${OMDB_API_KEY}&s=${encodeURIComponent(title)}`
+      `http://www.omdbapi.com/?apikey=${OMDB_API_KEY}&s=${encodeURIComponent(title)}&page=${page}`
     );
     const data = await response.json();
 
     if (data.Response === 'True' && data.Search) {
-      return data.Search.slice(0, 10); // Return up to 10 results
+      return {
+        results: data.Search,
+        totalResults: parseInt(data.totalResults) || data.Search.length,
+        hasMore: page * 10 < (parseInt(data.totalResults) || 0),
+      };
     }
 
     return null;
@@ -163,12 +175,122 @@ async function searchEpisode(showName, season, episode) {
 }
 
 /**
- * Enhanced search with fuzzy matching and spell checking suggestions (movies, TV shows, and episodes)
+ * Enhanced search with multiple strategies for better matching
  */
-async function searchContentWithSuggestions(title) {
+async function searchContentEnhanced(title, page = 1, contentType = null) {
   if (!OMDB_API_KEY) {
     console.warn('⚠️ OMDB_API_KEY not set - IMDb features disabled');
-    return { results: null, suggestions: [] };
+    return { results: [], totalResults: 0, hasMore: false, searchStrategies: [] };
+  }
+
+  const searchStrategies = [];
+  let allResults = [];
+  let totalResults = 0;
+  let hasMore = false;
+
+  try {
+    // Strategy 1: Exact search with specified content type or mixed
+    const exactSearch = contentType
+      ? contentType === 'movie'
+        ? await searchMovie(title, page)
+        : await searchSeries(title, page)
+      : await searchContent(title, page);
+
+    if (exactSearch && exactSearch.results.length > 0) {
+      searchStrategies.push(`Exact search (${contentType || 'mixed'})`);
+      allResults = exactSearch.results;
+      totalResults = exactSearch.totalResults;
+      hasMore = exactSearch.hasMore;
+    }
+
+    // Strategy 2: If no results or few results, try alternative searches
+    if (allResults.length < 5) {
+      // For short titles, try with common variations
+      const variations = generateTitleVariations(title);
+
+      for (const variation of variations.slice(0, 3)) {
+        // Try up to 3 variations
+        const variationSearch = contentType
+          ? contentType === 'movie'
+            ? await searchMovie(variation, 1)
+            : await searchSeries(variation, 1)
+          : await searchContent(variation, 1);
+
+        if (variationSearch && variationSearch.results.length > 0) {
+          searchStrategies.push(`Variation: "${variation}"`);
+          // Add unique results (avoid duplicates by IMDb ID)
+          const existingIds = new Set(allResults.map((r) => r.imdbID));
+          const newResults = variationSearch.results.filter((r) => !existingIds.has(r.imdbID));
+          allResults = [...allResults, ...newResults];
+          break; // Use first successful variation
+        }
+      }
+    }
+
+    // Strategy 3: If still no results, try broader search without type restriction
+    if (allResults.length === 0 && contentType) {
+      const broadSearch = await searchContent(title, page);
+      if (broadSearch && broadSearch.results.length > 0) {
+        searchStrategies.push('Broad search (all content types)');
+        allResults = broadSearch.results;
+        totalResults = broadSearch.totalResults;
+        hasMore = broadSearch.hasMore;
+      }
+    }
+
+    return {
+      results: allResults,
+      totalResults: Math.max(totalResults, allResults.length),
+      hasMore: hasMore,
+      searchStrategies: searchStrategies,
+      page: page,
+    };
+  } catch (error) {
+    console.error('Error in enhanced content search:', error.message);
+    return { results: [], totalResults: 0, hasMore: false, searchStrategies: ['Error occurred'] };
+  }
+}
+
+/**
+ * Generate title variations for better matching
+ */
+function generateTitleVariations(title) {
+  const variations = [];
+  const cleanTitle = title.trim();
+
+  // For very short titles, try with common prefixes/suffixes
+  if (cleanTitle.length <= 3) {
+    variations.push(`The ${cleanTitle}`);
+    variations.push(`${cleanTitle} Movie`);
+    variations.push(`${cleanTitle} Film`);
+  }
+
+  // Try with "The" prefix if not present
+  if (!cleanTitle.toLowerCase().startsWith('the ')) {
+    variations.push(`The ${cleanTitle}`);
+  }
+
+  // Try without "The" prefix if present
+  if (cleanTitle.toLowerCase().startsWith('the ')) {
+    variations.push(cleanTitle.substring(4));
+  }
+
+  // Try with year patterns for ambiguous titles
+  const currentYear = new Date().getFullYear();
+  for (let year = currentYear; year >= currentYear - 10; year--) {
+    variations.push(`${cleanTitle} ${year}`);
+  }
+
+  return variations.filter((v) => v !== cleanTitle); // Remove duplicates of original
+}
+
+/**
+ * Enhanced search with fuzzy matching and spell checking suggestions (movies, TV shows, and episodes)
+ */
+async function searchContentWithSuggestions(title, page = 1) {
+  if (!OMDB_API_KEY) {
+    console.warn('⚠️ OMDB_API_KEY not set - IMDb features disabled');
+    return { results: null, suggestions: [], page: 1, hasMore: false };
   }
 
   try {
@@ -197,28 +319,38 @@ async function searchContentWithSuggestions(title) {
 
       // If episode not found, try searching for the show itself
       console.log(`❌ Episode not found, searching for show: ${episodeInfo.showName}`);
-      const showResults = await searchContent(episodeInfo.showName, 'series');
-      if (showResults && showResults.length > 0) {
+      const showResults = await searchSeries(episodeInfo.showName, 1);
+      if (showResults && showResults.results.length > 0) {
         return {
-          results: showResults,
+          results: showResults.results,
           suggestions: [],
           isEpisode: false,
           episodeInfo: episodeInfo,
           episodeNotFound: true,
+          page: 1,
+          hasMore: showResults.hasMore,
+          totalResults: showResults.totalResults,
         };
       }
     }
 
-    // First, try exact search for both movies and series
-    const exactResults = await searchContent(title);
-    if (exactResults && exactResults.length > 0) {
-      return { results: exactResults, suggestions: [] };
+    // Use enhanced search for better results
+    const enhancedResults = await searchContentEnhanced(title, page);
+    if (enhancedResults.results.length > 0) {
+      return {
+        results: enhancedResults.results,
+        suggestions: [],
+        page: enhancedResults.page,
+        hasMore: enhancedResults.hasMore,
+        totalResults: enhancedResults.totalResults,
+        searchStrategies: enhancedResults.searchStrategies,
+      };
     }
 
-    // If no exact results, try fuzzy search with common variations (if available)
+    // If no enhanced results, try fuzzy search with common variations (if available)
     if (!Fuse) {
       console.log('⚠️ Spell checking disabled - fuse.js not available');
-      return { results: null, suggestions: [], originalTitle: title };
+      return { results: null, suggestions: [], originalTitle: title, page: page, hasMore: false };
     }
 
     const suggestions = await generateSpellingSuggestions(title);
@@ -226,9 +358,9 @@ async function searchContentWithSuggestions(title) {
     let bestSuggestion = null;
 
     for (const suggestion of suggestions) {
-      const suggestionResults = await searchContent(suggestion);
-      if (suggestionResults && suggestionResults.length > 0) {
-        bestResults = suggestionResults;
+      const suggestionResults = await searchContent(suggestion, 1);
+      if (suggestionResults && suggestionResults.results.length > 0) {
+        bestResults = suggestionResults.results;
         bestSuggestion = suggestion;
         break;
       }
@@ -238,10 +370,12 @@ async function searchContentWithSuggestions(title) {
       results: bestResults,
       suggestions: bestSuggestion ? [bestSuggestion] : suggestions.slice(0, 3),
       originalTitle: title,
+      page: page,
+      hasMore: bestResults ? false : false, // Suggestion results don't support pagination yet
     };
   } catch (error) {
     console.error('Error in enhanced content search:', error.message);
-    return { results: null, suggestions: [] };
+    return { results: null, suggestions: [], page: page, hasMore: false };
   }
 }
 
@@ -579,6 +713,7 @@ module.exports = {
   searchMovie,
   searchSeries,
   searchContent,
+  searchContentEnhanced,
   searchMovieWithSuggestions,
   searchContentWithSuggestions,
   searchEpisode,

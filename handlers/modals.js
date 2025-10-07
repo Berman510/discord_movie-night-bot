@@ -378,13 +378,16 @@ async function showImdbSelection(
   imdbResults,
   suggestions = [],
   originalTitle = null,
-  episodeInfo = null
+  dataKey = null,
+  searchData = null
 ) {
   const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
   const { pendingPayloads } = require('../utils/constants');
 
-  // Generate a short key for storing the data temporarily
-  const dataKey = `imdb_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  // Generate a short key for storing the data temporarily (if not provided)
+  if (!dataKey) {
+    dataKey = `imdb_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
 
   // Store the data temporarily (will be cleaned up automatically)
   pendingPayloads.set(dataKey, {
@@ -393,21 +396,35 @@ async function showImdbSelection(
     imdbResults,
     suggestions,
     originalTitle,
-    episodeInfo,
+    searchData,
     createdAt: Date.now(),
   });
 
   const embed = new EmbedBuilder().setTitle('🎬 Select the correct content').setColor(0x5865f2);
 
-  // Add description with spell check info if applicable
+  // Add description with search info
   let description = `Found ${imdbResults.length} matches for **${title}**`;
+
   if (originalTitle && originalTitle !== title) {
     description = `Found ${imdbResults.length} matches for **${title}**\n💡 *Showing results for corrected spelling*`;
   }
+
+  if (searchData) {
+    if (searchData.totalResults && searchData.totalResults > imdbResults.length) {
+      description += `\n📊 *Showing ${Math.min(5, imdbResults.length)} of ${searchData.totalResults} total results*`;
+    }
+    if (searchData.showingFrom) {
+      description += `\n📄 *Results ${searchData.showingFrom}-${searchData.showingFrom + Math.min(5, imdbResults.length) - 1}*`;
+    }
+    if (searchData.searchStrategies && searchData.searchStrategies.length > 0) {
+      description += `\n🔍 *Search: ${searchData.searchStrategies[0]}*`;
+    }
+  }
+
   embed.setDescription(description);
 
-  // Add up to 3 results (to leave room for "None of these" and "Cancel" buttons)
-  const displayResults = imdbResults.slice(0, 3);
+  // Add up to 5 results (show more options)
+  const displayResults = imdbResults.slice(0, 5);
   displayResults.forEach((content, index) => {
     const isShow = content.Type === 'series';
     const isEpisode = content.Type === 'episode';
@@ -487,22 +504,65 @@ async function showImdbSelection(
     );
   });
 
-  // Add "None of these" and "Cancel" buttons
-  buttons.addComponents(
-    new ButtonBuilder()
-      .setCustomId(`select_imdb:none:${dataKey}`)
-      .setLabel('None of these')
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId(`select_imdb:cancel:${dataKey}`)
-      .setLabel('Cancel')
-      .setStyle(ButtonStyle.Danger)
-  );
+  // Check if we can fit more action buttons or need a second row
+  const hasMoreResults = imdbResults.length > 5 || (searchData && searchData.hasMore);
+  const needsSecondRow = buttons.components.length >= 4 || hasMoreResults;
 
-  await ephemeralManager.sendEphemeral(interaction, '', {
-    embeds: [embed],
-    components: [buttons],
-  });
+  if (needsSecondRow) {
+    // Create second row for action buttons
+    const actionRow = new ActionRowBuilder();
+
+    if (hasMoreResults) {
+      actionRow.addComponents(
+        new ButtonBuilder()
+          .setCustomId(`select_imdb:more:${dataKey}`)
+          .setLabel('🔍 Show More Results')
+          .setStyle(ButtonStyle.Secondary)
+      );
+    }
+
+    actionRow.addComponents(
+      new ButtonBuilder()
+        .setCustomId(`select_imdb:manual:${dataKey}`)
+        .setLabel('✏️ Manual Entry (No IMDb)')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId(`select_imdb:cancel:${dataKey}`)
+        .setLabel('❌ Cancel')
+        .setStyle(ButtonStyle.Danger)
+    );
+
+    await ephemeralManager.sendEphemeral(interaction, '', {
+      embeds: [embed],
+      components: [buttons, actionRow],
+    });
+  } else {
+    // Add action buttons to the same row if there's space
+    if (hasMoreResults) {
+      buttons.addComponents(
+        new ButtonBuilder()
+          .setCustomId(`select_imdb:more:${dataKey}`)
+          .setLabel('🔍 More')
+          .setStyle(ButtonStyle.Secondary)
+      );
+    }
+
+    buttons.addComponents(
+      new ButtonBuilder()
+        .setCustomId(`select_imdb:manual:${dataKey}`)
+        .setLabel('✏️ Manual')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId(`select_imdb:cancel:${dataKey}`)
+        .setLabel('❌ Cancel')
+        .setStyle(ButtonStyle.Danger)
+    );
+
+    await ephemeralManager.sendEphemeral(interaction, '', {
+      embeds: [embed],
+      components: [buttons],
+    });
+  }
 }
 
 /**

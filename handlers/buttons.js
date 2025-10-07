@@ -624,6 +624,7 @@ async function handleDuplicateConfirm(interaction, customIdParts) {
       let imdbResults = [];
       let suggestions = [];
       let originalTitle = movieTitle;
+      let searchMetadata = {};
 
       try {
         const searchResult = await imdb.searchContentWithSuggestions(movieTitle);
@@ -636,6 +637,14 @@ async function handleDuplicateConfirm(interaction, customIdParts) {
         if (searchResult.originalTitle) {
           originalTitle = searchResult.originalTitle;
         }
+
+        // Store search metadata for pagination
+        searchMetadata = {
+          hasMore: searchResult.hasMore || false,
+          totalResults: searchResult.totalResults || imdbResults.length,
+          page: searchResult.page || 1,
+          searchStrategies: searchResult.searchStrategies || [],
+        };
       } catch (error) {
         console.warn('IMDb search failed:', error.message);
       }
@@ -649,7 +658,9 @@ async function handleDuplicateConfirm(interaction, customIdParts) {
           movieWhere,
           imdbResults,
           suggestions,
-          originalTitle
+          originalTitle,
+          null, // dataKey - let function generate it
+          searchMetadata
         );
       } else if (suggestions.length > 0) {
         // Show spelling suggestions
@@ -985,9 +996,12 @@ async function handleImdbSelection(interaction) {
     if (indexStr === 'cancel') {
       // User cancelled the submission entirely
       await interaction.update({ content: '🚫 Submission cancelled.', embeds: [], components: [] });
-    } else if (indexStr === 'none') {
-      // User selected "None of these" - create without IMDb data
+    } else if (indexStr === 'none' || indexStr === 'manual') {
+      // User selected "None of these" or "Manual Entry" - create without IMDb data
       await createMovieWithoutImdb(interaction, title, where);
+    } else if (indexStr === 'more') {
+      // User wants to see more results - implement pagination
+      await handleShowMoreResults(interaction, title, where, imdbResults);
     } else {
       // User selected a specific movie
       const index = parseInt(indexStr);
@@ -1047,6 +1061,76 @@ async function handleImdbSelection(interaction) {
         flags: MessageFlags.Ephemeral,
       });
     }
+  }
+}
+
+/**
+ * Handle showing more IMDb search results
+ */
+async function handleShowMoreResults(interaction, title, where, currentResults) {
+  try {
+    await interaction.deferUpdate();
+
+    // Get the next page of results
+    const imdb = require('../services/imdb');
+    const currentPage = Math.floor(currentResults.length / 10) + 1;
+    const nextPage = currentPage + 1;
+
+    console.log(`🔍 Searching for more results: "${title}" (page ${nextPage})`);
+
+    // Use enhanced search for better results
+    const searchResult = await imdb.searchContentEnhanced(title, nextPage);
+
+    if (!searchResult.results || searchResult.results.length === 0) {
+      await interaction.followUp({
+        content: '❌ No more results found. Try using **Manual Entry** instead.',
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    // Combine with previous results to avoid duplicates
+    const existingIds = new Set(currentResults.map((r) => r.imdbID));
+    const newResults = searchResult.results.filter((r) => !existingIds.has(r.imdbID));
+
+    if (newResults.length === 0) {
+      await interaction.followUp({
+        content: '❌ No new results found. All results from this page were already shown.',
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    // Show the new results using the same modal display logic
+    const allResults = [...currentResults, ...newResults];
+    const modals = require('./modals');
+
+    // Create a new data key for the expanded results
+    const dataKey = `imdb_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    modals.pendingPayloads.set(dataKey, {
+      title,
+      where,
+      imdbResults: allResults,
+      searchData: {
+        hasMore: searchResult.hasMore,
+        totalResults: searchResult.totalResults,
+        page: nextPage,
+      },
+    });
+
+    // Show results starting from the new ones
+    await modals.showImdbSelection(interaction, title, allResults, null, null, dataKey, {
+      hasMore: searchResult.hasMore,
+      totalResults: searchResult.totalResults,
+      page: nextPage,
+      showingFrom: currentResults.length + 1,
+    });
+  } catch (error) {
+    console.error('Error showing more results:', error);
+    await interaction.followUp({
+      content: '❌ Error loading more results. Please try again.',
+      flags: MessageFlags.Ephemeral,
+    });
   }
 }
 
