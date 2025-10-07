@@ -2057,4 +2057,5 @@ module.exports = {
   handleCancelConfirmation,
   createMovieSessionFromModal,
   showTimezoneSelector,
+  createDateInTimezone,
 };
