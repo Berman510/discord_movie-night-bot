@@ -2541,6 +2541,56 @@ class Database {
       logger.warn('Migration 39 warning:', error.message);
     }
 
+    // Migration 40: Complete failed Migration 36 - Force drop movie_sessions table
+    try {
+      const logger = require('./utils/logger');
+
+      // Check if movie_sessions still exists (Migration 36 failed)
+      const [tables] = await this.pool.execute(`
+        SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'movie_sessions'
+      `);
+
+      if (tables.length > 0) {
+        logger.info('🔧 Migration 40: Completing failed Migration 36...');
+
+        // Check if there's data in movie_sessions that needs to be copied
+        const [movieCount] = await this.pool.execute(
+          'SELECT COUNT(*) as count FROM movie_sessions'
+        );
+
+        if (movieCount[0].count > 0) {
+          logger.info(
+            `🔄 Migration 40: Found ${movieCount[0].count} records in movie_sessions - copying to watch_sessions`
+          );
+
+          // Copy any missing records from movie_sessions to watch_sessions
+          await this.pool.execute(`
+            INSERT IGNORE INTO watch_sessions
+            SELECT * FROM movie_sessions
+          `);
+
+          logger.info(`✅ Migration 40: Copied records from movie_sessions to watch_sessions`);
+        }
+
+        // Force drop movie_sessions table by temporarily disabling foreign key checks
+        await this.pool.execute('SET FOREIGN_KEY_CHECKS = 0');
+        await this.pool.execute('DROP TABLE IF EXISTS movie_sessions');
+        await this.pool.execute('SET FOREIGN_KEY_CHECKS = 1');
+
+        logger.info(
+          '✅ Migration 40: Completed failed Migration 36 - dropped movie_sessions table'
+        );
+      } else {
+        logger.debug(
+          '✅ Migration 40: movie_sessions table already dropped - Migration 36 was successful'
+        );
+      }
+    } catch (error) {
+      const logger = require('./utils/logger');
+      logger.warn('Migration 40 warning:', error.message);
+    }
+
     logger.info('✅ Database migrations completed');
   }
 
