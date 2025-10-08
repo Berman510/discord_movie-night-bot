@@ -2,6 +2,20 @@
 
 All notable changes to **Watch Party Bot** will be documented in this file.
 
+## [1.16.4-rc1] - 2025-10-08
+
+### 🔧 **Fixes**
+
+- **Fixed Reschedule Timezone Selection**: Reschedule flow now includes timezone selection step like the planning flow
+- **Enhanced Reschedule UX**: Shows current session timezone as suggested option when rescheduling
+- **Improved Reschedule Labels**: UI clearly indicates reschedule vs new session context
+
+### 🛠️ **Technical Improvements**
+
+- **Unified Timezone Flow**: Both new sessions and reschedules now follow the same timezone selection process
+- **Better Context Awareness**: Reschedule modals show appropriate messaging and current timezone suggestions
+- **Consistent User Experience**: Ensures timezone can be updated when rescheduling sessions
+
 ## [1.16.3] - 2025-01-27
 
 ### 🔧 **Critical Fixes**
