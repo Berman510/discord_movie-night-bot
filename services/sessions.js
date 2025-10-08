@@ -623,13 +623,9 @@ async function handleDateSelection(interaction, customId, state) {
       // If rescheduling, skip timezone selection and proceed to details
       const isReschedule =
         global.sessionRescheduleState && global.sessionRescheduleState.has(interaction.user.id);
-      if (isReschedule) {
-        if (!state.selectedTimezone) state.selectedTimezone = state.timezone || 'UTC';
-        if (!state.timezoneName) state.timezoneName = state.selectedTimezone;
-        await showSessionDetailsModal(interaction, state);
-      } else {
-        await showTimezoneSelection(interaction, state);
-      }
+      // Always show timezone selection for both new sessions and reschedules
+      // This ensures users can update the timezone when rescheduling
+      await showTimezoneSelection(interaction, state);
       return;
   }
 
@@ -730,16 +726,9 @@ async function handleTimeSelection(interaction, customId, state) {
   state.timeDisplay = timeDisplay;
   global.sessionCreationState.set(interaction.user.id, state);
 
-  // If this is a reschedule flow, skip timezone selection and go straight to details
-  const isReschedule =
-    global.sessionRescheduleState && global.sessionRescheduleState.has(interaction.user.id);
-  if (isReschedule) {
-    if (!state.selectedTimezone) state.selectedTimezone = state.timezone || 'UTC';
-    if (!state.timezoneName) state.timezoneName = state.selectedTimezone;
-    await showSessionDetailsModal(interaction, state);
-  } else {
-    await showTimezoneSelection(interaction, state);
-  }
+  // Always show timezone selection for both new sessions and reschedules
+  // This ensures users can update the timezone when rescheduling
+  await showTimezoneSelection(interaction, state);
 }
 
 async function showTimezoneSelection(interaction, state) {
@@ -748,14 +737,28 @@ async function showTimezoneSelection(interaction, state) {
   let suggestedTimezoneName = null;
 
   try {
-    // Check if user has a previously used timezone (from recent sessions)
-    const recentSessions = await database.getUserRecentSessions(interaction.user.id, 5);
-    if (recentSessions && recentSessions.length > 0) {
-      const lastSession = recentSessions.find((s) => s.timezone && s.timezone !== 'UTC');
-      if (lastSession) {
-        suggestedTimezone = lastSession.timezone;
+    // For reschedule flow, prioritize the current session's timezone
+    const isReschedule =
+      global.sessionRescheduleState && global.sessionRescheduleState.has(interaction.user.id);
+    if (isReschedule) {
+      const resState = global.sessionRescheduleState.get(interaction.user.id);
+      if (resState?.originalSession?.timezone) {
+        suggestedTimezone = resState.originalSession.timezone;
         const tzOption = TIMEZONE_OPTIONS.find((tz) => tz.value === suggestedTimezone);
         suggestedTimezoneName = tzOption ? tzOption.label : suggestedTimezone;
+      }
+    }
+
+    // If no timezone from reschedule, check user's previously used timezone (from recent sessions)
+    if (!suggestedTimezone) {
+      const recentSessions = await database.getUserRecentSessions(interaction.user.id, 5);
+      if (recentSessions && recentSessions.length > 0) {
+        const lastSession = recentSessions.find((s) => s.timezone && s.timezone !== 'UTC');
+        if (lastSession) {
+          suggestedTimezone = lastSession.timezone;
+          const tzOption = TIMEZONE_OPTIONS.find((tz) => tz.value === suggestedTimezone);
+          suggestedTimezoneName = tzOption ? tzOption.label : suggestedTimezone;
+        }
       }
     }
 
@@ -772,11 +775,28 @@ async function showTimezoneSelection(interaction, state) {
     console.warn('Could not get timezone suggestions:', error.message);
   }
 
+  // Check if this is a reschedule to customize the message
+  const isReschedule =
+    global.sessionRescheduleState && global.sessionRescheduleState.has(interaction.user.id);
+
+  let title = isReschedule ? '🎬 Reschedule Watch Party Session' : '🎬 Create Watch Party Session';
+  let stepText = isReschedule ? 'Choose your timezone' : '**Step 3:** Choose your timezone';
+  let suggestionText = '';
+
+  if (suggestedTimezoneName) {
+    if (isReschedule) {
+      suggestionText = `\n\n💡 **Current:** ${suggestedTimezoneName}`;
+    } else {
+      suggestionText = `\n\n💡 **Suggestion:** ${suggestedTimezoneName}`;
+    }
+  }
+
   const embed = new EmbedBuilder()
-    .setTitle('🎬 Create Watch Party Session')
+    .setTitle(title)
     .setDescription(
-      '**Step 3:** Choose your timezone\n\n*This ensures everyone sees the correct time for your session*' +
-        (suggestedTimezoneName ? `\n\n💡 **Suggestion:** ${suggestedTimezoneName}` : '') +
+      stepText +
+        '\n\n*This ensures everyone sees the correct time for your session*' +
+        suggestionText +
         '\n\n📍 **Important:** The time you entered will be interpreted in the timezone you select here.'
     )
     .setColor(0x5865f2)
@@ -792,8 +812,12 @@ async function showTimezoneSelection(interaction, state) {
     const suggestedIndex = sortedOptions.findIndex((tz) => tz.value === suggestedTimezone);
     if (suggestedIndex > -1) {
       const suggested = sortedOptions.splice(suggestedIndex, 1)[0];
-      // Add a star to indicate it's suggested
-      suggested.label = `⭐ ${suggested.label} (Suggested)`;
+      // Add appropriate indicator based on context
+      if (isReschedule) {
+        suggested.label = `⭐ ${suggested.label} (Current)`;
+      } else {
+        suggested.label = `⭐ ${suggested.label} (Suggested)`;
+      }
       sortedOptions.unshift(suggested);
     }
   }
