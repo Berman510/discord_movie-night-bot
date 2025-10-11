@@ -192,7 +192,7 @@ async function createDiscordEvent(guild, sessionData, scheduledDate) {
     // Send notification to configured role
     await notifyRole(guild, event, sessionData);
 
-    return event; // Return the full event object, not just the ID
+    return event; // Return the full event object
   } catch (error) {
     console.warn('Failed to create Discord event:', error.message);
     return null;

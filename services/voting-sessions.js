@@ -382,7 +382,8 @@ async function handleVotingSessionRescheduleModal(interaction) {
           },
           startDateTime
         );
-        if (newEventId) await database.updateSessionDiscordEvent(sessionId, newEventId);
+        if (newEventId)
+          await database.updateSessionDiscordEvent(sessionId, newEventId.id || newEventId);
       }
     } catch (e) {
       logger.warn('Error updating Discord event during reschedule:', e.message);

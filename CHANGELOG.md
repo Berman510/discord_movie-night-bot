@@ -2,6 +2,26 @@
 
 All notable changes to **Watch Party Bot** will be documented in this file.
 
+## [1.16.5-rc1] - 2025-10-11
+
+### 🔧 **Critical Fixes**
+
+- **Fixed Discord Event Update Corruption**: Resolved "Invalid Form Body" errors when updating Discord Events after choosing winners
+- **Database Integrity**: Fixed corrupted `discord_event_id` values that contained partial JSON objects instead of snowflake IDs
+- **Defensive Programming**: Added safeguards to ensure only valid Discord Event IDs are stored in database
+
+### 🛠️ **Technical Improvements**
+
+- **Event ID Extraction**: All database storage operations now defensively extract `event.id` from event objects
+- **Backward Compatibility**: Maintains support for both event objects and ID strings in storage functions
+- **Data Validation**: Enhanced validation to prevent future corruption of Discord Event references
+
+### 🗄️ **Database Cleanup**
+
+- **Production Fix**: Cleaned up 3 corrupted entries in production database
+- **Validation**: All Discord Event IDs now conform to valid snowflake format (15-20 digits)
+- **Error Prevention**: Eliminated source of "guild_scheduled_event_id[NUMBER_TYPE_COERCE]" errors
+
 ## [1.16.4-rc1] - 2025-10-08
 
 ### 🔧 **Fixes**

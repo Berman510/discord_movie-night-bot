@@ -1835,8 +1835,8 @@ async function createMovieSessionFromModal(interaction) {
           scheduledDate
         );
         if (newEventId) {
-          await database.updateSessionDiscordEvent(sessionId, newEventId);
-          discordEventId = newEventId;
+          await database.updateSessionDiscordEvent(sessionId, newEventId.id || newEventId);
+          discordEventId = newEventId.id || newEventId;
         }
       }
 
@@ -1973,7 +1973,7 @@ async function createMovieSessionFromModal(interaction) {
         scheduledDate
       );
       if (discordEventId) {
-        await database.updateSessionDiscordEvent(sessionId, discordEventId);
+        await database.updateSessionDiscordEvent(sessionId, discordEventId.id || discordEventId);
       }
     }
 
